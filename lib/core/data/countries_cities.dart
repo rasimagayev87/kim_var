@@ -1,0 +1,62 @@
+/// Curated country + city data, reused from the phone country-code
+/// list for consistency across the app. This intentionally covers
+/// the launch markets in depth and major global cities elsewhere,
+/// rather than an exhaustive worldwide database — expand
+/// [kCitiesByCountry] as new markets are added.
+const kCountryNames = <String>[
+  'Azərbaycan',
+  'Türkiyə',
+  'Gürcüstan',
+  'Rusiya',
+  'Qazaxıstan',
+  'Özbəkistan',
+  'Ukrayna',
+  'İran',
+  'BƏƏ',
+  'Səudiyyə Ərəbistanı',
+  'İsrail',
+  'Almaniya',
+  'Fransa',
+  'İtaliya',
+  'İspaniya',
+  'Niderland',
+  'Polşa',
+  'Böyük Britaniya',
+  'ABŞ',
+  'Kanada',
+  'Çin',
+  'Hindistan',
+];
+
+const kCitiesByCountry = <String, List<String>>{
+  'Azərbaycan': [
+    'Bakı', 'Gəncə', 'Sumqayıt', 'Mingəçevir', 'Naxçıvan', 'Şəki',
+    'Lənkəran', 'Şirvan', 'Yevlax', 'Naftalan', 'Qəbələ', 'Quba',
+    'Xankəndi', 'Astara', 'Zaqatala', 'Şamaxı', 'Qusar', 'Göyçay',
+    'Ağdam', 'Bərdə', 'Salyan', 'Neftçala', 'Qax', 'İmişli',
+  ],
+  'Türkiyə': [
+    'İstanbul', 'Ankara', 'İzmir', 'Bursa', 'Antalya', 'Adana',
+    'Konya', 'Gaziantep', 'Trabzon', 'Mersin', 'Kayseri', 'Eskişehir',
+  ],
+  'Gürcüstan': ['Tbilisi', 'Batumi', 'Kutaisi', 'Rustavi', 'Gori', 'Zugdidi'],
+  'Rusiya': ['Moskva', 'Sankt-Peterburq', 'Kazan', 'Novosibirsk', 'Yekaterinburq', 'Soçi'],
+  'Qazaxıstan': ['Almatı', 'Astana', 'Şımkənt', 'Qaraqandı', 'Aktau'],
+  'Özbəkistan': ['Daşkənd', 'Səmərqənd', 'Buxara', 'Namangan', 'Xiva'],
+  'Ukrayna': ['Kiyev', 'Xarkov', 'Odessa', 'Lvov', 'Dnepr'],
+  'İran': ['Tehran', 'Təbriz', 'İsfahan', 'Məşhəd', 'Şiraz'],
+  'BƏƏ': ['Dubay', 'Əbu-Dabi', 'Şarcə', 'Əcman'],
+  'Səudiyyə Ərəbistanı': ['Riyad', 'Cidda', 'Məkkə', 'Mədinə', 'Dəmmam'],
+  'İsrail': ['Yerusəlim', 'Tel-Əviv', 'Hayfa', 'Beer-Şeva'],
+  'Almaniya': ['Berlin', 'Münhen', 'Hamburq', 'Köln', 'Frankfurt'],
+  'Fransa': ['Paris', 'Marsel', 'Lion', 'Tuluza', 'Nitsa'],
+  'İtaliya': ['Roma', 'Milan', 'Neapol', 'Turin', 'Florensiya'],
+  'İspaniya': ['Madrid', 'Barselona', 'Valensiya', 'Sevilya'],
+  'Niderland': ['Amsterdam', 'Rotterdam', 'Haaqa', 'Utrext'],
+  'Polşa': ['Varşava', 'Krakov', 'Vroslav', 'Poznan'],
+  'Böyük Britaniya': ['London', 'Mançester', 'Birmingem', 'Liverpul', 'Qlazqo'],
+  'ABŞ': ['Nyu-York', 'Los-Anceles', 'Çikaqo', 'Hyuston', 'Mayami'],
+  'Kanada': ['Toronto', 'Vankuver', 'Montreal', 'Otava'],
+  'Çin': ['Pekin', 'Şanxay', 'Guançjou', 'Şençjen'],
+  'Hindistan': ['Dehli', 'Mumbay', 'Banqalor', 'Çennay'],
+};
