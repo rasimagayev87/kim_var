@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/coming_soon_screen.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../location/presentation/providers/presence_provider.dart';
 import '../../../onboarding/presentation/screens/welcome_screen.dart';
@@ -103,6 +104,16 @@ class ProfileTab extends ConsumerWidget {
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+            ),
+          ),
+          _ProfileMenuItem(
+            icon: Icons.verified_user_outlined,
+            label: 'Kimlik doğrulama',
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const ComingSoonScreen(title: 'Kimlik doğrulama'),
+              ),
             ),
           ),
           _ProfileMenuItem(icon: Icons.workspace_premium_outlined, label: 'Premium-a keç'),
