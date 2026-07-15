@@ -100,6 +100,13 @@ const kRadiusOptionsKm = <double>[1, 5, 10, 25, 50];
 
 final selectedRadiusKmProvider = StateProvider<double>((ref) => 1.0);
 
+/// Gender filter for the discover map/cards. Matches the free-text
+/// `gender` values ('Kişi' / 'Qadın') already written to Firestore
+/// by the profile edit screen.
+enum GenderFilter { all, male, female }
+
+final selectedGenderFilterProvider = StateProvider<GenderFilter>((ref) => GenderFilter.all);
+
 /// Real-time stream of other users' documents that have reported a
 /// location within the last 15 minutes. Firestore doesn't support
 /// native "within X km" geo-queries, so this fetches a bounded,
@@ -122,6 +129,7 @@ final _nearbyCandidatesProvider = StreamProvider<List<Map<String, dynamic>>>((re
 final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
   final position = ref.watch(locationControllerProvider).valueOrNull;
   final radiusKm = ref.watch(selectedRadiusKmProvider);
+  final genderFilter = ref.watch(selectedGenderFilterProvider);
   final candidates = ref.watch(_nearbyCandidatesProvider).valueOrNull ?? const [];
   final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
 
@@ -145,6 +153,10 @@ final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
     );
     if (distance > radiusKm * 1000) continue;
 
+    final gender = data['gender'] as String?;
+    if (genderFilter == GenderFilter.male && gender != 'Kişi') continue;
+    if (genderFilter == GenderFilter.female && gender != 'Qadın') continue;
+
     final firstName = data['firstName'] as String? ?? '';
     final lastName = data['lastName'] as String? ?? '';
     final fullName = '$firstName $lastName'.trim();
@@ -158,6 +170,8 @@ final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
       mainInterest: interests.isNotEmpty ? interests.first : '',
       photoUrl: data['photoUrl'] as String?,
       online: data['online'] as bool? ?? false,
+      age: data['age'] as int?,
+      gender: gender,
       distanceMeters: distance,
     ));
   }

@@ -7,6 +7,8 @@ class NearbyUser {
   final String? photoUrl;
   final double distanceMeters;
   final bool online;
+  final int? age;
+  final String? gender;
 
   const NearbyUser({
     required this.id,
@@ -17,5 +19,7 @@ class NearbyUser {
     required this.distanceMeters,
     this.photoUrl,
     this.online = false,
+    this.age,
+    this.gender,
   });
 }
