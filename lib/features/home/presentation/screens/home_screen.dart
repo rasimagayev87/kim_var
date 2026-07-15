@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/coming_soon_screen.dart';
 import '../../../location/presentation/providers/presence_provider.dart';
 import '../tabs/chats_tab.dart';
 import '../tabs/discover_tab.dart';
@@ -19,8 +20,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
 
   final _tabs = const [
     DiscoverTab(),
-    EventsTab(),
     ChatsTab(),
+    EventsTab(),
     ProfileTab(),
   ];
 
@@ -56,49 +57,99 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
         index: _index,
         children: _tabs,
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.backgroundDark,
-          border: Border(top: BorderSide(color: AppColors.divider, width: 1)),
-        ),
-        child: SafeArea(
-          child: SizedBox(
-            height: 64,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                _NavItem(
-                  icon: Icons.explore_outlined,
-                  activeIcon: Icons.explore,
-                  label: 'Kəşf et',
-                  selected: _index == 0,
-                  onTap: () => setState(() => _index = 0),
+      bottomNavigationBar: SizedBox(
+        height: 78,
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.bottomCenter,
+          children: [
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.backgroundDark,
+                border: Border(top: BorderSide(color: AppColors.divider, width: 1)),
+              ),
+              child: SafeArea(
+                child: SizedBox(
+                  height: 64,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      _NavItem(
+                        icon: Icons.explore_outlined,
+                        activeIcon: Icons.explore,
+                        label: 'Kəşf et',
+                        selected: _index == 0,
+                        onTap: () => setState(() => _index = 0),
+                      ),
+                      _NavItem(
+                        icon: Icons.chat_bubble_outline,
+                        activeIcon: Icons.chat_bubble,
+                        label: 'Söhbət',
+                        selected: _index == 1,
+                        onTap: () => setState(() => _index = 1),
+                      ),
+                      const SizedBox(width: 56),
+                      _NavItem(
+                        icon: Icons.event_outlined,
+                        activeIcon: Icons.event,
+                        label: 'Tədbirlər',
+                        selected: _index == 2,
+                        onTap: () => setState(() => _index = 2),
+                      ),
+                      _NavItem(
+                        icon: Icons.person_outline,
+                        activeIcon: Icons.person,
+                        label: 'Profil',
+                        selected: _index == 3,
+                        onTap: () => setState(() => _index = 3),
+                      ),
+                    ],
+                  ),
                 ),
-                _NavItem(
-                  icon: Icons.event_outlined,
-                  activeIcon: Icons.event,
-                  label: 'Tədbirlər',
-                  selected: _index == 1,
-                  onTap: () => setState(() => _index = 1),
-                ),
-                _NavItem(
-                  icon: Icons.chat_bubble_outline,
-                  activeIcon: Icons.chat_bubble,
-                  label: 'Söhbət',
-                  selected: _index == 2,
-                  onTap: () => setState(() => _index = 2),
-                ),
-                _NavItem(
-                  icon: Icons.person_outline,
-                  activeIcon: Icons.person,
-                  label: 'Profil',
-                  selected: _index == 3,
-                  onTap: () => setState(() => _index = 3),
-                ),
-              ],
+              ),
             ),
-          ),
+            Positioned(
+              top: 0,
+              child: _CreateEventButton(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const ComingSoonScreen(
+                      title: 'Tədbir yarat',
+                      icon: Icons.event_outlined,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _CreateEventButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _CreateEventButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.primary,
+          border: Border.all(color: AppColors.backgroundDark, width: 4),
+          boxShadow: [
+            BoxShadow(color: AppColors.glow, blurRadius: 20, spreadRadius: 1),
+          ],
+        ),
+        child: const Icon(Icons.add, color: Color(0xFF00281E), size: 28),
       ),
     );
   }
