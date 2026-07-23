@@ -17,7 +17,7 @@ env:
   # `auth/invalid-api-key` in production, exactly like it does locally
   # without a real .env.local.
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: ""
+    value: "AIzaSyBs1wmtfMygh1JdY-N8DVyyDaUxYWJM63w"
     availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
     value: "kim-var-73ce9.firebaseapp.com"
@@ -32,7 +32,7 @@ env:
     value: "148607007767"
     availability: [BUILD, RUNTIME]
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: ""
+    value: "1:148607007767:web:6d3a46d6d4f9153be2f052"
     availability: [BUILD, RUNTIME]
 
   # ── Firebase Admin SDK (server-only) ───────────────────────────────
