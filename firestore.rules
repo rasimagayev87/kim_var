@@ -3,16 +3,449 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Either-direction follow check — used below to gate `stories`
+    // visibility for the "Təqib və Təqibçilər" tier. Mirrors the app's
+    // own either-direction rule for profile media visibility (see
+    // `isFollowedByProvider`'s doc comment): the viewer following the
+    // creator, or the creator following the viewer, either counts.
+    function isFollowingOrFollowedBy(uidA, uidB) {
+      return exists(/databases/$(database)/documents/follows/$(uidA + '_' + uidB)) ||
+        exists(/databases/$(database)/documents/follows/$(uidB + '_' + uidA));
+    }
+
+    // Server-side backstop for the client's requireVerified() gate
+    // ("Hesabı təsdiq et") — the Flutter app already blocks unverified
+    // users from reaching venue/offer creation in the UI, but that's
+    // just UX; without this, any call site the client happened to miss
+    // (or a direct API call) could still write the doc. `isVerified`
+    // here is the phone-verification flag, not the identity-document
+    // badge — same field the app gate itself reads.
+    function isVerifiedUser(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)) &&
+        get(/databases/$(database)/documents/users/$(uid)).data.isVerified == true;
+    }
+
     match /users/{userId} {
       // Any signed-in user can read profiles (needed to show
       // nearby users on the map / discover list).
       allow read: if request.auth != null;
 
-      // A user can only create, update, or delete their OWN
-      // document — never anyone else's.
-      allow create: if request.auth != null && request.auth.uid == userId;
-      allow update: if request.auth != null && request.auth.uid == userId;
+      // isVerified / phoneNumber / premium / identityVerified are
+      // grant-of-privilege fields (phone verification, VIP, identity
+      // badge) — a client write can NEVER touch them, not even to set
+      // their own default `false`, so a raw Firestore call can't
+      // self-grant verification or premium. Only Cloud Functions
+      // (Admin SDK, which bypasses these rules) ever write them — see
+      // `markPhoneVerified` in functions/src/index.ts for the phone
+      // case. FirebaseAuthRepository.completeOnboarding deliberately
+      // omits these fields from the initial doc for the same reason;
+      // every read site already treats "absent" as `false`.
+      function touchesLockedUserFields() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['isVerified', 'phoneNumber', 'premium', 'identityVerified']);
+      }
+
+      // A user can only create or delete their OWN document.
+      allow create: if request.auth != null && request.auth.uid == userId &&
+        !('isVerified' in request.resource.data) &&
+        !('phoneNumber' in request.resource.data) &&
+        !('premium' in request.resource.data) &&
+        !('identityVerified' in request.resource.data);
       allow delete: if request.auth != null && request.auth.uid == userId;
+
+      // A user can update their own document freely (including their
+      // own `blockedUsers` array) EXCEPT the locked fields above. Any
+      // OTHER signed-in user may update it too, but only to bump
+      // exactly one of starCount / heartCount / dislikeCount /
+      // reportedCount by exactly 1 (swiping super-like/like/pass, or
+      // filing a report) — every other field stays owner-only.
+      allow update: if request.auth != null && (
+        (request.auth.uid == userId && !touchesLockedUserFields()) ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['starCount', 'heartCount', 'dislikeCount', 'reportedCount']) &&
+          (
+            request.resource.data.starCount == ('starCount' in resource.data ? resource.data.starCount : 0) + 1 ||
+            request.resource.data.heartCount == ('heartCount' in resource.data ? resource.data.heartCount : 0) + 1 ||
+            request.resource.data.dislikeCount == ('dislikeCount' in resource.data ? resource.data.dislikeCount : 0) + 1 ||
+            request.resource.data.reportedCount == ('reportedCount' in resource.data ? resource.data.reportedCount : 0) + 1
+          )
+        )
+      );
+
+      // Personal media gallery grid on the self-profile tab — read-only
+      // from the client for now (no upload flow exists yet, so this
+      // sits empty until one is built). Owner-only write, any signed-in
+      // user can read, matching the parent doc's read rule.
+      match /media/{mediaId} {
+        allow read: if request.auth != null;
+        allow create, update, delete: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Favorited venues (doc id = venueId, doc body just records
+      // when it was favorited) — owner-read/write only, nobody else
+      // needs to see (or forge) another user's favorites list. The
+      // corresponding `venues/{venueId}.favoriteCount` bump is a
+      // separate write, governed by the `venues` rule above.
+      match /favorites/{venueId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Favorited offers — same owner-read/write-only shape as
+      // `favorites` above, kept in its own subcollection rather than
+      // reused since venue and offer ids are unrelated auto-ids from
+      // different collections (see `OfferRemoteDatasource
+      // .watchFavoriteOfferIds`'s doc comment). No denormalized
+      // counter to keep in sync here (offers have no `favoriteCount`
+      // field), so this is a plain single write, not a pair.
+      match /favoriteOffers/{offerId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Social/system notification inbox (follow, likes, comments,
+      // venue events, security/system alerts — never message-related,
+      // see the Söhbət module's own delivery/read-receipt fields for
+      // that). Every doc is written server-side (Cloud Functions on
+      // the Admin SDK, which bypasses these rules entirely) — the
+      // client never creates one. The only client write allowed is
+      // flipping `isRead`, and only that field; deleting a doc (used
+      // by "Oxunmuşları sil") is otherwise unrestricted to the owner.
+      match /notifications/{notificationId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if false;
+        allow update: if request.auth != null && request.auth.uid == userId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Payment/subscription history — sensitive financial data, so
+      // unlike media/stories this is owner-read-only, not "any signed-in
+      // user". No client write at all: only the (not-yet-built) purchase
+      // -verification Cloud Function, running as Admin SDK, will ever
+      // write here — Admin SDK bypasses rules entirely, so `allow
+      // write: if false` doesn't block it, only client writes.
+      match /payments/{paymentId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // "Aktiv cihazlar" — a device writes/refreshes its OWN entry via
+      // touchCurrentSession(), and the owner (from any of their own
+      // devices) can delete any entry under their own uid to trigger a
+      // remote sign-out (see SessionGuard for the client-side half of
+      // that). Owner-only in both directions — nobody else's session
+      // list is any of another user's business.
+      match /sessions/{sessionId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Username → uid + authEmail reservation, doc id is the username
+    // lowercased. Public read on purpose (`allow get: if true`) —
+    // both the register screen's availability check AND login's
+    // authEmail lookup happen BEFORE the client is signed in, so this
+    // can't require `request.auth != null`. `authEmail` is the random,
+    // never-shown synthetic address the account actually signs in
+    // with (see FirebaseAuthRepository) — deliberately NOT derived
+    // from the username, so renaming (`updateUsername`: new doc with
+    // the same authEmail, old one deleted) never touches the sign-in
+    // credential, unlike a real address this can be safely public:
+    // it's useless without the password too.
+    match /usernames/{usernameId} {
+      allow get: if true;
+      allow create: if request.auth != null &&
+        resource == null &&
+        request.auth.uid == request.resource.data.uid &&
+        request.resource.data.keys().hasOnly(['uid', 'authEmail', 'createdAt']);
+      allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
+      allow update: if false;
+    }
+
+    // Phone → uid reservation, doc id is the E.164 phone number.
+    // Public get on purpose (`allow get: if true`) — "Parolu unutdum"
+    // needs to look up whether a phone belongs to an account BEFORE
+    // the caller is signed in, same reasoning as `usernames` above.
+    // Written server-side only, by the markPhoneVerified Cloud Function
+    // right after it confirms Firebase Auth's own phoneNumber claim —
+    // same reasoning as the locked fields on `users/{userId}` above,
+    // so a client can't reserve a phone number it never actually
+    // verified via SMS OTP.
+    match /phoneNumbers/{phoneNumberId} {
+      allow get: if true;
+      allow create, update, delete: if false;
+    }
+
+    // One-directional follow graph — the app's only "connection"
+    // concept now (the old mutual friendRequests/swipes collections
+    // were removed). Doc id is `{followerId}_{followeeId}` (NOT
+    // sorted — direction matters), so a user following and being
+    // followed back by the same person are two independent docs.
+    match /follows/{followId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.followerId &&
+        request.resource.data.followeeId != request.resource.data.followerId &&
+        followId == request.resource.data.followerId + '_' + request.resource.data.followeeId;
+
+      allow update: if false;
+
+      // Only the follower can unfollow — the followee has no say in
+      // removing someone else's follow edge, same as they have no say
+      // in creating it.
+      allow delete: if request.auth != null && request.auth.uid == resource.data.followerId;
+    }
+
+    // 1:1 chats — id is the two participant uids sorted and joined
+    // with "_", so there's exactly one chat doc per pair.
+    match /chats/{chatId} {
+      // `resource` is null when the chat doc doesn't exist yet — which is
+      // the normal case for a brand-new conversation's first message,
+      // where FirebaseChatRepository's send transaction does
+      // tx.get(chatRef) before deciding whether to create or update it.
+      // Without the `resource == null ||` guard, `resource.data.participants`
+      // throws on that null resource, the rule evaluates to a denial, and
+      // the get() itself — the very first operation in the transaction —
+      // fails with permission-denied, aborting the whole send before any
+      // write is even attempted. Verified against the Firestore emulator:
+      // the old rule errors with "Null value error" on this exact get();
+      // the guarded version returns exists:false with no error.
+      allow read: if request.auth != null &&
+        (resource == null || request.auth.uid in resource.data.participants);
+      allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;
+
+      // Two distinct kinds of update, both restricted to participants:
+      //  1. Ordinary chat activity (sending a message, typing, receipts,
+      //     unread counters) — `status` must stay exactly as it was.
+      //  2. Accept/decline of a pending request — ONLY the participant
+      //     who is NOT `initiatorId` may do this (the sender can never
+      //     accept/decline their own request), only while the request
+      //     is still `pending`, and the write may touch `status` and
+      //     nothing else.
+      allow update: if request.auth != null && request.auth.uid in resource.data.participants && (
+        request.resource.data.status == resource.data.status ||
+        (
+          resource.data.status == 'pending' &&
+          request.auth.uid != resource.data.initiatorId &&
+          request.resource.data.status in ['accepted', 'declined'] &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        )
+      );
+
+      // Was missing entirely before — "Söhbəti sil" (ChatController.deleteChat)
+      // has been silently failing with permission-denied since there was no
+      // `allow delete` at all here (delete isn't covered by the `allow
+      // read, write: if false` catch-all once a more specific match block
+      // like this one has already matched the request).
+      allow delete: if request.auth != null && request.auth.uid in resource.data.participants;
+
+      // Membership is checked by parsing chatId itself (rather than a
+      // get() on the parent doc) because the chat doc and its first
+      // message are created together in one transaction — a get() here
+      // wouldn't see that sibling write and would wrongly deny it.
+      match /messages/{messageId} {
+        allow read: if request.auth != null && chatId.split('_').hasAny([request.auth.uid]);
+
+        // NOTE: a `get()`-based defense-in-depth check (only allow into
+        // an 'accepted' chat, or a not-yet-existing one) was tried here
+        // and pulled back out — it broke sending the very first message
+        // of a brand-new conversation in practice and wasn't worth the
+        // risk. The actual pending/declined enforcement already happens
+        // in FirebaseChatRepository's own transaction (`canSend`), which
+        // runs before this write is ever attempted; membership is all
+        // this rule needs to check.
+        allow create: if request.auth != null &&
+          request.auth.uid == request.resource.data.senderId &&
+          chatId.split('_').hasAny([request.auth.uid]);
+        // Update is used for the recipient marking deliveredAt/readAt,
+        // and by either participant adding themselves to `deletedFor`
+        // ("Özün üçün sil"). "Hər kəs üçün sil" is a real delete below,
+        // sender-only — a recipient can hide a message for themselves
+        // but never remove the sender's own copy of it.
+        allow update: if request.auth != null && chatId.split('_').hasAny([request.auth.uid]);
+        allow delete: if request.auth != null && request.auth.uid == resource.data.senderId;
+      }
+    }
+
+    // Self-service-submitted local businesses (Kəşf et → Məkanlar).
+    // Auto-id'd docs; any signed-in user can read (discovery is open to
+    // everyone, and visibility is a pure client-side geohash/radius
+    // query — not gated by any per-viewer rule here). Only the
+    // submitting owner can write. No moderation queue exists yet
+    // (`status` always 'active' today), so create/update don't check
+    // it — see Venue.status's doc comment for why that's still a
+    // one-value change away from adding one later.
+    match /venues/{venueId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.ownerId &&
+        isVerifiedUser(request.auth.uid);
+
+      // `ownerId` is immutable — an update can't reassign a venue to a
+      // different owner, even the current owner's own write. Any OTHER
+      // signed-in user may also update the doc, but only to bump
+      // `favoriteCount` by exactly ±1 (favoriting/unfavoriting — see
+      // `users/{userId}/favorites`), same pattern as starCount/
+      // heartCount on `users/{userId}` above.
+      allow update: if request.auth != null && (
+        (
+          request.auth.uid == resource.data.ownerId &&
+          request.resource.data.ownerId == resource.data.ownerId
+        ) ||
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['favoriteCount']) &&
+          (
+            request.resource.data.favoriteCount == ('favoriteCount' in resource.data ? resource.data.favoriteCount : 0) + 1 ||
+            request.resource.data.favoriteCount == ('favoriteCount' in resource.data ? resource.data.favoriteCount : 0) - 1
+          )
+        )
+      );
+
+      allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
+    }
+
+    // Venue owner-submitted promotions (Kəşf et → Təkliflər). Same
+    // open-read/owner-write shape as venues above — discovery is open
+    // to everyone, only the submitting owner can create/update/delete.
+    // No denormalized `favoriteCount` on this doc (unlike venues), so
+    // update stays owner-only with no non-owner counter-bump exception.
+    match /offers/{offerId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.ownerId &&
+        isVerifiedUser(request.auth.uid);
+
+      // `ownerId` is immutable, same reasoning as venues.
+      allow update: if request.auth != null &&
+        request.auth.uid == resource.data.ownerId &&
+        request.resource.data.ownerId == resource.data.ownerId;
+
+      allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
+    }
+
+    // 24h-expiring stories. Expiry itself is enforced client-side (the
+    // watchMyActiveStories query filters `expiresAt > now`) — these
+    // rules only gate who can read/write a given doc, not whether it's
+    // "expired": an expired doc is still technically readable by
+    // anyone its visibility already allowed, it just never surfaces in
+    // the app's own queries. Only the creator can write/delete.
+    match /stories/{storyId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.creatorId ||
+        resource.data.visibility == 'everyone' ||
+        (resource.data.visibility == 'followers' && isFollowingOrFollowedBy(request.auth.uid, resource.data.creatorId))
+      );
+
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.creatorId &&
+        request.resource.data.visibility in ['followers', 'everyone'];
+
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == resource.data.creatorId;
+
+      // Who has viewed this story — only the story's own creator may
+      // read the list (matches the in-app viewer-list UI); each viewer
+      // may only write their OWN view doc (id == their uid), and only
+      // once (no update/delete — a view can't be un-recorded).
+      match /views/{viewerId} {
+        allow read: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/stories/$(storyId)).data.creatorId;
+        allow create: if request.auth != null &&
+          request.auth.uid == viewerId &&
+          request.resource.data.viewerId == viewerId;
+        allow update, delete: if false;
+      }
+    }
+
+    // Profile feed posts. `likesCount`/`commentsCount` are ONLY ever
+    // written by the deleteAccount-style Admin SDK (a Firestore-triggered
+    // Cloud Function watching the likes/comments subcollections below) —
+    // the owner may only ever update the `caption` field client-side,
+    // matching the "no client-side manual counting" requirement.
+    match /posts/{postId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null
+        && request.auth.uid == resource.data.userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caption']);
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+
+      // One doc per liker, id == their own uid — that shape is both
+      // the "did I like this" check and the trigger's fan-in source.
+      match /likes/{userId} {
+        allow read: if request.auth != null;
+        allow create, delete: if request.auth != null && request.auth.uid == userId;
+        allow update: if false;
+      }
+
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+
+        // Author may only ever change the comment's own text (mirrors
+        // the post caption rule above) — likesCount is server-only.
+        allow update: if request.auth != null
+          && request.auth.uid == resource.data.userId
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['text']);
+
+        // Either the comment's own author OR the post's owner may
+        // delete it — Instagram-style "remove comments on my post".
+        allow delete: if request.auth != null && (
+          request.auth.uid == resource.data.userId ||
+          request.auth.uid == get(/databases/$(database)/documents/posts/$(postId)).data.userId
+        );
+
+        match /likes/{userId} {
+          allow read: if request.auth != null;
+          allow create, delete: if request.auth != null && request.auth.uid == userId;
+          allow update: if false;
+        }
+      }
+    }
+
+    // Write-only from clients — reviewed by moderators outside the app.
+    match /reports/{reportId} {
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.reporterId;
+      allow read, update, delete: if false;
+    }
+
+    // Moderator/admin audit trail ("kim nə edib") — written by the
+    // Next.js admin panel's Server Actions via the Admin SDK only,
+    // which bypasses these rules entirely; this block exists purely to
+    // make the deny explicit and keep the pattern consistent with
+    // `reports` above. No client (mobile app or otherwise) ever reads
+    // or writes this collection.
+    match /moderationLogs/{logId} {
+      allow read, write: if false;
+    }
+
+    // Admin/moderator roster — a denormalized index the admin panel's
+    // "Admin idarəetməsi" screen lists from, kept in sync with Firebase
+    // Auth custom claims by its own Server Actions (Admin SDK, bypasses
+    // this rule entirely). This collection is NEVER the source of
+    // truth for authorization — the custom claim on the session cookie
+    // is — it exists purely because there's no way to query "all Auth
+    // users with a given custom claim" directly, and enumerating every
+    // app user to find the handful of admins doesn't scale. No client
+    // (mobile app or otherwise) ever reads or writes it.
+    match /admins/{uid} {
+      allow read, write: if false;
+    }
+
+    // Kim Var VIP ekranının funksiya siyahısı — marketinq mətni, admin
+    // tərəfindən Firebase console-dan idarə olunur.
+    match /vipFeatures/{featureId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Yardım ekranının "Problem bildir" / "Təklif göndər" formları.
+    // Write-only from the client — only readable via the Firebase
+    // console / a future admin tool, same shape as /reports above.
+    match /supportMessages/{messageId} {
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+      allow read, update, delete: if false;
     }
 
     // Deny everything else by default.

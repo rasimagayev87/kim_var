@@ -1,0 +1,50 @@
+# Firebase App Hosting config — see
+# https://firebase.google.com/docs/app-hosting/configure
+
+runConfig:
+  # Scales to zero when idle — right default for an internal admin
+  # tool with low, bursty traffic, not a public consumer app.
+  minInstances: 0
+  maxInstances: 3
+
+env:
+  # ── Firebase Client SDK (public, safe to expose to the browser) ───
+  # Same values as .env.local.example — from a "Web app" registered on
+  # this project in the Firebase console (Project settings → General →
+  # Your apps → Add app → Web), which doesn't exist yet as of writing
+  # this file. Fill these in before the first deploy; a placeholder/
+  # empty value here means the login page will fail with
+  # `auth/invalid-api-key` in production, exactly like it does locally
+  # without a real .env.local.
+  - variable: NEXT_PUBLIC_FIREBASE_API_KEY
+    value: ""
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+    value: "kim-var-73ce9.firebaseapp.com"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+    value: "kim-var-73ce9"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+    value: "kim-var-73ce9.firebasestorage.app"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+    value: "148607007767"
+    availability: [BUILD, RUNTIME]
+  - variable: NEXT_PUBLIC_FIREBASE_APP_ID
+    value: ""
+    availability: [BUILD, RUNTIME]
+
+  # ── Firebase Admin SDK (server-only) ───────────────────────────────
+  # Deliberately NOT configured here at all — no FIREBASE_PROJECT_ID/
+  # CLIENT_EMAIL/PRIVATE_KEY. On App Hosting, lib/firebase/admin.ts
+  # falls back to Application Default Credentials from the backend's
+  # own attached service account, which needs no key material stored
+  # anywhere. Those three env vars only exist in .env.local, for local
+  # development where ADC isn't available.
+  #
+  # If Admin SDK calls fail after deploy with a permission error, grant
+  # the backend's service account the "Firebase Authentication Admin"
+  # and "Cloud Datastore User" IAM roles in Google Cloud Console — the
+  # default App Hosting service account usually already has broad
+  # enough access, but a locked-down project may not have granted it.
