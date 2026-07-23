@@ -55,7 +55,7 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  /* Kim Var brand accent (#12D6E8) — same hex the Flutter app's
+  /* Meevima brand accent (#12D6E8) — same hex the Flutter app's
      AppColors.primary uses, with the same dark-ink-on-accent pairing
      (AppColors.onAccent) for foreground text/icons on filled surfaces. */
   --primary: #12d6e8;

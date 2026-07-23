@@ -9,7 +9,7 @@ library;
 const String kTermsOfService = '''
 # 1. Ümumi müddəalar
 
-"Kim Var" tətbiqindən istifadə etməklə siz aşağıdakı istifadə şərtlərini qəbul etmiş olursunuz. Bu şərtlərlə razı deyilsinizsə, xahiş edirik tətbiqdən istifadə etməyin.
+"Meevima" tətbiqindən istifadə etməklə siz aşağıdakı istifadə şərtlərini qəbul etmiş olursunuz. Bu şərtlərlə razı deyilsinizsə, xahiş edirik tətbiqdən istifadə etməyin.
 
 # 2. Yaş məhdudiyyəti
 
@@ -36,7 +36,7 @@ Bəzi funksiyalar (genişləndirilmiş radius, əlavə filtrlər və s.) ödəni
 
 # 7. Məsuliyyətin məhdudlaşdırılması
 
-"Kim Var" istifadəçilər arasındakı görüşlərin təhlükəsizliyinə görə məsuliyyət daşımır. Naməlum insanlarla görüşərkən ehtiyatlı olmağınızı tövsiyə edirik: ictimai yerdə görüşün, yaxınlarınızı xəbərdar edin.
+"Meevima" istifadəçilər arasındakı görüşlərin təhlükəsizliyinə görə məsuliyyət daşımır. Naməlum insanlarla görüşərkən ehtiyatlı olmağınızı tövsiyə edirik: ictimai yerdə görüşün, yaxınlarınızı xəbərdar edin.
 
 # 8. Dəyişikliklər
 
@@ -44,14 +44,14 @@ Bu şərtlər zaman-zaman yenilənə bilər. Əhəmiyyətli dəyişikliklər bar
 
 # 9. Əlaqə
 
-Suallarınız üçün: support@kimvar.app
+Suallarınız üçün: support@meevima.app
 ''';
 
 const String kPrivacyPolicy = '''
 # 1. Hansı məlumatları toplayırıq
 
 Qeydiyyat zamanı: ad, email və/və ya telefon nömrəsi, doğum tarixi, cins.
-Profil üçün: fotoşəkil, bio, maraq sahələri, danışdığınız dil, ölkə/şəhər.
+Profil üçün: fotoşəkil, bio, ölkə/şəhər.
 Avtomatik toplanan: cihaz məlumatları, real-vaxt GPS koordinatları (lokasiya icazəsi verdiyiniz halda).
 
 # 2. Məlumatlardan necə istifadə edirik
@@ -80,5 +80,5 @@ Bu siyasət yeniləndikdə tətbiq daxilində bildiriş alacaqsınız.
 
 # 8. Əlaqə
 
-Məxfilik ilə bağlı suallarınız üçün: privacy@kimvar.app
+Məxfilik ilə bağlı suallarınız üçün: privacy@meevima.app
 ''';

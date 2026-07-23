@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Kim Var — Admin Panel",
-  description: "Kim Var mobil tətbiqi üçün admin/moderator idarəetmə paneli.",
+  title: "Meevima — Admin Panel",
+  description: "Meevima mobil tətbiqi üçün admin/moderator idarəetmə paneli.",
 };
 
 export default function RootLayout({

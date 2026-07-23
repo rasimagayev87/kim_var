@@ -60,7 +60,7 @@ export default function LoginPage() {
     <div className="flex flex-1 items-center justify-center bg-muted/30 p-6">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Kim Var Admin</CardTitle>
+          <CardTitle>Meevima Admin</CardTitle>
           <CardDescription>Davam etmək üçün admin hesabınızla daxil olun.</CardDescription>
         </CardHeader>
         <CardContent>

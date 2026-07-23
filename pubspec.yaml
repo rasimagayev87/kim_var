@@ -10,6 +10,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
 
   cupertino_icons: ^1.0.8
   flutter_animate: ^4.5.2
@@ -24,10 +26,28 @@ dependencies:
   firebase_auth: ^5.3.3
   cloud_firestore: ^5.5.0
   firebase_storage: ^12.3.5
-  google_sign_in: ^6.2.2
-  sign_in_with_apple: ^6.1.4
+  cloud_functions: ^5.1.5
   permission_handler: ^11.3.1
-  intl: ^0.19.0
+  intl: ^0.20.2
+  video_player: ^2.9.2
+  video_thumbnail: ^0.5.3
+  record: ^6.1.1
+  audioplayers: ^6.1.0
+  path_provider: ^2.1.5
+  package_info_plus: ^8.1.1
+  device_info_plus: ^11.2.0
+  firebase_messaging: ^15.1.5
+  firebase_app_check: ^0.3.1
+  url_launcher: ^6.3.1
+  share_plus: ^10.1.4
+  flutter_slidable: ^3.1.1
+  geocoding: ^3.0.0
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+  image_cropper: ^8.0.0
+  geoflutterfire_plus: ^0.0.31
+  http: ^1.2.2
+  gal: ^2.3.0
 
 dev_dependencies:
   flutter_test:
@@ -36,9 +56,13 @@ dev_dependencies:
   flutter_launcher_icons: ^0.14.1
 
   flutter_lints: ^6.0.0
+  build_runner: ^2.4.13
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
 
 flutter:
   uses-material-design: true
+  generate: true
 
   assets:
     - assets/icon.png
@@ -51,3 +75,4 @@ flutter_launcher_icons:
   adaptive_icon_background: "#003C33"
   adaptive_icon_foreground: "assets/icon_foreground.png"
   min_sdk_android: 21
+  remove_alpha_ios: true

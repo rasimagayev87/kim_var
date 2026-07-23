@@ -41,6 +41,35 @@
           ]
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:148607007767:android:8d89a4a759bfd14de2f052",
+        "android_client_info": {
+          "package_name": "com.meevima.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "148607007767-s3np74ma77k70h3nt9n2k825h2ibvd5f.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA2KBMexV5G7aQMO_wR4JUA1LGR3ZCXemg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "148607007767-s3np74ma77k70h3nt9n2k825h2ibvd5f.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
     }
   ],
   "configuration_version": "1"

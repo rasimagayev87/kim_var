@@ -22,7 +22,7 @@ async function requireAdminManagement(): Promise<{ admin: AdminSession } | { den
 }
 
 /**
- * Promotes an EXISTING Kim Var account to admin/moderator by email.
+ * Promotes an EXISTING Meevima account to admin/moderator by email.
  * Deliberately does not create a brand-new Firebase Auth user the way
  * scripts/bootstrap-admin.ts can — that script exists specifically for
  * standing up the very first admin when nobody can click a button yet;

@@ -19,7 +19,7 @@ import { addAdmin } from "@/lib/actions/admins";
 import type { AdminRole } from "@/lib/auth/session";
 
 const ERROR_MESSAGES: Record<string, string> = {
-  "user-not-found": "Bu email ünvanı ilə Kim Var hesabı tapılmadı. Əvvəlcə həmin şəxs adi istifadəçi kimi qeydiyyatdan keçməlidir.",
+  "user-not-found": "Bu email ünvanı ilə Meevima hesabı tapılmadı. Əvvəlcə həmin şəxs adi istifadəçi kimi qeydiyyatdan keçməlidir.",
   "invalid-input": "Email boş ola bilməz.",
   forbidden: "Bu əməliyyat üçün icazəniz yoxdur.",
 };
@@ -51,7 +51,7 @@ export function AddAdminDialog() {
         <DialogHeader>
           <DialogTitle>Yeni admin/moderator əlavə et</DialogTitle>
           <DialogDescription>
-            Email mövcud bir Kim Var hesabına aid olmalıdır — həmin hesaba admin panelə giriş rolu təyin ediləcək.
+            Email mövcud bir Meevima hesabına aid olmalıdır — həmin hesaba admin panelə giriş rolu təyin ediləcək.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">

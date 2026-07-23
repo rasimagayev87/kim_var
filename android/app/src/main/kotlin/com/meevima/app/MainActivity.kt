@@ -1,4 +1,4 @@
-package com.example.kim_var
+package com.meevima.app
 
 import io.flutter.embedding.android.FlutterActivity
 

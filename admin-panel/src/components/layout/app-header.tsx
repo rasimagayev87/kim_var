@@ -6,7 +6,7 @@ export function AppHeader({ admin }: { admin: AdminSession }) {
   return (
     <header className="flex h-14 items-center justify-between border-b bg-background px-5">
       <div className="flex items-center gap-2 md:hidden">
-        <span className="text-sm font-semibold tracking-tight">Kim Var Admin</span>
+        <span className="text-sm font-semibold tracking-tight">Meevima Admin</span>
       </div>
       <div className="hidden items-center gap-2 text-sm text-muted-foreground md:flex">
         <span className="font-medium text-foreground">{admin.email}</span>

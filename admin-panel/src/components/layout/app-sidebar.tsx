@@ -15,7 +15,7 @@ export function AppSidebar({ role }: { role: AdminRole }) {
   return (
     <aside className="hidden w-60 shrink-0 border-r bg-sidebar md:flex md:flex-col">
       <div className="flex h-14 items-center border-b px-5">
-        <span className="text-sm font-semibold tracking-tight">Kim Var Admin</span>
+        <span className="text-sm font-semibold tracking-tight">Meevima Admin</span>
       </div>
       <nav className="flex-1 space-y-1 p-3">
         {NAV_ITEMS.filter((item) => !item.permission || hasPermission(role, item.permission)).map(
