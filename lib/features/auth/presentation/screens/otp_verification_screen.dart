@@ -4,20 +4,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/animations/animated_background.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/premium_button.dart';
-import '../../../home/presentation/screens/home_screen.dart';
-import '../providers/auth_providers.dart';
-import 'onboarding_screen.dart';
 
-/// Second step of Firebase Phone Auth: the user enters the 6-digit
-/// SMS code sent to [phoneNumber].
+/// Generic 6-digit SMS code entry, reused by both secondary phone
+/// flows ("Hesabı təsdiq et" phone-linking and "Parolu unutdum"
+/// account recovery) — the UI is identical, only which repository
+/// call [onConfirm] makes and what [onSuccess] does next differ.
 class OtpVerificationScreen extends ConsumerStatefulWidget {
   final String phoneNumber;
   final String verificationId;
+  final String? successMessage;
+  final Future<void> Function(WidgetRef ref, String verificationId, String smsCode) onConfirm;
+  final Future<void> Function(BuildContext context) onSuccess;
 
   const OtpVerificationScreen({
     super.key,
     required this.phoneNumber,
     required this.verificationId,
+    required this.onConfirm,
+    required this.onSuccess,
+    this.successMessage,
   });
 
   @override
@@ -46,17 +51,14 @@ class _OtpVerificationScreenState extends ConsumerState<OtpVerificationScreen> {
     });
 
     try {
-      final (_, isNewUser) = await ref.read(authControllerProvider.notifier).confirmPhoneCode(
-            verificationId: widget.verificationId,
-            smsCode: _codeController.text.trim(),
-          );
-
+      await widget.onConfirm(ref, widget.verificationId, _codeController.text.trim());
       if (!mounted) return;
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => isNewUser ? const OnboardingScreen() : const HomeScreen()),
-        (route) => false,
-      );
+
+      final message = widget.successMessage;
+      if (message != null) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
+      await widget.onSuccess(context);
     } catch (e) {
       if (!mounted) return;
       setState(() {

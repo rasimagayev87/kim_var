@@ -30,63 +30,40 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     state = await AsyncValue.guard(() => _repository.restoreSession());
   }
 
-  Future<void> startPhoneVerification({
-    required String phoneNumber,
-    required PhoneCodeSent onCodeSent,
-    required PhoneAutoVerified onAutoVerified,
-    required PhoneVerificationFailed onFailed,
-  }) {
-    return _repository.startPhoneVerification(
-      phoneNumber: phoneNumber,
-      onCodeSent: onCodeSent,
-      onAutoVerified: (user, isNewUser) {
-        if (!isNewUser) state = AsyncValue.data(user);
-        onAutoVerified(user, isNewUser);
-      },
-      onFailed: onFailed,
-    );
+  Future<bool> isUsernameAvailable(String username) {
+    return _repository.isUsernameAvailable(username);
   }
 
-  Future<(AppUser, bool)> confirmPhoneCode({
-    required String verificationId,
-    required String smsCode,
+  Future<void> registerWithUsername({
+    required String username,
+    required String password,
+  }) {
+    return _repository.registerWithUsername(username: username, password: password);
+  }
+
+  Future<bool> loginWithUsername({
+    required String username,
+    required String password,
   }) async {
     state = const AsyncValue.loading();
     try {
-      final result = await _repository.confirmPhoneCode(
-        verificationId: verificationId,
-        smsCode: smsCode,
+      final (user, needsOnboarding) = await _repository.loginWithUsername(
+        username: username,
+        password: password,
       );
-      state = result.$2 ? const AsyncValue.data(null) : AsyncValue.data(result.$1);
-      return result;
+      state = needsOnboarding ? const AsyncValue.data(null) : AsyncValue.data(user);
+      return needsOnboarding;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
       rethrow;
     }
   }
 
-  Future<(AppUser, bool)> signInWithGoogle() async {
-    state = const AsyncValue.loading();
-    try {
-      final result = await _repository.signInWithGoogle();
-      state = result.$2 ? const AsyncValue.data(null) : AsyncValue.data(result.$1);
-      return result;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      rethrow;
-    }
-  }
-
-  Future<(AppUser, bool)> signInWithApple() async {
-    state = const AsyncValue.loading();
-    try {
-      final result = await _repository.signInWithApple();
-      state = result.$2 ? const AsyncValue.data(null) : AsyncValue.data(result.$1);
-      return result;
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-      rethrow;
-    }
+  Future<void> updateUsername({
+    required String oldUsername,
+    required String newUsername,
+  }) {
+    return _repository.updateUsername(oldUsername: oldUsername, newUsername: newUsername);
   }
 
   Future<void> completeOnboarding({
@@ -97,7 +74,6 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     required String country,
     required String city,
     String? bio,
-    List<String> interests = const [],
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
@@ -109,9 +85,70 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
         country: country,
         city: city,
         bio: bio,
-        interests: interests,
       ),
     );
+  }
+
+  Future<bool> isPhoneNumberTaken(String phoneNumber) {
+    return _repository.isPhoneNumberTaken(phoneNumber);
+  }
+
+  Future<void> startPhoneLinkVerification({
+    required String phoneNumber,
+    required PhoneCodeSent onCodeSent,
+    required PhoneAutoVerified onAutoVerified,
+    required PhoneVerificationFailed onFailed,
+  }) {
+    return _repository.startPhoneLinkVerification(
+      phoneNumber: phoneNumber,
+      onCodeSent: onCodeSent,
+      onAutoVerified: onAutoVerified,
+      onFailed: onFailed,
+    );
+  }
+
+  Future<void> confirmPhoneLink({
+    required String verificationId,
+    required String smsCode,
+    required String phoneNumber,
+  }) {
+    return _repository.confirmPhoneLink(
+      verificationId: verificationId,
+      smsCode: smsCode,
+      phoneNumber: phoneNumber,
+    );
+  }
+
+  Future<void> startPhoneRecoveryVerification({
+    required String phoneNumber,
+    required PhoneCodeSent onCodeSent,
+    required PhoneAutoVerified onAutoVerified,
+    required PhoneVerificationFailed onFailed,
+  }) {
+    return _repository.startPhoneRecoveryVerification(
+      phoneNumber: phoneNumber,
+      onCodeSent: onCodeSent,
+      onAutoVerified: onAutoVerified,
+      onFailed: onFailed,
+    );
+  }
+
+  Future<void> confirmPhoneRecovery({
+    required String verificationId,
+    required String smsCode,
+  }) {
+    return _repository.confirmPhoneRecovery(verificationId: verificationId, smsCode: smsCode);
+  }
+
+  Future<void> updatePassword(String newPassword) {
+    return _repository.updatePassword(newPassword);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return _repository.changePassword(currentPassword: currentPassword, newPassword: newPassword);
   }
 
   Future<void> signOut() async {

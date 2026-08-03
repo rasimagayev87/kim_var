@@ -12,7 +12,7 @@ import '../../../../../l10n/app_localizations.dart';
 const String kSupportEmail = 'support@meevima.app';
 
 void showContactUsSheet(BuildContext context) {
-  final loc = AppLocalizations.of(context);
+  final loc = AppLocalizations.of(context)!;
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.surface,

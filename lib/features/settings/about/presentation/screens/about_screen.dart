@@ -13,7 +13,7 @@ class AboutScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final loc = AppLocalizations.of(context);
+    final loc = AppLocalizations.of(context)!;
     final versionAsync = ref.watch(appVersionProvider);
 
     return Scaffold(

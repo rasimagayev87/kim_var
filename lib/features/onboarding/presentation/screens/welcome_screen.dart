@@ -4,7 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/animations/animated_background.dart';
 import '../../../../core/animations/glow_logo.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../auth/presentation/screens/phone_auth_screen.dart';
+import '../../../auth/presentation/screens/login_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -45,7 +45,7 @@ class WelcomeScreen extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const PhoneAuthScreen()),
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
                     ),
                     child: const Text('Başla'),
                   ).animate().fadeIn(delay: 450.ms, duration: 450.ms).slideY(

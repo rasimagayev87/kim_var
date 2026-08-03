@@ -31,6 +31,15 @@ class AppColors {
   /// icon or border tint — see [textSecondary]/[divider] for those.
   static const Color primary = Color(0xFF2DD4BF);
 
+  /// No distinct secondary tone exists in the spec yet — aliased to
+  /// [primary] purely to satisfy `ColorScheme.dark`'s required param.
+  static const Color secondary = primary;
+
+  /// Translucent glow behind avatars/markers (nearby-card stack, map
+  /// "you are here" marker, home header avatar) — a soft halo, not a
+  /// flat fill, hence the low alpha.
+  static const Color glow = Color(0x592DD4BF);
+
   /// Primary text/icon color — dark ink, not literal white (see the
   /// class doc comment for why the name stayed).
   static const Color white = Color(0xFF1B2528);

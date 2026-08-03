@@ -88,7 +88,7 @@ class _FeedTabState extends ConsumerState<FeedTab> {
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
+    final loc = AppLocalizations.of(context)!;
     final postsAsync = ref.watch(feedPostsProvider);
 
     return Container(
@@ -162,7 +162,7 @@ class _FeedTopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
+    final loc = AppLocalizations.of(context)!;
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
@@ -443,7 +443,7 @@ class _BottomInfo extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final loc = AppLocalizations.of(context);
+    final loc = AppLocalizations.of(context)!;
     final profile = ref.watch(publicProfileProvider(post.userId)).valueOrNull;
     final name = (profile?.name.isNotEmpty ?? false) ? profile!.name : loc.defaultUserName;
 
@@ -555,7 +555,7 @@ class _LikeAction extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final loc = AppLocalizations.of(context);
+    final loc = AppLocalizations.of(context)!;
     final isLiked = ref.watch(isPostLikedByMeProvider(post.id)).valueOrNull ?? false;
 
     return _RailAction(
@@ -720,7 +720,7 @@ class _VideoDownloadSheetState extends State<_VideoDownloadSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
+    final loc = AppLocalizations.of(context)!;
     return SafeArea(
       top: false,
       child: Padding(

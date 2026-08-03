@@ -44,7 +44,7 @@ class _GlowLogoState extends State<GlowLogo>
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF00FFD5).withOpacity(0.35),
+                color: const Color(0xFF00FFD5).withValues(alpha: 0.35),
                 blurRadius: glow,
                 spreadRadius: glow / 8,
               ),

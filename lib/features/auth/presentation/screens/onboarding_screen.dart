@@ -120,7 +120,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             country: _country!,
             city: _city!,
             bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
-            interests: _selectedInterests.toList(),
           );
 
       if (_pickedPhoto != null) {
@@ -198,7 +197,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     'Şəkil əlavə et (keçilə bilər)',
-                    style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary.withOpacity(0.8)),
+                    style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary.withValues(alpha: 0.8)),
                   ),
                 ),
               ),
@@ -242,7 +241,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _gender,
+                initialValue: _gender,
                 isExpanded: true,
                 dropdownColor: AppColors.card,
                 style: const TextStyle(color: AppColors.white, fontSize: 14.5),

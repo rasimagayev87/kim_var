@@ -304,7 +304,7 @@ class _DropdownField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<String>(
-      value: value,
+      initialValue: value,
       isExpanded: true,
       dropdownColor: AppColors.card,
       style: const TextStyle(color: AppColors.white, fontSize: 14.5),

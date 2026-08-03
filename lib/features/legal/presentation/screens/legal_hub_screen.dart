@@ -11,7 +11,7 @@ class LegalHubScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
+    final loc = AppLocalizations.of(context)!;
 
     return Scaffold(
       backgroundColor: AppColors.background,

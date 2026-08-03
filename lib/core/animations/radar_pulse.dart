@@ -75,7 +75,7 @@ class _RadarPainter extends CustomPainter {
       final opacity = (1 - phase).clamp(0.0, 1.0) * 0.45;
 
       final paint = Paint()
-        ..color = color.withOpacity(opacity)
+        ..color = color.withValues(alpha: opacity)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.6;
 

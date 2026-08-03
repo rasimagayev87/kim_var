@@ -1,9 +1,10 @@
-enum LoginProvider { phone, google, apple }
+enum LoginProvider { password, phone, google, apple }
 
 class AppUser {
   final String id;
   final String firstName;
   final String lastName;
+  final String? username;
   final String? email;
   final String? phone;
   final DateTime? birthDate;
@@ -15,6 +16,7 @@ class AppUser {
     required this.firstName,
     required this.lastName,
     required this.loginProvider,
+    this.username,
     this.email,
     this.phone,
     this.birthDate,

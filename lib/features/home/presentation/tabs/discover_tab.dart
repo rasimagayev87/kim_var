@@ -152,8 +152,8 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                     circleId: const CircleId('radius'),
                     center: center,
                     radius: radiusKm * 1000,
-                    fillColor: AppColors.primary.withOpacity(0.08),
-                    strokeColor: AppColors.primary.withOpacity(0.4),
+                    fillColor: AppColors.primary.withValues(alpha: 0.08),
+                    strokeColor: AppColors.primary.withValues(alpha: 0.4),
                     strokeWidth: 1,
                   ),
                 },
@@ -392,9 +392,9 @@ class _RadiusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.15),
+        color: AppColors.primary.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primary.withOpacity(0.4)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

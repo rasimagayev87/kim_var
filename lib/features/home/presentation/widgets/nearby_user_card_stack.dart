@@ -204,7 +204,7 @@ class _NearbyUserCard extends StatelessWidget {
         color: AppColors.card,
         borderRadius: BorderRadius.circular(28),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 8)),
         ],
       ),
       child: Stack(
@@ -227,7 +227,7 @@ class _NearbyUserCard extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.8)],
+                  colors: [Colors.transparent, Colors.black.withValues(alpha: 0.8)],
                 ),
               ),
               child: Column(
@@ -252,7 +252,7 @@ class _NearbyUserCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
+                        color: Colors.white.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(user.mainInterest, style: const TextStyle(fontSize: 12.5, color: Colors.white)),
@@ -285,7 +285,7 @@ class _StampBadge extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: color, width: 3),
         borderRadius: BorderRadius.circular(10),
-        color: AppColors.backgroundDark.withOpacity(0.4),
+        color: AppColors.backgroundDark.withValues(alpha: 0.4),
       ),
       child: Text(
         label,
@@ -341,7 +341,7 @@ class _RoundActionButton extends StatelessWidget {
           shape: BoxShape.circle,
           color: AppColors.card,
           border: Border.all(color: color, width: 2),
-          boxShadow: [BoxShadow(color: color.withOpacity(0.25), blurRadius: 12, spreadRadius: 1)],
+          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.25), blurRadius: 12, spreadRadius: 1)],
         ),
         child: Icon(icon, color: color, size: size * 0.46),
       ),

@@ -32,7 +32,7 @@ class _AnimatedBackgroundState extends State<AnimatedBackground>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
-      builder: (_, __) {
+      builder: (_, _) {
         return CustomPaint(
           painter: _BackgroundPainter(_controller.value),
           child: const SizedBox.expand(),
