@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -22,12 +20,11 @@ final profileControllerProvider =
 class ProfileController extends StateNotifier<UserProfile> {
   static const _keyPhotoUrl = 'profile_cache_photo_url';
   static const _keyBio = 'profile_cache_bio';
-  static const _keyInterests = 'profile_cache_interests';
-  static const _keyAge = 'profile_cache_age';
+  static const _keyBirthDate = 'profile_cache_birth_date';
   static const _keyGender = 'profile_cache_gender';
-  static const _keyLanguage = 'profile_cache_language';
   static const _keyCountry = 'profile_cache_country';
   static const _keyCity = 'profile_cache_city';
+  static const _keyEmail = 'profile_cache_email';
 
   final FirebaseFirestore _firestore;
   final fb.FirebaseAuth _auth;
@@ -74,16 +71,21 @@ class ProfileController extends StateNotifier<UserProfile> {
   UserProfile _fromDocData(Map<String, dynamic>? data) {
     if (data == null) return const UserProfile();
     return UserProfile(
+      username: data['username'] as String?,
+      firstName: data['firstName'] as String? ?? '',
+      lastName: data['lastName'] as String? ?? '',
       photoUrl: data['photoUrl'] as String?,
       bio: data['bio'] as String? ?? '',
-      interests: (data['interests'] as List?)?.cast<String>() ?? const [],
-      age: data['age'] as int?,
+      birthDate: (data['birthDate'] as Timestamp?)?.toDate(),
       gender: data['gender'] as String?,
-      language: data['language'] as String?,
       country: data['country'] as String?,
       city: data['city'] as String?,
+      email: data['email'] as String?,
       online: data['online'] as bool? ?? false,
       lastSeen: (data['lastSeen'] as Timestamp?)?.toDate(),
+      heartCount: (data['heartCount'] as num?)?.toInt() ?? 0,
+      isVerified: data['isVerified'] as bool? ?? false,
+      identityVerified: data['identityVerified'] as bool? ?? false,
     );
   }
 
@@ -94,12 +96,13 @@ class ProfileController extends StateNotifier<UserProfile> {
     return UserProfile(
       photoUrl: prefs.getString(_keyPhotoUrl),
       bio: bio,
-      interests: prefs.getStringList(_keyInterests) ?? const [],
-      age: prefs.getInt(_keyAge),
+      birthDate: prefs.containsKey(_keyBirthDate)
+          ? DateTime.fromMillisecondsSinceEpoch(prefs.getInt(_keyBirthDate)!)
+          : null,
       gender: prefs.getString(_keyGender),
-      language: prefs.getString(_keyLanguage),
       country: prefs.getString(_keyCountry),
       city: prefs.getString(_keyCity),
+      email: prefs.getString(_keyEmail),
     );
   }
 
@@ -111,52 +114,63 @@ class ProfileController extends StateNotifier<UserProfile> {
       await prefs.remove(_keyPhotoUrl);
     }
     await prefs.setString(_keyBio, profile.bio);
-    await prefs.setStringList(_keyInterests, profile.interests);
-    if (profile.age != null) await prefs.setInt(_keyAge, profile.age!);
+    if (profile.birthDate != null) {
+      await prefs.setInt(_keyBirthDate, profile.birthDate!.millisecondsSinceEpoch);
+    }
     if (profile.gender != null) await prefs.setString(_keyGender, profile.gender!);
-    if (profile.language != null) await prefs.setString(_keyLanguage, profile.language!);
     if (profile.country != null) await prefs.setString(_keyCountry, profile.country!);
     if (profile.city != null) await prefs.setString(_keyCity, profile.city!);
+    if (profile.email != null) await prefs.setString(_keyEmail, profile.email!);
   }
 
-  /// Uploads [localPhotoFile] (if provided) to Firebase Storage and
-  /// writes the full profile — including the resulting URL — to
-  /// the user's Firestore document. [clearPhoto] removes the photo
-  /// entirely instead.
+  /// Writes the "Şəxsi məlumatlar" fields to the user's Firestore
+  /// document. The photo is handled separately by [updatePhotoUrl] —
+  /// see `PhotoUploadController` in `photo_upload_provider.dart`,
+  /// which uploads to Firebase Storage first and then calls that
+  /// method. Username is handled separately too, via
+  /// `AuthController.updateUsername` — it needs the `usernames`
+  /// reservation-swap dance, not a plain field write.
+  ///
+  /// There is no `age` parameter: age is always derived from
+  /// [birthDate] — see [UserProfile.age].
   Future<void> save({
-    File? localPhotoFile,
-    bool clearPhoto = false,
+    required String firstName,
+    required String lastName,
+    required DateTime birthDate,
     required String bio,
-    required List<String> interests,
-    int? age,
     String? gender,
-    String? language,
     String? country,
     String? city,
   }) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
 
-    String? photoUrl = state.photoUrl;
+    await _firestore.collection('users').doc(uid).set(
+      {
+        'firstName': firstName,
+        'lastName': lastName,
+        'birthDate': Timestamp.fromDate(birthDate),
+        'bio': bio,
+        if (gender != null) 'gender': gender,
+        if (country != null) 'country': country,
+        if (city != null) 'city': city,
+        'updatedAt': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    // `state` updates automatically via the live Firestore listener above.
+  }
 
-    if (clearPhoto) {
-      photoUrl = null;
-    } else if (localPhotoFile != null) {
-      final ref = FirebaseStorage.instance.ref('profile_photos/$uid.jpg');
-      await ref.putFile(localPhotoFile);
-      photoUrl = await ref.getDownloadURL();
-    }
+  /// Persists a new profile photo URL (or `null` to clear it) to the
+  /// user's Firestore document. Called by `PhotoUploadController` after
+  /// a successful Firebase Storage upload/delete.
+  Future<void> updatePhotoUrl(String? photoUrl) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return;
 
     await _firestore.collection('users').doc(uid).set(
       {
         'photoUrl': photoUrl,
-        'bio': bio,
-        'interests': interests,
-        if (age != null) 'age': age,
-        if (gender != null) 'gender': gender,
-        if (language != null) 'language': language,
-        if (country != null) 'country': country,
-        if (city != null) 'city': city,
         'updatedAt': FieldValue.serverTimestamp(),
       },
       SetOptions(merge: true),

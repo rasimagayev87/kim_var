@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>İstifadə Şərtləri / Terms of Service — Meevima</title>
+<style>
+  :root {
+    --bg: #F4F6F8;
+    --card: #FFFFFF;
+    --text: #111827;
+    --text-secondary: #6B7280;
+    --accent: #12D6E8;
+    --divider: rgba(0,0,0,.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
+  header { text-align: center; margin-bottom: 40px; }
+  header .logo {
+    font-weight: 800; font-size: 28px; letter-spacing: -0.02em;
+    background: linear-gradient(90deg, #7C3AED, #12D6E8);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    margin-bottom: 8px;
+  }
+  header h1 { font-size: 22px; margin: 8px 0 4px; }
+  header .updated { color: var(--text-secondary); font-size: 14px; }
+  .lang-toggle { display: flex; justify-content: center; gap: 8px; margin: 24px 0 40px; }
+  .lang-toggle button {
+    border: 1px solid var(--divider); background: var(--card); color: var(--text);
+    padding: 8px 18px; border-radius: 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .lang-toggle button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  section.card { background: var(--card); border-radius: 22px; padding: 32px 28px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  h2 { font-size: 17px; margin-top: 32px; margin-bottom: 10px; }
+  h2:first-child { margin-top: 0; }
+  p, li { color: var(--text); font-size: 15px; }
+  .warn { background: #FFF7ED; border: 1px solid #FDBA74; border-radius: 12px; padding: 14px 16px; font-weight: 600; }
+  ul { padding-left: 20px; }
+  a { color: var(--accent); }
+  .lang-block { display: none; }
+  .lang-block.active { display: block; }
+  footer { text-align: center; color: var(--text-secondary); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">meevima</div>
+    <h1 id="page-title">İstifadə Şərtləri</h1>
+    <div class="updated">Son yenilənmə: 23 iyul 2026</div>
+  </header>
+
+  <div class="lang-toggle">
+    <button class="active" onclick="showLang('az', this)">Azərbaycan</button>
+    <button onclick="showLang('en', this)">English</button>
+  </div>
+
+  <section class="card">
+    <div class="lang-block active" id="az">
+      <h2>1. Şərtlərin qəbulu</h2>
+      <p>"Meevima" mobil tətbiqini ("Tətbiq") yükləməklə, qeydiyyatdan keçməklə və ya istifadə etməklə siz bu İstifadə Şərtlərini tam qəbul etmiş olursunuz.</p>
+      <p>Tətbiqin sahibi/məsul şəxsi: <strong>Rasim Ağayev</strong><br>Əlaqə: <strong>meevima.app@gmail.com</strong></p>
+
+      <h2>2. Yaş məhdudiyyəti</h2>
+      <p>Tətbiqdən istifadə üçün minimum yaş həddi <strong>18</strong>-dir.</p>
+
+      <h2>3. Hesab</h2>
+      <ul>
+        <li>Qeydiyyat məlumatlarınızın düzgünlüyünə görə siz məsuliyyət daşıyırsınız</li>
+        <li>Hesabınızın təhlükəsizliyinə görə siz məsuliyyət daşıyırsınız</li>
+        <li>Bir telefon nömrəsi yalnız bir hesaba bağlana bilər</li>
+        <li>Hesabınızı istənilən vaxt silə bilərsiniz</li>
+      </ul>
+
+      <h2>4. İstifadəçi davranış qaydaları</h2>
+      <p>Aşağıdakılar QADAĞANDIR: saxta profil/məkan/təklif yaratmaq, digər istifadəçiləri təhqir/hədə/təciz etmək, qeyri-qanuni məzmun paylaşmaq, spam göndərmək, başqasının şəxsiyyətini saxtalaşdırmaq, təhlükəsizlik sistemlərini pozmağa cəhd etmək.</p>
+
+      <h2>5. İstifadəçi tərəfindən yaradılan kontent</h2>
+      <p>Yaratdığınız kontentin dəqiqliyinə görə siz məsuliyyət daşıyırsınız. Qaydaları pozan kontenti xəbərdarlıq etmədən silə bilərik.</p>
+
+      <h2>6. VIP Abunəlik və Ödənişlər</h2>
+      <p>Aylıq, 3 Aylıq və İllik paketlər mövcuddur, qiymətlər lokal valyutada göstərilir. Abunəlik avtomatik yenilənir. Pulsuz sınaq müddəti yoxdur. Ödənişlər Apple/Google sistemləri vasitəsilə həyata keçirilir.</p>
+
+      <h2>7. Lokasiya əsaslı xidmətlər və şəxsi təhlükəsizlik</h2>
+      <p class="warn">BİZ İSTİFADƏÇİLƏR ARASINDAKI QARŞILIQLI ƏLAQƏLƏRƏ VƏ GÖRÜŞLƏRƏ GÖRƏ MƏSULİYYƏT DAŞIMIRIQ. Fiziki görüşlərdə ehtiyatlı olmaq sizin öz məsuliyyətinizdədir.</p>
+
+      <h2>8. Məsuliyyətin məhdudlaşdırılması</h2>
+      <p>Tətbiq "olduğu kimi" təqdim olunur, xidmətin fasiləsiz işləyəcəyinə zəmanət vermirik.</p>
+
+      <h2>9. Hesabın dayandırılması</h2>
+      <p>Bu Şərtləri pozduğunuz təqdirdə hesabınızı xəbərdarlıq etmədən dayandıra və ya silə bilərik.</p>
+
+      <h2>10. Şərtlərin dəyişdirilməsi</h2>
+      <p>Bu Şərtlər zaman-zaman yenilənə bilər.</p>
+
+      <h2>11. Əlaqə</h2>
+      <p>Suallarınız üçün: <a href="mailto:meevima.app@gmail.com">meevima.app@gmail.com</a></p>
+    </div>
+
+    <div class="lang-block" id="en">
+      <h2>1. Acceptance of Terms</h2>
+      <p>By downloading, registering for, or using the "Meevima" mobile application ("App"), you fully accept these Terms of Service.</p>
+      <p>App owner/responsible party: <strong>Rasim Ağayev</strong><br>Contact: <strong>meevima.app@gmail.com</strong></p>
+
+      <h2>2. Age Requirement</h2>
+      <p>The minimum age to use the App is <strong>18</strong>.</p>
+
+      <h2>3. Account</h2>
+      <ul>
+        <li>You are responsible for the accuracy of your registration information</li>
+        <li>You are responsible for your account's security</li>
+        <li>A phone number may only be linked to one account</li>
+        <li>You may delete your account at any time</li>
+      </ul>
+
+      <h2>4. User Conduct Rules</h2>
+      <p>PROHIBITED: creating fake profiles/venues/offers, harassing or threatening other users, posting illegal content, sending spam, impersonating others, attempting to breach security systems.</p>
+
+      <h2>5. User-Generated Content</h2>
+      <p>You are responsible for the accuracy of the content you create. We may remove rule-violating content without notice.</p>
+
+      <h2>6. VIP Subscription and Payments</h2>
+      <p>Monthly, 3-Month, and Annual tiers are available, priced in local currency. Subscriptions auto-renew. No free trial. Payments are processed via Apple/Google systems.</p>
+
+      <h2>7. Location-Based Services and Personal Safety</h2>
+      <p class="warn">WE ARE NOT RESPONSIBLE FOR INTERACTIONS OR MEETINGS BETWEEN USERS. Exercising caution during in-person meetings is your own responsibility.</p>
+
+      <h2>8. Limitation of Liability</h2>
+      <p>The App is provided "as is." We do not guarantee uninterrupted or error-free service.</p>
+
+      <h2>9. Account Suspension</h2>
+      <p>We may suspend or delete your account without notice if you violate these Terms.</p>
+
+      <h2>10. Changes to Terms</h2>
+      <p>These Terms may be updated from time to time.</p>
+
+      <h2>11. Contact</h2>
+      <p>For questions: <a href="mailto:meevima.app@gmail.com">meevima.app@gmail.com</a></p>
+    </div>
+  </section>
+
+  <footer>© 2026 Meevima. Bütün hüquqlar qorunur. / All rights reserved.</footer>
+</div>
+
+<script>
+function showLang(lang, btn) {
+  document.querySelectorAll('.lang-block').forEach(el => el.classList.remove('active'));
+  document.getElementById(lang).classList.add('active');
+  document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('page-title').textContent = lang === 'az' ? 'İstifadə Şərtləri' : 'Terms of Service';
+}
+</script>
+</body>
+</html>

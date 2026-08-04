@@ -48,9 +48,24 @@ dependencies:
   geoflutterfire_plus: ^0.0.31
   http: ^1.2.2
   gal: ^2.3.0
+  wakelock_plus: ^1.2.10
+  flutter_webrtc: ^0.12.6
+  webrtc_interface: ^1.5.1
+
+dependency_overrides:
+  # pub.dev's video_thumbnail 0.5.6 (the latest published version) still
+  # ships an Android build.gradle pointing at jcenter(), which was shut
+  # down and no longer exists as a valid Gradle repository method under
+  # Gradle 9 — the upstream package has no fix. Patched local copy in
+  # packages/video_thumbnail/ (jcenter() -> mavenCentral(), otherwise
+  # identical) instead of waiting on an abandoned dependency.
+  video_thumbnail:
+    path: packages/video_thumbnail
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+  integration_test:
     sdk: flutter
 
   flutter_launcher_icons: ^0.14.1
@@ -72,7 +87,7 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/icon.png"
-  adaptive_icon_background: "#003C33"
+  adaptive_icon_background: "#001A17"
   adaptive_icon_foreground: "assets/icon_foreground.png"
   min_sdk_android: 21
   remove_alpha_ios: true

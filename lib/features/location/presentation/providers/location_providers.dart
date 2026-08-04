@@ -5,6 +5,9 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
+import '../../../../core/utils/age_calculator.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
+import '../../../safety/presentation/providers/safety_providers.dart';
 import '../../domain/location_failure.dart';
 import '../../domain/nearby_user.dart';
 
@@ -25,12 +28,28 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
   final fb.FirebaseAuth _auth;
   StreamSubscription<Position>? _liveSubscription;
 
+  /// Driven by the Xəritə və Lokasiya → GPS dəqiqliyi setting (see
+  /// [applyAccuracy]). Defaults to high until that preference loads.
+  LocationAccuracy _accuracy = LocationAccuracy.high;
+
   Future<void> refresh() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(_getPosition);
     final position = state.valueOrNull;
     if (position != null) {
       await _writePosition(position);
+      _startLiveUpdates();
+    }
+  }
+
+  /// Applies a GPS accuracy preference change immediately — restarts
+  /// the live stream so it takes effect without needing an app
+  /// restart, matching the general rule that Settings toggles must
+  /// have a real, live effect.
+  void applyAccuracy(LocationAccuracy accuracy) {
+    if (_accuracy == accuracy) return;
+    _accuracy = accuracy;
+    if (state.valueOrNull != null) {
       _startLiveUpdates();
     }
   }
@@ -54,7 +73,7 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
     }
 
     return Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+      locationSettings: LocationSettings(accuracy: _accuracy),
     );
   }
 
@@ -64,8 +83,8 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
   void _startLiveUpdates() {
     _liveSubscription?.cancel();
     _liveSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
+      locationSettings: LocationSettings(
+        accuracy: _accuracy,
         distanceFilter: 25, // metres — avoids writing on every tiny jitter
       ),
     ).listen((position) {
@@ -95,10 +114,55 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
   }
 }
 
-/// Radius options matching the product spec (in kilometres).
-const kRadiusOptionsKm = <double>[1, 5, 10, 25, 50];
+/// Radius options matching the product spec (in kilometres): 100 m, 500 m
+/// and 1 km are free; 5/10/30 km require Premium (see [isPremiumRadiusKm]).
+const kRadiusOptionsKm = <double>[0.1, 0.5, 1, 5, 10, 30];
 
-final selectedRadiusKmProvider = StateProvider<double>((ref) => 1.0);
+/// The 3 VIP-only distance options shown in the "Daha çox" panel
+/// (Ölkə üzrə/Dünya üzrə live alongside these but aren't km values,
+/// so they're not part of this list).
+const kExtraRadiusOptionsKm = <double>[5, 10, 30];
+
+/// The 3 free options shown in the always-visible row — everything
+/// else (5/10 km here, plus 30 km/Ölkə/Dünya added in the "Daha çox"
+/// panel) lives behind that trigger.
+const kDefaultRadiusOptionsKm = <double>[0.1, 0.5, 1];
+
+/// Radius options at or above this value require an active Premium
+/// subscription. Kept as a single constant so the free/paid line only
+/// needs to change in one place.
+const kPremiumRadiusThresholdKm = 5.0;
+
+bool isPremiumRadiusKm(double km) => km >= kPremiumRadiusThresholdKm;
+
+/// Which of the 8 "Kəşf et" view modes is active: a distance ring
+/// ([km] set), Ölkə üzrə, or Dünya üzrə. Only one at a time — country
+/// and world aren't "infinite radius", they're genuinely different
+/// queries (see [nearbyUsersProvider]).
+enum DiscoverRadiusMode { distance, country, world }
+
+class DiscoverRadiusSelection {
+  final DiscoverRadiusMode mode;
+  final double? km;
+
+  const DiscoverRadiusSelection.distance(this.km) : mode = DiscoverRadiusMode.distance;
+  const DiscoverRadiusSelection.country()
+      : mode = DiscoverRadiusMode.country,
+        km = null;
+  const DiscoverRadiusSelection.world()
+      : mode = DiscoverRadiusMode.world,
+        km = null;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DiscoverRadiusSelection && other.mode == mode && other.km == km;
+
+  @override
+  int get hashCode => Object.hash(mode, km);
+}
+
+final selectedDiscoverModeProvider =
+    StateProvider<DiscoverRadiusSelection>((ref) => const DiscoverRadiusSelection.distance(1.0));
 
 /// Gender filter for the discover map/cards. Matches the free-text
 /// `gender` values ('Kişi' / 'Qadın') already written to Firestore
@@ -126,20 +190,122 @@ final _nearbyCandidatesProvider = StreamProvider<List<Map<String, dynamic>>>((re
       .map((snapshot) => snapshot.docs.map((d) => {...d.data(), 'uid': d.id}).toList());
 });
 
-final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
+/// Everyone online in [country] — backs "Ölkə üzrə". Deliberately no
+/// `lastSeen` recency cutoff (unlike [_nearbyCandidatesProvider]) —
+/// country-wide is meant to surface anyone currently online, not just
+/// the last 15 minutes. The `.limit` is defensive only (a populous
+/// country could have many online users); real pagination/clustering
+/// is a follow-up if this becomes a real bottleneck.
+final _countryCandidatesProvider = StreamProvider.family<List<Map<String, dynamic>>, String>((ref, country) {
+  return FirebaseFirestore.instance
+      .collection('users')
+      .where('country', isEqualTo: country)
+      .where('online', isEqualTo: true)
+      .limit(300)
+      .snapshots()
+      .map((snapshot) => snapshot.docs.map((d) => {...d.data(), 'uid': d.id}).toList());
+});
+
+/// Everyone online worldwide — backs "Dünya üzrə". Same defensive-cap
+/// reasoning as [_countryCandidatesProvider], just a larger bound
+/// since it's the broadest possible view.
+final _worldCandidatesProvider = StreamProvider<List<Map<String, dynamic>>>((ref) {
+  return FirebaseFirestore.instance
+      .collection('users')
+      .where('online', isEqualTo: true)
+      .limit(500)
+      .snapshots()
+      .map((snapshot) => snapshot.docs.map((d) => {...d.data(), 'uid': d.id}).toList());
+});
+
+/// True when either side of the pair has blocked the other — [myBlockedIds]
+/// is the signed-in user's own block list, and [otherData] is the
+/// candidate's raw user doc (whose own `blockedUsers` array tells us if
+/// THEY blocked us, with no extra Firestore read needed).
+bool _isBlockedPair(String myUid, Set<String> myBlockedIds, String otherUid, Map<String, dynamic> otherData) {
+  if (myBlockedIds.contains(otherUid)) return true;
+  final theirBlockedUsers = (otherData['blockedUsers'] as List?)?.cast<String>() ?? const [];
+  return theirBlockedUsers.contains(myUid);
+}
+
+/// Ghost Mode's one and only job — see `PrivacySettings.ghostModeEnabled`'s
+/// doc comment. A ghost-mode user is simply never a map/Discover
+/// candidate; their profile page and media stay reachable through any
+/// other route (chat, direct link, existing follow).
+bool _isGhostMode(Map<String, dynamic> data) => data['ghostModeEnabled'] as bool? ?? false;
+
+/// Live count of nearby users per radius option, recomputed from the same
+/// real Firestore candidate stream/position [nearbyUsersProvider] uses —
+/// no hardcoded numbers. Also respects the current gender filter, so the
+/// count next to each radius button matches what selecting it would
+/// actually show. Recalculates automatically whenever the candidate set
+/// or the device's position changes.
+final radiusUserCountsProvider = Provider<Map<double, int>>((ref) {
   final position = ref.watch(locationControllerProvider).valueOrNull;
-  final radiusKm = ref.watch(selectedRadiusKmProvider);
   final genderFilter = ref.watch(selectedGenderFilterProvider);
   final candidates = ref.watch(_nearbyCandidatesProvider).valueOrNull ?? const [];
+  final myBlockedIds = ref.watch(blockedUserIdsProvider).valueOrNull ?? const {};
+  final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
+
+  final counts = <double, int>{for (final km in kRadiusOptionsKm) km: 0};
+  if (position == null) return counts;
+
+  for (final data in candidates) {
+    final uid = data['uid'] as String?;
+    if (uid == null || uid == myUid) continue;
+    if (myUid != null && _isBlockedPair(myUid, myBlockedIds, uid, data)) continue;
+    if (_isGhostMode(data)) continue;
+
+    final lat = (data['lat'] as num?)?.toDouble();
+    final lng = (data['lng'] as num?)?.toDouble();
+    if (lat == null || lng == null) continue;
+
+    final gender = data['gender'] as String?;
+    if (genderFilter == GenderFilter.male && gender != 'Kişi') continue;
+    if (genderFilter == GenderFilter.female && gender != 'Qadın') continue;
+
+    final distance = Geolocator.distanceBetween(
+      position.latitude,
+      position.longitude,
+      lat,
+      lng,
+    );
+
+    for (final km in kRadiusOptionsKm) {
+      if (distance <= km * 1000) counts[km] = counts[km]! + 1;
+    }
+  }
+
+  return counts;
+});
+
+final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
+  final position = ref.watch(locationControllerProvider).valueOrNull;
+  final selection = ref.watch(selectedDiscoverModeProvider);
+  final genderFilter = ref.watch(selectedGenderFilterProvider);
+  final myBlockedIds = ref.watch(blockedUserIdsProvider).valueOrNull ?? const {};
   final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
 
   if (position == null) return const [];
+
+  final List<Map<String, dynamic>> candidates;
+  switch (selection.mode) {
+    case DiscoverRadiusMode.distance:
+      candidates = ref.watch(_nearbyCandidatesProvider).valueOrNull ?? const [];
+    case DiscoverRadiusMode.country:
+      final myCountry = ref.watch(profileControllerProvider.select((p) => p.country));
+      candidates = myCountry == null ? const [] : ref.watch(_countryCandidatesProvider(myCountry)).valueOrNull ?? const [];
+    case DiscoverRadiusMode.world:
+      candidates = ref.watch(_worldCandidatesProvider).valueOrNull ?? const [];
+  }
 
   final result = <NearbyUser>[];
 
   for (final data in candidates) {
     final uid = data['uid'] as String?;
     if (uid == null || uid == myUid) continue;
+    if (myUid != null && _isBlockedPair(myUid, myBlockedIds, uid, data)) continue;
+    if (_isGhostMode(data)) continue;
 
     final lat = (data['lat'] as num?)?.toDouble();
     final lng = (data['lng'] as num?)?.toDouble();
@@ -151,7 +317,9 @@ final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
       lat,
       lng,
     );
-    if (distance > radiusKm * 1000) continue;
+    // Country/world modes show everyone the query already scoped —
+    // no additional distance cutoff, unlike a real radius ring.
+    if (selection.mode == DiscoverRadiusMode.distance && distance > selection.km! * 1000) continue;
 
     final gender = data['gender'] as String?;
     if (genderFilter == GenderFilter.male && gender != 'Kişi') continue;
@@ -160,18 +328,25 @@ final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
     final firstName = data['firstName'] as String? ?? '';
     final lastName = data['lastName'] as String? ?? '';
     final fullName = '$firstName $lastName'.trim();
-    final interests = (data['interests'] as List?)?.cast<String>() ?? const [];
+    final birthDate = (data['birthDate'] as Timestamp?)?.toDate();
 
     result.add(NearbyUser(
       id: uid,
-      name: fullName.isEmpty ? 'İstifadəçi' : fullName,
+      // Empty when the user has no name on file — resolved to a localized
+      // fallback ("İstifadəçi"/"User"/...) at display time, since this
+      // provider has no BuildContext to translate with.
+      name: fullName,
       lat: lat,
       lng: lng,
-      mainInterest: interests.isNotEmpty ? interests.first : '',
+      bio: data['bio'] as String? ?? '',
       photoUrl: data['photoUrl'] as String?,
       online: data['online'] as bool? ?? false,
-      age: data['age'] as int?,
+      age: birthDate == null ? null : calculateAge(birthDate),
       gender: gender,
+      starCount: (data['starCount'] as num?)?.toInt() ?? 0,
+      heartCount: (data['heartCount'] as num?)?.toInt() ?? 0,
+      dislikeCount: (data['dislikeCount'] as num?)?.toInt() ?? 0,
+      lastSeen: (data['lastSeen'] as Timestamp?)?.toDate(),
       distanceMeters: distance,
     ));
   }

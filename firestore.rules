@@ -137,6 +137,22 @@ service cloud.firestore {
       match /sessions/{sessionId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      // "Profilimə baxanlar" — doc id is the VIEWER's uid, so repeat
+      // visits update the same doc instead of piling up duplicates.
+      // Owner-read-only (this is exactly the private data the feature
+      // exists to expose only to them); a signed-in user may only ever
+      // write their OWN entry, and never on their own profile (viewing
+      // yourself isn't a "visit").
+      match /profileViews/{viewerId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null &&
+          request.auth.uid == viewerId &&
+          request.auth.uid != userId &&
+          request.resource.data.keys().hasOnly(['viewerId', 'viewedAt']) &&
+          request.resource.data.viewerId == viewerId;
+        allow delete: if false;
+      }
     }
 
     // Username → uid + authEmail reservation, doc id is the username
@@ -263,6 +279,50 @@ service cloud.firestore {
         // but never remove the sender's own copy of it.
         allow update: if request.auth != null && chatId.split('_').hasAny([request.auth.uid]);
         allow delete: if request.auth != null && request.auth.uid == resource.data.senderId;
+      }
+    }
+
+    // Voice/video calls. Mirrors the `chats/{chatId}` pattern above —
+    // the SDP offer/answer live directly on the call doc (small enough
+    // for a normal write, and both sides need to read it exactly once
+    // to establish the connection), while the trickle ICE candidates
+    // each side discovers over the call's lifetime go in their own
+    // subcollections so many small appends don't require rewriting the
+    // whole doc.
+    match /calls/{callId} {
+      allow read: if request.auth != null && request.auth.uid in resource.data.participants;
+
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.callerId &&
+        request.auth.uid in request.resource.data.participants &&
+        request.resource.data.status == 'ringing';
+
+      // Callee accepting/declining (status only), either side ending
+      // the call, or the caller attaching its SDP offer / callee
+      // attaching its SDP answer — never a reassignment of who's on
+      // the call.
+      allow update: if request.auth != null &&
+        request.auth.uid in resource.data.participants &&
+        request.resource.data.participants == resource.data.participants &&
+        request.resource.data.callerId == resource.data.callerId;
+
+      allow delete: if false;
+
+      match /offerCandidates/{candidateId} {
+        allow read: if request.auth != null &&
+          request.auth.uid in get(/databases/$(database)/documents/calls/$(callId)).data.participants;
+        allow create: if request.auth != null &&
+          request.auth.uid == get(/databases/$(database)/documents/calls/$(callId)).data.callerId;
+        allow update, delete: if false;
+      }
+
+      match /answerCandidates/{candidateId} {
+        allow read: if request.auth != null &&
+          request.auth.uid in get(/databases/$(database)/documents/calls/$(callId)).data.participants;
+        allow create: if request.auth != null &&
+          request.auth.uid != get(/databases/$(database)/documents/calls/$(callId)).data.callerId &&
+          request.auth.uid in get(/databases/$(database)/documents/calls/$(callId)).data.participants;
+        allow update, delete: if false;
       }
     }
 

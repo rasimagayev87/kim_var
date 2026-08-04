@@ -4,13 +4,17 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../core/animations/animated_background.dart';
 import '../../../../core/animations/glow_logo.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../auth/presentation/screens/phone_auth_screen.dart';
+import '../../../../core/theme/app_text_styles.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../../auth/presentation/screens/login_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return Scaffold(
       body: Stack(
         children: [
@@ -32,22 +36,18 @@ class WelcomeScreen extends StatelessWidget {
                         end: const Offset(1, 1),
                       ),
                   const SizedBox(height: 22),
-                  const Text(
-                    'Ətrafındakı insanları kəşf et,\nyeni tanışlıqlar və dostluqlar qur.',
+                  Text(
+                    loc.welcomeSubtitle,
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.55,
-                      color: AppColors.textSecondary,
-                    ),
+                    style: AppTextStyles.body.copyWith(color: AppColors.textSecondary, height: 1.55),
                   ).animate().fadeIn(delay: 250.ms, duration: 500.ms),
                   const Spacer(flex: 4),
                   ElevatedButton(
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const PhoneAuthScreen()),
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
                     ),
-                    child: const Text('Başla'),
+                    child: Text(loc.welcomeStartButton),
                   ).animate().fadeIn(delay: 450.ms, duration: 450.ms).slideY(
                         begin: 0.2,
                         end: 0,

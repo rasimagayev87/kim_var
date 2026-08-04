@@ -18,12 +18,14 @@ class PremiumButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final child = loading
-        ? const SizedBox(
+        ? SizedBox(
             height: 22,
             width: 22,
             child: CircularProgressIndicator(
               strokeWidth: 2.4,
-              valueColor: AlwaysStoppedAnimation<Color>(AppColors.background),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                outlined ? AppColors.primary : AppColors.onAccent,
+              ),
             ),
           )
         : Text(label);

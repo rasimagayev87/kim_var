@@ -1,3 +1,7 @@
+import 'package:flutter/widgets.dart';
+
+import '../../l10n/app_localizations.dart';
+
 /// Shared form validators.
 class Validators {
   Validators._();
@@ -13,11 +17,12 @@ class Validators {
   static bool isPhone(String value) => _phoneRegex.hasMatch(value.trim());
 
   /// Validates a field that accepts either an email address or a
-  /// phone number. Returns an error message, or null if valid.
-  static String? contact(String? value) {
+  /// phone number. Returns a localized error message, or null if valid.
+  static String? contact(BuildContext context, String? value) {
     final v = value?.trim() ?? '';
-    if (v.isEmpty) return 'E-poçt və ya nömrənizi daxil edin';
+    final loc = AppLocalizations.of(context);
+    if (v.isEmpty) return loc.contactRequiredError;
     if (isEmail(v) || isPhone(v)) return null;
-    return 'Düzgün e-poçt və ya nömrə daxil edin';
+    return loc.contactInvalidError;
   }
 }

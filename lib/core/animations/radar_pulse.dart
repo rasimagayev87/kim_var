@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
 /// Concentric rings that continuously expand outward and fade —
 /// evokes a location "ping", reinforcing the geolocation concept
 /// behind the app while the logo forms in the center.
@@ -12,7 +14,7 @@ class RadarPulse extends StatefulWidget {
     super.key,
     required this.child,
     this.maxRadius = 170,
-    this.color = const Color(0xFF00FFD5),
+    this.color = AppColors.textMuted,
   });
 
   @override

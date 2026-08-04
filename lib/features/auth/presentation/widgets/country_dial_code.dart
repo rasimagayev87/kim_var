@@ -33,3 +33,14 @@ const kCountryDialCodes = <CountryDialCode>[
   CountryDialCode(name: 'Çin', dialCode: '+86', flag: '🇨🇳'),
   CountryDialCode(name: 'Hindistan', dialCode: '+91', flag: '🇮🇳'),
 ];
+
+/// Looks up the flag emoji for a `UserProfile.country`/`kCountryNames`
+/// value (the same curated list, per `countries_cities.dart`'s own doc
+/// comment) — null if [countryName] is null or not in this list.
+String? flagForCountryName(String? countryName) {
+  if (countryName == null) return null;
+  for (final country in kCountryDialCodes) {
+    if (country.name == countryName) return country.flag;
+  }
+  return null;
+}

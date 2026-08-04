@@ -1,90 +1,89 @@
+import '../../../../core/utils/age_calculator.dart';
+
 class UserProfile {
+  final String? username;
+  final String firstName;
+  final String lastName;
   final String? photoUrl;
   final String bio;
-  final List<String> interests;
-  final int? age;
+  final DateTime? birthDate;
   final String? gender;
-  final String? language;
   final String? country;
   final String? city;
+  final String? email;
   final bool online;
   final DateTime? lastSeen;
+  final int heartCount;
+
+  /// The functional "Hesabı təsdiq et" gate — false until the phone-
+  /// linking verification flow succeeds. Gates interactive actions via
+  /// requireVerified(); no longer drives the profile checkmark badge —
+  /// see [identityVerified] for that.
+  final bool isVerified;
+
+  /// The cosmetic profile checkmark badge — true only once the (not yet
+  /// built) "Kimlik doğrulama" identity-document flow succeeds. Separate
+  /// from [isVerified] on purpose: phone verification unlocks app
+  /// actions, but the badge is reserved for real identity verification.
+  final bool identityVerified;
 
   const UserProfile({
+    this.username,
+    this.firstName = '',
+    this.lastName = '',
     this.photoUrl,
     this.bio = '',
-    this.interests = const [],
-    this.age,
+    this.birthDate,
     this.gender,
-    this.language,
     this.country,
     this.city,
+    this.email,
     this.online = false,
     this.lastSeen,
+    this.heartCount = 0,
+    this.isVerified = false,
+    this.identityVerified = false,
   });
 
-  /// Matches the MVP spec: photo, bio, at least one interest, and
-  /// the core demographic fields all filled in.
-  bool get isComplete =>
-      photoUrl != null &&
-      bio.isNotEmpty &&
-      interests.isNotEmpty &&
-      age != null &&
-      gender != null &&
-      language != null &&
-      country != null &&
-      city != null &&
-      city!.isNotEmpty;
+  /// Always derived from [birthDate] (set once at onboarding) — there is
+  /// no separately-editable "age" field, so it can never drift out of
+  /// sync with the stored birth date.
+  int? get age => birthDate == null ? null : calculateAge(birthDate!);
 
   UserProfile copyWith({
+    String? username,
+    String? firstName,
+    String? lastName,
     String? photoUrl,
     bool clearPhoto = false,
     String? bio,
-    List<String>? interests,
-    int? age,
+    DateTime? birthDate,
     String? gender,
-    String? language,
     String? country,
     String? city,
+    String? email,
     bool? online,
     DateTime? lastSeen,
+    int? heartCount,
+    bool? isVerified,
   }) {
     return UserProfile(
+      username: username ?? this.username,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
       photoUrl: clearPhoto ? null : (photoUrl ?? this.photoUrl),
       bio: bio ?? this.bio,
-      interests: interests ?? this.interests,
-      age: age ?? this.age,
+      birthDate: birthDate ?? this.birthDate,
       gender: gender ?? this.gender,
-      language: language ?? this.language,
       country: country ?? this.country,
       city: city ?? this.city,
+      email: email ?? this.email,
       online: online ?? this.online,
       lastSeen: lastSeen ?? this.lastSeen,
+      heartCount: heartCount ?? this.heartCount,
+      isVerified: isVerified ?? this.isVerified,
     );
   }
 }
 
-/// The fixed catalogue of interests users can pick from, matching
-/// the project's product spec.
-const kAvailableInterests = <String>[
-  'Futbol',
-  'Səyahət',
-  'Kitab',
-  'Kino',
-  'Qəhvə',
-  'Startuplar',
-  'Fitness',
-  'Motosiklet',
-  'Fotoqrafiya',
-  'Süni intellekt',
-];
-
 const kGenderOptions = <String>['Kişi', 'Qadın', 'Bildirmək istəmirəm'];
-
-const kLanguageOptions = <String>[
-  'Azərbaycan',
-  'Türk',
-  'İngilis',
-  'Rus',
-  'Ərəb',
-];

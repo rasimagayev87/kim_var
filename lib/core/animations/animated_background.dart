@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
 class AnimatedBackground extends StatefulWidget {
   const AnimatedBackground({super.key});
 
@@ -56,9 +58,9 @@ class _BackgroundPainter extends CustomPainter {
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
         colors: const [
-          Color(0xFF011715),
-          Color(0xFF003C33),
-          Color(0xFF011715),
+          AppColors.background,
+          AppColors.backgroundDark,
+          AppColors.background,
         ],
         stops: [
           0,
@@ -72,7 +74,7 @@ class _BackgroundPainter extends CustomPainter {
     final glow = Paint()
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 150);
 
-    glow.color = const Color(0x3300FFD0);
+    glow.color = AppColors.textMuted.withOpacity(0.16);
 
     canvas.drawCircle(
       Offset(
@@ -93,7 +95,7 @@ class _BackgroundPainter extends CustomPainter {
     );
 
     final line = Paint()
-      ..color = const Color(0x2200FFD0)
+      ..color = AppColors.textMuted.withOpacity(0.1)
       ..strokeWidth = 1;
 
     final random = Random(8);

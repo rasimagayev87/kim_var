@@ -1,0 +1,1 @@
+enum SupportMessageType { problem, suggestion }

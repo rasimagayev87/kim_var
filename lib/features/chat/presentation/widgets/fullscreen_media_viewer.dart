@@ -1,0 +1,91 @@
+import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+
+import '../../../../core/theme/app_colors.dart';
+import '../../domain/entities/chat_message.dart';
+
+/// Full-bleed black viewer opened by tapping an image or video bubble.
+/// Images support pinch-zoom; video gets basic tap-to-toggle playback.
+class FullscreenMediaViewer extends StatefulWidget {
+  final String mediaUrl;
+  final MessageType type;
+
+  const FullscreenMediaViewer({super.key, required this.mediaUrl, required this.type});
+
+  @override
+  State<FullscreenMediaViewer> createState() => _FullscreenMediaViewerState();
+}
+
+class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
+  VideoPlayerController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.type == MessageType.video) {
+      final controller = VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl));
+      _controller = controller;
+      controller.initialize().then((_) {
+        if (!mounted) return;
+        setState(() {});
+        controller
+          ..setLooping(true)
+          ..play();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      extendBodyBehindAppBar: true,
+      body: Center(
+        child: widget.type == MessageType.image
+            ? InteractiveViewer(
+                minScale: 1,
+                maxScale: 4,
+                child: Image.network(widget.mediaUrl, fit: BoxFit.contain),
+              )
+            : _buildVideo(),
+      ),
+    );
+  }
+
+  Widget _buildVideo() {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return const CircularProgressIndicator(color: AppColors.primary);
+    }
+    return GestureDetector(
+      onTap: () => setState(() {
+        controller.value.isPlaying ? controller.pause() : controller.play();
+      }),
+      child: AspectRatio(
+        aspectRatio: controller.value.aspectRatio,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            VideoPlayer(controller),
+            AnimatedOpacity(
+              opacity: controller.value.isPlaying ? 0 : 1,
+              duration: const Duration(milliseconds: 200),
+              child: const Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 72),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

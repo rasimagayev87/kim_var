@@ -1,187 +1,305 @@
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/coming_soon_screen.dart';
+import '../../../../core/widgets/photo_placeholder_pattern.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../location/presentation/providers/presence_provider.dart';
-import '../../../onboarding/presentation/screens/welcome_screen.dart';
+import '../../../auth/presentation/widgets/verification_guard.dart';
+import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../../../follow/presentation/providers/follow_providers.dart';
+import '../../../post_share/domain/entities/post.dart';
+import '../../../post_share/presentation/providers/post_providers.dart';
+import '../../../post_share/presentation/widgets/post_capture_sheet.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
-import '../../../profile/presentation/screens/edit_profile_screen.dart';
+import '../../../profile/presentation/screens/profile_visitors_screen.dart';
+import '../../../profile/presentation/widgets/profile_display_widgets.dart';
+import '../../../settings/presentation/screens/settings_screen.dart';
+import '../../../stories/presentation/providers/story_providers.dart';
+import '../../../stories/presentation/screens/create_story_screen.dart';
+import '../../../stories/presentation/screens/story_viewer_screen.dart';
 
 class ProfileTab extends ConsumerWidget {
   const ProfileTab({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context);
     final profile = ref.watch(profileControllerProvider);
     final authUser = ref.watch(authControllerProvider).valueOrNull;
+    final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
+    final followingCount = myUid == null
+        ? 0
+        : ref.watch(followingCountProvider(myUid)).valueOrNull ?? 0;
+    final followersCount = myUid == null
+        ? 0
+        : ref.watch(followersCountProvider(myUid)).valueOrNull ?? 0;
+    final postsAsync = myUid == null
+        ? const AsyncValue.data(<Post>[])
+        : ref.watch(userPostsProvider(myUid));
 
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        children: [
-          const Text(
-            'Profil',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.white),
-          ),
-          const SizedBox(height: 24),
-          GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const EditProfileScreen()),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 72,
-                  height: 72,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: AppColors.surface,
-                    border: Border.all(color: AppColors.primary, width: 2),
-                    image: profile.photoUrl != null
-                        ? DecorationImage(
-                            image: NetworkImage(profile.photoUrl!),
-                            fit: BoxFit.cover,
-                          )
-                        : null,
-                  ),
-                  child: profile.photoUrl == null
-                      ? const Icon(Icons.person, color: AppColors.primary, size: 34)
-                      : null,
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    final displayName = authUser?.name ?? loc.profileNamePlaceholder;
+
+    return Stack(
+          children: [
+            const ChatLightBackground(),
+            SafeArea(
+              // Unconstrained on phone (maxWidth simply never binds below
+              // 640 logical px); on tablet/landscape-wide layouts this
+              // keeps the header and grid from stretching edge-to-edge
+              // into an unreadable single row of oversized avatars/text.
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 640),
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                     children: [
-                      Text(
-                        authUser?.name ?? 'Adını əlavə et',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppColors.white),
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: () async {
+                              if (!await requireVerified(context, ref)) return;
+                              if (!context.mounted) return;
+                              startCreatePostFlow(context);
+                            },
+                            icon: const Icon(
+                              Icons.add_circle_outline,
+                              color: ChatLightColors.ink,
+                              size: 22,
+                            ),
+                          ),
+                          const Spacer(),
+                          // Tightly grouped on purpose (no default
+                          // IconButton spacing between them) — three
+                          // buttons stretched across most of the row
+                          // read as loose/unfinished, not premium.
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                            onPressed: myUid == null
+                                ? null
+                                : () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ProfileVisitorsScreen(uid: myUid),
+                                      ),
+                                    ),
+                            icon: const Icon(
+                              Icons.directions_walk,
+                              color: ChatLightColors.ink,
+                              size: 20,
+                            ),
+                          ),
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ComingSoonScreen(
+                                  title: loc.shareProfileLabel,
+                                ),
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.share_outlined,
+                              color: ChatLightColors.ink,
+                              size: 20,
+                            ),
+                          ),
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const SettingsScreen(),
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.menu_rounded,
+                              color: ChatLightColors.ink,
+                              size: 22,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        profile.isComplete
-                            ? profile.bio
-                            : 'Şəkil, bio və maraqlarını əlavə et',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                      Center(
+                        child: _AvatarWithRing(photoUrl: profile.photoUrl),
+                      ),
+                      const SizedBox(height: 14),
+                      Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                displayName,
+                                style: GoogleFonts.manrope(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w800,
+                                  color: ChatLightColors.ink,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
+                            if (profile.identityVerified) ...[
+                              const SizedBox(width: 6),
+                              const Icon(
+                                Icons.verified_outlined,
+                                color: AppColors.primary,
+                                size: 21,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      if ((authUser?.username ?? '').isNotEmpty) ...[
+                        const SizedBox(height: 3),
+                        Center(
+                          child: Text(
+                            '@${authUser!.username}',
+                            style: GoogleFonts.manrope(
+                              fontSize: 13.5,
+                              color: ChatLightColors.inkSoft,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 20),
+                      ProfileStatsRow(
+                        following: followingCount,
+                        followers: followersCount,
+                        likes: myUid == null ? 0 : ref.watch(userTotalPostLikesProvider(myUid)),
+                        loc: loc,
+                      ),
+                      const SizedBox(height: 16),
+                      const PostsDivider(),
+                      const SizedBox(height: 14),
+                      postsAsync.when(
+                        data: (posts) => posts.isEmpty
+                            ? const PostFeedEmptyState()
+                            : PostGrid(posts: posts),
+                        loading: () => const PostGridLoading(),
+                        error: (_, _) => const PostFeedEmptyState(),
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
-              ],
-            ),
-          ),
-          if (profile.interests.isNotEmpty) ...[
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: profile.interests.map((interest) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: Text(
-                    interest,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.w500),
-                  ),
-                );
-              }).toList(),
+              ),
             ),
           ],
-          const SizedBox(height: 28),
-          _ProfileMenuItem(
-            icon: Icons.badge_outlined,
-            label: 'Profili redaktə et',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+        )
+        .animate()
+        .fadeIn(duration: 240.ms, curve: Curves.easeOut)
+        .slideY(begin: 0.04, end: 0, duration: 240.ms, curve: Curves.easeOut);
+  }
+}
+
+/// The gradient ring only appears while the signed-in user has at
+/// least one non-expired story — tapping the photo then opens that
+/// story (or stories, cycled in the viewer) instead of the gallery
+/// picker. With no active story, tapping the photo starts the
+/// create-story flow directly (editing the profile photo itself moved
+/// to the hamburger menu, since this tap is now dedicated to stories).
+/// The small "+" badge always opens the create-story flow regardless
+/// of ring state, so another story can be added on top of an existing
+/// active one.
+class _AvatarWithRing extends ConsumerWidget {
+  final String? photoUrl;
+
+  const _AvatarWithRing({required this.photoUrl});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final activeStories =
+        ref.watch(myActiveStoriesProvider).valueOrNull ?? const [];
+    final hasActiveStory = activeStories.isNotEmpty;
+
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        GestureDetector(
+          onTap: () async {
+            if (hasActiveStory) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StoryViewerScreen(stories: activeStories),
+                ),
+              );
+              return;
+            }
+            if (!await requireVerified(context, ref)) return;
+            if (!context.mounted) return;
+            startCreateStoryFlow(context);
+          },
+          child: Container(
+            width: 128,
+            height: 128,
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              // No active story: the ring "track" matches the page
+              // background so it reads as no ring at all, rather than
+              // changing the avatar's overall size when a story starts.
+              // A thin gradient ring — same deliberate single-accent-hue
+              // exception as `_ActiveStoryRing` on other users' profiles.
+              gradient: hasActiveStory
+                  ? const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [AppColors.primary, Color(0xFF7DEEE0)],
+                    )
+                  : null,
+              color: hasActiveStory ? null : ChatLightColors.bg1,
             ),
-          ),
-          _ProfileMenuItem(
-            icon: Icons.verified_user_outlined,
-            label: 'Kimlik doğrulama',
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => const ComingSoonScreen(title: 'Kimlik doğrulama'),
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+              ),
+              child: ClipOval(
+                child: Hero(
+                  tag: 'own-profile-avatar',
+                  child: photoUrl != null
+                      ? Image.network(photoUrl!, fit: BoxFit.cover)
+                      : const PhotoPlaceholderPattern(),
+                ),
               ),
             ),
           ),
-          _ProfileMenuItem(icon: Icons.workspace_premium_outlined, label: 'Premium-a keç'),
-          _ProfileMenuItem(icon: Icons.shield_outlined, label: 'Məxfilik və təhlükəsizlik'),
-          _ProfileMenuItem(icon: Icons.notifications_outlined, label: 'Bildirişlər'),
-          _ProfileMenuItem(icon: Icons.help_outline, label: 'Kömək'),
-          const SizedBox(height: 12),
-          _ProfileMenuItem(
-            icon: Icons.logout,
-            label: 'Çıxış et',
-            danger: true,
+        ),
+        Positioned(
+          bottom: 2,
+          right: 2,
+          child: GestureDetector(
             onTap: () async {
-              await ref.read(presenceControllerProvider).setOffline();
-              await ref.read(authControllerProvider.notifier).signOut();
+              if (!await requireVerified(context, ref)) return;
               if (!context.mounted) return;
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (_) => const WelcomeScreen()),
-                (route) => false,
-              );
+              startCreateStoryFlow(context);
             },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileMenuItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool danger;
-  final VoidCallback? onTap;
-
-  const _ProfileMenuItem({
-    required this.icon,
-    required this.label,
-    this.danger = false,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = danger ? AppColors.error : AppColors.white;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: onTap ?? () {},
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-            child: Row(
-              children: [
-                Icon(icon, color: danger ? AppColors.error : AppColors.primary, size: 20),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Text(label, style: TextStyle(color: color, fontSize: 14.5, fontWeight: FontWeight.w500)),
-                ),
-                if (!danger) const Icon(Icons.chevron_right, color: AppColors.textMuted, size: 20),
-              ],
+            child: Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primary,
+                border: Border.all(color: ChatLightColors.bg1, width: 3),
+              ),
+              child: const Icon(Icons.add, color: Colors.white, size: 18),
             ),
           ),
         ),
-      ),
+      ],
     );
   }
 }
+

@@ -1,0 +1,301 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/theme/app_colors.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../../auth/presentation/widgets/verification_guard.dart';
+import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../../../venues/domain/entities/venue.dart' show venueCategoryIcon;
+import '../../domain/entities/offer.dart';
+import '../providers/offer_providers.dart';
+import 'create_offer_screen.dart';
+
+/// Owner-only management screen — every offer the signed-in user has
+/// published, regardless of expiry (unlike the Kəşf et → Təkliflər
+/// list, which only shows active, non-expired ones). Mirrors
+/// `MyVenuesScreen` exactly.
+class MyOffersScreen extends ConsumerWidget {
+  const MyOffersScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context);
+    final offersAsync = ref.watch(myOffersProvider);
+
+    return Scaffold(
+      backgroundColor: ChatLightColors.bg1,
+      appBar: AppBar(
+        backgroundColor: ChatLightColors.bg1.withValues(alpha: 0.92),
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+        ),
+        title: Text(
+          loc.offerMyOffersTitle,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+        ),
+      ),
+      body: Stack(
+        children: [
+          const ChatLightBackground(),
+          SafeArea(
+            child: offersAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
+              error: (error, _) => Center(
+                child: Text('$error', style: const TextStyle(color: ChatLightColors.inkSoft), textAlign: TextAlign.center),
+              ),
+              data: (offers) {
+                if (offers.isEmpty) return _EmptyMyOffers(loc: loc, ref: ref);
+                return ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+                  itemCount: offers.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  itemBuilder: (context, index) => _MyOfferCard(offer: offers[index]),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+enum _MyOfferCardAction { edit, delete }
+
+class _MyOfferCard extends ConsumerWidget {
+  final Offer offer;
+
+  const _MyOfferCard({required this.offer});
+
+  Future<void> _openMenu(BuildContext context, WidgetRef ref) async {
+    final loc = AppLocalizations.of(context);
+    final action = await showModalBottomSheet<_MyOfferCardAction>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined, color: ChatLightColors.ink),
+              title: Text(loc.offerEditTitle, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+              onTap: () => Navigator.pop(sheetContext, _MyOfferCardAction.edit),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+              title: Text(loc.offerDeleteMenuOption, style: const TextStyle(fontSize: 15, color: AppColors.error)),
+              onTap: () => Navigator.pop(sheetContext, _MyOfferCardAction.delete),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (!context.mounted || action == null) return;
+
+    if (action == _MyOfferCardAction.edit) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => CreateOfferScreen(existingOffer: offer)));
+    } else {
+      _confirmDelete(context, ref);
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final loc = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(loc.offerDeleteMenuOption, style: const TextStyle(color: ChatLightColors.ink, fontWeight: FontWeight.w700)),
+        content: Text(
+          loc.offerDeleteConfirmMessage,
+          style: const TextStyle(color: ChatLightColors.inkSoft, fontSize: 14.5, height: 1.4),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: Text(loc.actionDelete),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    final success = await ref.read(offerControllerProvider).deleteOffer(
+          offer.id,
+          onError: () {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+          },
+        );
+
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerDeletedNotice)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: offer.imageUrl != null
+                        ? Image.network(offer.imageUrl!, fit: BoxFit.cover)
+                        : Container(
+                            color: ChatLightColors.cardSurface,
+                            alignment: Alignment.center,
+                            child: Icon(venueCategoryIcon(offer.category), color: ChatLightColors.inkSoft, size: 26),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 28),
+                        child: Text(
+                          offer.title,
+                          style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              offer.venueName,
+                              style: const TextStyle(fontSize: 13, color: ChatLightColors.inkSoft),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          _OfferStatusBadge(isExpired: offer.isExpired),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 6,
+            right: 6,
+            child: Material(
+              color: ChatLightColors.cardSurface,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => _openMenu(context, ref),
+                child: const Padding(
+                  padding: EdgeInsets.all(6),
+                  child: Icon(Icons.more_vert_outlined, size: 18, color: ChatLightColors.inkSoft),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyMyOffers extends StatelessWidget {
+  final AppLocalizations loc;
+  final WidgetRef ref;
+
+  const _EmptyMyOffers({required this.loc, required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+              child: const Icon(Icons.local_offer_outlined, color: ChatLightColors.inkFaint, size: 42),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              loc.offerMyOffersEmptyTitle,
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              loc.offerMyOffersEmptySubtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13.5, color: ChatLightColors.inkFaint, height: 1.5),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: () async {
+                if (!await requireVerified(context, ref)) return;
+                if (!context.mounted) return;
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateOfferScreen()));
+              },
+              icon: const Icon(Icons.add, color: AppColors.onAccent),
+              label: Text(loc.offerCreateTitle),
+              style: ElevatedButton.styleFrom(minimumSize: const Size(200, 50)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Same pill shape as Venues' own status badge — intentionally
+/// duplicated (single small stateless widget, no other coupling).
+class _OfferStatusBadge extends StatelessWidget {
+  final bool isExpired;
+
+  const _OfferStatusBadge({required this.isExpired});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final color = isExpired ? AppColors.textMuted : AppColors.primary;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
+      child: Text(
+        isExpired ? loc.offerStatusExpired : loc.offerStatusActive,
+        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color),
+      ),
+    );
+  }
+}

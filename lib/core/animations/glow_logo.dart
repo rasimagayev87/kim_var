@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
 class GlowLogo extends StatefulWidget {
   final Widget child;
 
@@ -37,16 +39,16 @@ class _GlowLogoState extends State<GlowLogo>
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, child) {
-        final glow = 15 + (_controller.value * 35);
+        final glow = 12 + (_controller.value * 24);
 
         return Container(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF00FFD5).withOpacity(0.35),
+                color: AppColors.textMuted.withOpacity(0.22),
                 blurRadius: glow,
-                spreadRadius: glow / 8,
+                spreadRadius: glow / 12,
               ),
             ],
           ),

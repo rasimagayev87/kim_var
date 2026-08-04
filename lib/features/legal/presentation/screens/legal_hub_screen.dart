@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/settings_group.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../legal_texts.dart';
-import 'legal_document_screen.dart';
+
+/// Hosted on Firebase Hosting (`legal/` public dir, see firebase.json) —
+/// same static pages linked from app-store listings, so the in-app rows
+/// and the store links always show identical content.
+const String kPrivacyPolicyUrl = 'https://kim-var-73ce9.web.app/privacy-policy.html';
+const String kTermsOfServiceUrl = 'https://kim-var-73ce9.web.app/terms-of-service.html';
 
 class LegalHubScreen extends StatelessWidget {
   const LegalHubScreen({super.key});
@@ -32,22 +37,12 @@ class LegalHubScreen extends StatelessWidget {
                 SettingsMenuRow(
                   icon: Icons.privacy_tip_outlined,
                   title: loc.legalPrivacyPolicyTitle,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => LegalDocumentScreen(title: loc.legalPrivacyPolicyTitle, content: kPrivacyPolicy),
-                    ),
-                  ),
+                  onTap: () => launchUrl(Uri.parse(kPrivacyPolicyUrl), mode: LaunchMode.externalApplication),
                 ),
                 SettingsMenuRow(
                   icon: Icons.description_outlined,
                   title: loc.legalTermsOfServiceTitle,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => LegalDocumentScreen(title: loc.legalTermsOfServiceTitle, content: kTermsOfService),
-                    ),
-                  ),
+                  onTap: () => launchUrl(Uri.parse(kTermsOfServiceUrl), mode: LaunchMode.externalApplication),
                 ),
                 SettingsMenuRow(
                   icon: Icons.article_outlined,

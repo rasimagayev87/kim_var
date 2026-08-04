@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
 
 class PremiumTextField extends StatefulWidget {
   final TextEditingController controller;
@@ -9,6 +10,12 @@ class PremiumTextField extends StatefulWidget {
   final bool isPassword;
   final TextInputType keyboardType;
   final String? Function(String?)? validator;
+  final ValueChanged<String>? onChanged;
+
+  /// Overrides the built-in password-visibility toggle with a custom
+  /// trailing icon — ignored when [isPassword] is true, since that
+  /// toggle takes priority.
+  final Widget? suffixIcon;
 
   const PremiumTextField({
     super.key,
@@ -19,6 +26,8 @@ class PremiumTextField extends StatefulWidget {
     this.isPassword = false,
     this.keyboardType = TextInputType.text,
     this.validator,
+    this.onChanged,
+    this.suffixIcon,
   });
 
   @override
@@ -34,8 +43,9 @@ class _PremiumTextFieldState extends State<PremiumTextField> {
       controller: widget.controller,
       obscureText: widget.isPassword ? _obscure : false,
       keyboardType: widget.keyboardType,
-      style: const TextStyle(color: AppColors.white, fontSize: 15),
+      style: AppTextStyles.body.copyWith(fontSize: 15.5),
       validator: widget.validator,
+      onChanged: widget.onChanged,
       decoration: InputDecoration(
         labelText: widget.label,
         hintText: widget.hint,
@@ -49,7 +59,7 @@ class _PremiumTextFieldState extends State<PremiumTextField> {
                 ),
                 onPressed: () => setState(() => _obscure = !_obscure),
               )
-            : null,
+            : widget.suffixIcon,
       ),
     );
   }

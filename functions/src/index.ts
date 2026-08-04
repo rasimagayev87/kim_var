@@ -5,6 +5,7 @@ import { getStorage } from "firebase-admin/storage";
 import { getMessaging } from "firebase-admin/messaging";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { defineSecret } from "firebase-functions/params";
 
 initializeApp();
 
@@ -19,6 +20,53 @@ const messaging = getMessaging();
 const FRESH_SIGN_IN_WINDOW_SECONDS = 5 * 60;
 
 const DELETED_SENDER_PLACEHOLDER = "Bu istifadəçi hesabını silib";
+
+// Cloudflare Realtime TURN key id + API token — set once via:
+//   firebase functions:secrets:set CLOUDFLARE_TURN_KEY_ID
+//   firebase functions:secrets:set CLOUDFLARE_TURN_API_TOKEN
+// Never embedded in the Flutter app: anything shipped in a mobile client
+// can be extracted, and this token can mint TURN credentials against
+// the project's Cloudflare billing. getTurnCredentials below is the
+// only thing allowed to hold it.
+const cloudflareTurnKeyId = defineSecret("CLOUDFLARE_TURN_KEY_ID");
+const cloudflareTurnApiToken = defineSecret("CLOUDFLARE_TURN_API_TOKEN");
+
+/**
+ * Mints short-lived (1 hour) Cloudflare Realtime TURN credentials for
+ * the CALLING signed-in user. The Flutter app calls this right before
+ * starting or accepting a call and passes the returned `iceServers`
+ * straight to its WebRTC PeerConnection config — this function is the
+ * only place the actual Cloudflare API token ever touches.
+ */
+export const getTurnCredentials = onCall(
+  { region: "us-central1", secrets: [cloudflareTurnKeyId, cloudflareTurnApiToken] },
+  async (request) => {
+    if (!request.auth?.uid) {
+      throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    }
+
+    const keyId = cloudflareTurnKeyId.value();
+    const apiToken = cloudflareTurnApiToken.value();
+    const resp = await fetch(
+      `https://rtc.live.cloudflare.com/v1/turn/keys/${keyId}/credentials/generate-ice-servers`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ttl: 3600 }),
+      }
+    );
+
+    if (!resp.ok) {
+      throw new HttpsError("internal", `Cloudflare TURN request failed: ${resp.status}`);
+    }
+
+    const json = (await resp.json()) as { iceServers: unknown };
+    return { iceServers: json.iceServers };
+  }
+);
 
 /**
  * Deletes the CALLING user's own account end-to-end, as a single
@@ -184,8 +232,18 @@ async function deleteStoragePrefix(prefix: string): Promise<void> {
  * rather than crashing the function.
  */
 async function bumpPostCounter(postId: string, field: "likesCount" | "commentsCount", delta: 1 | -1): Promise<void> {
+  // Clamped at 0 in a transaction rather than a bare FieldValue.increment
+  // — a delete-triggered decrement with no matching prior increment (e.g.
+  // an admin/script deleting a like doc directly, which still fires this
+  // same trigger) must not push the displayed count negative.
+  const ref = db.collection("posts").doc(postId);
   try {
-    await db.collection("posts").doc(postId).update({ [field]: FieldValue.increment(delta) });
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return;
+      const current = (snap.data()?.[field] as number | undefined) ?? 0;
+      tx.update(ref, { [field]: Math.max(0, current + delta) });
+    });
   } catch {
     // Post doc no longer exists — nothing to bump.
   }
@@ -485,13 +543,15 @@ export const onCommentDeleted = onDocumentDeleted("posts/{postId}/comments/{comm
 });
 
 async function bumpCommentCounter(postId: string, commentId: string, delta: 1 | -1): Promise<void> {
+  // Same clamp-at-0 reasoning as bumpPostCounter above.
+  const ref = db.collection("posts").doc(postId).collection("comments").doc(commentId);
   try {
-    await db
-      .collection("posts")
-      .doc(postId)
-      .collection("comments")
-      .doc(commentId)
-      .update({ likesCount: FieldValue.increment(delta) });
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return;
+      const current = (snap.data()?.likesCount as number | undefined) ?? 0;
+      tx.update(ref, { likesCount: Math.max(0, current + delta) });
+    });
   } catch {
     // Comment no longer exists — nothing to bump.
   }

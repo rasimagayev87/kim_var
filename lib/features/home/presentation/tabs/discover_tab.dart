@@ -1,15 +1,41 @@
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/distance_formatter.dart';
+import '../../../../core/utils/distance_unit.dart';
+import '../../../../core/widgets/coming_soon_screen.dart';
+import '../../../../core/widgets/premium_upsell_sheet.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../../auth/presentation/widgets/country_dial_code.dart';
+import '../../../auth/presentation/widgets/verification_guard.dart';
+import '../../../chat/presentation/screens/chat_conversation_screen.dart';
+import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../../../location/domain/country_bounds.dart';
 import '../../../location/domain/location_failure.dart';
 import '../../../location/domain/nearby_user.dart';
 import '../../../location/presentation/providers/location_providers.dart';
-import '../widgets/nearby_user_card_stack.dart';
+import '../../../offers/presentation/screens/create_offer_screen.dart';
+import '../../../offers/presentation/screens/my_offers_screen.dart';
+import '../../../offers/presentation/widgets/offer_list_view.dart';
+import '../../../premium/presentation/providers/premium_providers.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
+import '../../../profile/presentation/screens/user_profile_screen.dart';
+import '../../../settings/map_location/domain/entities/map_location_settings.dart';
+import '../../../settings/map_location/presentation/providers/map_location_providers.dart';
+import '../../../venues/domain/entities/venue.dart';
+import '../../../venues/domain/venue_open_status.dart';
+import '../../../venues/presentation/providers/venue_providers.dart';
+import '../../../venues/presentation/screens/create_venue_screen.dart';
+import '../../../venues/presentation/screens/my_venues_screen.dart';
+import '../../../venues/presentation/screens/venue_profile_screen.dart';
+import '../../../venues/presentation/widgets/venue_filter_sheet.dart';
 
-enum _DiscoverView { map, cards }
+enum _DiscoverView { map, places, offers }
 
 class DiscoverTab extends ConsumerStatefulWidget {
   const DiscoverTab({super.key});
@@ -24,6 +50,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final locationState = ref.watch(locationControllerProvider);
     final nearbyUsers = ref.watch(nearbyUsersProvider);
 
@@ -31,11 +58,62 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 12, 20, 8),
-            child: Text(
-              'Kəşf et',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: AppColors.white),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Row(
+              children: [
+                Expanded(child: Text(loc.discoverTitle, style: AppTextStyles.pageTitle)),
+                if (_view == _DiscoverView.map)
+                  IconButton(
+                    tooltip: loc.genderFilterTooltip,
+                    onPressed: () => _showGenderFilterSheet(context),
+                    icon: const Icon(Icons.filter_alt_outlined, color: AppColors.textSecondary),
+                  ),
+                if (_view == _DiscoverView.places) ...[
+                  IconButton(
+                    tooltip: loc.venueMyVenuesTooltip,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MyVenuesScreen()),
+                    ),
+                    icon: const Icon(Icons.storefront_outlined, color: AppColors.textSecondary),
+                  ),
+                  IconButton(
+                    tooltip: loc.venueAddButtonTooltip,
+                    onPressed: () async {
+                      if (!await requireVerified(context, ref)) return;
+                      if (!context.mounted) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CreateVenueScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.add_circle_outline, color: AppColors.textSecondary),
+                  ),
+                ],
+                if (_view == _DiscoverView.offers) ...[
+                  IconButton(
+                    tooltip: loc.offerMyOffersTooltip,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const MyOffersScreen()),
+                    ),
+                    icon: const Icon(Icons.local_offer_outlined, color: AppColors.textSecondary),
+                  ),
+                  IconButton(
+                    tooltip: loc.offerAddButtonTooltip,
+                    onPressed: () async {
+                      if (!await requireVerified(context, ref)) return;
+                      if (!context.mounted) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const CreateOfferScreen()),
+                      );
+                    },
+                    icon: const Icon(Icons.add_circle_outline, color: AppColors.textSecondary),
+                  ),
+                ],
+              ],
             ),
           ),
           Padding(
@@ -45,64 +123,77 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
               onChanged: (v) => setState(() => _view = v),
             ),
           ),
-          if (_view == _DiscoverView.map) ...[
-            const SizedBox(height: 10),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                children: [
-                  _RadiusBadge(radiusKm: ref.watch(selectedRadiusKmProvider)),
-                  const SizedBox(width: 10),
-                  Expanded(child: _GenderFilterChips()),
-                ],
-              ),
-            ),
-          ],
           const SizedBox(height: 8),
           Expanded(
-            child: locationState.when(
-              loading: () => const _StatusMessage(
-                icon: Icons.location_searching,
-                title: 'Lokasiya müəyyən edilir...',
-                subtitle: 'Bir neçə saniyə çəkə bilər.',
-                showSpinner: true,
-              ),
-              error: (error, _) => _buildError(error),
-              data: (position) => _view == _DiscoverView.map
-                  ? _buildMap(position, nearbyUsers)
-                  : NearbyUserCardStack(users: nearbyUsers),
-            ),
+            child: _view == _DiscoverView.map
+                ? locationState.when(
+                    loading: () => _StatusMessage(
+                      icon: Icons.location_searching,
+                      title: loc.locationSearchingTitle,
+                      subtitle: loc.locationSearchingSubtitle,
+                      showSpinner: true,
+                    ),
+                    error: (error, _) => _buildError(context, error),
+                    data: (position) => _buildMap(position, nearbyUsers),
+                  )
+                // Venue/offer visibility is radius-scoped too (see
+                // venue_providers.dart/offer_providers.dart, both watch
+                // selectedDiscoverModeProvider) — the picker stays visible
+                // here for the same reason it does over the map, just
+                // pinned below the list instead of over a GoogleMap.
+                : Stack(
+                    children: [
+                      _view == _DiscoverView.places ? const _VenueListView() : const OfferListView(),
+                      Positioned(
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        child: SafeArea(
+                          top: false,
+                          child: _RadiusOptionsRow(
+                            onSelected: (newSelection) async {
+                              if (!await requireVerified(context, ref)) return;
+                              if (!context.mounted) return;
+                              ref.read(selectedDiscoverModeProvider.notifier).state = newSelection;
+                            },
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildError(Object error) {
+  Widget _buildError(BuildContext context, Object error) {
+    final loc = AppLocalizations.of(context);
+
     if (error is LocationException) {
       switch (error.type) {
         case LocationFailure.serviceDisabled:
           return _StatusMessage(
             icon: Icons.location_off_outlined,
-            title: 'Lokasiya xidməti sönülüdür',
-            subtitle: 'Yaxınlıqdakı insanları görmək üçün cihazında lokasiyanı aç.',
-            actionLabel: 'Ayarları aç',
+            title: loc.locationServiceDisabledTitle,
+            subtitle: loc.locationServiceDisabledSubtitle,
+            actionLabel: loc.actionOpenSettings,
             onAction: () => Geolocator.openLocationSettings(),
           );
         case LocationFailure.permissionDenied:
           return _StatusMessage(
             icon: Icons.pin_drop_outlined,
-            title: 'Lokasiya icazəsi lazımdır',
-            subtitle: 'Ətrafındakı insanları görmək üçün icazə ver.',
-            actionLabel: 'Yenidən cəhd et',
+            title: loc.locationPermissionDeniedTitle,
+            subtitle: loc.locationPermissionDeniedSubtitle,
+            actionLabel: loc.actionRetry,
             onAction: () => ref.read(locationControllerProvider.notifier).refresh(),
           );
         case LocationFailure.permissionDeniedForever:
           return _StatusMessage(
             icon: Icons.settings_outlined,
-            title: 'İcazə həmişəlik rədd edilib',
-            subtitle: 'Telefonun ayarlarından "Kim Var" üçün lokasiya icazəsini əl ilə aç.',
-            actionLabel: 'Tətbiq ayarlarını aç',
+            title: loc.locationPermissionDeniedForeverTitle,
+            subtitle: loc.locationPermissionDeniedForeverSubtitle,
+            actionLabel: loc.actionOpenAppSettings,
             onAction: () => Geolocator.openAppSettings(),
           );
       }
@@ -110,23 +201,25 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
 
     return _StatusMessage(
       icon: Icons.error_outline,
-      title: 'Xəta baş verdi',
+      title: loc.errorTitle,
       subtitle: '$error',
-      actionLabel: 'Yenidən cəhd et',
+      actionLabel: loc.actionRetry,
       onAction: () => ref.read(locationControllerProvider.notifier).refresh(),
     );
   }
 
   Widget _buildMap(Position position, List<NearbyUser> nearbyUsers) {
+    final loc = AppLocalizations.of(context);
     final center = LatLng(position.latitude, position.longitude);
-    final radiusKm = ref.watch(selectedRadiusKmProvider);
+    final selection = ref.watch(selectedDiscoverModeProvider);
+    final mapLocationSettings = ref.watch(mapLocationSettingsProvider).valueOrNull ?? const MapLocationSettings();
 
     final markers = <Marker>{
       Marker(
         markerId: const MarkerId('me'),
         position: center,
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: const InfoWindow(title: 'Sən buradasan'),
+        infoWindow: InfoWindow(title: loc.meMarkerLabel),
       ),
       for (final u in nearbyUsers)
         Marker(
@@ -136,66 +229,122 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
         ),
     };
 
-    final zoom = _zoomForRadiusKm(radiusKm);
+    // The initial camera always frames the free/default distance
+    // ring around the device's own position — Ölkə/Dünya only kick in
+    // once the user actively picks one (see _applySelection), animated
+    // from whatever the camera currently shows.
+    final initialZoom = _zoomForRadiusKm(selection.km ?? 1.0);
 
-    return Column(
+    return Stack(
       children: [
-        Expanded(
-          child: Stack(
-            children: [
-              GoogleMap(
-                initialCameraPosition: CameraPosition(target: center, zoom: zoom),
-                onMapCreated: (controller) => _mapController = controller,
-                markers: markers,
-                circles: {
+        GoogleMap(
+          initialCameraPosition: CameraPosition(target: center, zoom: initialZoom),
+          mapType: toGoogleMapType(mapLocationSettings.mapType),
+          onMapCreated: (controller) => _mapController = controller,
+          markers: markers,
+          circles: selection.mode == DiscoverRadiusMode.distance
+              ? {
                   Circle(
                     circleId: const CircleId('radius'),
                     center: center,
-                    radius: radiusKm * 1000,
+                    radius: selection.km! * 1000,
                     fillColor: AppColors.primary.withOpacity(0.08),
                     strokeColor: AppColors.primary.withOpacity(0.4),
                     strokeWidth: 1,
                   ),
-                },
-                myLocationButtonEnabled: false,
-                zoomControlsEnabled: false,
-                onCameraMove: (_) {},
-              ),
-              Positioned(
-                right: 16,
-                bottom: 16,
-                child: FloatingActionButton(
-                  backgroundColor: AppColors.surface,
-                  foregroundColor: AppColors.primary,
-                  onPressed: () {
-                    _mapController?.animateCamera(CameraUpdate.newLatLngZoom(center, _zoomForRadiusKm(radiusKm)));
-                  },
-                  child: const Icon(Icons.my_location),
-                ),
-              ),
-            ],
-          ),
+                }
+              : const {},
+          myLocationButtonEnabled: false,
+          zoomControlsEnabled: false,
+          // Explicit rather than relying on the plugin's defaults (which
+          // are already true) — makes it unambiguous that nothing in this
+          // screen intentionally restricts pan/zoom/rotate.
+          zoomGesturesEnabled: true,
+          scrollGesturesEnabled: true,
+          rotateGesturesEnabled: true,
+          tiltGesturesEnabled: true,
+          onCameraMove: (_) {},
         ),
-        _RadiusButtonRow(
-          onSelected: (km) {
-            ref.read(selectedRadiusKmProvider.notifier).state = km;
-            _mapController?.animateCamera(CameraUpdate.newLatLngZoom(center, _zoomForRadiusKm(km)));
-          },
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 16, bottom: 12),
+                  child: FloatingActionButton(
+                    heroTag: 'discoverMyLocationFab',
+                    backgroundColor: AppColors.surface,
+                    foregroundColor: AppColors.primary,
+                    onPressed: () {
+                      _mapController?.animateCamera(
+                        CameraUpdate.newLatLngZoom(center, _zoomForRadiusKm(selection.km ?? 1.0)),
+                      );
+                    },
+                    child: const Icon(Icons.my_location),
+                  ),
+                ),
+                _RadiusOptionsRow(
+                  onSelected: (newSelection) async {
+                    if (!await requireVerified(context, ref)) return;
+                    if (!context.mounted) return;
+                    _applySelection(newSelection, center);
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
 
   double _zoomForRadiusKm(double radiusKm) {
-    if (radiusKm <= 1) return 15;
+    if (radiusKm <= 0.1) return 17;
+    if (radiusKm <= 0.5) return 15.5;
+    if (radiusKm <= 1) return 14.5;
     if (radiusKm <= 5) return 13;
     if (radiusKm <= 10) return 12;
-    if (radiusKm <= 25) return 10.5;
-    return 9;
+    return 10.5;
+  }
+
+  /// Commits [selection] to state and animates the camera to match:
+  /// a normal zoom level for a distance ring, fit-to-bounds for the
+  /// user's own country, or a whole-earth minimum zoom for Dünya üzrə.
+  void _applySelection(DiscoverRadiusSelection selection, LatLng center) {
+    ref.read(selectedDiscoverModeProvider.notifier).state = selection;
+
+    switch (selection.mode) {
+      case DiscoverRadiusMode.distance:
+        _mapController?.animateCamera(CameraUpdate.newLatLngZoom(center, _zoomForRadiusKm(selection.km!)));
+      case DiscoverRadiusMode.country:
+        final country = ref.read(profileControllerProvider).country;
+        final bounds = country == null ? null : kCountryBounds[country];
+        if (bounds == null) return;
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngBounds(
+            LatLngBounds(
+              southwest: LatLng(bounds.swLat, bounds.swLng),
+              northeast: LatLng(bounds.neLat, bounds.neLng),
+            ),
+            24,
+          ),
+        );
+      case DiscoverRadiusMode.world:
+        _mapController?.animateCamera(CameraUpdate.newLatLngZoom(const LatLng(20, 0), 1.5));
+    }
   }
 
   void _showUserCard(BuildContext context, Position myPosition, NearbyUser user) {
+    final loc = AppLocalizations.of(context);
+    final displayName = user.name.isEmpty ? loc.defaultUserName : user.name;
     final distanceMeters = user.distanceMeters;
+    final distanceUnit = ref.read(mapLocationSettingsProvider).valueOrNull?.distanceUnit ?? DistanceUnit.km;
 
     showModalBottomSheet(
       context: context,
@@ -211,84 +360,145 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: AppColors.card,
-                        image: user.photoUrl != null
-                            ? DecorationImage(image: NetworkImage(user.photoUrl!), fit: BoxFit.cover)
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UserProfileScreen(
+                          uid: user.id,
+                          initialName: displayName,
+                          initialPhotoUrl: user.photoUrl,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.card,
+                          image: user.photoUrl != null
+                              ? DecorationImage(image: NetworkImage(user.photoUrl!), fit: BoxFit.cover)
+                              : null,
+                        ),
+                        child: user.photoUrl == null
+                            ? const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 30)
                             : null,
                       ),
-                      child: user.photoUrl == null
-                          ? const Icon(Icons.person, color: AppColors.primary, size: 30)
-                          : null,
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Flexible(
-                                child: Text(
-                                  user.name,
-                                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.white),
-                                  overflow: TextOverflow.ellipsis,
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    displayName,
+                                    style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                              ),
-                              if (user.online) ...[
-                                const SizedBox(width: 6),
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primary),
-                                ),
+                                if (user.online) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primary),
+                                  ),
+                                ],
                               ],
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            distanceMeters < 1000
-                                ? '${distanceMeters.round()} m aralı'
-                                : '${(distanceMeters / 1000).toStringAsFixed(1)} km aralı',
-                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
-                          ),
-                        ],
+                            ),
+                            const SizedBox(height: 5),
+                            Text(
+                              formatDistance(loc, distanceMeters, distanceUnit),
+                              style: AppTextStyles.caption,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                if (user.mainInterest.isNotEmpty) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      user.mainInterest,
-                      style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
-                    ),
+                    ],
                   ),
-                ],
+                ),
                 const SizedBox(height: 20),
                 Row(
                   children: [
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () => Navigator.pop(sheetContext),
-                        icon: const Icon(Icons.chat_bubble_outline, size: 18, color: Color(0xFF00281E)),
-                        label: const Text('Söhbətə başla'),
+                        onPressed: () async {
+                          if (!await requireVerified(context, ref)) return;
+                          if (!context.mounted) return;
+                          Navigator.pop(sheetContext);
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ChatConversationScreen(
+                                otherUid: user.id,
+                                otherName: displayName,
+                                otherPhotoUrl: user.photoUrl,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.chat_bubble_outline, size: 18, color: AppColors.onAccent),
+                        label: Text(loc.startChatButton),
                       ),
                     ),
                   ],
                 ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showGenderFilterSheet(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final current = ref.read(selectedGenderFilterProvider);
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.surface,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(8, 20, 8, 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(loc.genderFilterSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                for (final option in [
+                  (GenderFilter.all, loc.genderFilterAll),
+                  (GenderFilter.male, loc.genderFilterMale),
+                  (GenderFilter.female, loc.genderFilterFemale),
+                ])
+                  ListTile(
+                    title: Text(option.$2, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
+                    leading: Icon(
+                      option.$1 == current ? Icons.radio_button_checked : Icons.radio_button_off,
+                      color: option.$1 == current ? AppColors.primary : AppColors.textMuted,
+                    ),
+                    onTap: () {
+                      ref.read(selectedGenderFilterProvider.notifier).state = option.$1;
+                      Navigator.pop(sheetContext);
+                    },
+                  ),
               ],
             ),
           ),
@@ -310,25 +520,35 @@ class _ViewSwitcher extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return Container(
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         children: [
           _SwitcherOption(
-            label: 'Xəritə',
-            icon: Icons.map_outlined,
+            label: loc.viewSwitcherPeopleLabel,
+            icon: Icons.people_alt_outlined,
             selected: view == _DiscoverView.map,
             onTap: () => onChanged(_DiscoverView.map),
           ),
+          const SizedBox(width: 4),
           _SwitcherOption(
-            label: 'Kartlar',
-            icon: Icons.style_outlined,
-            selected: view == _DiscoverView.cards,
-            onTap: () => onChanged(_DiscoverView.cards),
+            label: loc.viewSwitcherPlacesLabel,
+            icon: Icons.storefront_outlined,
+            selected: view == _DiscoverView.places,
+            onTap: () => onChanged(_DiscoverView.places),
+          ),
+          const SizedBox(width: 4),
+          _SwitcherOption(
+            label: loc.viewSwitcherOffersLabel,
+            icon: Icons.local_offer_outlined,
+            selected: view == _DiscoverView.offers,
+            onTap: () => onChanged(_DiscoverView.offers),
           ),
         ],
       ),
@@ -351,27 +571,34 @@ class _SwitcherOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final contentColor = selected ? AppColors.onAccent : AppColors.textSecondary;
+
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 10),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
           decoration: BoxDecoration(
             color: selected ? AppColors.primary : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 17, color: selected ? const Color(0xFF00281E) : AppColors.textSecondary),
-              const SizedBox(width: 6),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? const Color(0xFF00281E) : AppColors.textSecondary,
+              Icon(icon, size: 15, color: contentColor),
+              const SizedBox(width: 5),
+              Flexible(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.body.copyWith(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: contentColor,
+                  ),
                 ),
               ),
             ],
@@ -382,28 +609,61 @@ class _SwitcherOption extends StatelessWidget {
   }
 }
 
-class _RadiusBadge extends StatelessWidget {
-  final double radiusKm;
+/// Every radius pill (default row AND the "Daha çox" panel) shares this
+/// one height/radius/typography envelope — 80% of the pre-redesign
+/// 60px ([_kLegacyRadiusOptionHeight]), reached entirely by shrinking
+/// padding/spacing, not font sizes, so the distance label and the
+/// people-count stay just as readable.
+const double _kLegacyRadiusOptionHeight = 60;
+const double _kRadiusOptionHeight = _kLegacyRadiusOptionHeight * 0.8;
 
-  const _RadiusBadge({required this.radiusKm});
+class _RadiusOptionsRow extends ConsumerWidget {
+  final ValueChanged<DiscoverRadiusSelection> onSelected;
+
+  const _RadiusOptionsRow({required this.onSelected});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context);
+    final selection = ref.watch(selectedDiscoverModeProvider);
+    final isPremium = ref.watch(isPremiumProvider);
+    final counts = ref.watch(radiusUserCountsProvider);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.primary.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primary.withOpacity(0.4)),
-      ),
+      width: double.infinity,
+      color: AppColors.backgroundDark,
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      // A fixed-width Row of Expanded buttons so the default-row options
+      // always split the available width evenly and stay put — no
+      // scrolling, no per-option width drift as labels change length.
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.location_on, size: 14, color: AppColors.primary),
-          const SizedBox(width: 4),
-          Text(
-            _formatRadius(radiusKm),
-            style: const TextStyle(fontSize: 12, color: AppColors.primary, fontWeight: FontWeight.w600),
+          for (var i = 0; i < kDefaultRadiusOptionsKm.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: _RadiusOption(
+                km: kDefaultRadiusOptionsKm[i],
+                selected: selection.mode == DiscoverRadiusMode.distance && selection.km == kDefaultRadiusOptionsKm[i],
+                locked: isPremiumRadiusKm(kDefaultRadiusOptionsKm[i]) && !isPremium,
+                count: counts[kDefaultRadiusOptionsKm[i]] ?? 0,
+                onTap: () {
+                  final km = kDefaultRadiusOptionsKm[i];
+                  if (isPremiumRadiusKm(km) && !isPremium) {
+                    showPremiumUpsellSheet(
+                      context,
+                      title: loc.premiumUpsellRadiusTitle,
+                      message: loc.premiumUpsellRadiusMessage,
+                    );
+                    return;
+                  }
+                  onSelected(DiscoverRadiusSelection.distance(km));
+                },
+              ),
+            ),
+          ],
+          const SizedBox(width: 8),
+          Expanded(
+            child: _MoreRadiusButton(onTap: () => _showMoreRadiusSheet(context, onSelected)),
           ),
         ],
       ),
@@ -411,59 +671,54 @@ class _RadiusBadge extends StatelessWidget {
   }
 }
 
-class _GenderFilterChips extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(selectedGenderFilterProvider);
-
-    return Row(
-      children: [
-        _GenderChip(
-          label: 'Hamı',
-          selected: selected == GenderFilter.all,
-          onTap: () => ref.read(selectedGenderFilterProvider.notifier).state = GenderFilter.all,
-        ),
-        const SizedBox(width: 6),
-        _GenderChip(
-          label: 'Kişi',
-          selected: selected == GenderFilter.male,
-          onTap: () => ref.read(selectedGenderFilterProvider.notifier).state = GenderFilter.male,
-        ),
-        const SizedBox(width: 6),
-        _GenderChip(
-          label: 'Qadın',
-          selected: selected == GenderFilter.female,
-          onTap: () => ref.read(selectedGenderFilterProvider.notifier).state = GenderFilter.female,
-        ),
-      ],
-    );
-  }
+void _showMoreRadiusSheet(BuildContext context, ValueChanged<DiscoverRadiusSelection> onSelected) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.surface,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    // Soft slide-up/fade — showModalBottomSheet's default transition —
+    // is exactly the "yumşaq slide/fade animasiya" the spec asks for,
+    // so no custom transition needed here.
+    builder: (_) => _MoreRadiusPanel(onSelected: onSelected),
+  );
 }
 
-class _GenderChip extends StatelessWidget {
-  final String label;
-  final bool selected;
+/// Same pill envelope as [_RadiusOption], styled as a neutral trigger
+/// (never "selected") rather than a radius value.
+class _MoreRadiusButton extends StatelessWidget {
   final VoidCallback onTap;
 
-  const _GenderChip({required this.label, required this.selected, required this.onTap});
+  const _MoreRadiusButton({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        width: double.infinity,
+        height: _kRadiusOptionHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary : AppColors.card,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? AppColors.primary : AppColors.divider),
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.divider),
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            color: selected ? const Color(0xFF00281E) : AppColors.textSecondary,
+        child: Center(
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  loc.radiusMoreButtonLabel,
+                  style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+                ),
+                const SizedBox(width: 2),
+                const Icon(Icons.keyboard_arrow_down_outlined, size: 16, color: AppColors.textSecondary),
+              ],
+            ),
           ),
         ),
       ),
@@ -471,44 +726,279 @@ class _GenderChip extends StatelessWidget {
   }
 }
 
-class _RadiusButtonRow extends ConsumerWidget {
-  final ValueChanged<double> onSelected;
+/// The VIP-only tier: 5/10/30 km (same distance-filter logic as the
+/// free row, just a bigger radius) plus two non-distance modes, Ölkə
+/// üzrə and Dünya üzrə (real Firestore queries — see
+/// `nearbyUsersProvider` — plus a matching map camera move once
+/// selected).
+class _MoreRadiusPanel extends ConsumerWidget {
+  final ValueChanged<DiscoverRadiusSelection> onSelected;
 
-  const _RadiusButtonRow({required this.onSelected});
+  const _MoreRadiusPanel({required this.onSelected});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selectedKm = ref.watch(selectedRadiusKmProvider);
+    final loc = AppLocalizations.of(context);
+    final selection = ref.watch(selectedDiscoverModeProvider);
+    final isPremium = ref.watch(isPremiumProvider);
+    final counts = ref.watch(radiusUserCountsProvider);
+    final myCountry = ref.watch(profileControllerProvider).country;
+    final countryFlag = flagForCountryName(myCountry);
 
-    return Container(
-      color: AppColors.backgroundDark,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: kRadiusOptionsKm.map((km) {
-          final selected = selectedKm == km;
-          return GestureDetector(
-            onTap: () => onSelected(km),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-              decoration: BoxDecoration(
-                color: selected ? AppColors.primary : AppColors.card,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: selected ? AppColors.primary : AppColors.divider),
-              ),
-              child: Text(
-                _formatRadius(km),
-                style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: selected ? const Color(0xFF00281E) : AppColors.textSecondary,
-                ),
+    void handleLockedTap() {
+      showPremiumUpsellSheet(
+        context,
+        title: loc.premiumUpsellRadiusTitle,
+        message: loc.premiumUpsellRadiusMessage,
+      );
+    }
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
               ),
             ),
-          );
-        }).toList(),
+            Text(loc.radiusMorePanelTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                for (var i = 0; i < kExtraRadiusOptionsKm.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: _RadiusOption(
+                      km: kExtraRadiusOptionsKm[i],
+                      selected: selection.mode == DiscoverRadiusMode.distance &&
+                          selection.km == kExtraRadiusOptionsKm[i],
+                      locked: !isPremium,
+                      count: counts[kExtraRadiusOptionsKm[i]] ?? 0,
+                      onTap: () {
+                        if (!isPremium) {
+                          handleLockedTap();
+                          return;
+                        }
+                        onSelected(DiscoverRadiusSelection.distance(kExtraRadiusOptionsKm[i]));
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _SpecialRadiusOption(
+                    selected: selection.mode == DiscoverRadiusMode.country,
+                    locked: !isPremium,
+                    onTap: () {
+                      if (!isPremium) {
+                        handleLockedTap();
+                        return;
+                      }
+                      onSelected(const DiscoverRadiusSelection.country());
+                      Navigator.pop(context);
+                    },
+                    child: countryFlag != null
+                        ? Text(countryFlag, style: const TextStyle(fontSize: 20))
+                        : const Icon(Icons.flag_outlined, color: AppColors.textSecondary, size: 20),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SpecialRadiusOption(
+                    selected: selection.mode == DiscoverRadiusMode.world,
+                    locked: !isPremium,
+                    onTap: () {
+                      if (!isPremium) {
+                        handleLockedTap();
+                        return;
+                      }
+                      onSelected(const DiscoverRadiusSelection.world());
+                      Navigator.pop(context);
+                    },
+                    child: const Icon(Icons.public_outlined, color: AppColors.textSecondary, size: 20),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// Textless variant of [_RadiusOption] for Ölkə üzrə/Dünya üzrə — same
+/// pill envelope, just a single centered icon/flag instead of a
+/// distance label + count.
+class _SpecialRadiusOption extends StatelessWidget {
+  final Widget child;
+  final bool selected;
+  final bool locked;
+  final VoidCallback onTap;
+
+  const _SpecialRadiusOption({
+    required this.child,
+    required this.selected,
+    required this.locked,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        height: _kRadiusOptionHeight,
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected
+                ? Colors.transparent
+                : (locked ? AppColors.gold.withValues(alpha: 0.35) : AppColors.divider),
+          ),
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            child,
+            if (locked)
+              const Positioned(
+                top: 4,
+                right: 4,
+                child: Icon(Icons.workspace_premium_outlined, size: 12, color: AppColors.gold),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RadiusOption extends StatelessWidget {
+  final double km;
+  final bool selected;
+  final bool locked;
+  final int count;
+  final VoidCallback onTap;
+
+  const _RadiusOption({
+    required this.km,
+    required this.selected,
+    required this.locked,
+    required this.count,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final labelColor = selected ? AppColors.onAccent : (locked ? AppColors.white : AppColors.textSecondary);
+    final iconColor = selected ? AppColors.onAccent.withValues(alpha: 0.75) : AppColors.textMuted;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        width: double.infinity,
+        height: _kRadiusOptionHeight,
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : AppColors.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: selected
+                ? Colors.transparent
+                : (locked ? AppColors.gold.withValues(alpha: 0.35) : AppColors.divider),
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.max,
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (locked) ...[
+                    const Icon(Icons.workspace_premium_outlined, size: 12, color: AppColors.gold),
+                    const SizedBox(width: 4),
+                  ],
+                  Text(
+                    _formatRadius(km),
+                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700, color: labelColor),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 2),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: _PeopleCountIndicator(count: count, color: iconColor),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Replaces the old "{count} nəfər" text with the count plus a small
+/// overlapping cluster of head-and-shoulders glyphs (Icons.person is a
+/// bust silhouette, not a full-body figure) in dark green.
+class _PeopleCountIndicator extends StatelessWidget {
+  final int count;
+  final Color color;
+
+  const _PeopleCountIndicator({required this.count, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    const iconSize = 12.0;
+    const overlap = 7.0;
+    const iconCount = 3;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$count',
+          style: AppTextStyles.caption.copyWith(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 4),
+        SizedBox(
+          width: overlap * (iconCount - 1) + iconSize,
+          height: iconSize,
+          child: Stack(
+            children: [
+              for (var i = 0; i < iconCount; i++)
+                Positioned(
+                  left: i * overlap,
+                  child: Icon(Icons.person, size: iconSize, color: color),
+                ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -545,7 +1035,7 @@ class _StatusMessage extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: AppColors.surface,
                 boxShadow: [
-                  BoxShadow(color: AppColors.glow, blurRadius: 40, spreadRadius: 4),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20, spreadRadius: 0),
                 ],
               ),
               child: showSpinner
@@ -556,25 +1046,569 @@ class _StatusMessage extends StatelessWidget {
                         color: AppColors.primary,
                       ),
                     )
-                  : Icon(icon, color: AppColors.primary, size: 42),
+                  : Icon(icon, color: AppColors.textSecondary, size: 42),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 24),
             Text(
               title,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600, color: AppColors.white),
+              style: AppTextStyles.cardTitle,
             ),
             const SizedBox(height: 10),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13.5, height: 1.5, color: AppColors.textSecondary),
+              style: AppTextStyles.caption.copyWith(height: 1.5),
             ),
             if (actionLabel != null) ...[
               const SizedBox(height: 22),
               ElevatedButton(
                 onPressed: onAction,
                 style: ElevatedButton.styleFrom(minimumSize: const Size(220, 50)),
+                child: Text(actionLabel!),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Kəşf et → Məkanlar list — reuses the exact same radius selection as
+/// İnsanlar ([nearbyVenuesProvider] watches the same
+/// [selectedDiscoverModeProvider]), so switching tabs never resets the
+/// user's chosen distance. One-shot geohash-range fetch, not a live
+/// stream — see [VenueRepository.fetchVenuesWithinRadius].
+///
+/// This content area is a deliberate light-theme exception like the
+/// chat screens ([ChatLightBackground]/[ChatLightColors]) — the rest
+/// of Kəşf et (title, İnsanlar/Məkanlar/Təkliflər switcher) stays
+/// dark, only the venue list itself switches, matching the approved
+/// mockup.
+/// Collapses the Azerbaijani/Turkish İ/I/ı family down to plain ASCII
+/// 'i' — same fix, same reasoning as `chats_tab.dart`'s/`offer_list_view.dart`'s
+/// own private `_azSearchKey` (duplicated rather than shared).
+String _azVenueSearchKey(String value) {
+  return value.replaceAll('İ', 'i').replaceAll('I', 'i').replaceAll('ı', 'i').toLowerCase();
+}
+
+class _VenueListView extends ConsumerStatefulWidget {
+  const _VenueListView();
+
+  @override
+  ConsumerState<_VenueListView> createState() => _VenueListViewState();
+}
+
+class _VenueListViewState extends ConsumerState<_VenueListView> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openFilterSheet() async {
+    final selected = ref.read(selectedVenueCategoryFilterProvider);
+    final result = await showModalBottomSheet<Object>(
+      context: context,
+      backgroundColor: ChatLightColors.bg1,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (_) => VenueFilterSheet(selected: selected),
+    );
+    if (!mounted) return;
+
+    // null here is "dismissed without choosing" — see
+    // ClearVenueCategoryFilter's doc comment for why an explicit
+    // "Hamısı" tap can't share that same null result.
+    if (result == null) return;
+    if (result is ClearVenueCategoryFilter) {
+      ref.read(selectedVenueCategoryFilterProvider.notifier).state = null;
+    } else if (result is VenueCategory) {
+      ref.read(selectedVenueCategoryFilterProvider.notifier).state = result;
+    }
+  }
+
+  List<VenueWithDistance> _visible(List<VenueWithDistance> all, AppLocalizations loc) {
+    if (_query.isEmpty) return all;
+    final q = _azVenueSearchKey(_query);
+    return all.where((item) {
+      final venue = item.venue;
+      return _azVenueSearchKey(venue.name).contains(q) ||
+          _azVenueSearchKey(venue.address).contains(q) ||
+          _azVenueSearchKey(venueCategoryLabel(loc, venue.category)).contains(q);
+    }).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final venuesAsync = ref.watch(nearbyVenuesProvider);
+    final distanceUnit = ref.watch(mapLocationSettingsProvider).valueOrNull?.distanceUnit ?? DistanceUnit.km;
+    final selectedCategory = ref.watch(selectedVenueCategoryFilterProvider);
+
+    return Stack(
+      children: [
+        const ChatLightBackground(),
+        Positioned.fill(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
+                child: _VenueSearchField(
+                  controller: _searchController,
+                  onChanged: (v) => setState(() => _query = v.trim()),
+                  onFilterTap: _openFilterSheet,
+                  filterActive: selectedCategory != null,
+                ),
+              ),
+              Expanded(
+                child: venuesAsync.when(
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary),
+                  ),
+                  error: (error, _) => _VenueLightStatusMessage(
+                    icon: Icons.error_outline,
+                    title: loc.errorTitle,
+                    subtitle: '$error',
+                    actionLabel: loc.actionRetry,
+                    onAction: () => ref.invalidate(nearbyVenuesProvider),
+                  ),
+                  data: (venues) {
+                    final visible = _visible(venues, loc);
+                    if (visible.isEmpty) {
+                      return _VenueLightStatusMessage(
+                        icon: Icons.storefront_outlined,
+                        title: loc.venuesEmptyTitle,
+                        subtitle: loc.venuesEmptySubtitle,
+                      );
+                    }
+                    return ListView.separated(
+                      // Extra bottom padding (vs. the map view's plain 24)
+                      // so the last card doesn't sit under the persistent
+                      // _RadiusOptionsRow now pinned below this list too.
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 90),
+                      itemCount: visible.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) => _VenueCard(item: visible[index], loc: loc, distanceUnit: distanceUnit),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _VenueSearchField extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onFilterTap;
+  final bool filterActive;
+
+  const _VenueSearchField({
+    required this.controller,
+    required this.onChanged,
+    required this.onFilterTap,
+    required this.filterActive,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+            child: TextField(
+              controller: controller,
+              onChanged: onChanged,
+              style: const TextStyle(fontSize: 14.5, color: ChatLightColors.ink),
+              cursorColor: AppColors.primary,
+              decoration: InputDecoration(
+                hintText: loc.venuesSearchHint,
+                hintStyle: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 14.5),
+                prefixIcon: const Icon(Icons.search, color: ChatLightColors.inkFaint, size: 21),
+                suffixIcon: controller.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: const Icon(Icons.close, color: ChatLightColors.inkFaint, size: 18),
+                        onPressed: () {
+                          controller.clear();
+                          onChanged('');
+                        },
+                      ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                filled: false,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(vertical: 13),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Material(
+          color: Colors.white,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: onFilterTap,
+            child: Padding(
+              padding: const EdgeInsets.all(11),
+              child: Icon(
+                Icons.tune_rounded,
+                size: 20,
+                color: filterActive ? AppColors.primary : ChatLightColors.inkSoft,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Photo/distance-badge/name/category/address layout matching the
+/// approved reference mockup, styled with [ChatLightColors] for
+/// consistency with the rest of the light-theme venue screens.
+/// Deliberately no star rating (no review system exists yet — this
+/// app never shows fabricated numbers).
+class _VenueCard extends ConsumerWidget {
+  final VenueWithDistance item;
+  final AppLocalizations loc;
+  final DistanceUnit distanceUnit;
+
+  const _VenueCard({required this.item, required this.loc, required this.distanceUnit});
+
+  Future<void> _openBoostMenu(BuildContext context) async {
+    // Boost is its own paid feature (per-duration pricing), unrelated to
+    // the VIP/Premium subscription — deliberately NOT showing
+    // showPremiumUpsellSheet here, which is branded for that other
+    // product and would misrepresent this one.
+    final hours = await showModalBottomSheet<int>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) {
+        final sheetLoc = AppLocalizations.of(sheetContext);
+        Widget tier(int h, String label) => ListTile(
+              leading: const Icon(Icons.trending_up_rounded, color: ChatLightColors.ink),
+              title: Text(label, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+              subtitle: Text(sheetLoc.venueBoostPriceTba, style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkFaint)),
+              onTap: () => Navigator.pop(sheetContext, h),
+            );
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    sheetLoc.venueBoostMenuItem,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              tier(6, sheetLoc.venueBoost6h),
+              tier(12, sheetLoc.venueBoost12h),
+              tier(24, sheetLoc.venueBoost24h),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+
+    if (hours == null || !context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ComingSoonScreen(
+          title: loc.venueBoostUpsellTitle,
+          icon: Icons.trending_up_rounded,
+          message: loc.venueBoostUpsellMessage,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final venue = item.venue;
+    // .select scopes the rebuild to just this card's membership bit, so
+    // favoriting one venue doesn't rebuild every other card in the list.
+    final isFavorite = ref.watch(favoriteVenueIdsProvider.select((async) => async.valueOrNull?.contains(venue.id) ?? false));
+    final currentUid = fb.FirebaseAuth.instance.currentUser?.uid;
+    final isOwner = currentUid != null && venue.isOwnedBy(currentUid);
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(22),
+      elevation: 0,
+      shadowColor: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => VenueProfileScreen(venueId: venue.id)),
+        ),
+        child: Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 30, offset: const Offset(0, 10)),
+        ],
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Stack(
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: SizedBox(
+                      width: 76,
+                      height: 76,
+                      child: venue.photoUrl != null
+                          ? Image.network(venue.photoUrl!, fit: BoxFit.cover)
+                          : Container(
+                              color: ChatLightColors.cardSurface,
+                              alignment: Alignment.center,
+                              child: Icon(venueCategoryIcon(venue.category), color: ChatLightColors.inkSoft, size: 28),
+                            ),
+                    ),
+                  ),
+                  Positioned(
+                    left: 5,
+                    bottom: 5,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
+                      decoration: BoxDecoration(
+                        color: ChatLightColors.contourLine.withValues(alpha: 0.72),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        formatDistance(loc, item.distanceMeters, distanceUnit),
+                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 26, top: 1),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              venue.name,
+                              style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (venue.verified) ...[
+                            const SizedBox(width: 4),
+                            const Icon(Icons.verified, size: 15, color: AppColors.primary),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Icon(venueCategoryIcon(venue.category), size: 13, color: ChatLightColors.inkSoft),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              venueCategoryLabel(loc, venue.category),
+                              style: TextStyle(fontSize: 12, color: ChatLightColors.inkSoft, fontWeight: FontWeight.w500),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 7),
+                      Row(
+                        children: [
+                          _OpenStatusBadge(isOpen: isVenueOpenNow(venue.openingHours, DateTime.now())),
+                          const SizedBox(width: 6),
+                          if (!venue.openingHours.is24h)
+                            Text(
+                              _hoursSummary(venue.openingHours),
+                              style: TextStyle(fontSize: 12, color: ChatLightColors.inkFaint, fontFeatures: const [FontFeature.tabularFigures()]),
+                            ),
+                        ],
+                      ),
+                      if (venue.address.isNotEmpty) ...[
+                        const SizedBox(height: 7),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.location_on_outlined, size: 12.5, color: ChatLightColors.inkFaint),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                venue.address,
+                                style: TextStyle(fontSize: 12, color: ChatLightColors.inkSoft),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Positioned(
+            top: 0,
+            right: 0,
+            child: GestureDetector(
+              onTap: isOwner
+                  ? () => _openBoostMenu(context)
+                  : () => ref.read(venueControllerProvider).toggleFavorite(venue.id, isCurrentlyFavorite: isFavorite),
+              child: Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: ChatLightColors.inkFaint.withValues(alpha: 0.18)),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
+                ),
+                child: isOwner
+                    ? const Icon(Icons.more_vert_outlined, size: 17, color: ChatLightColors.inkSoft)
+                    : Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                        size: 15,
+                        color: isFavorite ? AppColors.primary : ChatLightColors.inkSoft,
+                      ),
+              ),
+            ),
+          ),
+        ],
+      ),
+        ),
+      ),
+    );
+  }
+
+  String _hoursSummary(OpeningHours hours) {
+    final today = hours.schedule[DateTime.now().weekday];
+    if (today == null) return loc.venueClosedNowLabel;
+    return '${today.open}–${today.close}';
+  }
+}
+
+/// Client-side-computed open/closed pill — see [isVenueOpenNow]. No
+/// external API, no live ticking; recomputed whenever the card
+/// rebuilds, which is enough for a status that only flips on the hour
+/// boundaries the venue itself configured.
+class _OpenStatusBadge extends StatelessWidget {
+  final bool isOpen;
+
+  const _OpenStatusBadge({required this.isOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final color = isOpen ? ChatLightColors.onlineGreen : ChatLightColors.inkFaint;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        isOpen ? loc.venueOpenNowLabel : loc.venueClosedNowLabel,
+        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color),
+      ),
+    );
+  }
+}
+
+/// Light-theme counterpart of [_StatusMessage] — same layout/purpose,
+/// just recolored for the venue list's [ChatLightBackground] rather
+/// than the app's dark theme.
+class _VenueLightStatusMessage extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  const _VenueLightStatusMessage({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 36),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 96,
+              height: 96,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 20)],
+              ),
+              child: Icon(icon, color: ChatLightColors.inkSoft, size: 42),
+            ),
+            const SizedBox(height: 24),
+            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink)),
+            const SizedBox(height: 10),
+            Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: ChatLightColors.inkSoft, height: 1.5),
+            ),
+            if (actionLabel != null) ...[
+              const SizedBox(height: 22),
+              ElevatedButton(
+                onPressed: onAction,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: ChatLightColors.contourLine,
+                  minimumSize: const Size(220, 50),
+                ),
                 child: Text(actionLabel!),
               ),
             ],

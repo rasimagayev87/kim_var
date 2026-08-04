@@ -1,16 +1,33 @@
-import 'dart:io';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
-import '../../../../core/widgets/country_city_picker.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/widgets/country_city_picker.dart';
 import '../../../../core/widgets/premium_button.dart';
 import '../../../../core/widgets/premium_text_field.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/user_profile.dart';
 import '../providers/profile_providers.dart';
 
+/// Same technical constraint as the register screen's username field
+/// — see `FirebaseAuthRepository._randomAuthEmail` for why the format
+/// still matters even though changing username no longer touches the
+/// sign-in credential.
+final _usernamePattern = RegExp(r'^[a-zA-Z0-9._]{3,20}$');
+
+enum _UsernameStatus { idle, checking, available, taken, invalidFormat }
+
+/// "Şəxsi məlumatlar" — reached from Settings → Account → Personal
+/// info, and from the Settings profile summary card's edit badge.
+/// Exactly the 8 fields in the design spec; photo editing lives
+/// elsewhere now (Settings' own "Profil şəklini dəyiş" row). Email
+/// has its own Account row; spoken-language and interests fields
+/// were removed from the product entirely.
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
 
@@ -19,190 +36,245 @@ class EditProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
+  late final TextEditingController _usernameController;
+  late final TextEditingController _firstNameController;
+  late final TextEditingController _lastNameController;
   late final TextEditingController _bioController;
-  late final TextEditingController _ageController;
+
+  late String _originalUsername;
+  DateTime? _birthDate;
+  String? _gender;
   String? _country;
   String? _city;
-  File? _pickedPhotoFile;
-  String? _existingPhotoUrl;
-  bool _photoRemoved = false;
-  late Set<String> _selectedInterests;
-  String? _gender;
-  String? _language;
   bool _saving = false;
+
+  Timer? _usernameDebounce;
+  _UsernameStatus _usernameStatus = _UsernameStatus.idle;
 
   @override
   void initState() {
     super.initState();
     final profile = ref.read(profileControllerProvider);
+    _originalUsername = profile.username ?? '';
+    _usernameController = TextEditingController(text: _originalUsername);
+    _firstNameController = TextEditingController(text: profile.firstName);
+    _lastNameController = TextEditingController(text: profile.lastName);
     _bioController = TextEditingController(text: profile.bio);
-    _ageController = TextEditingController(text: profile.age?.toString() ?? '');
+    _birthDate = profile.birthDate;
+    _gender = profile.gender;
     _country = profile.country;
     _city = profile.city;
-    _existingPhotoUrl = profile.photoUrl;
-    _selectedInterests = profile.interests.toSet();
-    _gender = profile.gender;
-    _language = profile.language;
   }
 
   @override
   void dispose() {
+    _usernameDebounce?.cancel();
+    _usernameController.dispose();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
     _bioController.dispose();
-    _ageController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickPhoto() async {
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 1024,
-      imageQuality: 85,
-    );
-    if (picked == null) return;
-    setState(() {
-      _pickedPhotoFile = File(picked.path);
-      _photoRemoved = false;
+  void _onUsernameChanged(String value) {
+    _usernameDebounce?.cancel();
+    final trimmed = value.trim();
+
+    if (trimmed.isEmpty || trimmed.toLowerCase() == _originalUsername.toLowerCase()) {
+      setState(() => _usernameStatus = _UsernameStatus.idle);
+      return;
+    }
+    if (!_usernamePattern.hasMatch(trimmed)) {
+      setState(() => _usernameStatus = _UsernameStatus.invalidFormat);
+      return;
+    }
+
+    setState(() => _usernameStatus = _UsernameStatus.checking);
+    _usernameDebounce = Timer(const Duration(milliseconds: 500), () async {
+      final available = await ref.read(authControllerProvider.notifier).isUsernameAvailable(trimmed);
+      if (!mounted || _usernameController.text.trim() != trimmed) return;
+      setState(() => _usernameStatus = available ? _UsernameStatus.available : _UsernameStatus.taken);
     });
   }
 
-  void _removePhoto() => setState(() {
-        _pickedPhotoFile = null;
-        _existingPhotoUrl = null;
-        _photoRemoved = true;
-      });
+  Future<void> _pickBirthDate() async {
+    final loc = AppLocalizations.of(context);
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _birthDate ?? DateTime(now.year - 20, now.month, now.day),
+      firstDate: DateTime(now.year - 100),
+      lastDate: DateTime(now.year - 13, now.month, now.day),
+      helpText: loc.birthDatePickerHelpText,
+    );
+    if (picked != null) setState(() => _birthDate = picked);
+  }
 
   Future<void> _handleSave() async {
+    final loc = AppLocalizations.of(context);
+
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    if (firstName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.fieldFirstNameRequiredError)));
+      return;
+    }
+    if (lastName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.fieldLastNameRequiredError)));
+      return;
+    }
+    if (_birthDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.onboardingSelectBirthDateError)));
+      return;
+    }
+
+    final newUsername = _usernameController.text.trim();
+    final usernameChanged = newUsername.toLowerCase() != _originalUsername.toLowerCase();
+    if (usernameChanged &&
+        (newUsername.isEmpty ||
+            _usernameStatus == _UsernameStatus.taken ||
+            _usernameStatus == _UsernameStatus.invalidFormat ||
+            _usernameStatus == _UsernameStatus.checking)) {
+      return;
+    }
+
     setState(() => _saving = true);
 
     try {
+      if (usernameChanged) {
+        await ref.read(authControllerProvider.notifier).updateUsername(
+              oldUsername: _originalUsername,
+              newUsername: newUsername,
+            );
+        _originalUsername = newUsername;
+      }
+
       await ref.read(profileControllerProvider.notifier).save(
-            localPhotoFile: _pickedPhotoFile,
-            clearPhoto: _photoRemoved,
+            firstName: firstName,
+            lastName: lastName,
+            birthDate: _birthDate!,
             bio: _bioController.text.trim(),
-            interests: _selectedInterests.toList(),
-            age: int.tryParse(_ageController.text.trim()),
             gender: _gender,
-            language: _language,
             country: _country,
             city: _city,
           );
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Yadda saxlanmadı: $e')),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.saveFailedError(e.toString()))));
       return;
     }
 
     if (!mounted) return;
     setState(() => _saving = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.profileSaveSuccessMessage)));
     Navigator.pop(context);
+  }
+
+  String? _usernameHelperText(AppLocalizations loc) {
+    switch (_usernameStatus) {
+      case _UsernameStatus.checking:
+        return loc.registerUsernameCheckingLabel;
+      case _UsernameStatus.taken:
+        return loc.registerUsernameTakenError;
+      case _UsernameStatus.invalidFormat:
+        return loc.registerUsernameInvalidFormatError;
+      case _UsernameStatus.available:
+      case _UsernameStatus.idle:
+        return null;
+    }
+  }
+
+  Color _usernameHelperColor() {
+    switch (_usernameStatus) {
+      case _UsernameStatus.taken:
+      case _UsernameStatus.invalidFormat:
+        return AppColors.error;
+      case _UsernameStatus.checking:
+      case _UsernameStatus.available:
+      case _UsernameStatus.idle:
+        return AppColors.textSecondary;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final usernameHelper = _usernameHelperText(loc);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.background,
+        centerTitle: true,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.arrow_back_ios_new, size: 18),
         ),
-        title: const Text('Profili redaktə et'),
+        title: Text(loc.editProfileTitle),
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 32),
           children: [
-            Center(
-              child: Stack(
-                children: [
-                  Container(
-                    width: 108,
-                    height: 108,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: AppColors.surface,
-                      border: Border.all(color: AppColors.primary, width: 2),
-                      image: _pickedPhotoFile != null
-                          ? DecorationImage(image: FileImage(_pickedPhotoFile!), fit: BoxFit.cover)
-                          : (_existingPhotoUrl != null
-                              ? DecorationImage(image: NetworkImage(_existingPhotoUrl!), fit: BoxFit.cover)
-                              : null),
-                    ),
-                    child: (_pickedPhotoFile == null && _existingPhotoUrl == null)
-                        ? const Icon(Icons.person, color: AppColors.primary, size: 46)
-                        : null,
-                  ),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: GestureDetector(
-                      onTap: _pickPhoto,
-                      child: Container(
-                        width: 34,
-                        height: 34,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.primary,
-                        ),
-                        child: const Icon(Icons.camera_alt, size: 17, color: Color(0xFF00281E)),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+            Text(
+              loc.personalInfoSubtitle,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.caption.copyWith(height: 1.4),
             ),
-            if (_pickedPhotoFile != null || _existingPhotoUrl != null)
-              Center(
-                child: TextButton(
-                  onPressed: _removePhoto,
-                  child: const Text('Şəkli sil'),
-                ),
+            const SizedBox(height: 24),
+            PremiumTextField(
+              controller: _usernameController,
+              label: loc.registerUsernameLabel,
+              hint: loc.registerUsernameHint,
+              icon: Icons.person_outline,
+              onChanged: _onUsernameChanged,
+              suffixIcon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 18),
+            ),
+            if (usernameHelper != null) ...[
+              const SizedBox(height: 6),
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: Text(usernameHelper, style: AppTextStyles.caption.copyWith(color: _usernameHelperColor())),
               ),
-            const SizedBox(height: 20),
-
-            Row(
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: PremiumTextField(
-                    controller: _ageController,
-                    label: 'Yaş',
-                    hint: '25',
-                    icon: Icons.cake_outlined,
-                    keyboardType: TextInputType.number,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  flex: 3,
-                  child: _DropdownField(
-                    label: 'Cins',
-                    icon: Icons.wc_outlined,
-                    value: _gender,
-                    options: kGenderOptions,
-                    onChanged: (v) => setState(() => _gender = v),
-                  ),
-                ),
-              ],
+            ],
+            const SizedBox(height: 16),
+            PremiumTextField(
+              controller: _firstNameController,
+              label: loc.fieldFirstNameLabel,
+              hint: loc.fieldFirstNameHint,
+              icon: Icons.person_outline,
             ),
             const SizedBox(height: 16),
-            _DropdownField(
-              label: 'Danışdığın dil',
-              icon: Icons.language,
-              value: _language,
-              options: kLanguageOptions,
-              onChanged: (v) => setState(() => _language = v),
+            PremiumTextField(
+              controller: _lastNameController,
+              label: loc.fieldLastNameLabel,
+              hint: loc.fieldLastNameHint,
+              icon: Icons.person_outline,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Ölkə və şəhər',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.white),
+            GestureDetector(
+              onTap: _pickBirthDate,
+              child: AbsorbPointer(
+                child: PremiumTextField(
+                  controller: TextEditingController(
+                    text: _birthDate == null ? '' : DateFormat('dd.MM.yyyy').format(_birthDate!),
+                  ),
+                  label: loc.fieldBirthDateLabel,
+                  hint: loc.fieldBirthDateHint,
+                  icon: Icons.calendar_today_outlined,
+                  suffixIcon: const Icon(Icons.keyboard_arrow_down_outlined, color: AppColors.textSecondary),
+                ),
+              ),
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
+            Text(loc.fieldGenderLabel, style: AppTextStyles.caption),
+            const SizedBox(height: 8),
+            _GenderSegmentedControl(
+              value: _gender,
+              onChanged: (v) => setState(() => _gender = v),
+            ),
+            const SizedBox(height: 16),
             CountryCityPicker(
               initialCountry: _country,
               initialCity: _city,
@@ -210,72 +282,21 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               onCityChanged: (value) => setState(() => _city = value),
             ),
             const SizedBox(height: 20),
-
-            const Text(
-              'Haqqında',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.white),
-            ),
-            const SizedBox(height: 10),
+            Text(loc.sectionAboutTitle, style: AppTextStyles.sectionTitle.copyWith(fontSize: 20)),
+            const SizedBox(height: 12),
             TextField(
               controller: _bioController,
               maxLines: 4,
               maxLength: 200,
-              style: const TextStyle(color: AppColors.white, fontSize: 14.5),
-              decoration: const InputDecoration(
-                hintText: 'Özün haqqında bir neçə cümlə yaz...',
+              style: AppTextStyles.body.copyWith(fontSize: 15.5),
+              decoration: InputDecoration(
+                hintText: loc.bioHintEdit,
+                prefixIcon: const Icon(Icons.format_quote_outlined, color: AppColors.textSecondary, size: 20),
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Maraq sahələri',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.white),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Oxşar maraqları olan insanlarla daha çox uyğunlaşacaqsan.',
-              style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: kAvailableInterests.map((interest) {
-                final selected = _selectedInterests.contains(interest);
-                return GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      if (selected) {
-                        _selectedInterests.remove(interest);
-                      } else {
-                        _selectedInterests.add(interest);
-                      }
-                    });
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: selected ? AppColors.primary : AppColors.card,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: selected ? AppColors.primary : AppColors.divider,
-                      ),
-                    ),
-                    child: Text(
-                      interest,
-                      style: TextStyle(
-                        fontSize: 13.5,
-                        fontWeight: FontWeight.w600,
-                        color: selected ? const Color(0xFF00281E) : AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 28),
             PremiumButton(
-              label: 'Yadda saxla',
+              label: loc.saveButton,
               loading: _saving,
               onPressed: _handleSave,
             ),
@@ -286,37 +307,53 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   }
 }
 
-class _DropdownField extends StatelessWidget {
-  final String label;
-  final IconData icon;
+class _GenderSegmentedControl extends StatelessWidget {
   final String? value;
-  final List<String> options;
-  final ValueChanged<String?> onChanged;
+  final ValueChanged<String> onChanged;
 
-  const _DropdownField({
-    required this.label,
-    required this.icon,
-    required this.value,
-    required this.options,
-    required this.onChanged,
-  });
+  const _GenderSegmentedControl({required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      isExpanded: true,
-      dropdownColor: AppColors.card,
-      style: const TextStyle(color: AppColors.white, fontSize: 14.5),
-      icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 20),
+    return Container(
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(16)),
+      child: Row(
+        children: [
+          for (final option in kGenderOptions.take(2))
+            Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(option),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    color: value == option ? AppColors.primary : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        option == kGenderOptions.first ? Icons.male_outlined : Icons.female_outlined,
+                        size: 18,
+                        color: value == option ? AppColors.onAccent : AppColors.textSecondary,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        option,
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: value == option ? AppColors.onAccent : AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
-      items: options
-          .map((o) => DropdownMenuItem(value: o, child: Text(o)))
-          .toList(),
-      onChanged: onChanged,
     );
   }
 }

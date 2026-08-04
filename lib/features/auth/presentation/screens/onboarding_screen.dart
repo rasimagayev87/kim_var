@@ -9,12 +9,15 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../../../core/widgets/country_city_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/premium_button.dart';
 import '../../../../core/widgets/premium_text_field.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../../home/presentation/screens/home_screen.dart';
 import '../../../location/presentation/providers/location_providers.dart';
-import '../../../profile/domain/entities/user_profile.dart' show kAvailableInterests, kGenderOptions;
-import '../../../profile/presentation/providers/profile_providers.dart';
+import '../../../profile/domain/entities/user_profile.dart' show kGenderOptions;
+import '../../../profile/presentation/providers/photo_upload_provider.dart';
+import '../../../profile/presentation/storage_failure_messages.dart';
 import '../providers/auth_providers.dart';
 
 /// Shown exactly once, right after a user's very first successful
@@ -38,7 +41,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _country;
   String? _city;
   File? _pickedPhoto;
-  final Set<String> _selectedInterests = {};
   bool _saving = false;
 
   @override
@@ -60,13 +62,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _pickBirthDate() async {
+    final loc = AppLocalizations.of(context);
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime(now.year - 20, now.month, now.day),
       firstDate: DateTime(now.year - 100),
       lastDate: DateTime(now.year - 13, now.month, now.day),
-      helpText: 'Doğum tarixini seç',
+      helpText: loc.birthDatePickerHelpText,
     );
     if (picked != null) setState(() => _birthDate = picked);
   }
@@ -89,22 +92,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   }
 
   Future<void> _finish() async {
+    final loc = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
     if (_birthDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Doğum tarixini seçin')),
+        SnackBar(content: Text(loc.onboardingSelectBirthDateError)),
       );
       return;
     }
     if (_gender == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cinsini seçin')),
+        SnackBar(content: Text(loc.onboardingSelectGenderError)),
       );
       return;
     }
     if (_country == null || _city == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ölkə və şəhəri seçin')),
+        SnackBar(content: Text(loc.onboardingSelectCountryCityError)),
       );
       return;
     }
@@ -120,15 +124,25 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             country: _country!,
             city: _city!,
             bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
-            interests: _selectedInterests.toList(),
           );
 
       if (_pickedPhoto != null) {
-        await ref.read(profileControllerProvider.notifier).save(
-              localPhotoFile: _pickedPhoto,
-              bio: _bioController.text.trim(),
-              interests: _selectedInterests.toList(),
-            );
+        // Photo is optional here, so a failure shouldn't block onboarding —
+        // the profile document itself was already created above. The user
+        // can retry from the edit-profile screen if this fails.
+        await ref.read(photoUploadControllerProvider.notifier).upload(_pickedPhoto!);
+        final uploadState = ref.read(photoUploadControllerProvider);
+        if (uploadState.status == PhotoUploadStatus.error && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                uploadState.failureType != null
+                    ? localizedStorageFailureMessage(loc, uploadState.failureType!)
+                    : loc.onboardingPhotoUploadFailedError,
+              ),
+            ),
+          );
+        }
       }
 
       await _requestPermissionsThenContinue();
@@ -143,16 +157,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       if (!mounted) return;
       setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Xəta baş verdi: $e')),
+        SnackBar(content: Text(loc.errorWithDetails(e.toString()))),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(title: const Text('Profilini tamamla')),
+      appBar: AppBar(title: Text(loc.onboardingAppBarTitle)),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -168,13 +184,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: AppColors.surface,
-                        border: Border.all(color: AppColors.primary, width: 2),
+                        border: Border.all(color: AppColors.divider, width: 2),
                         image: _pickedPhoto != null
                             ? DecorationImage(image: FileImage(_pickedPhoto!), fit: BoxFit.cover)
                             : null,
                       ),
                       child: _pickedPhoto == null
-                          ? const Icon(Icons.person, color: AppColors.primary, size: 46)
+                          ? const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 46)
                           : null,
                     ),
                     Positioned(
@@ -186,7 +202,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           width: 34,
                           height: 34,
                           decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primary),
-                          child: const Icon(Icons.camera_alt, size: 17, color: Color(0xFF00281E)),
+                          child: const Icon(Icons.camera_alt_outlined, size: 17, color: AppColors.onAccent),
                         ),
                       ),
                     ),
@@ -197,8 +213,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 child: Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
-                    'Şəkil əlavə et (keçilə bilər)',
-                    style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary.withOpacity(0.8)),
+                    loc.onboardingPhotoOptionalLabel,
+                    style: AppTextStyles.caption,
                   ),
                 ),
               ),
@@ -208,20 +224,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   Expanded(
                     child: PremiumTextField(
                       controller: _firstNameController,
-                      label: 'Ad',
-                      hint: 'Rasim',
+                      label: loc.fieldFirstNameLabel,
+                      hint: loc.fieldFirstNameHint,
                       icon: Icons.person_outline,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Ad daxil et' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty) ? loc.fieldFirstNameRequiredError : null,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: PremiumTextField(
                       controller: _lastNameController,
-                      label: 'Soyad',
-                      hint: 'Məmmədov',
+                      label: loc.fieldLastNameLabel,
+                      hint: loc.fieldLastNameHint,
                       icon: Icons.person_outline,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Soyad daxil et' : null,
+                      validator: (v) => (v == null || v.trim().isEmpty) ? loc.fieldLastNameRequiredError : null,
                     ),
                   ),
                 ],
@@ -234,8 +250,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     controller: TextEditingController(
                       text: _birthDate == null ? '' : DateFormat('dd.MM.yyyy').format(_birthDate!),
                     ),
-                    label: 'Doğum tarixi',
-                    hint: 'gg.aa.iiii',
+                    label: loc.fieldBirthDateLabel,
+                    hint: loc.fieldBirthDateHint,
                     icon: Icons.cake_outlined,
                   ),
                 ),
@@ -245,78 +261,37 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 value: _gender,
                 isExpanded: true,
                 dropdownColor: AppColors.card,
-                style: const TextStyle(color: AppColors.white, fontSize: 14.5),
-                icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary),
-                decoration: const InputDecoration(
-                  labelText: 'Cins',
-                  prefixIcon: Icon(Icons.wc_outlined, color: AppColors.textSecondary, size: 20),
+                style: AppTextStyles.body.copyWith(fontSize: 15.5),
+                icon: const Icon(Icons.keyboard_arrow_down_outlined, color: AppColors.textSecondary),
+                decoration: InputDecoration(
+                  labelText: loc.fieldGenderLabel,
+                  prefixIcon: const Icon(Icons.wc_outlined, color: AppColors.textSecondary, size: 20),
                 ),
                 items: kGenderOptions.map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
                 onChanged: (v) => setState(() => _gender = v),
               ),
-              const SizedBox(height: 16),
-              const Text(
-                'Ölkə və şəhər',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.white),
-              ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 20),
+              Text(loc.sectionCountryCityTitle, style: AppTextStyles.sectionTitle.copyWith(fontSize: 20)),
+              const SizedBox(height: 12),
               CountryCityPicker(
                 initialCountry: _country,
                 initialCity: _city,
                 onCountryChanged: (value) => setState(() => _country = value),
                 onCityChanged: (value) => setState(() => _city = value),
               ),
-              const SizedBox(height: 20),
-              const Text(
-                'Haqqında (keçilə bilər)',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.white),
-              ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 24),
+              Text(loc.sectionAboutOptionalTitle, style: AppTextStyles.sectionTitle.copyWith(fontSize: 20)),
+              const SizedBox(height: 12),
               TextField(
                 controller: _bioController,
                 maxLines: 3,
                 maxLength: 200,
-                style: const TextStyle(color: AppColors.white, fontSize: 14.5),
-                decoration: const InputDecoration(hintText: 'Özün haqqında bir neçə cümlə...'),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Maraq sahələri',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.white),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: kAvailableInterests.map((interest) {
-                  final selected = _selectedInterests.contains(interest);
-                  return GestureDetector(
-                    onTap: () => setState(() {
-                      selected ? _selectedInterests.remove(interest) : _selectedInterests.add(interest);
-                    }),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 180),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: selected ? AppColors.primary : AppColors.card,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: selected ? AppColors.primary : AppColors.divider),
-                      ),
-                      child: Text(
-                        interest,
-                        style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                          color: selected ? const Color(0xFF00281E) : AppColors.textSecondary,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
+                style: AppTextStyles.body.copyWith(fontSize: 15.5),
+                decoration: InputDecoration(hintText: loc.bioHintOnboarding),
               ),
               const SizedBox(height: 32),
               PremiumButton(
-                label: 'Tamamla və davam et',
+                label: loc.onboardingFinishButton,
                 loading: _saving,
                 onPressed: _finish,
               ),

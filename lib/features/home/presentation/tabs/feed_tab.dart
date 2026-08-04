@@ -8,6 +8,7 @@ import 'package:gal/gal.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -139,12 +140,11 @@ class _FeedTabState extends ConsumerState<FeedTab> {
   }
 }
 
-/// "Axtar" field pinned above the feed, styled as a solid rounded pill
-/// (same "premium" language as [_ChatSearchField]/the discover search
-/// bar) instead of a bare underline — it needs a visible background of
-/// its own since it floats over arbitrary photo/video content. The mute
-/// toggle sits right beside it, same row, only while the current page
-/// is a video.
+/// "Axtar" field pinned above the feed — a fully transparent pill (just
+/// a thin light border) so the photo/video content behind it stays
+/// visible, per explicit design direction over the earlier solid-fill
+/// version. The mute toggle sits right beside it, same row, only while
+/// the current page is a video.
 class _FeedTopBar extends StatelessWidget {
   final TextEditingController controller;
   final ValueChanged<String> onChanged;
@@ -171,8 +171,9 @@ class _FeedTopBar extends StatelessWidget {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(22),
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.55)),
                 ),
                 child: TextField(
                   controller: controller,
@@ -180,6 +181,14 @@ class _FeedTopBar extends StatelessWidget {
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                   cursorColor: Colors.white,
                   decoration: InputDecoration(
+                    // The app-wide InputDecorationTheme defaults every
+                    // TextField to filled:true/fillColor:white (see
+                    // app_theme.dart) — without overriding it here, that
+                    // solid white fill painted over this field's own
+                    // transparent Container, hiding the border entirely
+                    // and turning the white icon/hint invisible (white
+                    // on white).
+                    filled: false,
                     isDense: true,
                     hintText: loc.feedSearchHint,
                     hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 14),
@@ -254,6 +263,11 @@ class _FeedPostViewState extends ConsumerState<_FeedPostView> {
       await controller.setLooping(true);
       await controller.setVolume(widget.muted ? 0 : 1);
       await controller.play();
+      // Otherwise the phone's own screen-timeout kicks in mid-playback
+      // (a video has no touch input to reset it, unlike scrolling a
+      // feed) — same "keep screen on while actively playing" behavior
+      // every other video app has.
+      unawaited(WakelockPlus.enable());
       if (mounted) setState(() {});
     } catch (_) {
       // Non-fatal — the page just shows a shimmer placeholder instead
@@ -265,12 +279,14 @@ class _FeedPostViewState extends ConsumerState<_FeedPostView> {
     final controller = _controller;
     _controller = null;
     controller?.dispose();
+    unawaited(WakelockPlus.disable());
     if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _controller?.dispose();
+    unawaited(WakelockPlus.disable());
     super.dispose();
   }
 
@@ -280,8 +296,10 @@ class _FeedPostViewState extends ConsumerState<_FeedPostView> {
     setState(() => _paused = !_paused);
     if (_paused) {
       controller.pause();
+      unawaited(WakelockPlus.disable());
     } else {
       controller.play();
+      unawaited(WakelockPlus.enable());
     }
   }
 

@@ -1,6 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
+import '../theme/app_colors.dart';
+
 class MovingPeople extends StatefulWidget {
   const MovingPeople({super.key});
 
@@ -52,7 +54,7 @@ class _PeoplePainter extends CustomPainter {
     final center = Offset(size.width / 2, size.height / 2);
 
     final paint = Paint()
-      ..color = const Color(0xFF00FFD5)
+      ..color = AppColors.textMuted
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8);
 
     for (int i = 0; i < 24; i++) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_text_styles.dart';
 
 /// Renders a static legal document (Terms of Service, Privacy
 /// Policy) with a simple markdown-like structure: lines starting
@@ -45,16 +46,8 @@ class LegalDocumentScreen extends StatelessWidget {
               child: Text(
                 text,
                 style: isHeading
-                    ? const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
-                      )
-                    : const TextStyle(
-                        fontSize: 14,
-                        height: 1.6,
-                        color: AppColors.textSecondary,
-                      ),
+                    ? AppTextStyles.cardTitle.copyWith(color: AppColors.white)
+                    : AppTextStyles.bodySmall.copyWith(height: 1.6),
               ),
             );
           },

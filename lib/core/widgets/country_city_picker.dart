@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../data/countries_cities.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
 
 /// A self-contained Country → City picker built entirely with our
 /// own widgets (no third-party picker package) — searchable bottom
@@ -37,10 +39,11 @@ class _CountryCityPickerState extends State<CountryCityPicker> {
   }
 
   Future<void> _pickCountry() async {
+    final loc = AppLocalizations.of(context);
     final selected = await _showSearchSheet(
       context,
-      title: 'Ölkə seç',
-      hint: 'Ölkə axtar',
+      title: loc.pickCountryTitle,
+      hint: loc.pickCountryHint,
       items: kCountryNames,
     );
     if (selected == null) return;
@@ -54,11 +57,12 @@ class _CountryCityPickerState extends State<CountryCityPicker> {
 
   Future<void> _pickCity() async {
     if (_country == null) return;
+    final loc = AppLocalizations.of(context);
     final cities = kCitiesByCountry[_country] ?? const [];
     final selected = await _showSearchSheet(
       context,
-      title: 'Şəhər seç',
-      hint: 'Şəhər axtar',
+      title: loc.pickCityTitle,
+      hint: loc.pickCityHint,
       items: cities,
     );
     if (selected == null) return;
@@ -93,36 +97,38 @@ class _CountryCityPickerState extends State<CountryCityPicker> {
                 child: Column(
                   children: [
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 8),
+                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
                       child: Text(
                         title,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.white),
+                        textAlign: TextAlign.left,
+                        style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700),
                       ),
                     ),
                     Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: TextField(
                         autofocus: false,
-                        style: const TextStyle(color: AppColors.white, fontSize: 14.5),
+                        style: AppTextStyles.body.copyWith(fontSize: 15.5),
                         decoration: InputDecoration(
                           hintText: hint,
-                          prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary, size: 20),
+                          prefixIcon: const Icon(Icons.search_outlined, color: AppColors.textSecondary, size: 20),
                         ),
                         onChanged: (v) => setSheetState(() => query = v),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     Expanded(
                       child: filtered.isEmpty
-                          ? const Center(
-                              child: Text('Tapılmadı', style: TextStyle(color: AppColors.textSecondary)),
+                          ? Center(
+                              child: Text(AppLocalizations.of(context).searchNotFound, style: AppTextStyles.bodySmall),
                             )
                           : ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
                               itemCount: filtered.length,
                               itemBuilder: (context, index) {
                                 final item = filtered[index];
                                 return ListTile(
-                                  title: Text(item, style: const TextStyle(color: AppColors.white, fontSize: 14.5)),
+                                  title: Text(item, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
                                   onTap: () => Navigator.pop(sheetContext, item),
                                 );
                               },
@@ -140,20 +146,22 @@ class _CountryCityPickerState extends State<CountryCityPicker> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
     return Column(
       children: [
         _SelectorField(
-          label: 'Ölkə',
+          label: loc.fieldCountryLabel,
           value: _country,
-          hint: 'Ölkə seç',
-          icon: Icons.public,
+          hint: loc.pickCountryTitle,
+          icon: Icons.public_outlined,
           onTap: _pickCountry,
         ),
         const SizedBox(height: 16),
         _SelectorField(
-          label: 'Şəhər',
+          label: loc.fieldCityLabel,
           value: _city,
-          hint: _country == null ? 'Əvvəlcə ölkə seç' : 'Şəhər seç',
+          hint: _country == null ? loc.fieldCitySelectFirstHint : loc.pickCityTitle,
           icon: Icons.location_city_outlined,
           enabled: _country != null,
           onTap: _pickCity,
@@ -201,19 +209,18 @@ class _SelectorField extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
-                    const SizedBox(height: 2),
+                    Text(label, style: AppTextStyles.caption),
+                    const SizedBox(height: 3),
                     Text(
                       value ?? hint,
-                      style: TextStyle(
+                      style: AppTextStyles.body.copyWith(
                         color: value == null ? AppColors.textMuted : AppColors.white,
-                        fontSize: 14.5,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.keyboard_arrow_down, color: AppColors.textSecondary, size: 20),
+              const Icon(Icons.keyboard_arrow_down_outlined, color: AppColors.textSecondary, size: 20),
             ],
           ),
         ),
