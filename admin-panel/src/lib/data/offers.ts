@@ -2,7 +2,7 @@ import "server-only";
 
 import { getAdminDb } from "@/lib/firebase/admin";
 
-export type OfferStatus = "active" | "pending" | "rejected";
+export type OfferStatus = "approved" | "pending" | "needs_revision" | "rejected";
 export type OfferStatusFilter = "all" | OfferStatus;
 
 export interface AdminOfferRow {
@@ -14,6 +14,7 @@ export interface AdminOfferRow {
   ownerId: string;
   ownerName: string;
   status: OfferStatus;
+  reviewNote: string | null;
   startDate: string | null;
   endDate: string | null;
   createdAt: string | null;
@@ -22,7 +23,7 @@ export interface AdminOfferRow {
 const FETCH_LIMIT = 200;
 
 function parseStatus(value: unknown): OfferStatus {
-  return value === "pending" || value === "rejected" ? value : "active";
+  return value === "pending" || value === "needs_revision" || value === "rejected" ? value : "approved";
 }
 
 function toIso(value: unknown): string | null {
@@ -81,6 +82,7 @@ async function attachOwners(docs: FirebaseFirestore.QueryDocumentSnapshot[]): Pr
       ownerId: data.ownerId as string,
       ownerName: owner ? `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim() || "Naməlum" : "Naməlum",
       status: parseStatus(data.status),
+      reviewNote: (data.reviewNote as string) || null,
       startDate: toIso(data.startDate),
       endDate: toIso(data.endDate),
       createdAt: toIso(data.createdAt),

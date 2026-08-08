@@ -1,6 +1,6 @@
-# Kim Var — Admin Panel
+# PeakPin — Admin Panel
 
-Standalone Next.js web dashboard for the Kim Var mobile app. Separate
+Standalone Next.js web dashboard for the PeakPin mobile app. Separate
 codebase, same Firebase project (`kim-var-73ce9`) — Firestore, Auth,
 and Storage are shared with the Flutter app in the parent directory.
 

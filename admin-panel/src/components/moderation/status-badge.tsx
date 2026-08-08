@@ -1,8 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 
 const STATUS_LABELS: Record<string, string> = {
-  active: "Aktiv",
+  approved: "Aktiv",
   pending: "Gözləyən",
+  needs_revision: "Düzəliş tələb olunur",
   rejected: "Rədd edilib",
   inactive: "Deaktiv",
   reviewed: "Nəzərdən keçirilib",
@@ -11,8 +12,9 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
-  active: "default",
+  approved: "default",
   pending: "secondary",
+  needs_revision: "outline",
   rejected: "destructive",
   inactive: "outline",
   reviewed: "secondary",

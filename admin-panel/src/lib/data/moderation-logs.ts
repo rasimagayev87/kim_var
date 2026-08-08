@@ -4,10 +4,12 @@ import { getAdminDb } from "@/lib/firebase/admin";
 
 export type ModerationAction =
   | "venue.approved"
+  | "venue.needsRevision"
   | "venue.rejected"
   | "venue.activated"
   | "venue.deactivated"
   | "offer.approved"
+  | "offer.needsRevision"
   | "offer.rejected"
   | "offer.activated"
   | "offer.deactivated"

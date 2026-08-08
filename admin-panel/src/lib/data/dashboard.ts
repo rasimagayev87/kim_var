@@ -29,8 +29,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const [usersSnap, activeVenuesSnap, activeOffersSnap, pendingVenuesSnap, pendingOffersSnap, pendingReportsSnap] =
     await Promise.all([
       db.collection("users").count().get(),
-      db.collection("venues").where("status", "==", "active").count().get(),
-      db.collection("offers").where("status", "==", "active").count().get(),
+      db.collection("venues").where("status", "==", "approved").count().get(),
+      db.collection("offers").where("status", "==", "approved").count().get(),
       db.collection("venues").where("status", "==", "pending").count().get(),
       db.collection("offers").where("status", "==", "pending").count().get(),
       db.collection("reports").where("status", "==", "pending").count().get(),
@@ -43,6 +43,19 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     pendingModeration: pendingVenuesSnap.data().count + pendingOffersSnap.data().count,
     pendingReports: pendingReportsSnap.data().count,
   };
+}
+
+/**
+ * Backs the Dashboard's "Online İstifadəçilər" KPI. `online` is written
+ * by the Flutter app itself (LocationController), the same field the
+ * `users` collection's `country`+`online` composite index already
+ * exists for — this is a new aggregate read on an existing field, not
+ * a new Firestore field/write path.
+ */
+export async function getOnlineUsersCount(): Promise<number> {
+  const db = getAdminDb();
+  const snap = await db.collection("users").where("online", "==", true).count().get();
+  return snap.data().count;
 }
 
 /**

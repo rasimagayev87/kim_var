@@ -4,6 +4,69 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Dashboard-only design tokens (from peakpin-admin-dashboard.zip).
+   Scoped to literal light/dark utility pairs (e.g. bg-canvas /
+   dark:bg-canvas-dark) rather than the semantic --color-x indirection
+   used above, because the Dashboard page forces a `dark` wrapper
+   locally instead of following the app-wide theme toggle — see
+   app/(protected)/dashboard/page.tsx. "border" was renamed to
+   "dash-border" here since the app already has a semantic `border`
+   token (used everywhere via `border-border`); reusing that name
+   would have silently overridden borders on every other module. */
+@theme {
+  --color-canvas: #f6f7f9;
+  --color-canvas-dark: #0b0d12;
+  --color-surface: #ffffff;
+  --color-surface-dark: #12151c;
+  --color-surface-raised: #ffffff;
+  --color-surface-raised-dark: #171a22;
+  --color-dash-border: #e7e9ee;
+  --color-dash-border-dark: #232733;
+  --color-ink: #0f1115;
+  --color-ink-dark: #f3f4f6;
+  --color-ink-muted: #6b7280;
+  --color-ink-muted-dark: #8b93a3;
+  --color-cyan: #00d4e6;
+  --color-cyan-soft: #e3fbfd;
+  --color-purple: #7c3aed;
+  --color-purple-soft: #f1e9fe;
+  --color-pink: #ec4899;
+  --color-pink-soft: #fce7f3;
+  --color-amber: #f59e0b;
+  --color-amber-soft: #fef3c7;
+  --color-danger: #ef4444;
+  --color-danger-soft: #fee2e2;
+  --color-success: #10b981;
+  --color-success-soft: #d1fae5;
+  --radius-card: 16px;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 2px rgba(15, 17, 21, 0.04), 0 1px 12px rgba(15, 17, 21, 0.03);
+  --shadow-card-dark: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 12px rgba(0, 0, 0, 0.2);
+  --animate-count-up: count-up 300ms ease-out;
+  --animate-pulse-dot: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes count-up {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -55,7 +118,7 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  /* Meevima brand accent (#12D6E8) — same hex the Flutter app's
+  /* PeakPin brand accent (#12D6E8) — same hex the Flutter app's
      AppColors.primary uses, with the same dark-ink-on-accent pairing
      (AppColors.onAccent) for foreground text/icons on filled surfaces. */
   --primary: #12d6e8;

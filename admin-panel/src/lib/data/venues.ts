@@ -32,7 +32,9 @@ export const VENUE_CATEGORY_LABELS: Record<string, string> = {
   other: "Digər",
 };
 
-export type VenueStatus = "active" | "pending" | "rejected" | "inactive";
+/** `inactive` is a manual admin toggle (hide an already-approved venue)
+ * — separate from the moderation pipeline below, unaffected by it. */
+export type VenueStatus = "approved" | "pending" | "needs_revision" | "rejected" | "inactive";
 export type VenueStatusFilter = "all" | VenueStatus;
 
 export interface AdminVenueRow {
@@ -41,6 +43,7 @@ export interface AdminVenueRow {
   category: string;
   photoUrl: string | null;
   status: VenueStatus;
+  reviewNote: string | null;
   verified: boolean;
   ownerId: string;
   ownerName: string;
@@ -51,7 +54,9 @@ export interface AdminVenueRow {
 const FETCH_LIMIT = 200;
 
 function parseStatus(value: unknown): VenueStatus {
-  return value === "pending" || value === "rejected" || value === "inactive" ? value : "active";
+  return value === "pending" || value === "needs_revision" || value === "rejected" || value === "inactive"
+    ? value
+    : "approved";
 }
 
 export async function listVenues({
@@ -103,6 +108,7 @@ async function attachOwners(
       category: (data.category as string) ?? "other",
       photoUrl: (data.photoUrl as string) ?? null,
       status: parseStatus(data.status),
+      reviewNote: (data.reviewNote as string) || null,
       verified: (data.verified as boolean) ?? false,
       ownerId: data.ownerId as string,
       ownerName: owner ? `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim() || "Naməlum" : "Naməlum",

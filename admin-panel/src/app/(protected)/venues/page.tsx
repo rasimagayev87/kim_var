@@ -7,7 +7,13 @@ import { getCurrentAdmin } from "@/lib/auth/server";
 import { listVenues, type VenueStatusFilter } from "@/lib/data/venues";
 
 function parseStatus(value: string | undefined): VenueStatusFilter {
-  return value === "pending" || value === "active" || value === "inactive" || value === "rejected" ? value : "all";
+  return value === "pending" ||
+    value === "needs_revision" ||
+    value === "approved" ||
+    value === "inactive" ||
+    value === "rejected"
+    ? value
+    : "all";
 }
 
 export default async function VenuesPage({

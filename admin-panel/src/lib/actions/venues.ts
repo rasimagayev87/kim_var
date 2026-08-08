@@ -28,11 +28,13 @@ async function requireVenueModeration(): Promise<{ admin: AdminSession } | { den
  * fallback below covers it anyway. */
 function logActionForStatus(status: VenueStatus): ModerationAction {
   switch (status) {
+    case "needs_revision":
+      return "venue.needsRevision";
     case "rejected":
       return "venue.rejected";
     case "inactive":
       return "venue.deactivated";
-    case "active":
+    case "approved":
     default:
       // Covers both a pending venue's approval AND reactivating one
       // that was previously deactivated/rejected — both read as
@@ -41,18 +43,40 @@ function logActionForStatus(status: VenueStatus): ModerationAction {
   }
 }
 
-export async function setVenueStatus(id: string, status: VenueStatus): Promise<ActionResult> {
+/**
+ * `reviewNote` is required by the caller when `status` is
+ * `needs_revision` (enforced again here, not just in the dialog, since
+ * this is a Server Action any client could call directly). It's
+ * optional for `rejected` and cleared for every other status, matching
+ * the owner-facing contract: only needs_revision/rejected ever show a
+ * reason on the mobile side.
+ */
+export async function setVenueStatus(id: string, status: VenueStatus, reviewNote?: string): Promise<ActionResult> {
   const check = await requireVenueModeration();
   if ("denied" in check) return check.denied;
 
+  const note = reviewNote?.trim() || null;
+  if (status === "needs_revision" && !note) {
+    return { ok: false, error: "note-required" };
+  }
+
   try {
-    await getAdminDb().collection("venues").doc(id).update({ status, updatedAt: new Date() });
+    await getAdminDb()
+      .collection("venues")
+      .doc(id)
+      .update({
+        status,
+        reviewNote: status === "needs_revision" || status === "rejected" ? note : null,
+        reviewedBy: check.admin.uid,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      });
     await logModerationAction({
       actor: check.admin,
       action: logActionForStatus(status),
       targetType: "venue",
       targetId: id,
-      note: `status → ${status}`,
+      note: note ? `status → ${status}: ${note}` : `status → ${status}`,
     });
     revalidatePath("/venues");
     revalidatePath(`/venues/${id}`);

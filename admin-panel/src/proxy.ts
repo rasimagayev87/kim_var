@@ -47,5 +47,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // peakpin-logo.png (Sidebar logo, /public) — same reasoning as
+  // favicon.ico: a static asset that must load before/without a
+  // session (Sidebar renders it even in an about-to-redirect state),
+  // never something that needs the auth gate.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|peakpin-logo.png).*)"],
 };

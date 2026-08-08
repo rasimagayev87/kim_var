@@ -49,6 +49,12 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ id
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {venue.reviewNote && (
+            <p className="rounded-lg border bg-muted/50 p-3 text-sm">
+              <span className="font-medium">Qeyd: </span>
+              {venue.reviewNote}
+            </p>
+          )}
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="text-muted-foreground">Sahib</dt>

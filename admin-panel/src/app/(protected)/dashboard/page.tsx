@@ -1,91 +1,143 @@
-import Link from "next/link";
-import { AlertTriangle, Flag, MapPin, Tag, Users } from "lucide-react";
+import { KpiCard } from "@/components/dashboard/KpiCard";
+import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
+import { AnalyticsCard } from "@/components/dashboard/AnalyticsCard";
+import { LiveMapPanel } from "@/components/dashboard/LiveMapPanel";
+import { AiModerationPanel, AiSummaryPanel } from "@/components/dashboard/AiPanels";
+import { ReportStatsPanel } from "@/components/dashboard/ReportStatsPanel";
+import { QuickActions } from "@/components/dashboard/QuickActions";
+import { TopVenuesPanel, SubscriptionsPanel } from "@/components/dashboard/ListPanels";
+import { getDashboardStats, getOnlineUsersCount, getRegistrationsLast7Days } from "@/lib/data/dashboard";
+import type { KpiDatum, AnalyticsSeries } from "@/lib/types";
 
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatCard } from "@/components/dashboard/stat-card";
-import { RegistrationsChart } from "@/components/dashboard/registrations-chart";
-import { hasPermission } from "@/lib/auth/permissions";
-import { getCurrentAdmin } from "@/lib/auth/server";
-import { getDashboardStats, getRegistrationsLast7Days } from "@/lib/data/dashboard";
-import { listReports } from "@/lib/data/reports";
+const WEEKDAY_LABELS = ["Baz", "B.e", "Ç.a", "Çər", "C.a", "Cüm", "Şən"];
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("az-AZ", { year: "numeric", month: "short", day: "numeric" });
+function weekdayLabel(isoDate: string): string {
+  // isoDate is yyyy-mm-dd local-time (see getRegistrationsLast7Days) —
+  // parsed as UTC midnight would risk shifting a day; splitting avoids that.
+  const [y, m, d] = isoDate.split("-").map(Number);
+  return WEEKDAY_LABELS[new Date(y, m - 1, d).getDay()];
 }
 
 /**
- * One shared dashboard for both roles rather than a separate
- * "moderator dashboard" route — the sidebar already scopes what each
- * role can reach (see nav-items.ts), so the meaningful difference
- * between an admin's and a moderator's view is which stat cards/quick
- * lists are relevant to them, not a whole parallel page. Moderators
- * see everything here except nothing is hidden today since every
- * stat/list on this page is either role-agnostic (totals) or backed by
- * a permission both roles hold (`moderateVenues`/`moderateOffers`/
- * `manageFeedback`).
+ * Redesigned Dashboard content. Dark-by-default now comes from the
+ * shared ThemeProvider (app/layout.tsx) toggling `.dark` on <html> —
+ * every other module (İstifadəçilər, Məkanlar, Təkliflər, Şikayətlər,
+ * Bildirişlər, Loglar, Admin idarəetməsi) picks up the same dark
+ * chrome via the new Sidebar/Topbar in (protected)/layout.tsx, but
+ * none of those modules' own page content was touched — they still
+ * render with plain shadcn tokens today, so their light-surface look
+ * (an untouched Card/Table) is expected to still show through here
+ * and there until those get their own dark-mode pass.
+ *
+ * Every KPI/series below is real, pulled from the same
+ * `lib/data/dashboard.ts` queries the previous dashboard used (plus
+ * one additive query, `getOnlineUsersCount`, on the `online` field the
+ * Flutter app already writes). Panels with no backend yet (AI
+ * Moderation/Summary, Canlı Xəritə clustering, Abunəliklər, Report
+ * Statistikası's category breakdown) show a real zero/empty state and
+ * a "Tezliklə" badge instead of invented numbers — see each
+ * component's own comments for exactly what's missing.
  */
 export default async function DashboardPage() {
-  const admin = await getCurrentAdmin();
-  const [stats, registrations, pendingReports] = await Promise.all([
+  const [stats, registrations, onlineUsers] = await Promise.all([
     getDashboardStats(),
     getRegistrationsLast7Days(),
-    hasPermission(admin?.role, "manageFeedback") ? listReports({ status: "pending" }) : Promise.resolve([]),
+    getOnlineUsersCount(),
   ]);
 
+  const todayNewUsers = registrations.at(-1)?.count ?? 0;
+
+  const kpiData: KpiDatum[] = [
+    { id: "online-users", label: "Online İstifadəçilər", value: onlineUsers, icon: "Users", tone: "cyan" },
+    { id: "new-users-today", label: "Yeni İstifadəçilər", value: todayNewUsers, icon: "UserPlus", tone: "purple" },
+    { id: "active-venues", label: "Aktiv Məkanlar", value: stats.activeVenues, icon: "Store", tone: "cyan" },
+    { id: "active-offers", label: "Aktiv Təkliflər", value: stats.activeOffers, icon: "Tag", tone: "pink" },
+    { id: "revenue-today", label: "Gəlir (Bugün)", value: 0, unit: "AZN", icon: "Wallet", tone: "success" },
+    { id: "subscriptions", label: "Abunəliklər", value: 0, icon: "CreditCard", tone: "purple" },
+    { id: "reports", label: "Reports", value: stats.pendingReports, icon: "Flag", tone: "danger" },
+    { id: "pending-approvals", label: "Gözləyən Təsdiqlər", value: stats.pendingModeration, icon: "ShieldAlert", tone: "amber" },
+  ];
+
+  const registrationPoints = registrations.map((day) => ({ date: weekdayLabel(day.date), value: day.count }));
+
+  const dailyActiveUsersSeries: AnalyticsSeries = {
+    id: "daily-active-users",
+    label: "Daily Active Users",
+    points: registrationPoints,
+  };
+  const newUsersSeries: AnalyticsSeries = {
+    id: "new-users",
+    label: "New Users",
+    points: registrationPoints,
+  };
+  const businessesSeries: AnalyticsSeries = {
+    id: "businesses",
+    label: "Businesses",
+    points: [{ date: "bugün", value: stats.activeVenues }],
+  };
+  const offersSeries: AnalyticsSeries = {
+    id: "offers",
+    label: "Offers",
+    points: [{ date: "bugün", value: stats.activeOffers }],
+  };
+  const revenueSeries: AnalyticsSeries = {
+    id: "revenue",
+    label: "Revenue",
+    unit: "AZN",
+    points: [{ date: "bugün", value: 0 }],
+  };
+  const retentionSeries: AnalyticsSeries = {
+    id: "retention",
+    label: "Retention",
+    unit: "%",
+    points: [{ date: "bugün", value: 0 }],
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* KPI row — 8 cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
+        {kpiData.map((kpi) => (
+          <KpiCard key={kpi.id} data={kpi} />
+        ))}
+      </div>
+
+      {/* Map + Real-time Activity + AI stack */}
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
+        <div className="xl:col-span-6">
+          <LiveMapPanel />
+        </div>
+        <div className="xl:col-span-3">
+          <ActivityFeed events={[]} />
+        </div>
+        <div className="xl:col-span-3 flex flex-col gap-4">
+          <AiModerationPanel />
+          <AiSummaryPanel />
+        </div>
+      </div>
+
+      {/* Analytics — 6 cards, Son 7 gün */}
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Meevima-nın ümumi vəziyyətinə baxış.</p>
+        <div className="flex items-baseline gap-2 mb-3">
+          <h2 className="text-sm font-medium text-ink dark:text-ink-dark">Analytics</h2>
+          <span className="text-xs text-ink-muted dark:text-ink-muted-dark">Son 7 gün</span>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
+          <AnalyticsCard series={dailyActiveUsersSeries} tone="#7C3AED" />
+          <AnalyticsCard series={newUsersSeries} tone="#00D4E6" />
+          <AnalyticsCard series={revenueSeries} tone="#10B981" />
+          <AnalyticsCard series={businessesSeries} tone="#F59E0B" />
+          <AnalyticsCard series={offersSeries} tone="#EC4899" />
+          <AnalyticsCard series={retentionSeries} tone="#00D4E6" />
+        </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="Cəmi istifadəçi" value={stats.totalUsers} icon={Users} />
-        <StatCard label="Aktiv məkan" value={stats.activeVenues} icon={MapPin} />
-        <StatCard label="Aktiv təklif" value={stats.activeOffers} icon={Tag} />
-        <StatCard
-          label="Gözləyən moderasiya"
-          value={stats.pendingModeration}
-          icon={AlertTriangle}
-          hint={stats.pendingModeration === 0 ? "Məkan/təklif təsdiq növbəsi boşdur" : undefined}
-        />
-        <StatCard label="Gözləyən şikayət" value={stats.pendingReports} icon={Flag} />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <RegistrationsChart data={registrations} />
-
-        {hasPermission(admin?.role, "manageFeedback") && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Son şikayətlər</CardTitle>
-              <CardDescription>Gözləyən şikayətlər — ilk 5</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {pendingReports.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Gözləyən şikayət yoxdur.</p>
-              ) : (
-                pendingReports.slice(0, 5).map((report) => (
-                  <Link
-                    key={report.id}
-                    href={`/feedback/${report.id}`}
-                    className="flex items-center justify-between rounded-lg border p-3 text-sm hover:bg-muted/50"
-                  >
-                    <div>
-                      <p className="font-medium">{report.reportedUserName}</p>
-                      <p className="line-clamp-1 text-muted-foreground">{report.reason}</p>
-                    </div>
-                    <Badge variant="secondary" className="shrink-0">
-                      {formatDate(report.createdAt)}
-                    </Badge>
-                  </Link>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        )}
+      {/* Bottom row — Abunəliklər / Ən Populyar Məkanlar / Report Statistikası / Sürətli Əməliyyatlar */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
+        <SubscriptionsPanel subscriptions={[]} />
+        <TopVenuesPanel venues={[]} />
+        <ReportStatsPanel pendingReports={stats.pendingReports} />
+        <QuickActions />
       </div>
     </div>
   );

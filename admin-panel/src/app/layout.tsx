@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/dashboard/ThemeProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Meevima — Admin Panel",
-  description: "Meevima mobil tətbiqi üçün admin/moderator idarəetmə paneli.",
+  title: "PeakPin — Admin Panel",
+  description: "PeakPin mobil tətbiqi üçün admin/moderator idarəetmə paneli.",
 };
 
 export default function RootLayout({
@@ -29,8 +30,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        {children}
-        <Toaster />
+        <ThemeProvider>
+          {children}
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

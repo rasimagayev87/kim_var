@@ -52,7 +52,8 @@ export function OffersFilters({
         <SelectContent>
           <SelectItem value="all">Hamısı</SelectItem>
           <SelectItem value="pending">Gözləyən</SelectItem>
-          <SelectItem value="active">Aktiv</SelectItem>
+          <SelectItem value="needs_revision">Düzəliş tələb olunur</SelectItem>
+          <SelectItem value="approved">Aktiv</SelectItem>
           <SelectItem value="rejected">Rədd edilib</SelectItem>
         </SelectContent>
       </Select>
