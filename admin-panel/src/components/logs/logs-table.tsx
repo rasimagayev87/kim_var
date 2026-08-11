@@ -7,6 +7,8 @@ const ACTION_LABELS: Record<string, string> = {
   "venue.rejected": "Məkan rədd edildi",
   "venue.activated": "Məkan aktiv edildi",
   "venue.deactivated": "Məkan deaktiv edildi",
+  "venue.premiumGranted": "Məkan premium edildi",
+  "venue.premiumRevoked": "Məkanın premiumu ləğv edildi",
   "offer.approved": "Təklif təsdiqləndi",
   "offer.rejected": "Təklif rədd edildi",
   "offer.activated": "Təklif aktiv edildi",

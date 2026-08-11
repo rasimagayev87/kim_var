@@ -45,6 +45,7 @@ export interface AdminVenueRow {
   status: VenueStatus;
   reviewNote: string | null;
   verified: boolean;
+  isPremium: boolean;
   ownerId: string;
   ownerName: string;
   ownerUsername: string | null;
@@ -110,6 +111,7 @@ async function attachOwners(
       status: parseStatus(data.status),
       reviewNote: (data.reviewNote as string) || null,
       verified: (data.verified as boolean) ?? false,
+      isPremium: (data.isPremium as boolean) ?? false,
       ownerId: data.ownerId as string,
       ownerName: owner ? `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim() || "Naməlum" : "Naməlum",
       ownerUsername: (owner?.username as string) ?? null,

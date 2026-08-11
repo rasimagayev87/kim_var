@@ -5,6 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/moderation/status-badge";
+import { VenuePremiumActions } from "@/components/venues/venue-premium-actions";
 import { VenueStatusActions } from "@/components/venues/venue-status-actions";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentAdmin } from "@/lib/auth/server";
@@ -85,6 +86,17 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ id
           <VenueStatusActions id={venue.id} status={venue.status} />
         </CardContent>
       </Card>
+
+      {hasPermission(admin.role, "manageVenues") && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Premium</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <VenuePremiumActions id={venue.id} isPremium={venue.isPremium} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

@@ -23,6 +23,19 @@ async function requireVenueModeration(): Promise<{ admin: AdminSession } | { den
   return { admin };
 }
 
+/** Separate from [requireVenueModeration] — granting premium is a
+ * monetization decision, not content moderation, so it's gated behind
+ * `manageVenues` (admin-only) rather than `moderateVenues` (which
+ * moderators also hold). Mirrors `manageUsers` guarding
+ * `setUserPremium` in actions/users.ts for the same reason. */
+async function requireVenueManagement(): Promise<{ admin: AdminSession } | { denied: ActionResult }> {
+  const admin = await getCurrentAdmin();
+  if (!admin || !hasPermission(admin.role, "manageVenues")) {
+    return { denied: { ok: false, error: "forbidden" } };
+  }
+  return { admin };
+}
+
 /** `pending` is never a target status this action is called WITH (only
  * ever a starting point), so it's deliberately not a case here — the
  * fallback below covers it anyway. */
@@ -81,6 +94,31 @@ export async function setVenueStatus(id: string, status: VenueStatus, reviewNote
     revalidatePath("/venues");
     revalidatePath(`/venues/${id}`);
     revalidatePath("/dashboard");
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "unknown-error" };
+  }
+}
+
+/** Manual premium grant — the same "no real payment yet" stopgap the
+ * mobile app's owner-facing "Məkanı premium et" menu points at (see
+ * `discover_tab.dart`'s `_openVenuePremiumMenu`). Until a real payment
+ * flow exists, this is the only way a venue's `isPremium` flag gets
+ * set — mirrors `setUserPremium` in actions/users.ts. */
+export async function setVenuePremium(id: string, premium: boolean): Promise<ActionResult> {
+  const check = await requireVenueManagement();
+  if ("denied" in check) return check.denied;
+
+  try {
+    await getAdminDb().collection("venues").doc(id).update({ isPremium: premium, updatedAt: new Date() });
+    await logModerationAction({
+      actor: check.admin,
+      action: premium ? "venue.premiumGranted" : "venue.premiumRevoked",
+      targetType: "venue",
+      targetId: id,
+    });
+    revalidatePath("/venues");
+    revalidatePath(`/venues/${id}`);
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "unknown-error" };

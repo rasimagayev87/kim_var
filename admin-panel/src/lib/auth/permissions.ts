@@ -16,6 +16,7 @@ const PERMISSION_MATRIX = {
   admin: {
     manageUsers: true,
     moderateVenues: true,
+    manageVenues: true,
     moderateOffers: true,
     broadcastNotifications: true,
     manageFeedback: true,
@@ -24,6 +25,7 @@ const PERMISSION_MATRIX = {
   moderator: {
     manageUsers: false,
     moderateVenues: true,
+    manageVenues: false,
     moderateOffers: true,
     broadcastNotifications: false,
     manageFeedback: true,

@@ -8,6 +8,8 @@ export type ModerationAction =
   | "venue.rejected"
   | "venue.activated"
   | "venue.deactivated"
+  | "venue.premiumGranted"
+  | "venue.premiumRevoked"
   | "offer.approved"
   | "offer.needsRevision"
   | "offer.rejected"
