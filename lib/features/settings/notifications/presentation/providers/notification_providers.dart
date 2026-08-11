@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 
 import '../../../../../core/utils/app_logger.dart';
 import '../../data/repositories/firebase_notification_preferences_repository.dart';
@@ -23,6 +24,16 @@ const Map<String, String> notificationCategoryTopics = {
 
 final notificationPreferencesRepositoryProvider = Provider<NotificationPreferencesRepository>((ref) {
   return FirebaseNotificationPreferencesRepository();
+});
+
+/// The OS-level permission — separate from [NotificationPreferences],
+/// which is this app's own stored preference and stays "on" regardless
+/// of whether the OS is actually allowed to show anything. Backs the
+/// Bildirişlər screen's "denied, go to Settings" banner: a user who
+/// denied the permission once has no other way to discover why push
+/// never arrives, since every in-app toggle still reads as enabled.
+final notificationPermissionStatusProvider = FutureProvider.autoDispose<ph.PermissionStatus>((ref) {
+  return ph.Permission.notification.status;
 });
 
 String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;

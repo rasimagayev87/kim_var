@@ -7,7 +7,7 @@ import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../post_share/domain/entities/post.dart';
-import '../../../post_share/presentation/screens/post_detail_screen.dart';
+import '../../../post_share/presentation/screens/post_reel_viewer_screen.dart';
 
 /// One shared implementation of the profile header's stats row, post
 /// divider and media grid — used identically by `ProfileTab` (own
@@ -126,10 +126,13 @@ class PostsDivider extends StatelessWidget {
 }
 
 /// Instagram/TikTok-style profile grid — 3 small square tiles per row,
-/// tight gaps. Media only ever shows full-size inside [PostDetailScreen];
-/// tapping any tile opens that. Deliberately no video playback here
-/// (a plain icon badge instead) — initializing a VideoPlayerController
-/// per grid tile would mean several decoding at once while scrolling.
+/// tight gaps. Tapping any tile opens [PostReelViewerScreen] full-screen,
+/// starting at that tile's post and swipeable through the rest of this
+/// same list — the same experience as swiping through Lent, just scoped
+/// to one profile's posts. Deliberately no video playback in the grid
+/// itself (a plain icon badge instead) — initializing a
+/// VideoPlayerController per grid tile would mean several decoding at
+/// once while scrolling.
 class PostGrid extends StatelessWidget {
   final List<Post> posts;
 
@@ -146,22 +149,25 @@ class PostGrid extends StatelessWidget {
         crossAxisSpacing: 2,
         mainAxisSpacing: 2,
       ),
-      itemBuilder: (context, index) => _PostGridTile(post: posts[index]),
+      itemBuilder: (context, index) => _PostGridTile(posts: posts, index: index),
     );
   }
 }
 
 class _PostGridTile extends StatelessWidget {
-  final Post post;
+  final List<Post> posts;
+  final int index;
 
-  const _PostGridTile({required this.post});
+  const _PostGridTile({required this.posts, required this.index});
+
+  Post get post => posts[index];
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => PostDetailScreen(postId: post.id)),
+        MaterialPageRoute(builder: (_) => PostReelViewerScreen(posts: posts, initialIndex: index)),
       ),
       child: Stack(
         fit: StackFit.expand,

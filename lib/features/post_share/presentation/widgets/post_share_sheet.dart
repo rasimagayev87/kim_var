@@ -48,7 +48,8 @@ void showPostShareOptions(BuildContext context, Post post) {
               title: Text(loc.postShareExternalOption, style: AppTextStyles.body.copyWith(fontSize: 15)),
               onTap: () {
                 Navigator.pop(sheetContext);
-                final text = post.caption.isNotEmpty ? '${post.caption}\n${post.mediaUrl}' : post.mediaUrl;
+                final link = 'https://peakpin.app/p/${post.id}';
+                final text = post.caption.isNotEmpty ? '${post.caption}\n$link' : link;
                 Share.share(text);
               },
             ),

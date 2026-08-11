@@ -10,7 +10,7 @@
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
     <application
-        android:label="Meevima"
+        android:label="PeakPin"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">
@@ -20,6 +20,11 @@
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyD0qRdS8RnMv1QxdApvEBjZQwmh55xPf_8"/>
+        <!-- Branch (deferred deep linking). From the Branch dashboard:
+             Settings (ACCOUNT section) -> Profile -> "Branch Key and
+             Secret" -> Branch Key. Do NOT put the Branch Secret here
+             or anywhere client-side — it's server-only. -->
+        <meta-data android:name="io.branch.sdk.BranchKey" android:value="key_live_gvCTsTZgmBWo3ILjha8wuacaqFfXTcrJ"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -40,6 +45,22 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- App Links for post share URLs (https://peakpin.app/p/{id},
+                 Instagram's own /p/ convention). assetlinks.json is now
+                 live at peakpin.app/.well-known/assetlinks.json (see
+                 peakpin-landing's public/.well-known/ — its
+                 sha256_cert_fingerprints entry must be regenerated from
+                 android/keystore/peakpin-release.jks any time that
+                 keystore changes), so autoVerify can actually take users
+                 straight to the app instead of a disambiguation sheet
+                 once this build ships. See deep_link_handler.dart for
+                 the Dart-side handler. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="https" android:host="peakpin.app" android:pathPrefix="/p"/>
             </intent-filter>
         </activity>
         <!-- Required by image_cropper (venue photo crop step) — the

@@ -1,9 +1,7 @@
 {
   "@@locale": "tr",
-
   "welcomeSubtitle": "Çevrendeki insanları keşfet,\nyeni tanışıklıklar ve dostluklar kur.",
   "welcomeStartButton": "Başla",
-
   "loginTitle": "Giriş yap",
   "loginUsernameLabel": "Kullanıcı adı",
   "loginUsernameHint": "kullanici.adi",
@@ -16,7 +14,6 @@
   "loginTooManyAttemptsError": "Çok fazla başarısız deneme. Kısa süre sonra tekrar deneyin ya da \"Şifremi unuttum\" ile sıfırlayın.",
   "loginNetworkError": "İnternet bağlantısı yok. Bağlantınızı kontrol edip tekrar deneyin.",
   "loginRegisterPromptLabel": "Kayıt olmak ister misiniz?",
-
   "registerTitle": "Kayıt ol",
   "registerUsernameLabel": "Kullanıcı adı",
   "registerUsernameHint": "kullanici.adi",
@@ -32,7 +29,6 @@
   "registerSubmitButton": "Kaydı tamamla",
   "registerGenericError": "Kayıt tamamlanamadı. Lütfen daha sonra tekrar deneyin.",
   "registerSuccessMessage": "Kayıt tamamlandı, şimdi giriş yapabilirsiniz.",
-
   "phoneAuthTitle": "Telefon numaran",
   "phoneAuthSubtitle": "SMS ile gönderilecek koda ihtiyacın olacak.",
   "phoneAuthNumberHint": "50 123 45 67",
@@ -40,7 +36,6 @@
   "phoneAuthInvalidNumberError": "Geçerli bir telefon numarası girin",
   "phoneAuthVerificationFailedError": "Numara doğrulanamadı, tekrar deneyin.",
   "pickCountryTitle": "Ülke seç",
-
   "otpTitle": "Kodu gir",
   "otpSubtitle": "{phone} numarasına gönderilen 6 haneli kodu yaz.",
   "otpCodeHint": "••••••",
@@ -49,7 +44,6 @@
   "otpInvalidCodeError": "Kod yanlış veya süresi doldu.",
   "otpResendButton": "Kodu yeniden gönder",
   "otpResendWaitLabel": "Yeniden gönder: {time}",
-
   "verificationRequiredTitle": "Hesabını doğrula",
   "verificationRequiredMessage": "Bu özelliği kullanmak için önce hesabınızı doğrulamalısınız.",
   "verificationRequiredButton": "Hesabı doğrula",
@@ -62,7 +56,6 @@
   "settingsIdentityVerificationRowTitle": "Kimlik doğrulama",
   "swipeMatchedMessage": "Bu kullanıcıyla eşleştiniz!",
   "swipeErrorMessage": "Bir şeyler ters gitti. Lütfen daha sonra tekrar deneyin.",
-
   "forgotPasswordTitle": "Şifremi unuttum",
   "forgotPasswordSubtitle": "Hesabınıza bağlı telefon numarasını girin.",
   "forgotPasswordAccountNotFoundError": "Bu telefon numarasıyla ilişkili hesap bulunamadı.",
@@ -75,7 +68,6 @@
   "newPasswordSubmitButton": "Şifreyi güncelle",
   "newPasswordSuccessMessage": "Şifreniz güncellendi, şimdi giriş yapabilirsiniz.",
   "newPasswordGenericError": "Şifre güncellenemedi. Lütfen daha sonra tekrar deneyin.",
-
   "changePasswordTitle": "Şifreyi değiştir",
   "changePasswordCurrentLabel": "Mevcut şifre",
   "changePasswordCurrentHint": "Mevcut şifrenizi girin",
@@ -87,7 +79,6 @@
   "changePasswordWrongCurrentError": "Mevcut şifre yanlış.",
   "changePasswordSuccessMessage": "Şifreniz güncellendi.",
   "changePasswordGenericError": "Şifre değiştirilemedi. Lütfen daha sonra tekrar deneyin.",
-
   "onboardingAppBarTitle": "Profilini tamamla",
   "onboardingPhotoOptionalLabel": "Fotoğraf ekle (isteğe bağlı)",
   "fieldFirstNameLabel": "Ad",
@@ -109,13 +100,11 @@
   "onboardingSelectCountryCityError": "Ülke ve şehrini seç",
   "onboardingPhotoUploadFailedError": "Fotoğraf yüklenemedi, daha sonra profilinden ekleyebilirsin.",
   "errorWithDetails": "Bir hata oluştu: {error}",
-
   "navDiscoverLabel": "Keşfet",
   "navChatsLabel": "Sohbet",
   "navFeedLabel": "Akış",
   "navNotificationsLabel": "Bildirimler",
   "navProfileLabel": "Profil",
-
   "notificationsFeedTitle": "Bildirimler",
   "notifMenuMarkAllRead": "Tümünü okundu işaretle",
   "notifMenuDeleteRead": "Okunanları sil",
@@ -131,7 +120,6 @@
   "notifMarkAllReadDone": "Tüm bildirimler okundu olarak işaretlendi",
   "notifDeleteReadDone": "Okunan bildirimler silindi",
   "notifActionErrorMessage": "İşlem başarısız oldu. Kısa süre sonra tekrar deneyin.",
-
   "discoverTitle": "Keşfet",
   "viewSwitcherPeopleLabel": "İnsanlar",
   "viewSwitcherPlacesLabel": "Mekanlar",
@@ -152,7 +140,7 @@
   "chatPermissionDeniedMessage": "Şu anda bu sohbete erişiminiz yok. Çıkış yapıp tekrar giriş yapmayı veya biraz sonra tekrar denemeyi deneyin.",
   "chatLoadErrorMessage": "Yüklenirken bir hata oluştu. Lütfen tekrar deneyin.",
   "locationPermissionDeniedForeverTitle": "İzin kalıcı olarak reddedildi",
-  "locationPermissionDeniedForeverSubtitle": "Telefonunun ayarlarından \"Meevima\" için konum iznini elle aç.",
+  "locationPermissionDeniedForeverSubtitle": "Telefonunun ayarlarından \"PeakPin\" için konum iznini elle aç.",
   "actionOpenAppSettings": "Uygulama ayarlarını aç",
   "errorTitle": "Bir hata oluştu",
   "meMarkerLabel": "Sen buradasın",
@@ -220,6 +208,7 @@
   "chatCallComingSoonMessage": "Arama özelliği yakında aktif olacak.",
   "chatVoiceCallLabel": "Sesli arama",
   "chatVideoCallLabel": "Görüntülü arama",
+  "chatCallDisabledTooltip": "Arayabilmek için mesaj isteğinin kabul edilmesi gerekir",
   "callStatusRinging": "Aranıyor...",
   "callStatusConnecting": "Bağlanıyor...",
   "callStatusIncoming": "Gelen arama",
@@ -237,7 +226,13 @@
   "chatForwardTitle": "İlet",
   "chatForwardEmptyMessage": "İletebileceğiniz bir sohbet yok.",
   "chatForwardSendButton": "Gönder ({count})",
-  "@chatForwardSendButton": {"placeholders": {"count": {"type": "int"}}},
+  "@chatForwardSendButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "chatForwardSuccessMessage": "Mesaj iletildi.",
   "actionCancel": "Vazgeç",
   "actionDelete": "Sil",
@@ -249,12 +244,10 @@
   "radiusMorePanelTitle": "Arama yarıçapı",
   "premiumUpsellRadiusTitle": "Daha uzaktaki insanları keşfet 🌍",
   "premiumUpsellRadiusMessage": "Premium üyelikle 5 km ve 10 km yarıçapındaki insanları görebilir ve daha çok insanla tanışabilirsin.",
-
   "premiumUpgradeButton": "Premium'a geç",
   "premiumLaterButton": "Sonra",
   "premiumComingSoonTitle": "Premium",
   "premiumComingSoonMessage": "Premium üyelik yakında aktif olacak.",
-
   "chatsTitle": "Sohbetler",
   "chatsEmptyTitle": "Henüz sohbetin yok",
   "chatsEmptySubtitle": "Çevrendeki insanlarla tanıştığında sohbetlerin burada görünecek.",
@@ -280,10 +273,7 @@
   "chatsUnmuteAction": "Sesi aç",
   "chatsPinnedSectionLabel": "Sabitlenenler",
   "chatsRecentSectionLabel": "Son sohbetler",
-
-
   "eventSaveButton": "Kaydet",
-
   "venueCreateTitle": "Mekan profili",
   "venueEditTitle": "Mekanı düzenle",
   "venuePhotoLabel": "Fotoğraf/logo ekle",
@@ -309,7 +299,6 @@
   "venueFilterTooltip": "Filtre",
   "venueCategoryFilterTitle": "Kategori seç",
   "venueCategoryAllOption": "Hepsi",
-
   "offersSearchHint": "Teklif ara...",
   "offerFilterTooltip": "Filtre",
   "offersEmptyTitle": "Henüz teklif yok",
@@ -320,17 +309,26 @@
   "offerBadgeGiftLabel": "Hediye",
   "offerBadgeBuyOneGetOneLabel": "1+1",
   "offerBadgeFixedPriceSuffix": "AZN",
+  "offerBadgeFirstVisitLabel": "İlk ziyarete özel",
+  "offerBadgeBirthdayLabel": "Doğum günü teklifi",
   "offerEndsOnLabel": "{date} tarihine kadar",
-  "@offerEndsOnLabel": {"placeholders": {"date": {"type": "String"}}},
+  "@offerEndsOnLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "offerTermsLabel": "Şartlar",
   "offerValidityLabel": "Geçerlilik süresi",
   "offerStartDateLabel": "Başlangıç",
   "offerEndDateLabel": "Bitiş",
-  "offerContactLabel": "İletişim",
   "offerOtherActiveOffersLabel": "Diğer aktif teklifler",
   "offerViewVenueProfileButton": "Mekan profiline git",
   "offerNotFoundMessage": "Teklif bulunamadı.",
   "offerGenericErrorMessage": "İşlem başarısız oldu. Kısa süre sonra tekrar deneyin.",
+  "offerRedeemButtonLabel": "Etkinleştir",
+  "offerRedeemedButtonLabel": "Kullanıldı",
   "offerCreateTitle": "Teklif oluştur",
   "offerEditTitle": "Teklifi düzenle",
   "offerPhotoLabel": "Fotoğraf/logo ekle",
@@ -342,9 +340,19 @@
   "offerTypeGiftOption": "Hediye",
   "offerTypeBuyOneGetOneOption": "1+1 hediye",
   "offerTypeFixedPriceOption": "Sabit fiyat",
+  "offerTypeHappyHourOption": "Happy Hour",
+  "offerTypeFirstVisitOption": "İlk ziyaret",
+  "offerTypeBirthdayOption": "Doğum günü",
   "offerDiscountAmountLabel": "İndirim miktarı",
   "offerFixedPriceLabel": "Fiyat (AZN)",
   "offerFixedPriceHint": "Fiyatı yazın",
+  "offerActiveHoursLabel": "Saat aralığı",
+  "offerActiveHoursStartLabel": "Başlangıç",
+  "offerActiveHoursEndLabel": "Bitiş",
+  "offerActiveDaysLabel": "Aktif günler",
+  "offerPersonalMessageLabel": "Kişisel mesaj (opsiyonel)",
+  "offerPersonalMessageHint": "Doğum günün kutlu olsun! Senin için bir hediyemiz var 🎉",
+  "offerBirthdayWeekExtensionLabel": "Doğum günü haftası (7 gün)",
   "offerDescriptionLabel": "Kısa açıklama",
   "offerDescriptionHint": "Teklifin şartlarını ve avantajlarını yazın...",
   "offerValidityPeriodLabel": "Teklifin geçerlilik süresi",
@@ -356,10 +364,19 @@
   "offerNoVenuesSubtitle": "Teklif oluşturmak için önce bir mekan ekleyin.",
   "offerAddVenueButton": "Mekan ekle",
   "offerTermsHint": "Teklifin kullanım şartlarını yazın...",
-  "offerAdditionalInfoLabel": "Ek bilgiler",
-  "offerContactPhoneHint": "Telefon numarası",
-  "offerContactWebsiteHint": "Web sitesi",
-  "offerContactInstagramHint": "Instagram",
+  "offerBoostMenuItem": "Teklifi öne çıkar",
+  "offerBoost6h": "6 saat",
+  "offerBoost12h": "12 saat",
+  "offerBoost18h": "18 saat",
+  "offerBoostPriceSuffix": "{amount} AZN",
+  "@offerBoostPriceSuffix": {
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
+  },
+  "offerBoostComingSoonMessage": "Ödeme sistemi hazırlanma aşamasındadır, yakında etkinleşecek.",
   "offerSubmitButton": "Teklifi oluştur",
   "offerCreatedNotice": "Teklif oluşturuldu",
   "offerUpdatedNotice": "Teklif güncellendi",
@@ -375,7 +392,6 @@
   "offerMyOffersEmptySubtitle": "Eklediğiniz teklifler burada görünecek ve istediğiniz zaman düzenleyebilir veya silebilirsiniz.",
   "offerMyOffersTooltip": "Tekliflerim",
   "offerAddButtonTooltip": "Teklif oluştur",
-
   "venueCategoryUnselectedLabel": "Seçin",
   "venueCategoryRestaurant": "Restoran",
   "venueCategoryPub": "Pub",
@@ -419,10 +435,46 @@
   "venueLocationResolvingAddress": "Adres belirleniyor...",
   "venueLocationAddressUnavailable": "Adres bulunamadı",
   "venueLocationPickerConfirmButton": "Bu konumu seç",
+  "venueSocialSectionLabel": "Sosyal medya (opsiyonel)",
+  "venueWhatsappLabel": "WhatsApp numarası",
+  "venueWhatsappHint": "+994501234567",
+  "venueInstagramLabel": "Instagram kullanıcı adı",
+  "venueInstagramHint": "kullanici_adi",
+  "venueTiktokLabel": "TikTok kullanıcı adı",
+  "venueTiktokHint": "kullanici_adi",
+  "venueAudienceRadiusSectionLabel": "Kitle yarıçapı",
+  "venueAudienceRadiusHint": "Canlı kitle sayacının etrafınızda kaç kullanıcıyı sayacağı yarıçap.",
+  "venueBirthdayNotificationsTitle": "Doğum günü bildirimleri",
+  "venueBirthdayNotificationsHint": "Yakında doğum günü olan kullanıcılar bulunduğunda bildirim alın.",
+  "venueSocialWhatsapp": "WhatsApp",
+  "venueSocialInstagram": "Instagram",
+  "venueSocialTiktok": "TikTok",
   "venueCreateButton": "Ekle",
   "venueSaveButton": "Kaydet",
   "venueRequiredFieldsMissing": "Lütfen tüm zorunlu alanları doldurun.",
   "venueGenericErrorMessage": "İşlem tamamlanamadı. Lütfen birazdan tekrar deneyin.",
+  "venuePremiumMenuItem": "Mekanı premium yap",
+  "venuePremiumUpsellMessage": "Premium mekanlar kendi yarıçapında en önde gösterilir ve adının yanında premium rozeti görünür.",
+  "venueLiveAudienceCount": "Etrafınızda {count} kişi",
+  "@venueLiveAudienceCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "venueCheckinActiveCount": "Şu anda {count} PeakPin kullanıcısı burada",
+  "@venueCheckinActiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "venueCheckInButton": "Check-in yap",
+  "venueCheckOutButton": "Çıkış yap",
+  "venueCheckinTooFar": "Check-in yapmak için mekana daha yakın olmalısınız",
+  "venueCheckinLocationUnavailable": "Konumunuz belirlenemedi. GPS'i kontrol edip tekrar deneyin.",
   "venueAddButtonTooltip": "Mekan ekle",
   "venuesEmptyTitle": "Yakında mekan yok",
   "venuesEmptySubtitle": "Seçtiğiniz yarıçapta henüz kimse mekan eklemedi.",
@@ -431,18 +483,15 @@
   "venueMyVenuesEmptyTitle": "Henüz mekan eklemediniz",
   "venueMyVenuesEmptySubtitle": "Eklediğiniz mekanlar burada görünecek ve onları istediğiniz zaman düzenleyebilir veya silebilirsiniz.",
   "venueDeleteMenuOption": "Mekanı sil",
-  "venueBoostMenuItem": "İlanı öne çıkar",
-  "venueBoost6h": "6 saat",
-  "venueBoost12h": "12 saat",
-  "venueBoost24h": "24 saat",
-  "venueBoostPriceTba": "Fiyat yakında açıklanacak",
-  "venueBoostUpsellTitle": "İlanınızı öne çıkarın 🚀",
-  "venueBoostUpsellMessage": "Ücretli \"öne çıkarma\" özelliğiyle mekanınız arama sonuçlarında daha üstte gösterilecek. Bu özellik yakında aktifleşecek.",
   "venueDeleteConfirmMessage": "Bu mekanı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+  "moderationStatusPending": "İnceleniyor",
+  "moderationStatusNeedsRevision": "Düzeltme gerekiyor",
+  "moderationReviewNotePrefix": "Sebep",
+  "moderationResubmitSuccess": "Yeniden gönderildi, inceleme sırasında.",
+  "moderationResubmitError": "Yeniden gönderilemedi. Lütfen birazdan tekrar deneyin.",
   "venueDeletedNotice": "Mekan silindi",
   "venueOpenNowLabel": "Açık",
   "venueClosedNowLabel": "Kapalı",
-
   "profileTitle": "Profil",
   "profileNamePlaceholder": "Adını ekle",
   "profileBioPlaceholder": "Fotoğraf, biyografi ve ilgi alanlarını ekle",
@@ -457,7 +506,6 @@
   "profileSaveSuccessMessage": "Bilgileriniz güncellendi.",
   "menuSettings": "Ayarlar",
   "menuPrivacySecurity": "Gizlilik ve güvenlik",
-
   "privacySecurityTitle": "Gizlilik ve güvenlik",
   "privacyProfileVisibilityTitle": "Medya görünürlüğü",
   "privacyProfileVisibilitySubtitle": "Profilinizdeki paylaşımları kimlerin görebileceğini seçin.",
@@ -477,10 +525,11 @@
   "privacyMessagePermNoOne": "Hiç kimse",
   "privacyGhostModeTitle": "Ghost Mode",
   "privacyGhostModeDescription": "Diğer kullanıcıları görebilirsiniz. Diğer kullanıcılar sizi haritada göremez. İstediğiniz zaman açıp kapatabilirsiniz.",
+  "privacyBirthdayOffersTitle": "Doğum günümde özel teklifler",
+  "privacyBirthdayOffersDescription": "Doğum günümde yakındaki mekanlardan özel teklifler almak istiyorum.",
   "privacyGhostModePremiumTitle": "Ghost Mode ile görünmez olun 👻",
   "privacyGhostModePremiumMessage": "Premium ile diğer kullanıcıları görebilirsiniz, ancak onlar sizi haritada göremez.",
   "privacySettingUpdateErrorMessage": "Değişiklik kaydedilemedi. Lütfen birazdan tekrar deneyin.",
-
   "privacyTwoFactorTitle": "İki aşamalı doğrulamayı etkinleştir",
   "privacyTwoFactorHelperText": "Şimdilik yalnızca seçiminiz kaydedilir — SMS ve Authenticator desteği yakında eklenecek.",
   "privacyExportDataTitle": "Verilerimi indir",
@@ -509,7 +558,6 @@
   "menuNotifications": "Bildirimler",
   "menuHelp": "Yardım",
   "menuLogout": "Çıkış yap",
-
   "uploadingProgress": "%{percent} yükleniyor...",
   "removePhotoButton": "Fotoğrafı sil",
   "fieldAgeLabel": "Yaş",
@@ -531,9 +579,7 @@
   "storageErrorPermissionDenied": "Bu işlem için izniniz yok.",
   "storageErrorUnauthenticated": "Oturum açmadınız.",
   "storageErrorUnknown": "Bilinmeyen bir depolama hatası oluştu.",
-
   "comingSoonDefaultMessage": "Bu özellik yakında aktif olacak.",
-
   "pickCountryHint": "Ülke ara",
   "pickCityTitle": "Şehir seç",
   "pickCityHint": "Şehir ara",
@@ -541,10 +587,8 @@
   "fieldCountryLabel": "Ülke",
   "fieldCitySelectFirstHint": "Önce ülke seç",
   "fieldCityLabel": "Şehir",
-
   "contactRequiredError": "E-posta veya numaranı gir",
   "contactInvalidError": "Geçerli bir e-posta veya numara gir",
-
   "stampLike": "BEĞEN",
   "stampReject": "REDDET",
   "stampSuper": "SÜPER",
@@ -581,7 +625,13 @@
   "feedSearchNoResultsMessage": "Sonuç bulunamadı",
   "feedDownloadVideoOption": "Videoyu indir",
   "feedDownloadInProgressMessage": "İndiriliyor... %{percent}",
-  "@feedDownloadInProgressMessage": {"placeholders": {"percent": {"type": "int"}}},
+  "@feedDownloadInProgressMessage": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "feedDownloadCompleteMessage": "Video galerinize indirildi",
   "feedDownloadErrorMessage": "Video indirilemedi. Lütfen daha sonra tekrar deneyin.",
   "postTimeJustNow": "Az önce",
@@ -615,7 +665,6 @@
   "postSentToChatSuccessMessage": "Gönderi gönderildi",
   "postSentToChatErrorMessage": "Gönderi gönderilemedi. Lütfen daha sonra tekrar deneyin.",
   "chatPostMessageLabel": "Gönderi",
-
   "friendRequestSendButton": "Arkadaşlık gönder",
   "friendRequestSentLabel": "Gönderildi",
   "friendRequestPendingLabel": "Beklemede",
@@ -628,7 +677,6 @@
   "followErrorMessage": "Bir şeyler ters gitti. Lütfen daha sonra tekrar deneyin.",
   "profileStatsFollowing": "Takip",
   "profileStatsFollowers": "Takipçi",
-
   "settingsTitle": "Ayarlar",
   "settingsLanguageRowLabel": "Dil",
   "languagePickerTitle": "Dil seç",
@@ -640,7 +688,7 @@
   "settingsNotificationsRowSubtitle": "Mesajlar, push bildirimleri",
   "settingsLanguageRowSubtitle": "Uygulama dili seçimi",
   "settingsIdentityRowSubtitle": "Kimliğini doğrula, güvenilir profil rozeti kazan",
-  "settingsVipRowTitle": "Meevima VIP",
+  "settingsVipRowTitle": "PeakPin VIP",
   "settingsVipRowSubtitle": "VIP'e geç, paketini yönet",
   "settingsVipActiveLabel": "Aktif",
   "settingsVipBadgeLabel": "VIP",
@@ -656,7 +704,6 @@
   "settingsAboutRowSubtitle": "Sürüm, yenilikler, sosyal medya",
   "settingsLogoutRowTitle": "Çıkış",
   "settingsLogoutRowSubtitle": "Hesaptan çıkış yap",
-
   "notificationsScreenTitle": "Bildirimler",
   "notifMessagesTitle": "Mesajlar",
   "notifMessagesSubtitle": "Yeni mesaj geldiğinde bildirim al",
@@ -678,10 +725,12 @@
   "notifSystemSubtitle": "Uygulamayla ilgili önemli duyurular",
   "notifMarketingTitle": "Pazarlama",
   "notifMarketingSubtitle": "Kampanya ve indirimlerden haberdar ol",
+  "notifPermissionDeniedTitle": "Bildirimlere izin verilmedi",
+  "notifPermissionDeniedMessage": "Sistem bildirim izniniz kapalı, bu yüzden push bildirimleri cihazınıza ulaşmıyor. Etkinleştirmek için sistem ayarlarına gidin.",
+  "notifOpenSettingsButton": "Sistem ayarlarına git",
   "notifPushTitle": "Push bildirimleri",
   "notifEmailTitle": "E-posta bildirimleri",
   "notifUpdateErrorMessage": "Değişiklik kaydedilmedi. Lütfen daha sonra tekrar deneyin.",
-
   "mapLocationScreenTitle": "Harita ve Konum",
   "mapTypeTitle": "Harita tipi",
   "mapTypeStandard": "Standart",
@@ -697,10 +746,9 @@
   "backgroundLocationSubtitle": "Uygulama arka plandayken konumun güncellensin",
   "backgroundLocationDeniedMessage": "Arka plan konumunu etkinleştirmek için Ayarlar > Uygulamalar bölümünden \"Her zaman izin ver\"i seçin.",
   "mapLocationUpdateErrorMessage": "Değişiklik kaydedilmedi. Lütfen daha sonra tekrar deneyin.",
-
   "helpScreenTitle": "Yardım",
   "helpFaqSectionTitle": "Sık sorulan sorular",
-  "helpFaq1Question": "Meevima nasıl çalışır?",
+  "helpFaq1Question": "PeakPin nasıl çalışır?",
   "helpFaq1Answer": "Uygulama konumunu kullanarak yakınındaki diğer kullanıcıları sana gösterir. Keşfet sekmesinden yarıçapı ve filtreleri seçebilirsin.",
   "helpFaq2Question": "Konumumu kim görebilir?",
   "helpFaq2Answer": "Diğer kullanıcılara yalnızca yaklaşık mesafen gösterilir, kesin koordinatların paylaşılmaz. Ayarlar > Gizlilik ve Güvenlik bölümünden Ghost Mode'u açarak tamamen gizlenebilirsin.",
@@ -708,7 +756,7 @@
   "helpFaq3Answer": "Ayarlar > Hesap > Hesabımı sil bölümünden hesabını kalıcı olarak silebilirsin. Bu işlem geri alınamaz.",
   "helpFaq4Question": "Biri beni rahatsız ediyorsa ne yapmalıyım?",
   "helpFaq4Answer": "İstediğin zaman herhangi bir profilden o kullanıcıyı engelleyebilir veya şikayet edebilirsin. Engellenen kullanıcı seni bir daha göremez.",
-  "helpFaq5Question": "Meevima VIP ne işe yarar?",
+  "helpFaq5Question": "PeakPin VIP ne işe yarar?",
   "helpFaq5Answer": "VIP üyelik genişletilmiş görünürlük yarıçapı, Ghost Mode ve ek filtreler sunar.",
   "helpFaq6Question": "Görünürlük yarıçapımı nasıl değiştirebilirim?",
   "helpFaq6Answer": "Keşfet sekmesinde haritanın altındaki yarıçap seçiciden istediğin mesafeyi seçebilirsin.",
@@ -730,15 +778,13 @@
   "legalPrivacyPolicyTitle": "Gizlilik Politikası",
   "legalTermsOfServiceTitle": "Kullanım Şartları",
   "legalLicensesTitle": "Lisanslar",
-
   "aboutWhatsNewTitle": "Yenilikler",
   "aboutSocialMediaTitle": "Sosyal medya",
   "aboutSocialMediaComingSoonLabel": "Yakında",
-  "aboutCopyrightText": "© 2026 Meevima. Tüm hakları saklıdır.",
+  "aboutCopyrightText": "© 2026 PeakPin. Tüm hakları saklıdır.",
   "aboutChangelogV1Title": "v1.0.0",
   "aboutChangelogV1Body": "İlk sürüm: yakındaki kullanıcıları keşfet, arkadaşlık istekleri, sohbetler, hikayeler ve profil yönetimi.",
-
-  "vipHeaderTitle": "Meevima VIP",
+  "vipHeaderTitle": "PeakPin VIP",
   "vipHeaderSubtitle": "Genişletilmiş özelliklerle daha çok insanla tanış",
   "vipChoosePackageTitle": "Paket seç",
   "vipPeriodMonthly": "Aylık",
@@ -758,7 +804,6 @@
   "vipFeatureRadiusDescription": "5 km ve 10 km yarıçapındaki insanları keşfet.",
   "vipFeatureFilterTitle": "Ek filtreler",
   "vipFeatureFilterDescription": "Cinsiyet ve diğer filtrelerle aramanı daraltın.",
-
   "accountScreenTitle": "Hesap",
   "accountPersonalInfoTitle": "Kişisel bilgiler",
   "accountPhoneRowTitle": "Telefon numarası",

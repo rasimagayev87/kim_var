@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Meevima</string>
+	<string>PeakPin</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Meevima</string>
+	<string>PeakPin</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -38,6 +38,11 @@
 	<string>Şəkil və video çəkmək üçün kameraya girişə ehtiyacımız var.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Səsli mesaj göndərmək üçün mikrofona girişə ehtiyacımız var.</string>
+	<!-- Branch (deferred deep linking). Same key as
+	     android/app/src/main/AndroidManifest.xml's io.branch.sdk.BranchKey
+	     entry — see the comment there. -->
+	<key>branch_key</key>
+	<string>key_live_gvCTsTZgmBWo3ILjha8wuacaqFfXTcrJ</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

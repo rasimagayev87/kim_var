@@ -1,5 +1,5 @@
-name: kim_var
-description: "A new Flutter project."
+name: peakpin
+description: "PeakPin"
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -40,6 +40,8 @@ dependencies:
   firebase_app_check: ^0.3.1
   url_launcher: ^6.3.1
   share_plus: ^10.1.4
+  app_links: ^6.4.0
+  flutter_branch_sdk: ^9.3.3
   flutter_slidable: ^3.1.1
   geocoding: ^3.0.0
   freezed_annotation: ^2.4.4
@@ -82,12 +84,13 @@ flutter:
   assets:
     - assets/icon.png
     - assets/icon_foreground.png
+    - assets/sounds/ringback.wav
 
 flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/icon.png"
-  adaptive_icon_background: "#001A17"
+  adaptive_icon_background: "#E8F8F9"
   adaptive_icon_foreground: "assets/icon_foreground.png"
   min_sdk_android: 21
   remove_alpha_ios: true

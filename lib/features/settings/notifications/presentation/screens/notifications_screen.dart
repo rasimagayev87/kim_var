@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/widgets/settings_group.dart';
@@ -16,6 +17,9 @@ class NotificationsScreen extends ConsumerWidget {
     final prefsAsync = ref.watch(notificationPreferencesProvider);
     final prefs = prefsAsync.valueOrNull ?? const NotificationPreferences();
     final controller = ref.read(notificationPreferencesControllerProvider);
+    final permissionStatus = ref.watch(notificationPermissionStatusProvider).valueOrNull;
+    final permissionDenied = permissionStatus == ph.PermissionStatus.denied ||
+        permissionStatus == ph.PermissionStatus.permanentlyDenied;
 
     void showError() {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -42,6 +46,10 @@ class NotificationsScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           children: [
+            if (permissionDenied) ...[
+              _PermissionDeniedBanner(onOpenSettings: ph.openAppSettings),
+              const SizedBox(height: 16),
+            ],
             SettingsGroup(
               children: [
                 SettingsToggleRow(
@@ -141,6 +149,63 @@ class NotificationsScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shown only when the OS-level permission is actually denied — every
+/// toggle above this still reads/writes fine either way (this app's
+/// own stored preference, not the OS permission), so without this
+/// banner a user who denied the system prompt once has no way to
+/// learn that's why nothing ever arrives.
+class _PermissionDeniedBanner extends StatelessWidget {
+  final Future<bool> Function() onOpenSettings;
+
+  const _PermissionDeniedBanner({required this.onOpenSettings});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.error.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.error.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.notifications_off_outlined, color: AppColors.error, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  loc.notifPermissionDeniedTitle,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.white),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  loc.notifPermissionDeniedMessage,
+                  style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
+                ),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: onOpenSettings,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    backgroundColor: AppColors.error.withValues(alpha: 0.15),
+                    foregroundColor: AppColors.error,
+                  ),
+                  child: Text(loc.notifOpenSettingsButton, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

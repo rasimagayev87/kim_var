@@ -2,10 +2,12 @@ import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_branch_sdk/flutter_branch_sdk.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/localization/locale_providers.dart';
+import 'core/navigation/deep_link_handler.dart';
 import 'core/theme/app_theme.dart';
 import 'features/onboarding/presentation/screens/splash_screen.dart';
 import 'firebase_options.dart';
@@ -37,20 +39,26 @@ void main() async {
     overrides: [
       localeProvider.overrideWith((ref) => LocaleController(initialLocale, prefs)),
     ],
-    child: const MeevimaApp(),
+    child: const PeakPinApp(),
   ));
+
+  startDeepLinkListener();
+
+  await FlutterBranchSdk.init(enableLogging: kDebugMode);
+  startBranchDeepLinkListener();
 }
 
-class MeevimaApp extends ConsumerWidget {
-  const MeevimaApp({super.key});
+class PeakPinApp extends ConsumerWidget {
+  const PeakPinApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final locale = ref.watch(localeProvider);
 
     return MaterialApp(
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
-      title: 'Meevima',
+      title: 'PeakPin',
       theme: AppTheme.darkTheme,
       locale: locale,
       supportedLocales: AppLocalizations.supportedLocales,

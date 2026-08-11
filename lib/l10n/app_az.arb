@@ -1,9 +1,7 @@
 {
   "@@locale": "az",
-
   "welcomeSubtitle": "Ətrafındakı insanları kəşf et,\nyeni tanışlıqlar və dostluqlar qur.",
   "welcomeStartButton": "Başla",
-
   "loginTitle": "Daxil ol",
   "loginUsernameLabel": "İstifadəçi adı",
   "loginUsernameHint": "istifadeci.adi",
@@ -16,7 +14,6 @@
   "loginRegisterPromptLabel": "Qeydiyyatdan keçmək istəyirsiniz?",
   "loginTooManyAttemptsError": "Çox sayda uğursuz cəhd oldu. Bir az sonra yenidən cəhd edin, ya da parolu \"Parolu unutdum\" ilə sıfırlayın.",
   "loginNetworkError": "İnternet bağlantısı yoxdur. Bağlantınızı yoxlayıb yenidən cəhd edin.",
-
   "registerTitle": "Qeydiyyatdan keç",
   "registerUsernameLabel": "İstifadəçi adı",
   "registerUsernameHint": "istifadeci.adi",
@@ -32,7 +29,6 @@
   "registerSubmitButton": "Qeydiyyatı tamamla",
   "registerGenericError": "Qeydiyyat tamamlanmadı. Bir az sonra yenidən cəhd edin.",
   "registerSuccessMessage": "Qeydiyyat tamamlandı, indi daxil ola bilərsiniz.",
-
   "phoneAuthTitle": "Telefon nömrən",
   "phoneAuthSubtitle": "SMS ilə göndəriləcək koda ehtiyacın olacaq.",
   "phoneAuthNumberHint": "50 123 45 67",
@@ -40,7 +36,6 @@
   "phoneAuthInvalidNumberError": "Düzgün telefon nömrəsi daxil edin",
   "phoneAuthVerificationFailedError": "Nömrə doğrulanmadı, yenidən cəhd edin.",
   "pickCountryTitle": "Ölkə seç",
-
   "otpTitle": "Kodu daxil et",
   "otpSubtitle": "{phone} nömrəsinə göndərilən 6 rəqəmli kodu yaz.",
   "otpCodeHint": "••••••",
@@ -49,7 +44,6 @@
   "otpInvalidCodeError": "Kod yanlışdır və ya vaxtı bitib.",
   "otpResendButton": "Kodu yenidən göndər",
   "otpResendWaitLabel": "Yenidən göndər: {time}",
-
   "verificationRequiredTitle": "Hesabı təsdiq et",
   "verificationRequiredMessage": "Bu funksiyadan istifadə etmək üçün əvvəlcə hesabınızı təsdiqləməlisiniz.",
   "verificationRequiredButton": "Hesabı təsdiq et",
@@ -62,7 +56,6 @@
   "settingsIdentityVerificationRowTitle": "Kimlik doğrulama",
   "swipeMatchedMessage": "Bu istifadəçi ilə uyğunlaşdınız!",
   "swipeErrorMessage": "Əməliyyat baş tutmadı. Bir az sonra yenidən cəhd edin.",
-
   "forgotPasswordTitle": "Parolu unutdum",
   "forgotPasswordSubtitle": "Hesabınıza bağlı telefon nömrənizi daxil edin.",
   "forgotPasswordAccountNotFoundError": "Bu telefon nömrəsi ilə əlaqəli hesab tapılmadı.",
@@ -75,7 +68,6 @@
   "newPasswordSubmitButton": "Parolu yenilə",
   "newPasswordSuccessMessage": "Parolunuz yeniləndi. İndi daxil ola bilərsiniz.",
   "newPasswordGenericError": "Parol yenilənmədi. Bir az sonra yenidən cəhd edin.",
-
   "changePasswordTitle": "Parolu dəyiş",
   "changePasswordCurrentLabel": "Cari parol",
   "changePasswordCurrentHint": "Cari parolunuzu yazın",
@@ -87,7 +79,6 @@
   "changePasswordWrongCurrentError": "Cari parol yanlışdır.",
   "changePasswordSuccessMessage": "Parolunuz yeniləndi.",
   "changePasswordGenericError": "Parol dəyişdirilmədi. Bir az sonra yenidən cəhd edin.",
-
   "onboardingAppBarTitle": "Profilini tamamla",
   "onboardingPhotoOptionalLabel": "Şəkil əlavə et (keçilə bilər)",
   "fieldFirstNameLabel": "Ad",
@@ -109,13 +100,11 @@
   "onboardingSelectCountryCityError": "Ölkə və şəhəri seçin",
   "onboardingPhotoUploadFailedError": "Şəkil yüklənə bilmədi, sonra profildən əlavə edə bilərsiniz.",
   "errorWithDetails": "Xəta baş verdi: {error}",
-
   "navDiscoverLabel": "Kəşf et",
   "navChatsLabel": "Söhbət",
   "navFeedLabel": "Lent",
   "navNotificationsLabel": "Bildirişlər",
   "navProfileLabel": "Profil",
-
   "notificationsFeedTitle": "Bildirişlər",
   "notifMenuMarkAllRead": "Hamısını oxunmuş et",
   "notifMenuDeleteRead": "Oxunmuşları sil",
@@ -131,7 +120,6 @@
   "notifMarkAllReadDone": "Bütün bildirişlər oxunmuş kimi işarələndi",
   "notifDeleteReadDone": "Oxunmuş bildirişlər silindi",
   "notifActionErrorMessage": "Əməliyyat baş tutmadı. Bir az sonra yenidən cəhd edin.",
-
   "discoverTitle": "Kəşf et",
   "viewSwitcherPeopleLabel": "İnsanlar",
   "viewSwitcherPlacesLabel": "Məkanlar",
@@ -152,7 +140,7 @@
   "chatPermissionDeniedMessage": "Hazırda bu söhbətə girişiniz yoxdur. Yenidən daxil olmağı və ya bir az sonra təkrar cəhd etməyi sınayın.",
   "chatLoadErrorMessage": "Yüklənmə zamanı xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.",
   "locationPermissionDeniedForeverTitle": "İcazə həmişəlik rədd edilib",
-  "locationPermissionDeniedForeverSubtitle": "Telefonun ayarlarından \"Meevima\" üçün lokasiya icazəsini əl ilə aç.",
+  "locationPermissionDeniedForeverSubtitle": "Telefonun ayarlarından \"PeakPin\" üçün lokasiya icazəsini əl ilə aç.",
   "actionOpenAppSettings": "Tətbiq ayarlarını aç",
   "errorTitle": "Xəta baş verdi",
   "meMarkerLabel": "Sən buradasan",
@@ -220,6 +208,7 @@
   "chatCallComingSoonMessage": "Zəng funksiyası tezliklə aktivləşəcək.",
   "chatVoiceCallLabel": "Səsli zəng",
   "chatVideoCallLabel": "Video zəng",
+  "chatCallDisabledTooltip": "Zəng etmək üçün mesaj istəyi qəbul olunmalıdır",
   "callStatusRinging": "Zəng edilir...",
   "callStatusConnecting": "Bağlanır...",
   "callStatusIncoming": "Gələn zəng",
@@ -237,7 +226,13 @@
   "chatForwardTitle": "Yönləndir",
   "chatForwardEmptyMessage": "Yönləndirmək üçün söhbətiniz yoxdur.",
   "chatForwardSendButton": "Göndər ({count})",
-  "@chatForwardSendButton": {"placeholders": {"count": {"type": "int"}}},
+  "@chatForwardSendButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "chatForwardSuccessMessage": "Mesaj yönləndirildi.",
   "actionCancel": "Ləğv et",
   "actionDelete": "Sil",
@@ -249,12 +244,10 @@
   "radiusMorePanelTitle": "Axtarış radiusu",
   "premiumUpsellRadiusTitle": "Daha uzaqdakı insanları kəşf et 🌍",
   "premiumUpsellRadiusMessage": "Premium üzvlüklə 5 km və 10 km radiusunda olan insanları görə və daha çox insanla tanış ola bilərsən.",
-
   "premiumUpgradeButton": "Premium-a keç",
   "premiumLaterButton": "Sonra",
   "premiumComingSoonTitle": "Premium",
   "premiumComingSoonMessage": "Premium üzvlük tezliklə aktivləşəcək.",
-
   "chatsTitle": "Söhbətlər",
   "chatsEmptyTitle": "Söhbətin yoxdur",
   "chatsEmptySubtitle": "Ətrafındakı insanlarla tanış olduqda söhbətlərin burada görünəcək.",
@@ -280,9 +273,7 @@
   "chatsUnmuteAction": "Səsli et",
   "chatsPinnedSectionLabel": "Sabitlənənlər",
   "chatsRecentSectionLabel": "Son söhbətlər",
-
   "eventSaveButton": "Yadda saxla",
-
   "venueCreateTitle": "Məkan profili",
   "venueEditTitle": "Məkana düzəliş et",
   "venuePhotoLabel": "Şəkil/loqo əlavə et",
@@ -308,7 +299,6 @@
   "venueFilterTooltip": "Filtr",
   "venueCategoryFilterTitle": "Kateqoriya seç",
   "venueCategoryAllOption": "Hamısı",
-
   "offersSearchHint": "Təklif axtar...",
   "offerFilterTooltip": "Filtr",
   "offersEmptyTitle": "Hələ heç bir təklif yoxdur",
@@ -319,17 +309,26 @@
   "offerBadgeGiftLabel": "Hədiyyə",
   "offerBadgeBuyOneGetOneLabel": "1+1",
   "offerBadgeFixedPriceSuffix": "AZN",
+  "offerBadgeFirstVisitLabel": "İlk ziyarətə xüsusi",
+  "offerBadgeBirthdayLabel": "Ad günü təklifi",
   "offerEndsOnLabel": "{date}-dək",
-  "@offerEndsOnLabel": {"placeholders": {"date": {"type": "String"}}},
+  "@offerEndsOnLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "offerTermsLabel": "Şərtlər",
   "offerValidityLabel": "Aktivlik müddəti",
   "offerStartDateLabel": "Başlanğıc",
   "offerEndDateLabel": "Bitmə",
-  "offerContactLabel": "Əlaqə",
   "offerOtherActiveOffersLabel": "Digər aktiv təkliflər",
   "offerViewVenueProfileButton": "Məkan Profilinə keç",
   "offerNotFoundMessage": "Təklif tapılmadı.",
   "offerGenericErrorMessage": "Əməliyyat baş tutmadı. Bir az sonra yenidən cəhd edin.",
+  "offerRedeemButtonLabel": "Aktivləşdir",
+  "offerRedeemedButtonLabel": "İstifadə edilib",
   "offerCreateTitle": "Təklif yarat",
   "offerEditTitle": "Təklifə düzəliş et",
   "offerPhotoLabel": "Şəkli/loqo əlavə et",
@@ -341,9 +340,19 @@
   "offerTypeGiftOption": "Hədiyyə",
   "offerTypeBuyOneGetOneOption": "1+1 Hədiyyə",
   "offerTypeFixedPriceOption": "Sabit qiymət",
+  "offerTypeHappyHourOption": "Happy Hour",
+  "offerTypeFirstVisitOption": "İlk ziyarət",
+  "offerTypeBirthdayOption": "Doğum günü",
   "offerDiscountAmountLabel": "Endirim məbləği",
   "offerFixedPriceLabel": "Qiymət (AZN)",
   "offerFixedPriceHint": "Qiyməti yazın",
+  "offerActiveHoursLabel": "Saat aralığı",
+  "offerActiveHoursStartLabel": "Başlanğıc",
+  "offerActiveHoursEndLabel": "Bitmə",
+  "offerActiveDaysLabel": "Aktiv günlər",
+  "offerPersonalMessageLabel": "Şəxsi mesaj (opsional)",
+  "offerPersonalMessageHint": "Ad günün mübarək! Bizdən sənə hədiyyə var 🎉",
+  "offerBirthdayWeekExtensionLabel": "Ad günü həftəsi (7 gün)",
   "offerDescriptionLabel": "Təklif haqqında qısa məlumat",
   "offerDescriptionHint": "Təklifin şərtlərini və üstünlüklərini yazın...",
   "offerValidityPeriodLabel": "Təklifin aktivlik müddəti",
@@ -355,10 +364,19 @@
   "offerNoVenuesSubtitle": "Təklif yaratmaq üçün əvvəlcə bir məkan əlavə edin.",
   "offerAddVenueButton": "Məkan əlavə et",
   "offerTermsHint": "Təklifin istifadə şərtlərini yazın...",
-  "offerAdditionalInfoLabel": "Əlavə məlumatlar",
-  "offerContactPhoneHint": "Telefon nömrəsi",
-  "offerContactWebsiteHint": "Vebsayt",
-  "offerContactInstagramHint": "Instagram",
+  "offerBoostMenuItem": "Təklifi önə çək",
+  "offerBoost6h": "6 saat",
+  "offerBoost12h": "12 saat",
+  "offerBoost18h": "18 saat",
+  "offerBoostPriceSuffix": "{amount} AZN",
+  "@offerBoostPriceSuffix": {
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
+  },
+  "offerBoostComingSoonMessage": "Ödəniş sistemi hazırlanma mərhələsindədir, tezliklə aktivləşəcək.",
   "offerSubmitButton": "Təklifi yarat",
   "offerCreatedNotice": "Təklif yaradıldı",
   "offerUpdatedNotice": "Təklif yeniləndi",
@@ -374,7 +392,6 @@
   "offerMyOffersEmptySubtitle": "Əlavə etdiyiniz təkliflər burada görünəcək və onları istənilən vaxt redaktə edə və ya silə bilərsiniz.",
   "offerMyOffersTooltip": "Mənim təkliflərim",
   "offerAddButtonTooltip": "Təklif yarat",
-
   "venueCategoryUnselectedLabel": "Seçin",
   "venueCategoryRestaurant": "Restoran",
   "venueCategoryPub": "Pub",
@@ -418,10 +435,46 @@
   "venueLocationResolvingAddress": "Ünvan müəyyən edilir...",
   "venueLocationAddressUnavailable": "Ünvan tapılmadı",
   "venueLocationPickerConfirmButton": "Bu yeri seç",
+  "venueSocialSectionLabel": "Sosial şəbəkələr (opsional)",
+  "venueWhatsappLabel": "WhatsApp nömrəsi",
+  "venueWhatsappHint": "+994501234567",
+  "venueInstagramLabel": "Instagram istifadəçi adı",
+  "venueInstagramHint": "istifadeci_adi",
+  "venueTiktokLabel": "TikTok istifadəçi adı",
+  "venueTiktokHint": "istifadeci_adi",
+  "venueAudienceRadiusSectionLabel": "Auditoriya radiusu",
+  "venueAudienceRadiusHint": "Canlı auditoriya sayğacının ətrafınızda neçə istifadəçini hesablayacağı radius.",
+  "venueBirthdayNotificationsTitle": "Ad günü bildirişləri",
+  "venueBirthdayNotificationsHint": "Yaxınlıqda ad günü olan istifadəçilər tapılanda xəbər verilsin.",
+  "venueSocialWhatsapp": "WhatsApp",
+  "venueSocialInstagram": "Instagram",
+  "venueSocialTiktok": "TikTok",
   "venueCreateButton": "Əlavə et",
   "venueSaveButton": "Yadda saxla",
   "venueRequiredFieldsMissing": "Zəhmət olmasa bütün məcburi sahələri doldurun.",
   "venueGenericErrorMessage": "Əməliyyat baş tutmadı. Bir az sonra yenidən cəhd edin.",
+  "venuePremiumMenuItem": "Məkanı premium et",
+  "venuePremiumUpsellMessage": "Premium məkanlar seçdiyiniz radius üzrə ən öndə göstərilir və adının yanında premium nişanı görünür.",
+  "venueLiveAudienceCount": "{count} nəfər ətrafınızda",
+  "@venueLiveAudienceCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "venueCheckinActiveCount": "Hazırda {count} PeakPin istifadəçisi buradadır",
+  "@venueCheckinActiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "venueCheckInButton": "Check-in et",
+  "venueCheckOutButton": "Çıxış et",
+  "venueCheckinTooFar": "Check-in etmək üçün məkana daha yaxın olmalısınız",
+  "venueCheckinLocationUnavailable": "Məkanınız müəyyən edilmədi. GPS-i yoxlayıb yenidən cəhd edin.",
   "venueAddButtonTooltip": "Məkan yerləşdir",
   "venuesEmptyTitle": "Yaxınlıqda məkan yoxdur",
   "venuesEmptySubtitle": "Seçdiyiniz radiusda hələ heç bir məkan əlavə edilməyib.",
@@ -430,18 +483,15 @@
   "venueMyVenuesEmptyTitle": "Hələ heç bir məkan əlavə etməmisiniz",
   "venueMyVenuesEmptySubtitle": "Əlavə etdiyiniz məkanlar burada görünəcək və onları istənilən vaxt redaktə edə və ya silə bilərsiniz.",
   "venueDeleteMenuOption": "Məkanı sil",
-  "venueBoostMenuItem": "Elanı önə çək",
-  "venueBoost6h": "6 saat",
-  "venueBoost12h": "12 saat",
-  "venueBoost24h": "24 saat",
-  "venueBoostPriceTba": "Qiymət tezliklə elan olunacaq",
-  "venueBoostUpsellTitle": "Elanınızı önə çəkin 🚀",
-  "venueBoostUpsellMessage": "Ödənişli \"önə çəkmə\" funksiyası ilə məkanınız axtarış nəticələrində daha öndə göstəriləcək. Bu funksiya tezliklə aktivləşəcək.",
   "venueDeleteConfirmMessage": "Bu məkanı silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.",
   "venueDeletedNotice": "Məkan silindi",
+  "moderationStatusPending": "Yoxlanılır",
+  "moderationStatusNeedsRevision": "Düzəliş tələb olunur",
+  "moderationReviewNotePrefix": "Səbəb",
+  "moderationResubmitSuccess": "Yenidən göndərildi, yoxlanmaq üçün növbədədir.",
+  "moderationResubmitError": "Yenidən göndərmək mümkün olmadı. Bir az sonra yenidən cəhd edin.",
   "venueOpenNowLabel": "Açıq",
   "venueClosedNowLabel": "Bağlı",
-
   "profileTitle": "Profil",
   "profileNamePlaceholder": "Adını əlavə et",
   "profileBioPlaceholder": "Şəkil, bio və maraqlarını əlavə et",
@@ -456,7 +506,6 @@
   "profileSaveSuccessMessage": "Məlumatlar yeniləndi.",
   "menuSettings": "Ayarlar",
   "menuPrivacySecurity": "Məxfilik və təhlükəsizlik",
-
   "privacySecurityTitle": "Məxfilik və təhlükəsizlik",
   "privacyProfileVisibilityTitle": "Media görünürlüyü",
   "privacyProfileVisibilitySubtitle": "Profilinizdəki paylaşımları kimin görə biləcəyini seçin.",
@@ -476,10 +525,11 @@
   "privacyMessagePermNoOne": "Heç kim",
   "privacyGhostModeTitle": "Ghost Mode",
   "privacyGhostModeDescription": "Siz digər istifadəçiləri görə bilərsiniz. Digər istifadəçilər sizi xəritədə görə bilməz. İstədiyiniz zaman aktiv/deaktiv edə bilərsiniz.",
+  "privacyBirthdayOffersTitle": "Ad günündə xüsusi təkliflər",
+  "privacyBirthdayOffersDescription": "Ad günümdə yaxın məkanlardan xüsusi təkliflər almaq istəyirəm.",
   "privacyGhostModePremiumTitle": "Ghost Mode ilə görünməz olun 👻",
   "privacyGhostModePremiumMessage": "Premium üzvlüklə digər istifadəçiləri görə bilərsiniz, amma onlar sizi xəritədə görə bilməyəcək.",
   "privacySettingUpdateErrorMessage": "Dəyişiklik saxlanılmadı. Bir az sonra yenidən cəhd edin.",
-
   "privacyTwoFactorTitle": "İki mərhələli doğrulamanı aktiv et",
   "privacyTwoFactorHelperText": "Hazırda yalnız seçiminiz saxlanılır — SMS və Authenticator dəstəyi tezliklə əlavə olunacaq.",
   "privacyExportDataTitle": "Məlumatlarımı yüklə",
@@ -502,14 +552,12 @@
   "deleteAccountConfirmCodeButton": "Təsdiqlə",
   "deleteAccountReauthFailedMessage": "Təsdiqləmə uğursuz oldu. Yenidən cəhd edin.",
   "deleteAccountErrorMessage": "Hesab silinmədi. Bir az sonra yenidən cəhd edin.",
-
   "blockedUsersTitle": "Bloklanmış istifadəçilər",
   "blockedUsersEmptyTitle": "Bloklanmış istifadəçi yoxdur",
   "blockedUsersEmptySubtitle": "Blokladığınız istifadəçilər burada görünəcək.",
   "menuNotifications": "Bildirişlər",
   "menuHelp": "Kömək",
   "menuLogout": "Çıxış et",
-
   "uploadingProgress": "{percent}% yüklənir...",
   "removePhotoButton": "Şəkli sil",
   "fieldAgeLabel": "Yaş",
@@ -531,9 +579,7 @@
   "storageErrorPermissionDenied": "Bu əməliyyat üçün icazəniz yoxdur.",
   "storageErrorUnauthenticated": "İstifadəçi daxil olmayıb.",
   "storageErrorUnknown": "Naməlum yaddaş xətası baş verdi.",
-
   "comingSoonDefaultMessage": "Bu funksiya tezliklə aktivləşəcək.",
-
   "pickCountryHint": "Ölkə axtar",
   "pickCityTitle": "Şəhər seç",
   "pickCityHint": "Şəhər axtar",
@@ -541,10 +587,8 @@
   "fieldCountryLabel": "Ölkə",
   "fieldCitySelectFirstHint": "Əvvəlcə ölkə seç",
   "fieldCityLabel": "Şəhər",
-
   "contactRequiredError": "E-poçt və ya nömrənizi daxil edin",
   "contactInvalidError": "Düzgün e-poçt və ya nömrə daxil edin",
-
   "stampLike": "BƏYƏN",
   "stampReject": "İMTİNA",
   "stampSuper": "SUPER",
@@ -581,7 +625,13 @@
   "feedSearchNoResultsMessage": "Nəticə tapılmadı",
   "feedDownloadVideoOption": "Videonu endir",
   "feedDownloadInProgressMessage": "Yüklənir... {percent}%",
-  "@feedDownloadInProgressMessage": {"placeholders": {"percent": {"type": "int"}}},
+  "@feedDownloadInProgressMessage": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "feedDownloadCompleteMessage": "Video qalereyanıza endirildi",
   "feedDownloadErrorMessage": "Video endirilə bilmədi. Bir az sonra yenidən cəhd edin.",
   "postTimeJustNow": "İndicə",
@@ -615,7 +665,6 @@
   "postSentToChatSuccessMessage": "Paylaşım göndərildi",
   "postSentToChatErrorMessage": "Paylaşım göndərilə bilmədi. Bir az sonra yenidən cəhd edin.",
   "chatPostMessageLabel": "Paylaşım",
-
   "friendRequestSendButton": "Dostluq göndər",
   "friendRequestSentLabel": "Göndərildi",
   "friendRequestPendingLabel": "Gözləmədədir",
@@ -628,7 +677,6 @@
   "followErrorMessage": "Əməliyyat baş tutmadı. Bir az sonra yenidən cəhd edin.",
   "profileStatsFollowing": "Takip",
   "profileStatsFollowers": "Takipçi",
-
   "settingsTitle": "Ayarlar",
   "settingsLanguageRowLabel": "Dil",
   "languagePickerTitle": "Dil seç",
@@ -640,7 +688,7 @@
   "settingsNotificationsRowSubtitle": "Mesajlar, push bildirişləri",
   "settingsLanguageRowSubtitle": "Tətbiq dili seçimi",
   "settingsIdentityRowSubtitle": "Şəxsiyyətini təsdiqlə, etibarlı profil nişanı qazan",
-  "settingsVipRowTitle": "Meevima VIP",
+  "settingsVipRowTitle": "PeakPin VIP",
   "settingsVipRowSubtitle": "VIP-ə keç, paketini idarə et",
   "settingsVipActiveLabel": "Aktiv",
   "settingsVipBadgeLabel": "VIP",
@@ -656,7 +704,6 @@
   "settingsAboutRowSubtitle": "Versiya, yeniliklər, sosial şəbəkələr",
   "settingsLogoutRowTitle": "Çıxış",
   "settingsLogoutRowSubtitle": "Hesabdan çıx",
-
   "notificationsScreenTitle": "Bildirişlər",
   "notifMessagesTitle": "Mesajlar",
   "notifMessagesSubtitle": "Yeni mesaj gələndə bildiriş al",
@@ -678,10 +725,12 @@
   "notifSystemSubtitle": "Tətbiqlə bağlı vacib elanlar",
   "notifMarketingTitle": "Marketinq",
   "notifMarketingSubtitle": "Kampaniya və endirimlərdən xəbərdar ol",
+  "notifPermissionDeniedTitle": "Bildirişlərə icazə verilməyib",
+  "notifPermissionDeniedMessage": "Sistem bildiriş icazəniz söndürülüb, ona görə push bildirişləri cihazınıza çatmır. Aktivləşdirmək üçün sistem ayarlarına keçin.",
+  "notifOpenSettingsButton": "Sistem ayarlarına get",
   "notifPushTitle": "Push bildirişləri",
   "notifEmailTitle": "Email bildirişləri",
   "notifUpdateErrorMessage": "Dəyişiklik saxlanılmadı. Bir az sonra yenidən cəhd edin.",
-
   "mapLocationScreenTitle": "Xəritə və Lokasiya",
   "mapTypeTitle": "Xəritə tipi",
   "mapTypeStandard": "Standart",
@@ -697,10 +746,9 @@
   "backgroundLocationSubtitle": "Tətbiq fonda olduqda da lokasiyan yenilənsin",
   "backgroundLocationDeniedMessage": "Fon lokasiyasını aktiv etmək üçün Ayarlar > Tətbiqlər bölməsindən \"Həmişə icazə ver\" seçin.",
   "mapLocationUpdateErrorMessage": "Dəyişiklik saxlanılmadı. Bir az sonra yenidən cəhd edin.",
-
   "helpScreenTitle": "Yardım",
   "helpFaqSectionTitle": "Tez-tez verilən suallar",
-  "helpFaq1Question": "Meevima necə işləyir?",
+  "helpFaq1Question": "PeakPin necə işləyir?",
   "helpFaq1Answer": "Tətbiq lokasiyanı istifadə edərək yaxınlıqdakı digər istifadəçiləri sənə göstərir. Kəşf et bölməsindən radiusu və filtrləri seçə bilərsən.",
   "helpFaq2Question": "Lokasiyamı kim görür?",
   "helpFaq2Answer": "Yalnız təxmini məsafən digər istifadəçilərə göstərilir, dəqiq koordinatların paylaşılmır. Ayarlar > Məxfilik və Təhlükəsizlik bölməsindən Ghost Mode aktivləşdirərək tam gizlənə bilərsən.",
@@ -708,7 +756,7 @@
   "helpFaq3Answer": "Ayarlar > Hesab > Hesabımı sil bölməsindən hesabını həmişəlik silə bilərsən. Bu əməliyyat geri qaytarıla bilməz.",
   "helpFaq4Question": "Kimsə məni narahat edirsə nə etməliyəm?",
   "helpFaq4Answer": "İstənilən profildən həmin istifadəçini bloklaya və ya şikayət edə bilərsən. Bloklanan istifadəçi səni bir daha görə bilməyəcək.",
-  "helpFaq5Question": "Meevima VIP nə üçündür?",
+  "helpFaq5Question": "PeakPin VIP nə üçündür?",
   "helpFaq5Answer": "VIP üzvlük genişləndirilmiş görünmə radiusu, Ghost Mode və əlavə filtrlər kimi imkanlar təqdim edir.",
   "helpFaq6Question": "Görünmə radiusunu necə dəyişə bilərəm?",
   "helpFaq6Answer": "Kəşf et bölməsində xəritənin altındakı radius seçicisindən istədiyin məsafəni seçə bilərsən.",
@@ -730,15 +778,13 @@
   "legalPrivacyPolicyTitle": "Məxfilik siyasəti",
   "legalTermsOfServiceTitle": "İstifadə şərtləri",
   "legalLicensesTitle": "Lisenziyalar",
-
   "aboutWhatsNewTitle": "Yeniliklər",
   "aboutSocialMediaTitle": "Sosial media",
   "aboutSocialMediaComingSoonLabel": "Tezliklə",
-  "aboutCopyrightText": "© 2026 Meevima. Bütün hüquqlar qorunur.",
+  "aboutCopyrightText": "© 2026 PeakPin. Bütün hüquqlar qorunur.",
   "aboutChangelogV1Title": "v1.0.0",
   "aboutChangelogV1Body": "İlk buraxılış: yaxınlıqdakı istifadəçiləri kəşf et, dostluq sorğuları, söhbətlər, hekayələr və profil idarəetməsi.",
-
-  "vipHeaderTitle": "Meevima VIP",
+  "vipHeaderTitle": "PeakPin VIP",
   "vipHeaderSubtitle": "Genişləndirilmiş imkanlarla daha çox insanla tanış ol",
   "vipChoosePackageTitle": "Paket seç",
   "vipPeriodMonthly": "Aylıq",
@@ -758,7 +804,6 @@
   "vipFeatureRadiusDescription": "5 km və 10 km radiusunda olan insanları kəşf et.",
   "vipFeatureFilterTitle": "Əlavə filtrlər",
   "vipFeatureFilterDescription": "Cins və digər filtrlərlə axtarışını dəqiqləşdir.",
-
   "accountScreenTitle": "Hesab",
   "accountPersonalInfoTitle": "Şəxsi məlumatlar",
   "accountPhoneRowTitle": "Telefon nömrəsi",

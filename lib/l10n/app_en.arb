@@ -1,11 +1,13 @@
 {
   "@@locale": "en",
-
   "welcomeSubtitle": "Discover people around you,\nmake new connections and friendships.",
-  "@welcomeSubtitle": {"description": "Welcome screen tagline"},
+  "@welcomeSubtitle": {
+    "description": "Welcome screen tagline"
+  },
   "welcomeStartButton": "Start",
-  "@welcomeStartButton": {"description": "Welcome screen primary CTA"},
-
+  "@welcomeStartButton": {
+    "description": "Welcome screen primary CTA"
+  },
   "loginTitle": "Log in",
   "loginUsernameLabel": "Username",
   "loginUsernameHint": "username",
@@ -18,7 +20,6 @@
   "loginTooManyAttemptsError": "Too many failed attempts. Try again shortly, or reset your password via \"Forgot password\".",
   "loginNetworkError": "No internet connection. Check your connection and try again.",
   "loginRegisterPromptLabel": "Want to create an account?",
-
   "registerTitle": "Sign up",
   "registerUsernameLabel": "Username",
   "registerUsernameHint": "username",
@@ -34,7 +35,6 @@
   "registerSubmitButton": "Complete registration",
   "registerGenericError": "Registration failed. Please try again shortly.",
   "registerSuccessMessage": "Registration complete — you can now log in.",
-
   "phoneAuthTitle": "Your phone number",
   "phoneAuthSubtitle": "You'll need the code sent to you by SMS.",
   "phoneAuthNumberHint": "50 123 45 67",
@@ -42,19 +42,31 @@
   "phoneAuthInvalidNumberError": "Enter a valid phone number",
   "phoneAuthVerificationFailedError": "Couldn't verify the number, try again.",
   "pickCountryTitle": "Choose country",
-  "@pickCountryTitle": {"description": "Bottom sheet title for the country picker, shared by phone dial-code and country/city pickers"},
-
+  "@pickCountryTitle": {
+    "description": "Bottom sheet title for the country picker, shared by phone dial-code and country/city pickers"
+  },
   "otpTitle": "Enter the code",
   "otpSubtitle": "Enter the 6-digit code sent to {phone}.",
-  "@otpSubtitle": {"placeholders": {"phone": {"type": "String"}}},
+  "@otpSubtitle": {
+    "placeholders": {
+      "phone": {
+        "type": "String"
+      }
+    }
+  },
   "otpCodeHint": "••••••",
   "otpConfirmButton": "Confirm",
   "otpIncompleteCodeError": "Enter the full 6-digit code",
   "otpInvalidCodeError": "The code is wrong or has expired.",
   "otpResendButton": "Resend code",
   "otpResendWaitLabel": "Resend in: {time}",
-  "@otpResendWaitLabel": {"placeholders": {"time": {"type": "String"}}},
-
+  "@otpResendWaitLabel": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
   "verificationRequiredTitle": "Verify your account",
   "verificationRequiredMessage": "You need to verify your account before using this feature.",
   "verificationRequiredButton": "Verify account",
@@ -67,7 +79,6 @@
   "settingsIdentityVerificationRowTitle": "Identity verification",
   "swipeMatchedMessage": "You matched with this user!",
   "swipeErrorMessage": "Something went wrong. Please try again shortly.",
-
   "forgotPasswordTitle": "Forgot password",
   "forgotPasswordSubtitle": "Enter the phone number linked to your account.",
   "forgotPasswordAccountNotFoundError": "No account found with this phone number.",
@@ -80,7 +91,6 @@
   "newPasswordSubmitButton": "Update password",
   "newPasswordSuccessMessage": "Your password has been updated — you can log in now.",
   "newPasswordGenericError": "The password wasn't updated. Please try again shortly.",
-
   "changePasswordTitle": "Change password",
   "changePasswordCurrentLabel": "Current password",
   "changePasswordCurrentHint": "Enter your current password",
@@ -92,7 +102,6 @@
   "changePasswordWrongCurrentError": "The current password is wrong.",
   "changePasswordSuccessMessage": "Your password has been updated.",
   "changePasswordGenericError": "The password wasn't changed. Please try again shortly.",
-
   "onboardingAppBarTitle": "Complete your profile",
   "onboardingPhotoOptionalLabel": "Add a photo (optional)",
   "fieldFirstNameLabel": "First name",
@@ -114,14 +123,18 @@
   "onboardingSelectCountryCityError": "Select your country and city",
   "onboardingPhotoUploadFailedError": "The photo couldn't be uploaded — you can add it later from your profile.",
   "errorWithDetails": "Something went wrong: {error}",
-  "@errorWithDetails": {"placeholders": {"error": {"type": "String"}}},
-
+  "@errorWithDetails": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "navDiscoverLabel": "Discover",
   "navChatsLabel": "Chat",
   "navFeedLabel": "Feed",
   "navNotificationsLabel": "Notifications",
   "navProfileLabel": "Profile",
-
   "notificationsFeedTitle": "Notifications",
   "notifMenuMarkAllRead": "Mark all as read",
   "notifMenuDeleteRead": "Delete read notifications",
@@ -137,7 +150,6 @@
   "notifMarkAllReadDone": "All notifications marked as read",
   "notifDeleteReadDone": "Read notifications deleted",
   "notifActionErrorMessage": "Something went wrong. Try again shortly.",
-
   "discoverTitle": "Discover",
   "viewSwitcherPeopleLabel": "People",
   "viewSwitcherPlacesLabel": "Places",
@@ -158,7 +170,7 @@
   "chatPermissionDeniedMessage": "You don't have access to this conversation right now. Try signing out and back in, or try again shortly.",
   "chatLoadErrorMessage": "Something went wrong loading this. Please try again.",
   "locationPermissionDeniedForeverTitle": "Permission permanently denied",
-  "locationPermissionDeniedForeverSubtitle": "Manually enable location permission for \"Meevima\" in your phone's settings.",
+  "locationPermissionDeniedForeverSubtitle": "Manually enable location permission for \"PeakPin\" in your phone's settings.",
   "actionOpenAppSettings": "Open app settings",
   "errorTitle": "Something went wrong",
   "meMarkerLabel": "You are here",
@@ -179,7 +191,11 @@
   "chatLastSeenUnknown": "Offline",
   "chatLastSeenAt": "Last seen: {time}",
   "@chatLastSeenAt": {
-    "placeholders": { "time": { "type": "String" } }
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
   },
   "chatTypingIndicator": "typing...",
   "chatDateToday": "Today",
@@ -229,6 +245,7 @@
   "chatCallComingSoonMessage": "Calling is coming soon.",
   "chatVoiceCallLabel": "Voice call",
   "chatVideoCallLabel": "Video call",
+  "chatCallDisabledTooltip": "The message request must be accepted before you can call",
   "callStatusRinging": "Calling...",
   "callStatusConnecting": "Connecting...",
   "callStatusIncoming": "Incoming call",
@@ -246,28 +263,56 @@
   "chatForwardTitle": "Forward",
   "chatForwardEmptyMessage": "You have no chats to forward to.",
   "chatForwardSendButton": "Send ({count})",
-  "@chatForwardSendButton": {"placeholders": {"count": {"type": "int"}}},
+  "@chatForwardSendButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "chatForwardSuccessMessage": "Message forwarded.",
   "actionCancel": "Cancel",
   "actionDelete": "Delete",
   "distanceMetersAway": "{meters} m away",
-  "@distanceMetersAway": {"placeholders": {"meters": {"type": "int"}}},
+  "@distanceMetersAway": {
+    "placeholders": {
+      "meters": {
+        "type": "int"
+      }
+    }
+  },
   "distanceKmAway": "{km} km away",
-  "@distanceKmAway": {"placeholders": {"km": {"type": "String"}}},
+  "@distanceKmAway": {
+    "placeholders": {
+      "km": {
+        "type": "String"
+      }
+    }
+  },
   "distanceMilesAway": "{mi} mi away",
-  "@distanceMilesAway": {"placeholders": {"mi": {"type": "String"}}},
+  "@distanceMilesAway": {
+    "placeholders": {
+      "mi": {
+        "type": "String"
+      }
+    }
+  },
   "radiusPeopleCount": "{count, plural, one{{count} person} other{{count} people}}",
-  "@radiusPeopleCount": {"placeholders": {"count": {"type": "int"}}},
+  "@radiusPeopleCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "radiusMoreButtonLabel": "More",
   "radiusMorePanelTitle": "Search radius",
   "premiumUpsellRadiusTitle": "Discover people further away 🌍",
   "premiumUpsellRadiusMessage": "With Premium you can see people within 5 km and 10 km, and meet more people.",
-
   "premiumUpgradeButton": "Upgrade to Premium",
   "premiumLaterButton": "Later",
   "premiumComingSoonTitle": "Premium",
   "premiumComingSoonMessage": "Premium membership will be available soon.",
-
   "chatsTitle": "Chats",
   "chatsEmptyTitle": "No chats yet",
   "chatsEmptySubtitle": "Your chats will appear here once you meet people around you.",
@@ -293,10 +338,7 @@
   "chatsUnmuteAction": "Unmute",
   "chatsPinnedSectionLabel": "Pinned",
   "chatsRecentSectionLabel": "Recent chats",
-
-
   "eventSaveButton": "Save",
-
   "venueCreateTitle": "Venue profile",
   "venueEditTitle": "Edit venue",
   "venuePhotoLabel": "Add photo/logo",
@@ -322,7 +364,6 @@
   "venueFilterTooltip": "Filter",
   "venueCategoryFilterTitle": "Choose category",
   "venueCategoryAllOption": "All",
-
   "offersSearchHint": "Search offers...",
   "offerFilterTooltip": "Filter",
   "offersEmptyTitle": "No offers yet",
@@ -333,17 +374,26 @@
   "offerBadgeGiftLabel": "Gift",
   "offerBadgeBuyOneGetOneLabel": "1+1",
   "offerBadgeFixedPriceSuffix": "AZN",
+  "offerBadgeFirstVisitLabel": "First visit special",
+  "offerBadgeBirthdayLabel": "Birthday offer",
   "offerEndsOnLabel": "Until {date}",
-  "@offerEndsOnLabel": {"placeholders": {"date": {"type": "String"}}},
+  "@offerEndsOnLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "offerTermsLabel": "Terms",
   "offerValidityLabel": "Validity period",
   "offerStartDateLabel": "Starts",
   "offerEndDateLabel": "Ends",
-  "offerContactLabel": "Contact",
   "offerOtherActiveOffersLabel": "Other active offers",
   "offerViewVenueProfileButton": "View venue profile",
   "offerNotFoundMessage": "Offer not found.",
   "offerGenericErrorMessage": "Something went wrong. Try again shortly.",
+  "offerRedeemButtonLabel": "Activate",
+  "offerRedeemedButtonLabel": "Already used",
   "offerCreateTitle": "Create offer",
   "offerEditTitle": "Edit offer",
   "offerPhotoLabel": "Add a photo/logo",
@@ -355,9 +405,19 @@
   "offerTypeGiftOption": "Gift",
   "offerTypeBuyOneGetOneOption": "1+1 gift",
   "offerTypeFixedPriceOption": "Fixed price",
+  "offerTypeHappyHourOption": "Happy Hour",
+  "offerTypeFirstVisitOption": "First visit",
+  "offerTypeBirthdayOption": "Birthday",
   "offerDiscountAmountLabel": "Discount amount",
   "offerFixedPriceLabel": "Price (AZN)",
   "offerFixedPriceHint": "Enter the price",
+  "offerActiveHoursLabel": "Time window",
+  "offerActiveHoursStartLabel": "Start",
+  "offerActiveHoursEndLabel": "End",
+  "offerActiveDaysLabel": "Active days",
+  "offerPersonalMessageLabel": "Personal message (optional)",
+  "offerPersonalMessageHint": "Happy birthday! We've got a gift for you 🎉",
+  "offerBirthdayWeekExtensionLabel": "Birthday week (7 days)",
   "offerDescriptionLabel": "Short description",
   "offerDescriptionHint": "Describe the offer's terms and perks...",
   "offerValidityPeriodLabel": "Offer validity period",
@@ -369,10 +429,19 @@
   "offerNoVenuesSubtitle": "Add a venue first to create an offer.",
   "offerAddVenueButton": "Add a venue",
   "offerTermsHint": "Write the offer's terms of use...",
-  "offerAdditionalInfoLabel": "Additional info",
-  "offerContactPhoneHint": "Phone number",
-  "offerContactWebsiteHint": "Website",
-  "offerContactInstagramHint": "Instagram",
+  "offerBoostMenuItem": "Boost offer",
+  "offerBoost6h": "6 hours",
+  "offerBoost12h": "12 hours",
+  "offerBoost18h": "18 hours",
+  "offerBoostPriceSuffix": "{amount} AZN",
+  "@offerBoostPriceSuffix": {
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
+  },
+  "offerBoostComingSoonMessage": "The payment system is being set up and will be available soon.",
   "offerSubmitButton": "Create offer",
   "offerCreatedNotice": "Offer created",
   "offerUpdatedNotice": "Offer updated",
@@ -388,7 +457,6 @@
   "offerMyOffersEmptySubtitle": "Offers you add will show up here, and you can edit or delete them anytime.",
   "offerMyOffersTooltip": "My offers",
   "offerAddButtonTooltip": "Create offer",
-
   "venueCategoryUnselectedLabel": "Select",
   "venueCategoryRestaurant": "Restaurant",
   "venueCategoryPub": "Pub",
@@ -432,10 +500,46 @@
   "venueLocationResolvingAddress": "Resolving address...",
   "venueLocationAddressUnavailable": "Address not found",
   "venueLocationPickerConfirmButton": "Use this location",
+  "venueSocialSectionLabel": "Social profiles (optional)",
+  "venueWhatsappLabel": "WhatsApp number",
+  "venueWhatsappHint": "+994501234567",
+  "venueInstagramLabel": "Instagram username",
+  "venueInstagramHint": "username",
+  "venueTiktokLabel": "TikTok username",
+  "venueTiktokHint": "username",
+  "venueAudienceRadiusSectionLabel": "Audience radius",
+  "venueAudienceRadiusHint": "The radius the live audience counter scans around you for users.",
+  "venueBirthdayNotificationsTitle": "Birthday notifications",
+  "venueBirthdayNotificationsHint": "Get notified when users with a birthday are found nearby.",
+  "venueSocialWhatsapp": "WhatsApp",
+  "venueSocialInstagram": "Instagram",
+  "venueSocialTiktok": "TikTok",
   "venueCreateButton": "Add",
   "venueSaveButton": "Save",
   "venueRequiredFieldsMissing": "Please fill in all required fields.",
   "venueGenericErrorMessage": "That didn't go through. Please try again in a moment.",
+  "venuePremiumMenuItem": "Make venue premium",
+  "venuePremiumUpsellMessage": "Premium venues are shown first within their radius, with a premium badge next to their name.",
+  "venueLiveAudienceCount": "{count} nearby",
+  "@venueLiveAudienceCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "venueCheckinActiveCount": "{count} PeakPin users are here right now",
+  "@venueCheckinActiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "venueCheckInButton": "Check in",
+  "venueCheckOutButton": "Check out",
+  "venueCheckinTooFar": "You need to be closer to the venue to check in",
+  "venueCheckinLocationUnavailable": "Couldn't determine your location. Check GPS and try again.",
   "venueAddButtonTooltip": "Add a venue",
   "venuesEmptyTitle": "No venues nearby",
   "venuesEmptySubtitle": "No one has added a venue within your selected radius yet.",
@@ -444,18 +548,15 @@
   "venueMyVenuesEmptyTitle": "You haven't added any venues yet",
   "venueMyVenuesEmptySubtitle": "Venues you add will show up here, and you can edit or delete them anytime.",
   "venueDeleteMenuOption": "Delete venue",
-  "venueBoostMenuItem": "Boost listing",
-  "venueBoost6h": "6 hours",
-  "venueBoost12h": "12 hours",
-  "venueBoost24h": "24 hours",
-  "venueBoostPriceTba": "Price to be announced",
-  "venueBoostUpsellTitle": "Boost your listing 🚀",
-  "venueBoostUpsellMessage": "With the paid \"boost\" feature, your venue will be shown higher in search results. This feature is launching soon.",
   "venueDeleteConfirmMessage": "Are you sure you want to delete this venue? This action cannot be undone.",
+  "moderationStatusPending": "Under review",
+  "moderationStatusNeedsRevision": "Needs revision",
+  "moderationReviewNotePrefix": "Reason",
+  "moderationResubmitSuccess": "Resubmitted — back in the review queue.",
+  "moderationResubmitError": "Couldn't resubmit. Please try again in a moment.",
   "venueDeletedNotice": "Venue deleted",
   "venueOpenNowLabel": "Open",
   "venueClosedNowLabel": "Closed",
-
   "profileTitle": "Profile",
   "profileNamePlaceholder": "Add your name",
   "profileBioPlaceholder": "Add a photo, bio and interests",
@@ -470,7 +571,6 @@
   "profileSaveSuccessMessage": "Your details have been updated.",
   "menuSettings": "Settings",
   "menuPrivacySecurity": "Privacy and security",
-
   "privacySecurityTitle": "Privacy and security",
   "privacyProfileVisibilityTitle": "Media visibility",
   "privacyProfileVisibilitySubtitle": "Choose who can see the posts on your profile.",
@@ -490,10 +590,11 @@
   "privacyMessagePermNoOne": "No one",
   "privacyGhostModeTitle": "Ghost mode",
   "privacyGhostModeDescription": "You can see other users. Other users can't see you on the map. Turn it on or off any time you like.",
+  "privacyBirthdayOffersTitle": "Special offers on my birthday",
+  "privacyBirthdayOffersDescription": "I'd like to receive special offers from nearby venues on my birthday.",
   "privacyGhostModePremiumTitle": "Go invisible with Ghost mode 👻",
   "privacyGhostModePremiumMessage": "With Premium you can see other users, but they won't be able to see you on the map.",
   "privacySettingUpdateErrorMessage": "That change wasn't saved. Please try again in a moment.",
-
   "privacyTwoFactorTitle": "Enable two-factor authentication",
   "privacyTwoFactorHelperText": "Only your choice is saved for now — SMS and Authenticator support are coming soon.",
   "privacyExportDataTitle": "Download my data",
@@ -522,9 +623,14 @@
   "menuNotifications": "Notifications",
   "menuHelp": "Help",
   "menuLogout": "Log out",
-
   "uploadingProgress": "{percent}% uploading...",
-  "@uploadingProgress": {"placeholders": {"percent": {"type": "String"}}},
+  "@uploadingProgress": {
+    "placeholders": {
+      "percent": {
+        "type": "String"
+      }
+    }
+  },
   "removePhotoButton": "Remove photo",
   "fieldAgeLabel": "Age",
   "fieldAgeHint": "25",
@@ -536,7 +642,13 @@
   "waitPhotoUploadError": "Wait for the photo to finish uploading...",
   "invalidEmailError": "Enter a valid email address",
   "saveFailedError": "Couldn't save: {error}",
-  "@saveFailedError": {"placeholders": {"error": {"type": "String"}}},
+  "@saveFailedError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "photoOperationFailedError": "The photo operation failed.",
   "storageErrorFileTooLarge": "The photo can't be larger than 5MB.",
   "storageErrorInvalidContentType": "Unsupported file format.",
@@ -546,9 +658,7 @@
   "storageErrorPermissionDenied": "You don't have permission for this action.",
   "storageErrorUnauthenticated": "You're not signed in.",
   "storageErrorUnknown": "An unknown storage error occurred.",
-
   "comingSoonDefaultMessage": "This feature will be available soon.",
-
   "pickCountryHint": "Search country",
   "pickCityTitle": "Choose city",
   "pickCityHint": "Search city",
@@ -556,10 +666,8 @@
   "fieldCountryLabel": "Country",
   "fieldCitySelectFirstHint": "Choose a country first",
   "fieldCityLabel": "City",
-
   "contactRequiredError": "Enter your email or phone number",
   "contactInvalidError": "Enter a valid email or phone number",
-
   "stampLike": "LIKE",
   "stampReject": "PASS",
   "stampSuper": "SUPER",
@@ -596,16 +704,40 @@
   "feedSearchNoResultsMessage": "No results found",
   "feedDownloadVideoOption": "Download video",
   "feedDownloadInProgressMessage": "Downloading... {percent}%",
-  "@feedDownloadInProgressMessage": {"placeholders": {"percent": {"type": "int"}}},
+  "@feedDownloadInProgressMessage": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "feedDownloadCompleteMessage": "Video saved to your gallery",
   "feedDownloadErrorMessage": "Couldn't download the video. Please try again shortly.",
   "postTimeJustNow": "Just now",
   "postTimeMinutesAgo": "{count} min ago",
-  "@postTimeMinutesAgo": {"placeholders": {"count": {"type": "int"}}},
+  "@postTimeMinutesAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "postTimeHoursAgo": "{count}h ago",
-  "@postTimeHoursAgo": {"placeholders": {"count": {"type": "int"}}},
+  "@postTimeHoursAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "postTimeDaysAgo": "{count}d ago",
-  "@postTimeDaysAgo": {"placeholders": {"count": {"type": "int"}}},
+  "@postTimeDaysAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "postTimeWeeksAgo": "{count}w ago",
   "postCaptionHint": "Write a caption...",
   "postMenuEdit": "Edit",
@@ -622,7 +754,13 @@
   "viewActiveStoryButton": "View story",
   "postReplyAction": "Reply",
   "postReplyingToLabel": "Replying to {name}",
-  "@postReplyingToLabel": {"placeholders": {"name": {"type": "String"}}},
+  "@postReplyingToLabel": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
   "postCommentDeleteConfirmTitle": "Delete this comment?",
   "postCommentDeleteErrorMessage": "The comment wasn't deleted. Please try again shortly.",
   "postCommentEditErrorMessage": "The comment wasn't updated. Please try again shortly.",
@@ -634,8 +772,13 @@
   "postSentToChatSuccessMessage": "Post sent",
   "postSentToChatErrorMessage": "The post wasn't sent. Please try again shortly.",
   "chatPostMessageLabel": "Post",
-  "@postTimeWeeksAgo": {"placeholders": {"count": {"type": "int"}}},
-
+  "@postTimeWeeksAgo": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "friendRequestSendButton": "Add friend",
   "friendRequestSentLabel": "Sent",
   "friendRequestPendingLabel": "Pending",
@@ -648,7 +791,6 @@
   "followErrorMessage": "Something went wrong. Please try again shortly.",
   "profileStatsFollowing": "Following",
   "profileStatsFollowers": "Followers",
-
   "settingsTitle": "Settings",
   "settingsLanguageRowLabel": "Language",
   "languagePickerTitle": "Choose language",
@@ -660,7 +802,7 @@
   "settingsNotificationsRowSubtitle": "Messages, push notifications",
   "settingsLanguageRowSubtitle": "App language",
   "settingsIdentityRowSubtitle": "Verify your identity, earn a trusted badge",
-  "settingsVipRowTitle": "Meevima VIP",
+  "settingsVipRowTitle": "PeakPin VIP",
   "settingsVipRowSubtitle": "Go VIP, manage your plan",
   "settingsVipActiveLabel": "Active",
   "settingsVipBadgeLabel": "VIP",
@@ -676,7 +818,6 @@
   "settingsAboutRowSubtitle": "Version, what's new, social media",
   "settingsLogoutRowTitle": "Log out",
   "settingsLogoutRowSubtitle": "Sign out of your account",
-
   "notificationsScreenTitle": "Notifications",
   "notifMessagesTitle": "Messages",
   "notifMessagesSubtitle": "Get notified about new messages",
@@ -698,10 +839,12 @@
   "notifSystemSubtitle": "Important announcements about the app",
   "notifMarketingTitle": "Marketing",
   "notifMarketingSubtitle": "Stay updated on campaigns and discounts",
+  "notifPermissionDeniedTitle": "Notifications aren't allowed",
+  "notifPermissionDeniedMessage": "Your system notification permission is off, so push notifications never reach this device. Turn it on from system settings.",
+  "notifOpenSettingsButton": "Open system settings",
   "notifPushTitle": "Push notifications",
   "notifEmailTitle": "Email notifications",
   "notifUpdateErrorMessage": "The change wasn't saved. Please try again shortly.",
-
   "mapLocationScreenTitle": "Map & Location",
   "mapTypeTitle": "Map type",
   "mapTypeStandard": "Standard",
@@ -717,10 +860,9 @@
   "backgroundLocationSubtitle": "Keep your location updated while the app is in the background",
   "backgroundLocationDeniedMessage": "To enable background location, choose \"Allow all the time\" in Settings > Apps.",
   "mapLocationUpdateErrorMessage": "The change wasn't saved. Please try again shortly.",
-
   "helpScreenTitle": "Help",
   "helpFaqSectionTitle": "Frequently asked questions",
-  "helpFaq1Question": "How does Meevima work?",
+  "helpFaq1Question": "How does PeakPin work?",
   "helpFaq1Answer": "The app uses your location to show you other nearby users. You can choose the radius and filters from the Discover tab.",
   "helpFaq2Question": "Who can see my location?",
   "helpFaq2Answer": "Only your approximate distance is shown to other users, never your exact coordinates. Turn on Ghost Mode under Settings > Privacy & Security to hide completely.",
@@ -728,7 +870,7 @@
   "helpFaq3Answer": "Go to Settings > Account > Delete my account to permanently remove your account. This action cannot be undone.",
   "helpFaq4Question": "What should I do if someone is bothering me?",
   "helpFaq4Answer": "You can block or report that user from their profile at any time. A blocked user will no longer be able to see you.",
-  "helpFaq5Question": "What is Meevima VIP for?",
+  "helpFaq5Question": "What is PeakPin VIP for?",
   "helpFaq5Answer": "VIP membership unlocks an extended visibility radius, Ghost Mode, and extra filters.",
   "helpFaq6Question": "How do I change my visibility radius?",
   "helpFaq6Answer": "Use the radius picker below the map on the Discover tab to choose the distance you want.",
@@ -750,15 +892,13 @@
   "legalPrivacyPolicyTitle": "Privacy Policy",
   "legalTermsOfServiceTitle": "Terms of Service",
   "legalLicensesTitle": "Licenses",
-
   "aboutWhatsNewTitle": "What's new",
   "aboutSocialMediaTitle": "Social media",
   "aboutSocialMediaComingSoonLabel": "Coming soon",
-  "aboutCopyrightText": "© 2026 Meevima. All rights reserved.",
+  "aboutCopyrightText": "© 2026 PeakPin. All rights reserved.",
   "aboutChangelogV1Title": "v1.0.0",
   "aboutChangelogV1Body": "First release: discover nearby users, friend requests, chats, stories, and profile management.",
-
-  "vipHeaderTitle": "Meevima VIP",
+  "vipHeaderTitle": "PeakPin VIP",
   "vipHeaderSubtitle": "Meet more people with expanded features",
   "vipChoosePackageTitle": "Choose a package",
   "vipPeriodMonthly": "Monthly",
@@ -778,7 +918,6 @@
   "vipFeatureRadiusDescription": "Discover people within a 5 km or 10 km radius.",
   "vipFeatureFilterTitle": "Extra filters",
   "vipFeatureFilterDescription": "Narrow your search with gender and other filters.",
-
   "accountScreenTitle": "Account",
   "accountPersonalInfoTitle": "Personal info",
   "accountPhoneRowTitle": "Phone number",

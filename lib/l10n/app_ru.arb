@@ -1,9 +1,7 @@
 {
   "@@locale": "ru",
-
   "welcomeSubtitle": "Знакомься с людьми рядом,\nзаводи новые знакомства и дружбу.",
   "welcomeStartButton": "Начать",
-
   "loginTitle": "Войти",
   "loginUsernameLabel": "Имя пользователя",
   "loginUsernameHint": "имя.пользователя",
@@ -16,7 +14,6 @@
   "loginTooManyAttemptsError": "Слишком много неудачных попыток. Повторите позже или сбросьте пароль через \"Забыли пароль\".",
   "loginNetworkError": "Нет подключения к интернету. Проверьте соединение и повторите попытку.",
   "loginRegisterPromptLabel": "Хотите зарегистрироваться?",
-
   "registerTitle": "Регистрация",
   "registerUsernameLabel": "Имя пользователя",
   "registerUsernameHint": "имя.пользователя",
@@ -32,7 +29,6 @@
   "registerSubmitButton": "Завершить регистрацию",
   "registerGenericError": "Регистрация не завершена. Повторите попытку позже.",
   "registerSuccessMessage": "Регистрация завершена — теперь вы можете войти.",
-
   "phoneAuthTitle": "Твой номер телефона",
   "phoneAuthSubtitle": "Тебе понадобится код, отправленный по SMS.",
   "phoneAuthNumberHint": "50 123 45 67",
@@ -40,7 +36,6 @@
   "phoneAuthInvalidNumberError": "Введите корректный номер телефона",
   "phoneAuthVerificationFailedError": "Не удалось подтвердить номер, попробуйте ещё раз.",
   "pickCountryTitle": "Выберите страну",
-
   "otpTitle": "Введите код",
   "otpSubtitle": "Введите 6-значный код, отправленный на {phone}.",
   "otpCodeHint": "••••••",
@@ -49,7 +44,6 @@
   "otpInvalidCodeError": "Код неверен или срок его действия истёк.",
   "otpResendButton": "Отправить код повторно",
   "otpResendWaitLabel": "Повторная отправка через: {time}",
-
   "verificationRequiredTitle": "Подтвердите аккаунт",
   "verificationRequiredMessage": "Чтобы использовать эту функцию, сначала подтвердите свой аккаунт.",
   "verificationRequiredButton": "Подтвердить аккаунт",
@@ -62,7 +56,6 @@
   "settingsIdentityVerificationRowTitle": "Проверка личности",
   "swipeMatchedMessage": "Вы понравились друг другу!",
   "swipeErrorMessage": "Что-то пошло не так. Повторите попытку позже.",
-
   "forgotPasswordTitle": "Забыли пароль",
   "forgotPasswordSubtitle": "Введите номер телефона, привязанный к вашему аккаунту.",
   "forgotPasswordAccountNotFoundError": "Аккаунт с этим номером телефона не найден.",
@@ -75,7 +68,6 @@
   "newPasswordSubmitButton": "Обновить пароль",
   "newPasswordSuccessMessage": "Пароль обновлён — теперь вы можете войти.",
   "newPasswordGenericError": "Пароль не обновлён. Повторите попытку позже.",
-
   "changePasswordTitle": "Изменить пароль",
   "changePasswordCurrentLabel": "Текущий пароль",
   "changePasswordCurrentHint": "Введите текущий пароль",
@@ -87,7 +79,6 @@
   "changePasswordWrongCurrentError": "Текущий пароль неверен.",
   "changePasswordSuccessMessage": "Пароль обновлён.",
   "changePasswordGenericError": "Пароль не изменён. Повторите попытку позже.",
-
   "onboardingAppBarTitle": "Заполни профиль",
   "onboardingPhotoOptionalLabel": "Добавить фото (необязательно)",
   "fieldFirstNameLabel": "Имя",
@@ -109,13 +100,11 @@
   "onboardingSelectCountryCityError": "Выберите страну и город",
   "onboardingPhotoUploadFailedError": "Не удалось загрузить фото, вы сможете добавить его позже в профиле.",
   "errorWithDetails": "Произошла ошибка: {error}",
-
   "navDiscoverLabel": "Обзор",
   "navChatsLabel": "Чат",
   "navFeedLabel": "Лента",
   "navNotificationsLabel": "Уведомления",
   "navProfileLabel": "Профиль",
-
   "notificationsFeedTitle": "Уведомления",
   "notifMenuMarkAllRead": "Отметить все как прочитанные",
   "notifMenuDeleteRead": "Удалить прочитанные",
@@ -131,7 +120,6 @@
   "notifMarkAllReadDone": "Все уведомления отмечены как прочитанные",
   "notifDeleteReadDone": "Прочитанные уведомления удалены",
   "notifActionErrorMessage": "Операция не выполнена. Повторите попытку позже.",
-
   "discoverTitle": "Обзор",
   "viewSwitcherPeopleLabel": "Люди",
   "viewSwitcherPlacesLabel": "Места",
@@ -152,7 +140,7 @@
   "chatPermissionDeniedMessage": "У вас сейчас нет доступа к этой переписке. Попробуйте выйти и снова войти в аккаунт или повторить попытку позже.",
   "chatLoadErrorMessage": "Произошла ошибка при загрузке. Попробуйте ещё раз.",
   "locationPermissionDeniedForeverTitle": "Доступ отклонён навсегда",
-  "locationPermissionDeniedForeverSubtitle": "Включите доступ к геолокации для \"Meevima\" вручную в настройках телефона.",
+  "locationPermissionDeniedForeverSubtitle": "Включите доступ к геолокации для \"PeakPin\" вручную в настройках телефона.",
   "actionOpenAppSettings": "Открыть настройки приложения",
   "errorTitle": "Произошла ошибка",
   "meMarkerLabel": "Вы здесь",
@@ -220,6 +208,7 @@
   "chatCallComingSoonMessage": "Звонки скоро появятся.",
   "chatVoiceCallLabel": "Голосовой звонок",
   "chatVideoCallLabel": "Видеозвонок",
+  "chatCallDisabledTooltip": "Чтобы звонить, запрос на сообщение должен быть принят",
   "callStatusRinging": "Звоним...",
   "callStatusConnecting": "Соединение...",
   "callStatusIncoming": "Входящий звонок",
@@ -237,7 +226,13 @@
   "chatForwardTitle": "Переслать",
   "chatForwardEmptyMessage": "У вас нет чатов для пересылки.",
   "chatForwardSendButton": "Отправить ({count})",
-  "@chatForwardSendButton": {"placeholders": {"count": {"type": "int"}}},
+  "@chatForwardSendButton": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "chatForwardSuccessMessage": "Сообщение переслано.",
   "actionCancel": "Отмена",
   "actionDelete": "Удалить",
@@ -249,12 +244,10 @@
   "radiusMorePanelTitle": "Радиус поиска",
   "premiumUpsellRadiusTitle": "Знакомься с людьми на большем расстоянии 🌍",
   "premiumUpsellRadiusMessage": "С Premium ты сможешь видеть людей в радиусе 5 и 10 км и знакомиться с большим числом людей.",
-
   "premiumUpgradeButton": "Перейти на Premium",
   "premiumLaterButton": "Позже",
   "premiumComingSoonTitle": "Premium",
   "premiumComingSoonMessage": "Premium-подписка скоро станет доступна.",
-
   "chatsTitle": "Чаты",
   "chatsEmptyTitle": "Пока нет чатов",
   "chatsEmptySubtitle": "Здесь появятся чаты, когда вы познакомитесь с людьми рядом.",
@@ -280,10 +273,7 @@
   "chatsUnmuteAction": "Включить звук",
   "chatsPinnedSectionLabel": "Закреплённые",
   "chatsRecentSectionLabel": "Недавние чаты",
-
-
   "eventSaveButton": "Сохранить",
-
   "venueCreateTitle": "Профиль заведения",
   "venueEditTitle": "Редактировать заведение",
   "venuePhotoLabel": "Добавить фото/логотип",
@@ -309,7 +299,6 @@
   "venueFilterTooltip": "Фильтр",
   "venueCategoryFilterTitle": "Выберите категорию",
   "venueCategoryAllOption": "Все",
-
   "offersSearchHint": "Поиск предложений...",
   "offerFilterTooltip": "Фильтр",
   "offersEmptyTitle": "Пока нет предложений",
@@ -320,17 +309,26 @@
   "offerBadgeGiftLabel": "Подарок",
   "offerBadgeBuyOneGetOneLabel": "1+1",
   "offerBadgeFixedPriceSuffix": "AZN",
+  "offerBadgeFirstVisitLabel": "Специально для первого визита",
+  "offerBadgeBirthdayLabel": "Предложение на день рождения",
   "offerEndsOnLabel": "До {date}",
-  "@offerEndsOnLabel": {"placeholders": {"date": {"type": "String"}}},
+  "@offerEndsOnLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "offerTermsLabel": "Условия",
   "offerValidityLabel": "Срок действия",
   "offerStartDateLabel": "Начало",
   "offerEndDateLabel": "Окончание",
-  "offerContactLabel": "Контакты",
   "offerOtherActiveOffersLabel": "Другие активные предложения",
   "offerViewVenueProfileButton": "Перейти в профиль заведения",
   "offerNotFoundMessage": "Предложение не найдено.",
   "offerGenericErrorMessage": "Операция не выполнена. Повторите попытку позже.",
+  "offerRedeemButtonLabel": "Активировать",
+  "offerRedeemedButtonLabel": "Уже использовано",
   "offerCreateTitle": "Создать предложение",
   "offerEditTitle": "Изменить предложение",
   "offerPhotoLabel": "Добавить фото/логотип",
@@ -342,9 +340,19 @@
   "offerTypeGiftOption": "Подарок",
   "offerTypeBuyOneGetOneOption": "1+1 подарок",
   "offerTypeFixedPriceOption": "Фиксированная цена",
+  "offerTypeHappyHourOption": "Happy Hour",
+  "offerTypeFirstVisitOption": "Первый визит",
+  "offerTypeBirthdayOption": "День рождения",
   "offerDiscountAmountLabel": "Размер скидки",
   "offerFixedPriceLabel": "Цена (AZN)",
   "offerFixedPriceHint": "Введите цену",
+  "offerActiveHoursLabel": "Временной интервал",
+  "offerActiveHoursStartLabel": "Начало",
+  "offerActiveHoursEndLabel": "Конец",
+  "offerActiveDaysLabel": "Активные дни",
+  "offerPersonalMessageLabel": "Личное сообщение (необязательно)",
+  "offerPersonalMessageHint": "С днём рождения! У нас для тебя подарок 🎉",
+  "offerBirthdayWeekExtensionLabel": "Неделя дня рождения (7 дней)",
   "offerDescriptionLabel": "Краткое описание",
   "offerDescriptionHint": "Опишите условия и преимущества предложения...",
   "offerValidityPeriodLabel": "Срок действия предложения",
@@ -356,10 +364,19 @@
   "offerNoVenuesSubtitle": "Сначала добавьте заведение, чтобы создать предложение.",
   "offerAddVenueButton": "Добавить заведение",
   "offerTermsHint": "Опишите условия использования предложения...",
-  "offerAdditionalInfoLabel": "Дополнительная информация",
-  "offerContactPhoneHint": "Номер телефона",
-  "offerContactWebsiteHint": "Веб-сайт",
-  "offerContactInstagramHint": "Instagram",
+  "offerBoostMenuItem": "Продвинуть предложение",
+  "offerBoost6h": "6 часов",
+  "offerBoost12h": "12 часов",
+  "offerBoost18h": "18 часов",
+  "offerBoostPriceSuffix": "{amount} AZN",
+  "@offerBoostPriceSuffix": {
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
+  },
+  "offerBoostComingSoonMessage": "Платёжная система находится в разработке и скоро станет доступна.",
   "offerSubmitButton": "Создать предложение",
   "offerCreatedNotice": "Предложение создано",
   "offerUpdatedNotice": "Предложение обновлено",
@@ -375,7 +392,6 @@
   "offerMyOffersEmptySubtitle": "Добавленные вами предложения появятся здесь, вы сможете редактировать или удалять их в любое время.",
   "offerMyOffersTooltip": "Мои предложения",
   "offerAddButtonTooltip": "Создать предложение",
-
   "venueCategoryUnselectedLabel": "Выбрать",
   "venueCategoryRestaurant": "Ресторан",
   "venueCategoryPub": "Паб",
@@ -419,10 +435,46 @@
   "venueLocationResolvingAddress": "Определение адреса...",
   "venueLocationAddressUnavailable": "Адрес не найден",
   "venueLocationPickerConfirmButton": "Выбрать это место",
+  "venueSocialSectionLabel": "Социальные сети (необязательно)",
+  "venueWhatsappLabel": "Номер WhatsApp",
+  "venueWhatsappHint": "+994501234567",
+  "venueInstagramLabel": "Имя пользователя Instagram",
+  "venueInstagramHint": "имя_пользователя",
+  "venueTiktokLabel": "Имя пользователя TikTok",
+  "venueTiktokHint": "имя_пользователя",
+  "venueAudienceRadiusSectionLabel": "Радиус аудитории",
+  "venueAudienceRadiusHint": "Радиус, в котором счётчик живой аудитории считает пользователей вокруг вас.",
+  "venueBirthdayNotificationsTitle": "Уведомления о днях рождения",
+  "venueBirthdayNotificationsHint": "Получайте уведомление, когда рядом найдены пользователи с днём рождения.",
+  "venueSocialWhatsapp": "WhatsApp",
+  "venueSocialInstagram": "Instagram",
+  "venueSocialTiktok": "TikTok",
   "venueCreateButton": "Добавить",
   "venueSaveButton": "Сохранить",
   "venueRequiredFieldsMissing": "Пожалуйста, заполните все обязательные поля.",
   "venueGenericErrorMessage": "Не удалось выполнить действие. Попробуйте ещё раз чуть позже.",
+  "venuePremiumMenuItem": "Сделать заведение премиум",
+  "venuePremiumUpsellMessage": "Премиум-заведения показываются первыми в своём радиусе, а рядом с названием появляется значок премиум.",
+  "venueLiveAudienceCount": "{count} человек рядом",
+  "@venueLiveAudienceCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "venueCheckinActiveCount": "Сейчас здесь {count} пользователей PeakPin",
+  "@venueCheckinActiveCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "venueCheckInButton": "Отметиться",
+  "venueCheckOutButton": "Уйти",
+  "venueCheckinTooFar": "Чтобы отметиться, нужно быть ближе к заведению",
+  "venueCheckinLocationUnavailable": "Не удалось определить местоположение. Проверьте GPS и попробуйте снова.",
   "venueAddButtonTooltip": "Добавить заведение",
   "venuesEmptyTitle": "Поблизости нет заведений",
   "venuesEmptySubtitle": "В выбранном радиусе пока никто не добавил заведение.",
@@ -431,18 +483,15 @@
   "venueMyVenuesEmptyTitle": "Вы ещё не добавили ни одного заведения",
   "venueMyVenuesEmptySubtitle": "Добавленные вами заведения появятся здесь, и вы сможете редактировать или удалять их в любое время.",
   "venueDeleteMenuOption": "Удалить заведение",
-  "venueBoostMenuItem": "Продвинуть объявление",
-  "venueBoost6h": "6 часов",
-  "venueBoost12h": "12 часов",
-  "venueBoost24h": "24 часа",
-  "venueBoostPriceTba": "Цена будет объявлена позже",
-  "venueBoostUpsellTitle": "Продвиньте своё объявление 🚀",
-  "venueBoostUpsellMessage": "С платной функцией продвижения ваше место будет показываться выше в результатах поиска. Эта функция скоро станет доступна.",
   "venueDeleteConfirmMessage": "Вы уверены, что хотите удалить это заведение? Это действие нельзя отменить.",
+  "moderationStatusPending": "На проверке",
+  "moderationStatusNeedsRevision": "Требуется доработка",
+  "moderationReviewNotePrefix": "Причина",
+  "moderationResubmitSuccess": "Отправлено повторно, ожидает проверки.",
+  "moderationResubmitError": "Не удалось отправить повторно. Попробуйте ещё раз чуть позже.",
   "venueDeletedNotice": "Заведение удалено",
   "venueOpenNowLabel": "Открыто",
   "venueClosedNowLabel": "Закрыто",
-
   "profileTitle": "Профиль",
   "profileNamePlaceholder": "Добавьте имя",
   "profileBioPlaceholder": "Добавьте фото, био и интересы",
@@ -457,7 +506,6 @@
   "profileSaveSuccessMessage": "Ваши данные обновлены.",
   "menuSettings": "Настройки",
   "menuPrivacySecurity": "Конфиденциальность и безопасность",
-
   "privacySecurityTitle": "Конфиденциальность и безопасность",
   "privacyProfileVisibilityTitle": "Видимость медиа",
   "privacyProfileVisibilitySubtitle": "Выберите, кто может видеть публикации в вашем профиле.",
@@ -477,10 +525,11 @@
   "privacyMessagePermNoOne": "Никто",
   "privacyGhostModeTitle": "Скрытый режим",
   "privacyGhostModeDescription": "Вы можете видеть других пользователей. Другие пользователи не увидят вас на карте. Включайте и выключайте в любое время.",
+  "privacyBirthdayOffersTitle": "Специальные предложения в день рождения",
+  "privacyBirthdayOffersDescription": "Хочу получать специальные предложения от ближайших заведений в свой день рождения.",
   "privacyGhostModePremiumTitle": "Станьте невидимым со скрытым режимом 👻",
   "privacyGhostModePremiumMessage": "С Premium вы сможете видеть других пользователей, но они не увидят вас на карте.",
   "privacySettingUpdateErrorMessage": "Изменение не сохранено. Попробуйте ещё раз чуть позже.",
-
   "privacyTwoFactorTitle": "Включить двухфакторную аутентификацию",
   "privacyTwoFactorHelperText": "Пока сохраняется только ваш выбор — поддержка SMS и Authenticator появится позже.",
   "privacyExportDataTitle": "Скачать мои данные",
@@ -509,7 +558,6 @@
   "menuNotifications": "Уведомления",
   "menuHelp": "Помощь",
   "menuLogout": "Выйти",
-
   "uploadingProgress": "Загрузка {percent}%...",
   "removePhotoButton": "Удалить фото",
   "fieldAgeLabel": "Возраст",
@@ -531,9 +579,7 @@
   "storageErrorPermissionDenied": "У вас нет разрешения для этого действия.",
   "storageErrorUnauthenticated": "Вы не вошли в систему.",
   "storageErrorUnknown": "Произошла неизвестная ошибка хранилища.",
-
   "comingSoonDefaultMessage": "Эта функция скоро станет доступна.",
-
   "pickCountryHint": "Поиск страны",
   "pickCityTitle": "Выберите город",
   "pickCityHint": "Поиск города",
@@ -541,10 +587,8 @@
   "fieldCountryLabel": "Страна",
   "fieldCitySelectFirstHint": "Сначала выберите страну",
   "fieldCityLabel": "Город",
-
   "contactRequiredError": "Введите email или номер телефона",
   "contactInvalidError": "Введите корректный email или номер телефона",
-
   "stampLike": "НРАВИТСЯ",
   "stampReject": "МИМО",
   "stampSuper": "СУПЕР",
@@ -581,7 +625,13 @@
   "feedSearchNoResultsMessage": "Результатов не найдено",
   "feedDownloadVideoOption": "Скачать видео",
   "feedDownloadInProgressMessage": "Загрузка... {percent}%",
-  "@feedDownloadInProgressMessage": {"placeholders": {"percent": {"type": "int"}}},
+  "@feedDownloadInProgressMessage": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
   "feedDownloadCompleteMessage": "Видео сохранено в вашей галерее",
   "feedDownloadErrorMessage": "Не удалось скачать видео. Повторите попытку позже.",
   "postTimeJustNow": "Только что",
@@ -615,7 +665,6 @@
   "postSentToChatSuccessMessage": "Публикация отправлена",
   "postSentToChatErrorMessage": "Публикация не отправлена. Повторите попытку позже.",
   "chatPostMessageLabel": "Публикация",
-
   "friendRequestSendButton": "Добавить в друзья",
   "friendRequestSentLabel": "Отправлено",
   "friendRequestPendingLabel": "В ожидании",
@@ -628,7 +677,6 @@
   "followErrorMessage": "Что-то пошло не так. Попробуйте позже.",
   "profileStatsFollowing": "Подписки",
   "profileStatsFollowers": "Подписчики",
-
   "settingsTitle": "Настройки",
   "settingsLanguageRowLabel": "Язык",
   "languagePickerTitle": "Выберите язык",
@@ -640,7 +688,7 @@
   "settingsNotificationsRowSubtitle": "Сообщения, push-уведомления",
   "settingsLanguageRowSubtitle": "Выбор языка приложения",
   "settingsIdentityRowSubtitle": "Подтвердите личность, получите значок доверия",
-  "settingsVipRowTitle": "Meevima VIP",
+  "settingsVipRowTitle": "PeakPin VIP",
   "settingsVipRowSubtitle": "Перейти на VIP, управлять подпиской",
   "settingsVipActiveLabel": "Активен",
   "settingsVipBadgeLabel": "VIP",
@@ -656,7 +704,6 @@
   "settingsAboutRowSubtitle": "Версия, новости, соцсети",
   "settingsLogoutRowTitle": "Выйти",
   "settingsLogoutRowSubtitle": "Выйти из аккаунта",
-
   "notificationsScreenTitle": "Уведомления",
   "notifMessagesTitle": "Сообщения",
   "notifMessagesSubtitle": "Получать уведомления о новых сообщениях",
@@ -678,10 +725,12 @@
   "notifSystemSubtitle": "Важные объявления о приложении",
   "notifMarketingTitle": "Маркетинг",
   "notifMarketingSubtitle": "Узнавайте о акциях и скидках",
+  "notifPermissionDeniedTitle": "Уведомления не разрешены",
+  "notifPermissionDeniedMessage": "Системное разрешение на уведомления отключено, поэтому push-уведомления не доходят до этого устройства. Включите его в системных настройках.",
+  "notifOpenSettingsButton": "Открыть настройки системы",
   "notifPushTitle": "Push-уведомления",
   "notifEmailTitle": "Email-уведомления",
   "notifUpdateErrorMessage": "Изменение не сохранено. Повторите попытку позже.",
-
   "mapLocationScreenTitle": "Карта и геолокация",
   "mapTypeTitle": "Тип карты",
   "mapTypeStandard": "Стандартная",
@@ -697,10 +746,9 @@
   "backgroundLocationSubtitle": "Обновлять местоположение, пока приложение работает в фоне",
   "backgroundLocationDeniedMessage": "Чтобы включить фоновую геолокацию, выберите \"Разрешить всегда\" в Настройки > Приложения.",
   "mapLocationUpdateErrorMessage": "Изменение не сохранено. Повторите попытку позже.",
-
   "helpScreenTitle": "Помощь",
   "helpFaqSectionTitle": "Часто задаваемые вопросы",
-  "helpFaq1Question": "Как работает Meevima?",
+  "helpFaq1Question": "Как работает PeakPin?",
   "helpFaq1Answer": "Приложение использует вашу геолокацию, чтобы показывать других пользователей поблизости. Радиус и фильтры можно настроить на вкладке «Обзор».",
   "helpFaq2Question": "Кто видит мою геолокацию?",
   "helpFaq2Answer": "Другим пользователям показывается только примерное расстояние, точные координаты не передаются. Включите Ghost Mode в Настройки > Конфиденциальность и безопасность, чтобы полностью скрыться.",
@@ -708,7 +756,7 @@
   "helpFaq3Answer": "Перейдите в Настройки > Аккаунт > Удалить аккаунт, чтобы окончательно удалить свой аккаунт. Это действие нельзя отменить.",
   "helpFaq4Question": "Что делать, если кто-то меня беспокоит?",
   "helpFaq4Answer": "Вы можете заблокировать или пожаловаться на пользователя в любой момент через его профиль. Заблокированный пользователь больше не сможет вас видеть.",
-  "helpFaq5Question": "Для чего нужен Meevima VIP?",
+  "helpFaq5Question": "Для чего нужен PeakPin VIP?",
   "helpFaq5Answer": "VIP-подписка открывает расширенный радиус видимости, Ghost Mode и дополнительные фильтры.",
   "helpFaq6Question": "Как изменить радиус видимости?",
   "helpFaq6Answer": "Используйте переключатель радиуса под картой на вкладке «Обзор», чтобы выбрать нужное расстояние.",
@@ -730,15 +778,13 @@
   "legalPrivacyPolicyTitle": "Политика конфиденциальности",
   "legalTermsOfServiceTitle": "Условия использования",
   "legalLicensesTitle": "Лицензии",
-
   "aboutWhatsNewTitle": "Что нового",
   "aboutSocialMediaTitle": "Социальные сети",
   "aboutSocialMediaComingSoonLabel": "Скоро",
-  "aboutCopyrightText": "© 2026 Meevima. Все права защищены.",
+  "aboutCopyrightText": "© 2026 PeakPin. Все права защищены.",
   "aboutChangelogV1Title": "v1.0.0",
   "aboutChangelogV1Body": "Первый релиз: поиск пользователей поблизости, заявки в друзья, чаты, истории и управление профилем.",
-
-  "vipHeaderTitle": "Meevima VIP",
+  "vipHeaderTitle": "PeakPin VIP",
   "vipHeaderSubtitle": "Знакомьтесь с большим количеством людей благодаря расширенным возможностям",
   "vipChoosePackageTitle": "Выберите пакет",
   "vipPeriodMonthly": "Ежемесячно",
@@ -758,7 +804,6 @@
   "vipFeatureRadiusDescription": "Находите людей в радиусе 5 км и 10 км.",
   "vipFeatureFilterTitle": "Дополнительные фильтры",
   "vipFeatureFilterDescription": "Уточняйте поиск по полу и другим фильтрам.",
-
   "accountScreenTitle": "Аккаунт",
   "accountPersonalInfoTitle": "Личные данные",
   "accountPhoneRowTitle": "Номер телефона",

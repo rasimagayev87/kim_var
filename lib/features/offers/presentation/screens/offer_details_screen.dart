@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
@@ -111,6 +112,10 @@ class _OfferDetailsContent extends ConsumerWidget {
                 ),
                 const SizedBox(height: 10),
                 _OfferValueCard(offer: offer),
+                if (offer.offerType == OfferType.firstVisit) ...[
+                  const SizedBox(height: 14),
+                  _RedeemButton(offer: offer),
+                ],
                 if (offer.description.isNotEmpty) ...[
                   const SizedBox(height: 20),
                   Text(
@@ -175,15 +180,6 @@ class _OfferDetailsContent extends ConsumerWidget {
                     child: Text(loc.offerViewVenueProfileButton, style: const TextStyle(fontWeight: FontWeight.w700)),
                   ),
                 ),
-                if (_hasAnyContact(offer)) ...[
-                  const SizedBox(height: 28),
-                  Text(
-                    loc.offerContactLabel,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
-                  ),
-                  const SizedBox(height: 10),
-                  _ContactCard(offer: offer),
-                ],
                 otherOffersAsync.maybeWhen(
                   data: (others) {
                     if (others.isEmpty) return const SizedBox.shrink();
@@ -215,23 +211,91 @@ class _OfferDetailsContent extends ConsumerWidget {
       ],
     );
   }
-
-  bool _hasAnyContact(Offer offer) {
-    return (offer.showContactPhone && (offer.contactPhone?.isNotEmpty ?? false)) ||
-        (offer.showContactWebsite && (offer.contactWebsite?.isNotEmpty ?? false)) ||
-        (offer.showContactInstagram && (offer.contactInstagram?.isNotEmpty ?? false));
-  }
 }
 
-class _HeroImage extends StatelessWidget {
+class _HeroImage extends ConsumerWidget {
   final Offer offer;
   final bool isFavorite;
   final VoidCallback onToggleFavorite;
 
   const _HeroImage({required this.offer, required this.isFavorite, required this.onToggleFavorite});
 
+  /// Owner-only — "Təklifi önə çək". Real, working boost: picking a
+  /// tier writes `Offer.boostedUntil` (see `OfferController.boostOffer`),
+  /// which sorts this offer ahead of non-boosted ones in
+  /// `nearbyOffersProvider` for the picked duration. Unlike venues
+  /// (governed purely by user likes — see `discover_tab.dart`'s
+  /// `_VenueCard`, which deliberately has no owner-only menu here at
+  /// all), a time-boxed paid boost is the actual product decision for
+  /// offers specifically.
+  // Boost is a PAID feature — see the price shown next to each tier
+  // below. `OfferController.boostOffer` (which sets
+  // `Offer.boostedUntil` directly) exists and is fully wired, but it
+  // is DELIBERATELY never called from here right now: no payment
+  // provider (Epoint/Payriff/LEOpay) is connected yet, so there is no
+  // real payment to gate it behind, and setting `boosted=true` for
+  // free would just be giving the paid feature away. Every tap below
+  // shows the "coming soon" message instead.
+  //
+  // TODO: Epoint/Payriff inteqrasiyası tamamlananda bu bloku real
+  // webhook-təsdiqli axınla əvəz et (bax: payments module) — ödəniş
+  // provayderinə yönləndirmə + `payments/{paymentId}` sənədi +
+  // webhook-təsdiqindən sonra `ref.read(offerControllerProvider)
+  // .boostOffer(offer.id, Duration(hours: hours))` çağırışı.
+  Future<void> _openBoostMenu(BuildContext context, WidgetRef ref) async {
+    final loc = AppLocalizations.of(context);
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) {
+        final sheetLoc = AppLocalizations.of(sheetContext);
+        Widget tier(String label, int priceAzn) => ListTile(
+              leading: const Icon(Icons.trending_up_rounded, color: ChatLightColors.ink),
+              title: Text(label, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+              trailing: Text(
+                sheetLoc.offerBoostPriceSuffix(priceAzn),
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary),
+              ),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(loc.offerBoostComingSoonMessage)),
+                );
+              },
+            );
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    sheetLoc.offerBoostMenuItem,
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              tier(sheetLoc.offerBoost6h, 6),
+              tier(sheetLoc.offerBoost12h, 10),
+              tier(sheetLoc.offerBoost18h, 14),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentUid = fb.FirebaseAuth.instance.currentUser?.uid;
+    final isOwner = currentUid != null && offer.isOwnedBy(currentUid);
+
     return Stack(
       children: [
         SizedBox(
@@ -248,12 +312,18 @@ class _HeroImage extends StatelessWidget {
         Positioned(
           top: MediaQuery.paddingOf(context).top + 12,
           right: 16,
-          child: _OverlayCircleButton(
-            icon: isFavorite ? Icons.favorite : Icons.favorite_border,
-            iconSize: 18,
-            iconColor: isFavorite ? AppColors.primary : Colors.white,
-            onTap: onToggleFavorite,
-          ),
+          child: isOwner
+              ? _OverlayCircleButton(
+                  icon: Icons.more_vert_outlined,
+                  iconSize: 18,
+                  onTap: () => _openBoostMenu(context, ref),
+                )
+              : _OverlayCircleButton(
+                  icon: isFavorite ? Icons.favorite : Icons.favorite_border,
+                  iconSize: 18,
+                  iconColor: isFavorite ? AppColors.primary : Colors.white,
+                  onTap: onToggleFavorite,
+                ),
         ),
       ],
     );
@@ -362,15 +432,79 @@ class _OfferValueCard extends StatelessWidget {
     final loc = AppLocalizations.of(context);
     final (color, text) = switch (offer.offerType) {
       OfferType.discount => (AppColors.primary, '${offer.discountValue?.round() ?? 0}% ${loc.offerBadgeDiscountSuffix}'),
-      OfferType.fixedPrice => (const Color(0xFF18C964), '${offer.discountValue?.round() ?? 0} ${loc.offerBadgeFixedPriceSuffix}'),
+      OfferType.fixedPrice => (AppColors.cyanDark, '${offer.discountValue?.round() ?? 0} ${loc.offerBadgeFixedPriceSuffix}'),
       OfferType.gift => (const Color(0xFFF5A524), loc.offerBadgeGiftLabel),
       OfferType.buyOneGetOne => (const Color(0xFF7C6CF2), '${loc.offerBadgeBuyOneGetOneLabel} ${loc.offerBadgeGiftLabel}'),
+      OfferType.happyHour => (
+        const Color(0xFFFF6B6B),
+        '⏰ ${offer.activeHours != null ? '${offer.activeHours!.start}-${offer.activeHours!.end}' : ''}',
+      ),
+      OfferType.firstVisit => (const Color(0xFF9B59F5), '🎁 ${loc.offerBadgeFirstVisitLabel}'),
+      OfferType.birthday => (const Color(0xFFFF4FA3), '🎂 ${loc.offerBadgeBirthdayLabel}'),
     };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
       child: Text(text, style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: color)),
+    );
+  }
+}
+
+/// The one-time "Aktivləşdir" action for `OfferType.firstVisit` —
+/// creates `offers/{offerId}/redemptions/{uid}` on tap, then flips to
+/// a disabled "İstifadə edilib" for the rest of this offer's
+/// lifetime. Hidden entirely for the offer's own owner, same
+/// anti-self-inflation reasoning as `VenueProfileScreen`'s check-in
+/// button (an owner "activating" their own first-visit offer isn't a
+/// real visit).
+class _RedeemButton extends ConsumerStatefulWidget {
+  final Offer offer;
+
+  const _RedeemButton({required this.offer});
+
+  @override
+  ConsumerState<_RedeemButton> createState() => _RedeemButtonState();
+}
+
+class _RedeemButtonState extends ConsumerState<_RedeemButton> {
+  bool _submitting = false;
+
+  Future<void> _redeem() async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+    final loc = AppLocalizations.of(context);
+    final success = await ref.read(offerControllerProvider).redeemOffer(widget.offer.id);
+    if (!mounted) return;
+    setState(() => _submitting = false);
+    if (!success) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final currentUid = fb.FirebaseAuth.instance.currentUser?.uid;
+    if (currentUid == null || widget.offer.isOwnedBy(currentUid)) return const SizedBox.shrink();
+
+    final isRedeemed = ref.watch(isOfferRedeemedByMeProvider(widget.offer.id)).valueOrNull ?? false;
+    final disabled = isRedeemed || _submitting;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: ElevatedButton.icon(
+        onPressed: disabled ? null : _redeem,
+        icon: Icon(isRedeemed ? Icons.check_circle_outline_rounded : Icons.card_giftcard_rounded, size: 18),
+        label: Text(isRedeemed ? loc.offerRedeemedButtonLabel : loc.offerRedeemButtonLabel),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: isRedeemed ? ChatLightColors.cardSurface : const Color(0xFF9B59F5),
+          foregroundColor: isRedeemed ? ChatLightColors.inkSoft : Colors.white,
+          disabledBackgroundColor: ChatLightColors.cardSurface,
+          disabledForegroundColor: ChatLightColors.inkSoft,
+        ),
+      ),
     );
   }
 }
@@ -523,81 +657,6 @@ class _DirectionsButton extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ContactCard extends StatelessWidget {
-  final Offer offer;
-
-  const _ContactCard({required this.offer});
-
-  Future<void> _open(String url) => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Column(
-        children: [
-          if (offer.showContactPhone && (offer.contactPhone?.isNotEmpty ?? false))
-            _ContactRow(
-              icon: Icons.call_outlined,
-              label: offer.contactPhone!,
-              onTap: () => _open('tel:${offer.contactPhone}'),
-            ),
-          if (offer.showContactWebsite && (offer.contactWebsite?.isNotEmpty ?? false))
-            _ContactRow(
-              icon: Icons.public,
-              label: offer.contactWebsite!,
-              onTap: () => _open(offer.contactWebsite!.startsWith('http') ? offer.contactWebsite! : 'https://${offer.contactWebsite}'),
-            ),
-          if (offer.showContactInstagram && (offer.contactInstagram?.isNotEmpty ?? false))
-            _ContactRow(
-              icon: Icons.camera_alt_outlined,
-              label: offer.contactInstagram!,
-              onTap: () => _open('https://instagram.com/${offer.contactInstagram!.replaceAll('@', '')}'),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ContactRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  const _ContactRow({required this.icon, required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          child: Row(
-            children: [
-              Icon(icon, size: 18, color: AppColors.primary),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 14, color: ChatLightColors.ink),
-                ),
-              ),
-              Icon(Icons.chevron_right, size: 18, color: ChatLightColors.inkFaint),
             ],
           ),
         ),

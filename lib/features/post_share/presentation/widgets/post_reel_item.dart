@@ -1,0 +1,586 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:gal/gal.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import 'package:video_player/video_player.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
+
+import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/app_logger.dart';
+import '../../../../core/widgets/photo_placeholder_pattern.dart';
+import '../../../../l10n/app_localizations.dart';
+import '../../../auth/presentation/widgets/verification_guard.dart';
+import '../../../profile/presentation/providers/public_profile_providers.dart';
+import '../../../profile/presentation/screens/user_profile_screen.dart';
+import '../../domain/entities/post.dart';
+import '../providers/post_providers.dart';
+import 'comments_sheet.dart';
+import 'post_share_sheet.dart';
+
+/// One full-screen Reels/TikTok-style page for a single [Post] — video
+/// (autoplaying, looping, tap zones for play/pause + long-press-hold
+/// 2x speed) or photo, plus the bottom name/caption and right-edge
+/// like/comment/share rail. This is the single source of truth for
+/// that experience: both the Lent tab ([FeedTab], a [PageView] over
+/// every user's posts) and [PostReelViewerScreen] (a [PageView] over
+/// one user's own posts, pushed from their profile grid) wrap this
+/// same widget rather than each having their own copy — a video
+/// opened from a profile grid must look and behave exactly like one
+/// swiped past in Lent.
+class PostReelItem extends ConsumerStatefulWidget {
+  final Post post;
+  final bool isCurrent;
+  final bool muted;
+
+  const PostReelItem({super.key, required this.post, required this.isCurrent, required this.muted});
+
+  @override
+  ConsumerState<PostReelItem> createState() => _PostReelItemState();
+}
+
+class _PostReelItemState extends ConsumerState<PostReelItem> {
+  VideoPlayerController? _controller;
+  bool _paused = false;
+  bool _fastSpeed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.isCurrent && widget.post.mediaType == PostMediaType.video) {
+      _initVideo();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant PostReelItem oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.post.mediaType != PostMediaType.video) return;
+    if (widget.isCurrent && !oldWidget.isCurrent) {
+      _initVideo();
+    } else if (!widget.isCurrent && oldWidget.isCurrent) {
+      _disposeVideo();
+    } else if (widget.muted != oldWidget.muted) {
+      _controller?.setVolume(widget.muted ? 0 : 1);
+    }
+  }
+
+  Future<void> _initVideo() async {
+    _paused = false;
+    _fastSpeed = false;
+    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.post.mediaUrl));
+    _controller = controller;
+    try {
+      await controller.initialize();
+      // The page may have already scrolled past (or a newer controller
+      // may have replaced this one) by the time initialize() resolves.
+      if (!mounted || _controller != controller) return;
+      await controller.setLooping(true);
+      await controller.setVolume(widget.muted ? 0 : 1);
+      await controller.play();
+      // Otherwise the phone's own screen-timeout kicks in mid-playback
+      // (a video has no touch input to reset it, unlike scrolling a
+      // feed) — same "keep screen on while actively playing" behavior
+      // every other video app has.
+      unawaited(WakelockPlus.enable());
+      if (mounted) setState(() {});
+    } catch (_) {
+      // Non-fatal — the page just shows a shimmer placeholder instead
+      // of a frame; swiping away and back retries via didUpdateWidget.
+    }
+  }
+
+  void _disposeVideo() {
+    final controller = _controller;
+    _controller = null;
+    controller?.dispose();
+    unawaited(WakelockPlus.disable());
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    unawaited(WakelockPlus.disable());
+    super.dispose();
+  }
+
+  void _togglePlayPause() {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    setState(() => _paused = !_paused);
+    if (_paused) {
+      controller.pause();
+      unawaited(WakelockPlus.disable());
+    } else {
+      controller.play();
+      unawaited(WakelockPlus.enable());
+    }
+  }
+
+  void _toggleSpeed() {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    setState(() => _fastSpeed = !_fastSpeed);
+    controller.setPlaybackSpeed(_fastSpeed ? 2.0 : 1.0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        _buildMedia(),
+        // Bottom scrim so the username/caption/action-rail text stays
+        // legible over bright media, without the cost of a blur filter.
+        const Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 220,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Colors.transparent, Color(0xB3000000)],
+              ),
+            ),
+          ),
+        ),
+        if (widget.post.mediaType == PostMediaType.video) _VideoTapZones(
+          paused: _paused,
+          fastSpeed: _fastSpeed,
+          onTogglePlayPause: _togglePlayPause,
+          onToggleSpeed: _toggleSpeed,
+          onDownload: () => showVideoDownloadSheet(context, widget.post),
+        ),
+        _BottomInfo(post: widget.post),
+        _RightActionRail(post: widget.post),
+      ],
+    );
+  }
+
+  Widget _buildMedia() {
+    if (widget.post.mediaType == PostMediaType.photo) {
+      return Image.network(
+        widget.post.mediaUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const PhotoPlaceholderPattern(),
+      );
+    }
+
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return const _MediaShimmer();
+    }
+    return FittedBox(
+      fit: BoxFit.cover,
+      child: SizedBox(
+        width: controller.value.size.width,
+        height: controller.value.size.height,
+        child: VideoPlayer(controller),
+      ),
+    );
+  }
+}
+
+class _MediaShimmer extends StatelessWidget {
+  const _MediaShimmer();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(color: const Color(0xFF1A1A1A))
+        .animate(onPlay: (controller) => controller.repeat())
+        .shimmer(duration: 1400.ms, color: const Color(0xFF3A3A3A));
+  }
+}
+
+/// Three equal horizontal zones over the video: left/right toggle 2x
+/// speed on tap, the middle toggles play/pause on tap and opens the
+/// download sheet on long-press. Sits below the mute button/action
+/// rail/bottom-info in the stack, so their own tap targets still win.
+class _VideoTapZones extends StatelessWidget {
+  final bool paused;
+  final bool fastSpeed;
+  final VoidCallback onTogglePlayPause;
+  final VoidCallback onToggleSpeed;
+  final VoidCallback onDownload;
+
+  const _VideoTapZones({
+    required this.paused,
+    required this.fastSpeed,
+    required this.onTogglePlayPause,
+    required this.onToggleSpeed,
+    required this.onDownload,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned.fill(
+      child: Row(
+        children: [
+          Expanded(child: GestureDetector(behavior: HitTestBehavior.translucent, onTap: onToggleSpeed)),
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: onTogglePlayPause,
+              onLongPress: onDownload,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (paused)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: const BoxDecoration(color: Color(0x66000000), shape: BoxShape.circle),
+                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 40),
+                    ),
+                  if (fastSpeed)
+                    Positioned(
+                      top: 56,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0x99000000),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          '2x',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12.5),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          Expanded(child: GestureDetector(behavior: HitTestBehavior.translucent, onTap: onToggleSpeed)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Top-bar mute toggle — shared by [FeedTab]'s search-row top bar and
+/// [PostReelViewerScreen]'s back/owner-menu top bar.
+class MuteToggleButton extends StatelessWidget {
+  final bool muted;
+  final VoidCallback onTap;
+
+  const MuteToggleButton({super.key, required this.muted, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(11),
+        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), shape: BoxShape.circle),
+        child: Icon(muted ? Icons.volume_off_outlined : Icons.volume_up_outlined, color: Colors.white, size: 18),
+      ),
+    );
+  }
+}
+
+class _BottomInfo extends ConsumerWidget {
+  final Post post;
+
+  const _BottomInfo({required this.post});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context);
+    final profile = ref.watch(publicProfileProvider(post.userId)).valueOrNull;
+    final name = (profile?.name.isNotEmpty ?? false) ? profile!.name : loc.defaultUserName;
+
+    return Positioned(
+      left: 16,
+      right: 88,
+      bottom: 22,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AppTextStyles.body.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
+            ),
+          ),
+          if (post.caption.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              post.caption,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: AppTextStyles.body.copyWith(
+                color: Colors.white,
+                fontSize: 13.5,
+                shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Right-edge action rail — avatar, like, comment, share.
+class _RightActionRail extends ConsumerWidget {
+  final Post post;
+
+  const _RightActionRail({required this.post});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profile = ref.watch(publicProfileProvider(post.userId)).valueOrNull;
+
+    return Positioned(
+      right: 12,
+      bottom: 20,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
+            onTap: () async {
+              if (!await requireVerified(context, ref)) return;
+              if (!context.mounted) return;
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => UserProfileScreen(uid: post.userId)),
+              );
+            },
+            child: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF2A2A2A),
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              child: ClipOval(
+                child: profile?.photoUrl != null
+                    ? Image.network(profile!.photoUrl!, fit: BoxFit.cover)
+                    : const Icon(Icons.person_outline, color: Colors.white70),
+              ),
+            ),
+          ),
+          const SizedBox(height: 22),
+          _LikeAction(post: post),
+          const SizedBox(height: 20),
+          _RailAction(
+            icon: Icons.mode_comment_outlined,
+            count: post.commentsCount,
+            onTap: () => showCommentsSheet(context, post.id),
+          ),
+          const SizedBox(height: 20),
+          _RailAction(
+            icon: Icons.share_outlined,
+            count: null,
+            onTap: () => showPostShareOptions(context, post),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Like heart — red when liked, matching the standard social-app
+/// convention already used for comment likes (never the app's cyan
+/// accent, which is reserved for interactive-state chrome).
+class _LikeAction extends ConsumerWidget {
+  final Post post;
+
+  const _LikeAction({required this.post});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context);
+    final isLiked = ref.watch(isPostLikedByMeProvider(post.id)).valueOrNull ?? false;
+
+    return _RailAction(
+      icon: isLiked ? Icons.favorite : Icons.favorite_border,
+      count: post.likesCount,
+      iconColor: isLiked ? Colors.redAccent : Colors.white,
+      onTap: () async {
+        if (!await requireVerified(context, ref)) return;
+        if (!context.mounted) return;
+        final ok = await ref.read(postControllerProvider).toggleLike(post.id, !isLiked);
+        if (!ok && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.postLikeErrorMessage)));
+        }
+      },
+    );
+  }
+}
+
+class _RailAction extends StatelessWidget {
+  final IconData icon;
+  final int? count;
+  final Color iconColor;
+  final VoidCallback? onTap;
+
+  const _RailAction({required this.icon, this.count, this.iconColor = Colors.white, this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: iconColor, size: 28, shadows: const [Shadow(color: Colors.black54, blurRadius: 6)]),
+          if (count != null && count! > 0) ...[
+            const SizedBox(height: 4),
+            Text(
+              '$count',
+              style: AppTextStyles.caption.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                shadows: const [Shadow(color: Colors.black54, blurRadius: 4)],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Long-press-in-the-middle entry point — offers "Videonu endir",
+/// then reuses the same sheet to show download progress and finally a
+/// completed state, once the file is written into the phone's own
+/// gallery via [Gal.putVideo].
+void showVideoDownloadSheet(BuildContext context, Post post) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.surface,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    builder: (_) => _VideoDownloadSheet(post: post),
+  );
+}
+
+enum _DownloadState { idle, downloading, completed, error }
+
+class _VideoDownloadSheet extends StatefulWidget {
+  final Post post;
+
+  const _VideoDownloadSheet({required this.post});
+
+  @override
+  State<_VideoDownloadSheet> createState() => _VideoDownloadSheetState();
+}
+
+class _VideoDownloadSheetState extends State<_VideoDownloadSheet> {
+  _DownloadState _state = _DownloadState.idle;
+  double _progress = 0;
+
+  Future<void> _startDownload() async {
+    setState(() {
+      _state = _DownloadState.downloading;
+      _progress = 0;
+    });
+
+    File? tempFile;
+    try {
+      final hasAccess = await Gal.hasAccess(toAlbum: true);
+      if (!hasAccess) {
+        final granted = await Gal.requestAccess(toAlbum: true);
+        if (!granted) {
+          if (mounted) setState(() => _state = _DownloadState.error);
+          return;
+        }
+      }
+
+      final request = http.Request('GET', Uri.parse(widget.post.mediaUrl));
+      final response = await http.Client().send(request);
+      final total = response.contentLength ?? 0;
+
+      final dir = await getTemporaryDirectory();
+      tempFile = File('${dir.path}/peakpin_download_${DateTime.now().millisecondsSinceEpoch}.mp4');
+      final sink = tempFile.openWrite();
+
+      var received = 0;
+      await response.stream.map((chunk) {
+        received += chunk.length;
+        if (total > 0 && mounted) {
+          setState(() => _progress = received / total);
+        }
+        return chunk;
+      }).pipe(sink);
+      await sink.close();
+
+      await Gal.putVideo(tempFile.path, album: 'PeakPin');
+      if (mounted) setState(() => _state = _DownloadState.completed);
+    } catch (e, st) {
+      logError('post_reel_item.downloadVideo', e, st);
+      if (mounted) setState(() => _state = _DownloadState.error);
+    } finally {
+      if (tempFile != null && await tempFile.exists()) {
+        unawaited(tempFile.delete());
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: _content(loc),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _content(AppLocalizations loc) {
+    switch (_state) {
+      case _DownloadState.idle:
+        return [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.download_outlined, color: AppColors.primary),
+            title: Text(loc.feedDownloadVideoOption, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
+            onTap: _startDownload,
+          ),
+        ];
+      case _DownloadState.downloading:
+        return [
+          CircularProgressIndicator(value: _progress > 0 ? _progress : null, color: AppColors.primary),
+          const SizedBox(height: 16),
+          Text(
+            loc.feedDownloadInProgressMessage((_progress * 100).round()),
+            style: AppTextStyles.body.copyWith(fontSize: 14.5),
+          ),
+        ];
+      case _DownloadState.completed:
+        return [
+          const Icon(Icons.check_circle_outline, color: AppColors.primary, size: 36),
+          const SizedBox(height: 12),
+          Text(loc.feedDownloadCompleteMessage, style: AppTextStyles.body.copyWith(fontSize: 14.5)),
+        ];
+      case _DownloadState.error:
+        return [
+          const Icon(Icons.error_outline, color: AppColors.error, size: 36),
+          const SizedBox(height: 12),
+          Text(loc.feedDownloadErrorMessage, style: AppTextStyles.body.copyWith(fontSize: 14.5)),
+        ];
+    }
+  }
+}
