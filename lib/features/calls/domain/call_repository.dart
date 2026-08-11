@@ -47,4 +47,14 @@ abstract class CallRepository {
   /// Enables/disables this device's own outgoing video track. A no-op
   /// on an audio-only call (there's no video track to toggle).
   Future<void> setVideoEnabled(String callId, bool enabled);
+
+  /// Flips this device's own outgoing video between front and back
+  /// camera. A no-op on an audio-only call or once the video track has
+  /// been disabled (nothing to switch).
+  Future<void> switchCamera(String callId);
+
+  /// Routes this call's audio through the loudspeaker (`true`) or the
+  /// earpiece/default output (`false`). No Firestore write — purely a
+  /// local device setting, same as [setMuted].
+  Future<void> setSpeakerphoneOn(String callId, bool enabled);
 }

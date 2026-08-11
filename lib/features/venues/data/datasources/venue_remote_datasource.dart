@@ -22,22 +22,31 @@ abstract class VenueRemoteDatasource {
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> watchVenue(String venueId);
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchVenuesByOwner(String ownerId);
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchVenuesByOwner(
+    String ownerId,
+  );
 
   /// GeoFlutterFire Plus query — fans out across the neighboring
   /// geohash cells and merges results internally, returning each
   /// matching doc paired with its real distance from ([lat], [lng])
   /// in kilometres, already sorted nearest-first.
-  Future<List<(DocumentSnapshot<Map<String, dynamic>> doc, double distanceKm)>> queryWithinRadius({
+  Future<List<(DocumentSnapshot<Map<String, dynamic>> doc, double distanceKm)>>
+  queryWithinRadius({
     required double lat,
     required double lng,
     required double radiusKm,
     String? category,
   });
 
-  Future<QuerySnapshot<Map<String, dynamic>>> queryByCountry(String country, {String? category});
+  Future<QuerySnapshot<Map<String, dynamic>>> queryByCountry(
+    String country, {
+    String? category,
+  });
 
-  Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({required int limit, String? category});
+  Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({
+    required int limit,
+    String? category,
+  });
 
   /// [onProgress] fires repeatedly with a 0.0–1.0 fraction as bytes
   /// transfer. [onTaskReady] fires exactly once, synchronously before
@@ -55,19 +64,44 @@ abstract class VenueRemoteDatasource {
 
   Future<void> deleteVenuePhoto(String venueId);
 
-  /// Realtime set of venue ids the given user has favorited —
-  /// `users/{uid}/favorites` doc ids, watched live so the heart icon
-  /// stays in sync across the list and profile screen without a
-  /// manual refresh.
-  Stream<Set<String>> watchFavoriteVenueIds(String uid);
+  /// Whether [uid] has liked [venueId] — a single-doc watch on
+  /// `venues/{venueId}/likes/{uid}`, mirroring
+  /// `PostRemoteDatasource.watchIsLikedByMe`.
+  Stream<bool> watchIsLikedByMe(String venueId, String uid);
 
-  /// Writes/removes the `users/{uid}/favorites/{venueId}` doc and
-  /// bumps `venues/{venueId}.favoriteCount` by ±1 in the same call —
-  /// two separate writes (matching this app's existing non-transactional
-  /// starCount/heartCount increment precedent), not a batch/transaction.
-  Future<void> setFavorite({
+  /// Creates/deletes ONLY the `venues/{venueId}/likes/{uid}` doc —
+  /// never touches `likeCount`/`rating` itself. Those are written
+  /// exclusively by the `onVenueLikeCreated`/`onVenueLikeDeleted`
+  /// Cloud Function triggers reacting to this same write, which is
+  /// also what firestore.rules enforces (the client has no permission
+  /// to set those fields directly).
+  Future<void> setLiked({
     required String uid,
     required String venueId,
-    required bool isFavorite,
+    required bool isLiked,
   });
+
+  /// Live count of `venues/{venueId}/activeCheckins` docs created
+  /// within the still-valid window — never includes an entry the
+  /// scheduled cleanup function would already be entitled to purge,
+  /// so the number on screen never overstates who's actually there.
+  Stream<int> watchActiveCheckinCount(String venueId);
+
+  /// Whether [uid] currently has an active check-in at [venueId]
+  /// specifically (not just anywhere) — a single-doc watch on
+  /// `venues/{venueId}/activeCheckins/{uid}`.
+  Stream<bool> watchIsCheckedInHere(String venueId, String uid);
+
+  /// Creates `venues/{venueId}/activeCheckins/{uid}` and points
+  /// `users/{uid}.activeCheckinVenueId` at it. A user can only ever
+  /// have one active check-in — if they were already checked in
+  /// somewhere else, that old subcollection doc is deleted in the same
+  /// transaction so the move is atomic (no window where the count is
+  /// wrong at both venues).
+  Future<void> checkIn({required String uid, required String venueId});
+
+  /// Deletes [uid]'s current active check-in (wherever it is) and
+  /// clears `users/{uid}.activeCheckinVenueId`. No-op if they don't
+  /// have one.
+  Future<void> checkOut({required String uid});
 }

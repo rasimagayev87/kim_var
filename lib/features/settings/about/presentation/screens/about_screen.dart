@@ -40,7 +40,7 @@ class AboutScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Text('Meevima', style: AppTextStyles.h1.copyWith(fontSize: 22, fontWeight: FontWeight.w800)),
+                  Text('PeakPin', style: AppTextStyles.h1.copyWith(fontSize: 22, fontWeight: FontWeight.w800)),
                   const SizedBox(height: 6),
                   SettingsPill(label: versionAsync.valueOrNull ?? ''),
                 ],

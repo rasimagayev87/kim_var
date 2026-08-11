@@ -108,7 +108,7 @@ class _NotificationsFeedScreenState extends ConsumerState<NotificationsFeedScree
     if (!notification.isRead) {
       ref.read(notificationListControllerProvider.notifier).markRead(notification.id);
     }
-    openNotificationTarget(context, notification);
+    await openNotificationTarget(context, ref, notification);
   }
 
   @override
@@ -219,6 +219,9 @@ const Map<NotificationType, IconData> _notificationIcons = {
   NotificationType.venueOffer: Icons.local_offer,
   NotificationType.venueAdded: Icons.storefront,
   NotificationType.venueVerified: Icons.verified,
+  NotificationType.venuePeakHour: Icons.local_fire_department_rounded,
+  NotificationType.birthdayMatch: Icons.cake_rounded,
+  NotificationType.birthdayOffer: Icons.card_giftcard_rounded,
   NotificationType.system: Icons.info,
   NotificationType.security: Icons.shield,
   NotificationType.promotion: Icons.campaign,

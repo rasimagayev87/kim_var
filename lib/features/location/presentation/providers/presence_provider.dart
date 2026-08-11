@@ -15,8 +15,8 @@ class PresenceController {
   final fb.FirebaseAuth _auth;
 
   PresenceController({FirebaseFirestore? firestore, fb.FirebaseAuth? auth})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? fb.FirebaseAuth.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _auth = auth ?? fb.FirebaseAuth.instance;
 
   Future<void> setOnline() => _set(true);
 
@@ -25,12 +25,9 @@ class PresenceController {
   Future<void> _set(bool online) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
-    await _firestore.collection('users').doc(uid).set(
-      {
-        'online': online,
-        'lastSeen': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    await _firestore.collection('users').doc(uid).set({
+      'online': online,
+      'lastSeen': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 }

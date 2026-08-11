@@ -81,15 +81,6 @@ service cloud.firestore {
         allow create, update, delete: if request.auth != null && request.auth.uid == userId;
       }
 
-      // Favorited venues (doc id = venueId, doc body just records
-      // when it was favorited) — owner-read/write only, nobody else
-      // needs to see (or forge) another user's favorites list. The
-      // corresponding `venues/{venueId}.favoriteCount` bump is a
-      // separate write, governed by the `venues` rule above.
-      match /favorites/{venueId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
       // Favorited offers — same owner-read/write-only shape as
       // `favorites` above, kept in its own subcollection rather than
       // reused since venue and offer ids are unrelated auto-ids from
@@ -115,6 +106,15 @@ service cloud.firestore {
         allow update: if request.auth != null && request.auth.uid == userId &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isRead']);
         allow delete: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Per-venue 24h throttle for the "new offer near you" fanout
+      // (`notifyNearbyUsersOfNewOffer`, functions/src/index.ts) —
+      // written exclusively by that Cloud Function (Admin SDK bypasses
+      // these rules), purely internal bookkeeping the client never
+      // needs to read or write.
+      match /notifiedVenues/{venueId} {
+        allow read, write: if false;
       }
 
       // Payment/subscription history — sensitive financial data, so
@@ -329,59 +329,141 @@ service cloud.firestore {
     // Self-service-submitted local businesses (Kəşf et → Məkanlar).
     // Auto-id'd docs; any signed-in user can read (discovery is open to
     // everyone, and visibility is a pure client-side geohash/radius
-    // query — not gated by any per-viewer rule here). Only the
-    // submitting owner can write. No moderation queue exists yet
-    // (`status` always 'active' today), so create/update don't check
-    // it — see Venue.status's doc comment for why that's still a
-    // one-value change away from adding one later.
+    // query — not gated by any per-viewer rule here, `status` does
+    // that filtering in the query itself). Only the submitting owner
+    // can write, and only to non-moderation fields — see below.
     match /venues/{venueId} {
       allow read: if request.auth != null;
 
+      // New venues must start 'pending' with no review metadata — an
+      // owner can't self-publish by creating straight into 'approved',
+      // or forge a fake review trail.
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.ownerId &&
-        isVerifiedUser(request.auth.uid);
+        isVerifiedUser(request.auth.uid) &&
+        request.resource.data.status == 'pending' &&
+        !('reviewNote' in request.resource.data) &&
+        !('reviewedBy' in request.resource.data) &&
+        !('reviewedAt' in request.resource.data);
 
       // `ownerId` is immutable — an update can't reassign a venue to a
-      // different owner, even the current owner's own write. Any OTHER
-      // signed-in user may also update the doc, but only to bump
-      // `favoriteCount` by exactly ±1 (favoriting/unfavoriting — see
-      // `users/{userId}/favorites`), same pattern as starCount/
-      // heartCount on `users/{userId}` above.
-      allow update: if request.auth != null && (
-        (
-          request.auth.uid == resource.data.ownerId &&
-          request.resource.data.ownerId == resource.data.ownerId
-        ) ||
-        (
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['favoriteCount']) &&
-          (
-            request.resource.data.favoriteCount == ('favoriteCount' in resource.data ? resource.data.favoriteCount : 0) + 1 ||
-            request.resource.data.favoriteCount == ('favoriteCount' in resource.data ? resource.data.favoriteCount : 0) - 1
-          )
-        )
-      );
+      // different owner, even the current owner's own write. `likeCount`/
+      // `rating` are grant-of-trust denormalized fields (same reasoning
+      // as `isVerified` on `users/{userId}`) — blocked here even for the
+      // owner's own write, since only the `onVenueLikeCreated`/
+      // `onVenueLikeDeleted` Cloud Function triggers (functions/src/
+      // index.ts) may set them, deriving `rating` from `likeCount` so
+      // the two can never be faked independently of real `likes` docs.
+      // `status`/`reviewNote`/`reviewedBy`/`reviewedAt` are the same
+      // kind of grant-of-trust field — only the admin panel's Server
+      // Actions (Admin SDK, which bypasses these rules) may set them;
+      // an owner editing their own venue (name/photo/hours/etc.) can
+      // never touch its moderation state, including moving it back to
+      // 'pending' themselves — that's `resubmitVenue` (Cloud Function,
+      // functions/src/index.ts)'s job, gated on `needs_revision`.
+      // `lastPeakNotifiedAt` is the same kind of grant-of-trust field —
+      // only `computeVenueAudienceHistory` (scheduled Cloud Function,
+      // functions/src/index.ts) sets it, so the owner can't reset their
+      // own cooldown to spam themselves peak-hour pushes.
+      allow update: if request.auth != null &&
+        request.auth.uid == resource.data.ownerId &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['likeCount', 'rating', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
+    }
+
+    // A user's like on a venue — existence alone is the "like", no
+    // fields to validate. `likeCount`/`rating` on the parent venue doc
+    // are derived from this collection's size by Cloud Function
+    // triggers, never written directly (see venues/{venueId} above).
+    match /venues/{venueId}/likes/{userId} {
+      allow read: if request.auth != null;
+      allow create, delete: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Written exclusively by `computeVenueAudienceHistory` (scheduled
+    // Cloud Function, Admin SDK — bypasses these rules entirely) every
+    // 15 minutes; no client write path exists or should exist, since
+    // these counts are what the peak-hour detector trusts. Read is
+    // open the same way every other `venues/**` doc is (see
+    // `venues/{venueId}` above) — a future owner-facing analytics view
+    // could read a venue's own history without a rules change, and the
+    // data itself is just aggregate counts, never individual profiles.
+    match /venues/{venueId}/audienceHistory/{entryId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // A user's active check-in at this venue — existence alone means
+    // "here right now". The live "Hazırda N istifadəçi buradadır"
+    // count is a plain client-side count of this collection (filtered
+    // to non-stale docs), no denormalized counter field exists to
+    // guard. `update` is allowed alongside create/delete only as a
+    // defensive no-op path (the app never actually updates this doc
+    // in place, only creates/deletes it) — still owner-only either
+    // way, so it grants nothing extra.
+    match /venues/{venueId}/activeCheckins/{userId} {
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // Venue owner-submitted promotions (Kəşf et → Təkliflər). Same
     // open-read/owner-write shape as venues above — discovery is open
     // to everyone, only the submitting owner can create/update/delete.
     // No denormalized `favoriteCount` on this doc (unlike venues), so
-    // update stays owner-only with no non-owner counter-bump exception.
+    // update stays owner-only with no non-owner counter-bump exception
+    // — but the same moderation-field lockdown as venues applies.
     match /offers/{offerId} {
       allow read: if request.auth != null;
 
+      // Same "must start pending, no forged review trail" rule as venues.
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.ownerId &&
-        isVerifiedUser(request.auth.uid);
+        isVerifiedUser(request.auth.uid) &&
+        request.resource.data.status == 'pending' &&
+        !('reviewNote' in request.resource.data) &&
+        !('reviewedBy' in request.resource.data) &&
+        !('reviewedAt' in request.resource.data);
 
-      // `ownerId` is immutable, same reasoning as venues.
+      // `ownerId` is immutable, same reasoning as venues. `status`/
+      // `reviewNote`/`reviewedBy`/`reviewedAt` are admin-panel-only —
+      // same reasoning as venues' update rule; `resubmitOffer` (Cloud
+      // Function) is the only path back to 'pending'.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
-        request.resource.data.ownerId == resource.data.ownerId;
+        request.resource.data.ownerId == resource.data.ownerId &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
+    }
+
+    // A user's one-time activation of an `OfferType.firstVisit` offer
+    // (the "Aktivləşdir" button) — existence alone is the redemption,
+    // same shape as venues/{venueId}/likes above. Only `create` is
+    // granted (never `update`/`delete`): Firestore's own create-vs-
+    // update distinction (a `create` request fails if the doc already
+    // exists) is what actually enforces "once per user", not
+    // client-side UI state.
+    match /offers/{offerId}/redemptions/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Written exclusively by `computeBirthdayMatches` (scheduled Cloud
+    // Function, Admin SDK — bypasses these rules entirely), same
+    // "no client write path exists or should exist" reasoning as
+    // venues/{venueId}/audienceHistory above. Read stays open the same
+    // way every other collection here is — the venue owner reading
+    // their own match to build the pre-filled birthday offer form
+    // needs this, and the data itself is just matched uids, not
+    // anything more sensitive than what the owner's own push
+    // notification already told them.
+    match /birthdayMatches/{matchId} {
+      allow read: if request.auth != null;
+      allow write: if false;
     }
 
     // 24h-expiring stories. Expiry itself is enforced client-side (the
@@ -493,7 +575,7 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Kim Var VIP ekranının funksiya siyahısı — marketinq mətni, admin
+    // PeakPin VIP ekranının funksiya siyahısı — marketinq mətni, admin
     // tərəfindən Firebase console-dan idarə olunur.
     match /vipFeatures/{featureId} {
       allow read: if request.auth != null;

@@ -1,4 +1,4 @@
-package com.meevima.app
+package com.peakpin.app
 
 import io.flutter.embedding.android.FlutterActivity
 

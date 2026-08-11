@@ -9,7 +9,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 void logError(String context, Object error, [StackTrace? stackTrace]) {
   developer.log(
     error.toString(),
-    name: 'meevima.$context',
+    name: 'peakpin.$context',
     error: error,
     stackTrace: stackTrace,
     level: 1000, // SEVERE

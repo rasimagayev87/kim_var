@@ -57,7 +57,7 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
       field: kOfferGeoField,
       geopointFrom: (data) => data[kOfferGeoField]['geopoint'] as GeoPoint,
       queryBuilder: (query) {
-        var q = query.where('status', isEqualTo: 'active');
+        var q = query.where('status', isEqualTo: 'approved');
         if (category != null) q = q.where('category', isEqualTo: category);
         return q;
       },
@@ -68,19 +68,19 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
 
   @override
   Future<QuerySnapshot<Map<String, dynamic>>> queryByVenue(String venueId) {
-    return _offers.where('venueId', isEqualTo: venueId).where('status', isEqualTo: 'active').get();
+    return _offers.where('venueId', isEqualTo: venueId).where('status', isEqualTo: 'approved').get();
   }
 
   @override
   Future<QuerySnapshot<Map<String, dynamic>>> queryByCountry(String country, {String? category}) {
-    var query = _offers.where('status', isEqualTo: 'active').where('country', isEqualTo: country);
+    var query = _offers.where('status', isEqualTo: 'approved').where('country', isEqualTo: country);
     if (category != null) query = query.where('category', isEqualTo: category);
     return query.limit(300).get();
   }
 
   @override
   Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({required int limit, String? category}) {
-    var query = _offers.where('status', isEqualTo: 'active');
+    var query = _offers.where('status', isEqualTo: 'approved');
     if (category != null) query = query.where('category', isEqualTo: category);
     return query.limit(limit).get();
   }
@@ -134,5 +134,18 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
     } else {
       await favoriteDoc.delete();
     }
+  }
+
+  CollectionReference<Map<String, dynamic>> _redemptions(String offerId) =>
+      _offers.doc(offerId).collection('redemptions');
+
+  @override
+  Stream<bool> watchIsRedeemedByMe(String offerId, String uid) {
+    return _redemptions(offerId).doc(uid).snapshots().map((doc) => doc.exists);
+  }
+
+  @override
+  Future<void> redeemOffer(String offerId, String uid) async {
+    await _redemptions(offerId).doc(uid).set({'redeemedAt': FieldValue.serverTimestamp()});
   }
 }

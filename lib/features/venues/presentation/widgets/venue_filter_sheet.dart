@@ -37,7 +37,11 @@ class _VenueFilterSheetState extends State<VenueFilterSheet> {
     final loc = AppLocalizations.of(context);
     final query = _query.trim().toLowerCase();
     final categories = VenueCategory.values
-        .where((c) => query.isEmpty || venueCategoryLabel(loc, c).toLowerCase().contains(query))
+        .where(
+          (c) =>
+              query.isEmpty ||
+              venueCategoryLabel(loc, c).toLowerCase().contains(query),
+        )
         .toList();
 
     return SafeArea(
@@ -61,14 +65,20 @@ class _VenueFilterSheetState extends State<VenueFilterSheet> {
             ),
             Text(
               loc.venueCategoryFilterTitle,
-              style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w700,
+                color: ChatLightColors.ink,
+              ),
             ),
             const SizedBox(height: 12),
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(AppRadii.input),
-                border: Border.all(color: ChatLightColors.inkFaint.withValues(alpha: 0.18)),
+                border: Border.all(
+                  color: ChatLightColors.inkFaint.withValues(alpha: 0.18),
+                ),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Row(
@@ -78,16 +88,24 @@ class _VenueFilterSheetState extends State<VenueFilterSheet> {
                   Expanded(
                     child: TextField(
                       onChanged: (v) => setState(() => _query = v),
-                      style: const TextStyle(fontSize: 14.5, color: ChatLightColors.ink),
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        color: ChatLightColors.ink,
+                      ),
                       decoration: InputDecoration(
                         hintText: loc.venueCategorySearchHint,
-                        hintStyle: TextStyle(color: ChatLightColors.inkFaint, fontSize: 14.5),
+                        hintStyle: TextStyle(
+                          color: ChatLightColors.inkFaint,
+                          fontSize: 14.5,
+                        ),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
                         isDense: true,
                         filled: false,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 11,
+                        ),
                       ),
                     ),
                   ),
@@ -104,7 +122,10 @@ class _VenueFilterSheetState extends State<VenueFilterSheet> {
                     _VenueCategoryRow(
                       label: loc.venueCategoryAllOption,
                       isSelected: widget.selected == null,
-                      onTap: () => Navigator.pop(context, const ClearVenueCategoryFilter()),
+                      onTap: () => Navigator.pop(
+                        context,
+                        const ClearVenueCategoryFilter(),
+                      ),
                     ),
                   for (final category in categories)
                     _VenueCategoryRow(
@@ -129,7 +150,12 @@ class _VenueCategoryRow extends StatelessWidget {
   final bool isSelected;
   final VoidCallback onTap;
 
-  const _VenueCategoryRow({required this.label, this.icon, required this.isSelected, required this.onTap});
+  const _VenueCategoryRow({
+    required this.label,
+    this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -146,7 +172,9 @@ class _VenueCategoryRow extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary.withValues(alpha: 0.14) : ChatLightColors.cardSurface,
+                  color: isSelected
+                      ? AppColors.primary.withValues(alpha: 0.14)
+                      : ChatLightColors.cardSurface,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -159,10 +187,15 @@ class _VenueCategoryRow extends StatelessWidget {
               Expanded(
                 child: Text(
                   label,
-                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: ChatLightColors.ink,
+                  ),
                 ),
               ),
-              if (isSelected) const Icon(Icons.check, size: 18, color: AppColors.primary),
+              if (isSelected)
+                const Icon(Icons.check, size: 18, color: AppColors.primary),
             ],
           ),
         ),

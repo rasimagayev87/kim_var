@@ -24,12 +24,8 @@ class UpdateOfferUseCase {
     File? photo,
     required bool hasExistingPhoto,
     String? terms,
-    String? contactPhone,
-    bool showContactPhone = false,
-    String? contactWebsite,
-    bool showContactWebsite = false,
-    String? contactInstagram,
-    bool showContactInstagram = false,
+    ActiveHours? activeHours,
+    List<String> activeDays = const [],
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
@@ -44,6 +40,8 @@ class UpdateOfferUseCase {
       discountValue: discountValue,
       startDate: startDate,
       endDate: endDate,
+      activeHours: activeHours,
+      activeDays: activeDays,
     );
 
     await assertValidOfferPhoto(photo);
@@ -60,12 +58,8 @@ class UpdateOfferUseCase {
       photo: photo,
       hasExistingPhoto: hasExistingPhoto,
       terms: terms,
-      contactPhone: contactPhone,
-      showContactPhone: showContactPhone,
-      contactWebsite: contactWebsite,
-      showContactWebsite: showContactWebsite,
-      contactInstagram: contactInstagram,
-      showContactInstagram: showContactInstagram,
+      activeHours: fields.activeHours,
+      activeDays: fields.activeDays,
       onUploadProgress: onUploadProgress,
       onUploadTaskReady: onUploadTaskReady,
     );

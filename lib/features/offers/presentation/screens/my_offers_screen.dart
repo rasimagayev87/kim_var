@@ -47,7 +47,10 @@ class MyOffersScreen extends ConsumerWidget {
               error: (error, _) => Center(
                 child: Text('$error', style: const TextStyle(color: ChatLightColors.inkSoft), textAlign: TextAlign.center),
               ),
-              data: (offers) {
+              data: (allOffers) {
+                // Rejected offers drop out of this list entirely — same
+                // reasoning as MyVenuesScreen's own rejected filter.
+                final offers = allOffers.where((o) => o.status != 'rejected').toList();
                 if (offers.isEmpty) return _EmptyMyOffers(loc: loc, ref: ref);
                 return ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -146,64 +149,79 @@ class _MyOfferCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final needsRevision = offer.status == 'needs_revision';
+
     return Material(
       color: Colors.white,
       borderRadius: BorderRadius.circular(18),
       child: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: SizedBox(
-                    width: 64,
-                    height: 64,
-                    child: offer.imageUrl != null
-                        ? Image.network(offer.imageUrl!, fit: BoxFit.cover)
-                        : Container(
-                            color: ChatLightColors.cardSurface,
-                            alignment: Alignment.center,
-                            child: Icon(venueCategoryIcon(offer.category), color: ChatLightColors.inkSoft, size: 26),
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(right: 28),
-                        child: Text(
-                          offer.title,
-                          style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: SizedBox(
+                        width: 64,
+                        height: 64,
+                        child: offer.imageUrl != null
+                            ? Image.network(offer.imageUrl!, fit: BoxFit.cover)
+                            : Container(
+                                color: ChatLightColors.cardSurface,
+                                alignment: Alignment.center,
+                                child: Icon(venueCategoryIcon(offer.category), color: ChatLightColors.inkSoft, size: 26),
+                              ),
                       ),
-                      const SizedBox(height: 4),
-                      Row(
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
+                          Padding(
+                            padding: const EdgeInsets.only(right: 28),
                             child: Text(
-                              offer.venueName,
-                              style: const TextStyle(fontSize: 13, color: ChatLightColors.inkSoft),
+                              offer.title,
+                              style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          _OfferStatusBadge(isExpired: offer.isExpired),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  offer.venueName,
+                                  style: const TextStyle(fontSize: 13, color: ChatLightColors.inkSoft),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              if (offer.status == 'pending' || needsRevision)
+                                _ModerationStatusBadge(status: offer.status)
+                              else
+                                _OfferStatusBadge(isExpired: offer.isExpired),
+                            ],
+                          ),
                         ],
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              if (needsRevision)
+                _NeedsRevisionBanner(
+                  reviewNote: offer.reviewNote,
+                  onEdit: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreateOfferScreen(existingOffer: offer))),
+                ),
+            ],
           ),
           Positioned(
             top: 6,
@@ -295,6 +313,94 @@ class _OfferStatusBadge extends StatelessWidget {
       child: Text(
         isExpired ? loc.offerStatusExpired : loc.offerStatusActive,
         style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color),
+      ),
+    );
+  }
+}
+
+/// Pending/needs_revision pill — mirrors venues' own
+/// `_ModerationStatusBadge` exactly (duplicated per this file's own
+/// "no coupling between the two management screens" convention).
+class _ModerationStatusBadge extends StatelessWidget {
+  final String status;
+
+  const _ModerationStatusBadge({required this.status});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    const color = AppColors.gold;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
+      child: Text(
+        status == 'needs_revision' ? loc.moderationStatusNeedsRevision : loc.moderationStatusPending,
+        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color),
+      ),
+    );
+  }
+}
+
+/// Mirrors venues' own `_NeedsRevisionBanner` exactly.
+class _NeedsRevisionBanner extends StatelessWidget {
+  final String? reviewNote;
+  final VoidCallback onEdit;
+
+  const _NeedsRevisionBanner({required this.reviewNote, required this.onEdit});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppColors.gold.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.gold.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (reviewNote != null && reviewNote!.trim().isNotEmpty)
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '${loc.moderationReviewNotePrefix}: ',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                    ),
+                    TextSpan(
+                      text: reviewNote,
+                      style: const TextStyle(fontSize: 12, color: ChatLightColors.inkSoft),
+                    ),
+                  ],
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+            )
+          else
+            Expanded(
+              child: Text(
+                loc.moderationStatusNeedsRevision,
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+              ),
+            ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: onEdit,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(loc.offerEditTitle, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+          ),
+        ],
       ),
     );
   }

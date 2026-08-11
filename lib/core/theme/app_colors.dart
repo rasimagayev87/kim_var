@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// Premium light "Meevima" design system — the same open, airy palette
+/// Premium light "PeakPin" design system — the same open, airy palette
 /// the chat/profile screens established (`ChatLightColors`), now the
 /// app-wide default. Field names are kept stable across the old dark
 /// palette on purpose — hundreds of call sites reference
@@ -29,7 +29,7 @@ class AppColors {
   /// primary CTA buttons, loading/progress indicators, links, focus
   /// state, selected elements. Never used as a decorative/default
   /// icon or border tint — see [textSecondary]/[divider] for those.
-  static const Color primary = Color(0xFF2DD4BF);
+  static const Color primary = Color(0xFF12D6E8);
 
   /// Primary text/icon color — dark ink, not literal white (see the
   /// class doc comment for why the name stayed).
@@ -72,4 +72,18 @@ class AppColors {
   /// app chrome, and photo captions still need dark-scrim-behind-white-
   /// text contrast either way.
   static const Color cardOverlay = Color(0xE6121212);
+
+  /// The logo "P"'s two measured tones — the single source of truth
+  /// for every "positive"/live-status color (online dots, open-now
+  /// badges, accept-call, fixed-price offer badge, etc.) that used to
+  /// be a generic green. Use [cyanGradient] wherever the old color had
+  /// a two-tone gradient; use [cyanDark] alone for a flat single-color
+  /// need (matches the logo's lower, slightly richer tone).
+  static const Color cyanLight = Color(0xFF37EFFD);
+  static const Color cyanDark = Color(0xFF0ECDE9);
+  static const LinearGradient cyanGradient = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [cyanLight, cyanDark],
+  );
 }

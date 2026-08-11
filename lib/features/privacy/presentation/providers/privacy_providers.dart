@@ -12,6 +12,7 @@ import '../../domain/repositories/device_session_repository.dart';
 import '../../domain/repositories/privacy_settings_repository.dart';
 import '../../domain/usecases/delete_account_usecase.dart';
 import '../../domain/usecases/export_user_data_usecase.dart';
+import '../../domain/usecases/update_birthday_offers_opt_in_usecase.dart';
 import '../../domain/usecases/update_ghost_mode_usecase.dart';
 import '../../domain/usecases/update_profile_visibility_usecase.dart';
 import '../../domain/usecases/update_show_online_status_usecase.dart';
@@ -50,6 +51,10 @@ final updateTwoFactorEnabledUseCaseProvider = Provider<UpdateTwoFactorEnabledUse
 
 final updateGhostModeUseCaseProvider = Provider<UpdateGhostModeUseCase>((ref) {
   return UpdateGhostModeUseCase(ref.watch(privacySettingsRepositoryProvider));
+});
+
+final updateBirthdayOffersOptInUseCaseProvider = Provider<UpdateBirthdayOffersOptInUseCase>((ref) {
+  return UpdateBirthdayOffersOptInUseCase(ref.watch(privacySettingsRepositoryProvider));
 });
 
 final accountRepositoryProvider = Provider<AccountRepository>((ref) => FirebaseAccountRepository());
@@ -111,6 +116,10 @@ class PrivacySettingsController {
 
   Future<bool> updateGhostMode(bool enabled) {
     return _run((uid) => _ref.read(updateGhostModeUseCaseProvider).call(uid: uid, enabled: enabled));
+  }
+
+  Future<bool> updateBirthdayOffersOptIn(bool enabled) {
+    return _run((uid) => _ref.read(updateBirthdayOffersOptInUseCaseProvider).call(uid: uid, enabled: enabled));
   }
 
   Future<bool> _run(Future<void> Function(String uid) action) async {

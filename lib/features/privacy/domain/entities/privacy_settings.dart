@@ -58,6 +58,13 @@ class PrivacySettings {
   /// to it — a chat, a direct link, an existing follow.
   final bool ghostModeEnabled;
 
+  /// Opt-IN (default false, never opt-out) — whether nearby venues'
+  /// birthday-match Cloud Function may consider this user at all on
+  /// their birthday. Off means invisible to that matching entirely,
+  /// not just "no offers shown" — see `computeBirthdayMatches`'s own
+  /// doc comment in `functions/src/index.ts`.
+  final bool birthdayOffersOptIn;
+
   const PrivacySettings({
     this.profileVisibility = ProfileVisibility.everyone,
     this.visibilityRadiusMode = VisibilityRadiusMode.distance,
@@ -67,6 +74,7 @@ class PrivacySettings {
     this.whoCanMessageMe = WhoCanMessageMe.everyone,
     this.twoFactorEnabled = false,
     this.ghostModeEnabled = false,
+    this.birthdayOffersOptIn = false,
   });
 
   PrivacySettings copyWith({
@@ -79,6 +87,7 @@ class PrivacySettings {
     WhoCanMessageMe? whoCanMessageMe,
     bool? twoFactorEnabled,
     bool? ghostModeEnabled,
+    bool? birthdayOffersOptIn,
   }) {
     return PrivacySettings(
       profileVisibility: profileVisibility ?? this.profileVisibility,
@@ -89,6 +98,7 @@ class PrivacySettings {
       whoCanMessageMe: whoCanMessageMe ?? this.whoCanMessageMe,
       twoFactorEnabled: twoFactorEnabled ?? this.twoFactorEnabled,
       ghostModeEnabled: ghostModeEnabled ?? this.ghostModeEnabled,
+      birthdayOffersOptIn: birthdayOffersOptIn ?? this.birthdayOffersOptIn,
     );
   }
 }

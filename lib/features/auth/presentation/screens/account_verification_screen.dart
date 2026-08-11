@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +11,13 @@ import '../providers/auth_providers.dart';
 import '../widgets/phone_verification_steps.dart';
 
 enum _Step { phoneEntry, otpEntry }
+
+/// Routes phone-verification OTP through the `sendOtp`/`verifyOtp`
+/// Cloud Functions (Twilio Verify) instead of Firebase's own phone
+/// auth. Flip back to `false` to roll back instantly — the old
+/// Firebase-native path ([AuthController.startPhoneLinkVerification] /
+/// [confirmPhoneLink]) is untouched and still fully wired below.
+const bool kUseTwilioOtp = true;
 
 /// "Hesabı təsdiq et" — links a phone number to the currently
 /// signed-in account via OTP, then flips `isVerified` to true. This
@@ -49,25 +57,40 @@ class _AccountVerificationScreenState extends ConsumerState<AccountVerificationS
       }
 
       _phoneNumber = fullPhoneNumber;
-      await ref.read(authControllerProvider.notifier).startPhoneLinkVerification(
-        phoneNumber: fullPhoneNumber,
-        onCodeSent: (verificationId) {
-          if (!mounted) return;
-          setState(() {
-            _loading = false;
-            _verificationId = verificationId;
-            _step = _Step.otpEntry;
-          });
-        },
-        onAutoVerified: _handleSuccess,
-        onFailed: (code) {
-          if (!mounted) return;
-          setState(() {
-            _loading = false;
-            _error = _messageForCode(loc, code);
-          });
-        },
-      );
+      if (kUseTwilioOtp) {
+        await ref.read(authControllerProvider.notifier).sendTwilioOtp(fullPhoneNumber);
+        if (!mounted) return;
+        setState(() {
+          _loading = false;
+          _step = _Step.otpEntry;
+        });
+      } else {
+        await ref.read(authControllerProvider.notifier).startPhoneLinkVerification(
+          phoneNumber: fullPhoneNumber,
+          onCodeSent: (verificationId) {
+            if (!mounted) return;
+            setState(() {
+              _loading = false;
+              _verificationId = verificationId;
+              _step = _Step.otpEntry;
+            });
+          },
+          onAutoVerified: _handleSuccess,
+          onFailed: (code) {
+            if (!mounted) return;
+            setState(() {
+              _loading = false;
+              _error = _messageForCode(loc, code);
+            });
+          },
+        );
+      }
+    } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = _messageForFunctionsCode(loc, e.message);
+      });
     } catch (e, st) {
       logError('account_verification_screen.submitPhone', e, st);
       if (!mounted) return;
@@ -86,11 +109,18 @@ class _AccountVerificationScreenState extends ConsumerState<AccountVerificationS
     });
 
     try {
-      await ref.read(authControllerProvider.notifier).confirmPhoneLink(
-            verificationId: _verificationId!,
-            smsCode: code,
-            phoneNumber: _phoneNumber,
-          );
+      if (kUseTwilioOtp) {
+        await ref.read(authControllerProvider.notifier).verifyTwilioOtp(
+              phoneNumber: _phoneNumber,
+              code: code,
+            );
+      } else {
+        await ref.read(authControllerProvider.notifier).confirmPhoneLink(
+              verificationId: _verificationId!,
+              smsCode: code,
+              phoneNumber: _phoneNumber,
+            );
+      }
       if (!mounted) return;
       _handleSuccess();
     } on fb.FirebaseAuthException catch (e) {
@@ -98,6 +128,12 @@ class _AccountVerificationScreenState extends ConsumerState<AccountVerificationS
       setState(() {
         _loading = false;
         _error = _messageForCode(loc, e.code);
+      });
+    } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = _messageForFunctionsCode(loc, e.message);
       });
     } catch (_) {
       if (!mounted) return;
@@ -121,6 +157,16 @@ class _AccountVerificationScreenState extends ConsumerState<AccountVerificationS
   String _messageForCode(AppLocalizations loc, String? code) {
     if (code == 'credential-already-in-use' || code == 'account-exists-with-different-credential') {
       return loc.accountVerificationPhoneTakenError;
+    }
+    return loc.phoneAuthVerificationFailedError;
+  }
+
+  /// Maps `sendOtp`/`verifyOtp`'s [HttpsError] `message` (the second
+  /// arg those functions throw with — `e.code` itself is just the
+  /// generic gRPC-style status) to user-facing text.
+  String _messageForFunctionsCode(AppLocalizations loc, String? message) {
+    if (message == 'otp-invalid-or-expired') {
+      return loc.otpInvalidCodeError;
     }
     return loc.phoneAuthVerificationFailedError;
   }

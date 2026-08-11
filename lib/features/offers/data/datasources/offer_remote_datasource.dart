@@ -68,4 +68,18 @@ abstract class OfferRemoteDatasource {
     required String offerId,
     required bool isFavorite,
   });
+
+  /// Whether [uid] has already activated this `OfferType.firstVisit`
+  /// offer — backs Offer Details' "Aktivləşdir"/"İstifadə edilib"
+  /// button state. Existence alone is the redemption, same "no fields
+  /// to check" shape as `VenueRemoteDatasource.watchIsLikedByMe`.
+  Stream<bool> watchIsRedeemedByMe(String offerId, String uid);
+
+  /// Records [uid] activating this offer. Firestore rules only grant
+  /// `create` (never `update`/`delete`) on this doc, so calling this a
+  /// second time for the same [offerId]/[uid] simply fails — the
+  /// caller (`OfferController.redeemOffer`) already gates the button
+  /// on `watchIsRedeemedByMe` being false, this is a defensive
+  /// backstop, not the primary guard.
+  Future<void> redeemOffer(String offerId, String uid);
 }

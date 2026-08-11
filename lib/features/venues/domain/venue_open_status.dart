@@ -11,7 +11,9 @@ bool isVenueOpenNow(OpeningHours hours, DateTime now) {
 
   if (_isWithinDay(hours.schedule[now.weekday], nowMinutes)) return true;
 
-  final yesterday = now.weekday == DateTime.monday ? DateTime.sunday : now.weekday - 1;
+  final yesterday = now.weekday == DateTime.monday
+      ? DateTime.sunday
+      : now.weekday - 1;
   final yesterdayHours = hours.schedule[yesterday];
   if (yesterdayHours != null) {
     final open = _minutesOf(yesterdayHours.open);

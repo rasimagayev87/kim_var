@@ -25,6 +25,10 @@ abstract class VenueRepository {
     required String address,
     String? country,
     required OpeningHours openingHours,
+    VenueSocialLinks? socialLinks,
+    String audienceRadiusMode,
+    double audienceRadiusKm,
+    bool birthdayNotificationsEnabled,
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   });
@@ -39,6 +43,10 @@ abstract class VenueRepository {
     required String address,
     String? country,
     required OpeningHours openingHours,
+    VenueSocialLinks? socialLinks,
+    String audienceRadiusMode,
+    double audienceRadiusKm,
+    bool birthdayNotificationsEnabled,
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   });
@@ -66,14 +74,46 @@ abstract class VenueRepository {
 
   /// Backs "Ölkə üzrə" — every active venue whose reverse-geocoded
   /// [Venue.country] matches the viewer's own profile country.
-  Future<List<Venue>> fetchVenuesByCountry(String country, {VenueCategory? category});
+  Future<List<Venue>> fetchVenuesByCountry(
+    String country, {
+    VenueCategory? category,
+  });
 
   /// Backs "Dünya üzrə" — every active venue, no geo filtering at all.
-  Future<List<Venue>> fetchAllActiveVenues({int limit, VenueCategory? category});
+  Future<List<Venue>> fetchAllActiveVenues({
+    int limit,
+    VenueCategory? category,
+  });
 
-  /// Realtime set of venue ids [uid] has favorited.
-  Stream<Set<String>> watchFavoriteVenueIds(String uid);
+  /// Whether [uid] has liked [venueId] — see `Venue.likeCount`.
+  Stream<bool> watchIsLikedByMe(String venueId, String uid);
 
-  /// Toggles a favorite and keeps `Venue.favoriteCount` in sync.
-  Future<void> setFavorite({required String uid, required String venueId, required bool isFavorite});
+  /// Toggles a like. Only writes the `likes/{uid}` doc — `likeCount`/
+  /// `rating` are updated server-side by a Cloud Function trigger.
+  Future<void> setLiked({
+    required String uid,
+    required String venueId,
+    required bool isLiked,
+  });
+
+  /// Live "how many PeakPin users are here right now" count for the
+  /// venue profile screen.
+  Stream<int> watchActiveCheckinCount(String venueId);
+
+  /// Whether [uid] is currently checked in at [venueId] specifically.
+  Stream<bool> watchIsCheckedInHere(String venueId, String uid);
+
+  /// Moves [uid]'s single active check-in to [venueId] — does NOT
+  /// verify GPS proximity itself, callers must do that first (see
+  /// `VenueController.toggleCheckin`).
+  Future<void> checkIn({required String uid, required String venueId});
+
+  Future<void> checkOut({required String uid});
+
+  /// Moves a `needs_revision` venue back to `pending` after the owner
+  /// has edited it — the only client path back to `pending` (see
+  /// firestore.rules), via the `resubmitVenue` Cloud Function. Throws
+  /// on any failure (not-owner, wrong status, network) — callers show
+  /// a generic error, same convention as everywhere else in this app.
+  Future<void> resubmitVenue(String venueId);
 }

@@ -34,6 +34,7 @@ class FirebaseCallRepository implements CallRepository {
 
   final _peerConnections = <String, RTCPeerConnection>{};
   final _localStreams = <String, MediaStream>{};
+  final _remoteStreams = <String, MediaStream>{};
   final _localStreamControllers = <String, StreamController<MediaStream?>>{};
   final _remoteStreamControllers = <String, StreamController<MediaStream?>>{};
   final _subscriptions = <String, List<StreamSubscription<dynamic>>>{};
@@ -83,6 +84,7 @@ class FirebaseCallRepository implements CallRepository {
     _peerConnections[callId] = pc;
     pc.onTrack = (RTCTrackEvent event) {
       if (event.streams.isNotEmpty) {
+        _remoteStreams[callId] = event.streams.first;
         _remoteController(callId).add(event.streams.first);
       }
     };
@@ -212,6 +214,7 @@ class FirebaseCallRepository implements CallRepository {
     }
     await _peerConnections.remove(callId)?.close();
     await _localStreams.remove(callId)?.dispose();
+    _remoteStreams.remove(callId);
     _localController(callId).add(null);
     _remoteController(callId).add(null);
   }
@@ -232,11 +235,29 @@ class FirebaseCallRepository implements CallRepository {
     return _calls.doc(callId).snapshots().map((d) => d.exists ? _sessionFromDoc(d) : null);
   }
 
+  // `_openLocalStream`/`pc.onTrack` fire (and `.add()` to these broadcast
+  // controllers) as soon as `startCall`/`acceptCall` runs — which is
+  // BEFORE `CallScreen` exists to subscribe, since both are awaited
+  // ahead of the `Navigator.push` that creates it. A plain broadcast
+  // stream doesn't replay that already-emitted value to a listener that
+  // shows up late, so the screen's renderer never got a stream to
+  // render (the camera *was* open the whole time — the UI just never
+  // heard about it). Re-yielding whatever's already cached before
+  // tailing the live stream closes that race for any subscriber,
+  // late or not.
   @override
-  Stream<MediaStream?> watchLocalStream(String callId) => _localController(callId).stream;
+  Stream<MediaStream?> watchLocalStream(String callId) async* {
+    final current = _localStreams[callId];
+    if (current != null) yield current;
+    yield* _localController(callId).stream;
+  }
 
   @override
-  Stream<MediaStream?> watchRemoteStream(String callId) => _remoteController(callId).stream;
+  Stream<MediaStream?> watchRemoteStream(String callId) async* {
+    final current = _remoteStreams[callId];
+    if (current != null) yield current;
+    yield* _remoteController(callId).stream;
+  }
 
   @override
   Future<void> setMuted(String callId, bool muted) async {
@@ -251,6 +272,16 @@ class FirebaseCallRepository implements CallRepository {
       track.enabled = enabled;
     }
   }
+
+  @override
+  Future<void> switchCamera(String callId) async {
+    final tracks = _localStreams[callId]?.getVideoTracks() ?? const [];
+    if (tracks.isEmpty) return;
+    await Helper.switchCamera(tracks.first);
+  }
+
+  @override
+  Future<void> setSpeakerphoneOn(String callId, bool enabled) => Helper.setSpeakerphoneOn(enabled);
 
   CallSession _sessionFromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;

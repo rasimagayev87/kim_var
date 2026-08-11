@@ -27,15 +27,30 @@ _$OfferImpl _$$OfferImplFromJson(Map<String, dynamic> json) => _$OfferImpl(
   endDate: const TimestampConverter().fromJson(json['endDate']),
   imageUrl: json['imageUrl'] as String?,
   terms: json['terms'] as String?,
-  contactPhone: json['contactPhone'] as String?,
-  showContactPhone: json['showContactPhone'] as bool? ?? false,
-  contactWebsite: json['contactWebsite'] as String?,
-  showContactWebsite: json['showContactWebsite'] as bool? ?? false,
-  contactInstagram: json['contactInstagram'] as String?,
-  showContactInstagram: json['showContactInstagram'] as bool? ?? false,
-  status: json['status'] as String? ?? 'active',
+  status: json['status'] as String? ?? 'pending',
+  reviewNote: json['reviewNote'] as String?,
+  reviewedBy: json['reviewedBy'] as String?,
+  reviewedAt: const NullableTimestampConverter().fromJson(json['reviewedAt']),
   createdAt: const TimestampConverter().fromJson(json['createdAt']),
   updatedAt: const NullableTimestampConverter().fromJson(json['updatedAt']),
+  boostedUntil: const NullableTimestampConverter().fromJson(
+    json['boostedUntil'],
+  ),
+  activeHours: const ActiveHoursConverter().fromJson(
+    json['activeHours'] as Map<String, dynamic>?,
+  ),
+  activeDays:
+      (json['activeDays'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const <String>[],
+  birthdayMatchId: json['birthdayMatchId'] as String?,
+  targetUserIds:
+      (json['targetUserIds'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList() ??
+      const <String>[],
+  personalMessage: json['personalMessage'] as String?,
 );
 
 Map<String, dynamic> _$$OfferImplToJson(
@@ -59,13 +74,18 @@ Map<String, dynamic> _$$OfferImplToJson(
   'endDate': const TimestampConverter().toJson(instance.endDate),
   'imageUrl': instance.imageUrl,
   'terms': instance.terms,
-  'contactPhone': instance.contactPhone,
-  'showContactPhone': instance.showContactPhone,
-  'contactWebsite': instance.contactWebsite,
-  'showContactWebsite': instance.showContactWebsite,
-  'contactInstagram': instance.contactInstagram,
-  'showContactInstagram': instance.showContactInstagram,
   'status': instance.status,
+  'reviewNote': instance.reviewNote,
+  'reviewedBy': instance.reviewedBy,
+  'reviewedAt': const NullableTimestampConverter().toJson(instance.reviewedAt),
   'createdAt': const TimestampConverter().toJson(instance.createdAt),
   'updatedAt': const NullableTimestampConverter().toJson(instance.updatedAt),
+  'boostedUntil': const NullableTimestampConverter().toJson(
+    instance.boostedUntil,
+  ),
+  'activeHours': const ActiveHoursConverter().toJson(instance.activeHours),
+  'activeDays': instance.activeDays,
+  'birthdayMatchId': instance.birthdayMatchId,
+  'targetUserIds': instance.targetUserIds,
+  'personalMessage': instance.personalMessage,
 };

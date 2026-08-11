@@ -9,7 +9,7 @@ import '../../../../../l10n/app_localizations.dart';
 /// Same support address published in the Privacy Policy / Terms of
 /// Service (see `legal_texts.dart`) — kept as one literal here since
 /// there's no shared constants file for legal/support contact info yet.
-const String kSupportEmail = 'support@meevima.app';
+const String kSupportEmail = 'support@peakpin.app';
 
 void showContactUsSheet(BuildContext context) {
   final loc = AppLocalizations.of(context);

@@ -55,8 +55,15 @@ final myOffersProvider = StreamProvider.autoDispose<List<Offer>>((ref) {
 
 /// Offer Details' "Digər aktiv təkliflər" section.
 final otherOffersForVenueProvider = FutureProvider.autoDispose.family<List<Offer>, ({String venueId, String excludeOfferId})>(
-  (ref, args) {
-    return ref.watch(offerRepositoryProvider).fetchOtherActiveOffersForVenue(args.venueId, excludeOfferId: args.excludeOfferId);
+  (ref, args) async {
+    final offers =
+        await ref.watch(offerRepositoryProvider).fetchOtherActiveOffersForVenue(args.venueId, excludeOfferId: args.excludeOfferId);
+    // Same `OfferType.birthday` visibility rule as `nearbyOffersProvider`
+    // — this is still an "everyone visiting this venue" surface.
+    final myUid = _currentUid();
+    return offers
+        .where((o) => o.offerType != OfferType.birthday || (myUid != null && o.targetUserIds.contains(myUid)))
+        .toList();
   },
 );
 
@@ -90,12 +97,11 @@ class OfferController {
     required DateTime? endDate,
     required File? photo,
     String? terms,
-    String? contactPhone,
-    bool showContactPhone = false,
-    String? contactWebsite,
-    bool showContactWebsite = false,
-    String? contactInstagram,
-    bool showContactInstagram = false,
+    ActiveHours? activeHours,
+    List<String> activeDays = const [],
+    String? birthdayMatchId,
+    List<String> targetUserIds = const [],
+    String? personalMessage,
     required void Function(List<OfferFieldError> missing) onValidationError,
     required void Function() onError,
     ValueChanged<double>? onUploadProgress,
@@ -123,12 +129,11 @@ class OfferController {
             endDate: endDate,
             photo: photo,
             terms: terms,
-            contactPhone: contactPhone,
-            showContactPhone: showContactPhone,
-            contactWebsite: contactWebsite,
-            showContactWebsite: showContactWebsite,
-            contactInstagram: contactInstagram,
-            showContactInstagram: showContactInstagram,
+            activeHours: activeHours,
+            activeDays: activeDays,
+            birthdayMatchId: birthdayMatchId,
+            targetUserIds: targetUserIds,
+            personalMessage: personalMessage,
             onUploadProgress: onUploadProgress,
             onUploadTaskReady: onUploadTaskReady,
           );
@@ -159,12 +164,8 @@ class OfferController {
     File? photo,
     required bool hasExistingPhoto,
     String? terms,
-    String? contactPhone,
-    bool showContactPhone = false,
-    String? contactWebsite,
-    bool showContactWebsite = false,
-    String? contactInstagram,
-    bool showContactInstagram = false,
+    ActiveHours? activeHours,
+    List<String> activeDays = const [],
     required void Function(List<OfferFieldError> missing) onValidationError,
     required void Function() onError,
     ValueChanged<double>? onUploadProgress,
@@ -183,12 +184,8 @@ class OfferController {
             photo: photo,
             hasExistingPhoto: hasExistingPhoto,
             terms: terms,
-            contactPhone: contactPhone,
-            showContactPhone: showContactPhone,
-            contactWebsite: contactWebsite,
-            showContactWebsite: showContactWebsite,
-            contactInstagram: contactInstagram,
-            showContactInstagram: showContactInstagram,
+            activeHours: activeHours,
+            activeDays: activeDays,
             onUploadProgress: onUploadProgress,
             onUploadTaskReady: onUploadTaskReady,
           );
@@ -234,12 +231,68 @@ class OfferController {
       return false;
     }
   }
+
+  /// Mirrors `VenueController.resubmitVenue` — moves a `needs_revision`
+  /// offer back to `pending` after the owner has edited it.
+  Future<bool> resubmitOffer(String offerId) async {
+    try {
+      await _ref.read(offerRepositoryProvider).resubmitOffer(offerId);
+      return true;
+    } catch (e, st) {
+      logError('offer_providers.resubmitOffer', e, st);
+      return false;
+    }
+  }
+
+  /// "Təklifi önə çək" — the owner-only boost action on Offer Details
+  /// (see `_HeroImage` in `offer_details_screen.dart`). No client-side
+  /// ownership re-check here; the UI only ever exposes this control to
+  /// `offer.isOwnedBy(currentUid)` in the first place.
+  Future<bool> boostOffer(String offerId, Duration duration) async {
+    try {
+      await _ref.read(offerRepositoryProvider).boostOffer(offerId, duration);
+      _ref.invalidate(nearbyOffersProvider);
+      return true;
+    } catch (e, st) {
+      logError('offer_providers.boostOffer', e, st);
+      return false;
+    }
+  }
+
+  /// "Aktivləşdir" — the one-time activation action for
+  /// `OfferType.firstVisit` (see `_RedeemButton` in
+  /// `offer_details_screen.dart`). Firestore rules only grant `create`
+  /// on the redemption doc, so a second call for an already-redeemed
+  /// offer fails there — the UI already gates the button on
+  /// `isOfferRedeemedByMeProvider`, this is a defensive backstop.
+  Future<bool> redeemOffer(String offerId) async {
+    final uid = _currentUid();
+    if (uid == null) return false;
+
+    try {
+      await _ref.read(offerRepositoryProvider).redeemOffer(offerId, uid);
+      return true;
+    } catch (e, st) {
+      logError('offer_providers.redeemOffer', e, st);
+      return false;
+    }
+  }
 }
 
 final offerControllerProvider = Provider<OfferController>((ref) => OfferController(ref));
 
 /// Realtime set of offer ids the signed-in user has favorited — mirrors
 /// `favoriteVenueIdsProvider`.
+/// Whether the signed-in user has already activated this
+/// `OfferType.firstVisit` offer — backs `_RedeemButton`'s
+/// "Aktivləşdir"/"İstifadə edilib" state, mirrors
+/// `isVenueLikedByMeProvider`.
+final isOfferRedeemedByMeProvider = StreamProvider.autoDispose.family<bool, String>((ref, offerId) {
+  final uid = _currentUid();
+  if (uid == null) return Stream.value(false);
+  return ref.watch(offerRepositoryProvider).watchIsRedeemedByMe(offerId, uid);
+});
+
 final favoriteOfferIdsProvider = StreamProvider.autoDispose<Set<String>>((ref) {
   final uid = _currentUid();
   if (uid == null) return Stream.value(const {});
@@ -247,11 +300,11 @@ final favoriteOfferIdsProvider = StreamProvider.autoDispose<Set<String>>((ref) {
 });
 
 /// Wraps active, non-expired offers with real Haversine distance from
-/// [position], sorted nearest-first — mirrors
-/// `venue_providers.dart`'s `_withDistanceFrom` for the Ölkə/Dünya
-/// modes.
+/// [position] — mirrors `venue_providers.dart`'s `_withDistanceFrom`
+/// for the Ölkə/Dünya modes. Sorting itself happens once, uniformly
+/// across all 3 radius modes, in [_sortBoostedFirst] below.
 List<OfferWithDistance> _withDistanceFrom(List<Offer> offers, Position position) {
-  final result = offers
+  return offers
       .map(
         (offer) => (
           offer: offer,
@@ -259,7 +312,22 @@ List<OfferWithDistance> _withDistanceFrom(List<Offer> offers, Position position)
         ),
       )
       .toList();
-  result.sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
+}
+
+/// "Təklifi önə çək" (`OfferController.boostOffer`) has one real,
+/// visible effect: while `Offer.isBoosted`, it sorts ahead of every
+/// non-boosted offer, ties broken by distance — same nearest-first
+/// ordering as before this existed. Currently-boosted offers among
+/// themselves also sort nearest-first, not by boost recency/duration —
+/// there's no "who paid more" ranking here, just "boosted or not".
+List<OfferWithDistance> _sortBoostedFirst(List<OfferWithDistance> offers) {
+  final result = [...offers];
+  result.sort((a, b) {
+    if (a.offer.isBoosted != b.offer.isBoosted) {
+      return a.offer.isBoosted ? -1 : 1;
+    }
+    return a.distanceMeters.compareTo(b.distanceMeters);
+  });
   return result;
 }
 
@@ -275,9 +343,10 @@ final nearbyOffersProvider = FutureProvider.autoDispose<List<OfferWithDistance>>
 
   if (position == null) return const [];
 
+  List<OfferWithDistance> result;
   switch (selection.mode) {
     case DiscoverRadiusMode.distance:
-      return repository.fetchOffersWithinRadius(
+      result = await repository.fetchOffersWithinRadius(
         lat: position.latitude,
         lng: position.longitude,
         radiusKm: selection.km!,
@@ -287,9 +356,24 @@ final nearbyOffersProvider = FutureProvider.autoDispose<List<OfferWithDistance>>
       final myCountry = ref.watch(profileControllerProvider.select((p) => p.country));
       if (myCountry == null) return const [];
       final offers = await repository.fetchOffersByCountry(myCountry, category: category);
-      return _withDistanceFrom(offers, position);
+      result = _withDistanceFrom(offers, position);
     case DiscoverRadiusMode.world:
       final offers = await repository.fetchAllActiveOffers(category: category);
-      return _withDistanceFrom(offers, position);
+      result = _withDistanceFrom(offers, position);
   }
+
+  // `OfferType.birthday` offers are never for "everyone" — only the
+  // specific uids in `targetUserIds` (the matched birthday users) may
+  // ever see one here, same as every other offer type is otherwise
+  // open to. A direct link (the target user's own "your offer is
+  // ready" push, see `onOfferUpdated`'s birthday-approval branch in
+  // functions/src/index.ts) still reaches `OfferDetailsScreen` fine —
+  // this filter only ever touches the "everyone" list providers, never
+  // a single-doc fetch by id.
+  final myUid = _currentUid();
+  result = result
+      .where((r) => r.offer.offerType != OfferType.birthday || (myUid != null && r.offer.targetUserIds.contains(myUid)))
+      .toList();
+
+  return _sortBoostedFirst(result);
 });

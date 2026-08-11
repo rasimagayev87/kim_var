@@ -12,11 +12,32 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
+import '../../../venues/presentation/providers/venue_providers.dart';
 import '../../../venues/presentation/screens/create_venue_screen.dart' show venueCategoryLabel;
 import '../../domain/entities/offer.dart';
 import '../../domain/offer_failure.dart';
 import '../providers/offer_providers.dart';
 import '../widgets/venue_picker_sheet.dart';
+
+/// `Offer.activeDays` keys, Monday-first — matches
+/// `OpeningHours.schedule`'s ISO-weekday order (1=Mon..7=Sun), just as
+/// lowercase 3-letter strings since `activeDays` is a plain
+/// `List<String>` on the wire, not a weekday-keyed map like
+/// `OpeningHours`.
+const kAllWeekdayKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+TimeOfDay? _parseTimeOfDay(String? hhmm) {
+  if (hhmm == null) return null;
+  final parts = hhmm.split(':');
+  if (parts.length != 2) return null;
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return null;
+  return TimeOfDay(hour: hour, minute: minute);
+}
+
+String _formatTimeOfDay(TimeOfDay time) =>
+    '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
 /// Only venue owners ever reach this screen (the "+" that opens it
 /// lives in the Təkliflər tab, same visibility as everyone else's, but
@@ -26,7 +47,31 @@ import '../widgets/venue_picker_sheet.dart';
 class CreateOfferScreen extends ConsumerStatefulWidget {
   final Offer? existingOffer;
 
-  const CreateOfferScreen({super.key, this.existingOffer});
+  /// Set only when opened from a "peak hour" notification
+  /// (`notification_navigation.dart`'s `venue_create_offer` case) —
+  /// pre-fills [_CreateOfferScreenState._selectedVenue] once the doc
+  /// loads. Still just a default, not a lock: the normal venue picker
+  /// stays fully usable, same as the rest of this form.
+  final String? preselectedVenueId;
+
+  /// Set only when opened from a "birthday match" notification
+  /// (`notification_navigation.dart`'s `birthday_match` case, after it
+  /// fetches the `birthdayMatches` doc) — together with
+  /// [birthdayTargetUserIds], locks this form into the birthday flow:
+  /// [OfferType.birthday] can't be un-picked, validity is fixed to
+  /// today (or today+6 with the "Ad günü həftəsi" checkbox), and a
+  /// personal-message field appears. See
+  /// `_CreateOfferScreenState._isBirthdayOffer`.
+  final String? birthdayMatchId;
+  final List<String> birthdayTargetUserIds;
+
+  const CreateOfferScreen({
+    super.key,
+    this.existingOffer,
+    this.preselectedVenueId,
+    this.birthdayMatchId,
+    this.birthdayTargetUserIds = const [],
+  });
 
   @override
   ConsumerState<CreateOfferScreen> createState() => _CreateOfferScreenState();
@@ -38,25 +83,57 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
   late final _termsController = TextEditingController(text: widget.existingOffer?.terms ?? '');
   late final _fixedPriceController =
       TextEditingController(text: widget.existingOffer?.discountValue?.round().toString() ?? '');
-  late final _contactPhoneController = TextEditingController(text: widget.existingOffer?.contactPhone ?? '');
-  late final _contactWebsiteController = TextEditingController(text: widget.existingOffer?.contactWebsite ?? '');
-  late final _contactInstagramController = TextEditingController(text: widget.existingOffer?.contactInstagram ?? '');
+  late final _personalMessageController = TextEditingController(text: widget.existingOffer?.personalMessage ?? '');
 
   bool get _isEditing => widget.existingOffer != null;
 
   late VenueCategory? _category = widget.existingOffer?.category;
-  late OfferType? _offerType = widget.existingOffer?.offerType ?? OfferType.discount;
+  late OfferType? _offerType =
+      widget.existingOffer?.offerType ?? (widget.birthdayMatchId != null ? OfferType.birthday : OfferType.discount);
   late double _discountPercent = widget.existingOffer?.discountValue ?? 20;
-  late DateTime? _startDate = widget.existingOffer?.startDate ?? DateTime.now();
-  late DateTime? _endDate = widget.existingOffer?.endDate ?? DateTime.now().add(const Duration(days: 30));
+  late DateTime? _startDate = widget.existingOffer?.startDate ?? (_isBirthdayOffer ? _todayStart() : DateTime.now());
+  late DateTime? _endDate = widget.existingOffer?.endDate ??
+      (_isBirthdayOffer ? _birthdayEndDate(_birthdayWeekExtension) : DateTime.now().add(const Duration(days: 30)));
+
+  /// [OfferType.birthday] is never a manual choice (see
+  /// `_OfferTypeSelector`'s own doc comment) — true either for a fresh
+  /// birthday-match create (see [CreateOfferScreen.birthdayMatchId]) or
+  /// when editing an existing birthday offer, both of which lock the
+  /// type selector and the validity date range in the UI below.
+  bool get _isBirthdayOffer => _offerType == OfferType.birthday;
+
+  /// Whether the existing offer being edited already used the 7-day
+  /// "Ad günü həftəsi" window — inferred from its stored date range
+  /// rather than a separate persisted flag, since a fresh create
+  /// always starts unchecked (1-day default) and this is purely a
+  /// UI convenience for re-opening that same choice on edit.
+  late bool _birthdayWeekExtension = widget.existingOffer != null &&
+      widget.existingOffer!.endDate.difference(widget.existingOffer!.startDate).inDays >= 6;
+
+  static DateTime _todayStart() {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  static DateTime _birthdayEndDate(bool weekExtension) {
+    final start = _todayStart();
+    final end = weekExtension ? start.add(const Duration(days: 6)) : start;
+    return DateTime(end.year, end.month, end.day, 23, 59, 59);
+  }
+
+  // Only meaningful when `_offerType == OfferType.happyHour` — seeded
+  // from the existing offer when editing one, otherwise a sensible
+  // default window with every day checked (matches the spec: "default:
+  // bütün həftə").
+  late TimeOfDay _happyHourStart = _parseTimeOfDay(widget.existingOffer?.activeHours?.start) ?? const TimeOfDay(hour: 15, minute: 0);
+  late TimeOfDay _happyHourEnd = _parseTimeOfDay(widget.existingOffer?.activeHours?.end) ?? const TimeOfDay(hour: 17, minute: 0);
+  late final Set<String> _activeDays = (widget.existingOffer?.activeDays.isNotEmpty ?? false)
+      ? widget.existingOffer!.activeDays.toSet()
+      : kAllWeekdayKeys.toSet();
 
   /// Only set on create — an offer's venue never changes after
   /// creation (mirrors why `UpdateOfferUseCase` never re-validates one).
   Venue? _selectedVenue;
-
-  late bool _showContactPhone = widget.existingOffer?.showContactPhone ?? false;
-  late bool _showContactWebsite = widget.existingOffer?.showContactWebsite ?? false;
-  late bool _showContactInstagram = widget.existingOffer?.showContactInstagram ?? false;
 
   File? _photo;
   bool _submitting = false;
@@ -65,14 +142,23 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
   VoidCallback? _cancelUpload;
 
   @override
+  void initState() {
+    super.initState();
+    final venueId = widget.preselectedVenueId;
+    if (venueId != null) {
+      ref.read(venueRepositoryProvider).watchVenue(venueId).first.then((venue) {
+        if (mounted && venue != null) setState(() => _selectedVenue = venue);
+      });
+    }
+  }
+
+  @override
   void dispose() {
     _titleController.dispose();
     _descriptionController.dispose();
     _termsController.dispose();
     _fixedPriceController.dispose();
-    _contactPhoneController.dispose();
-    _contactWebsiteController.dispose();
-    _contactInstagramController.dispose();
+    _personalMessageController.dispose();
     super.dispose();
   }
 
@@ -118,6 +204,25 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
         _startDate = picked;
       } else {
         _endDate = picked;
+      }
+    });
+  }
+
+  Future<void> _pickHappyHourTime({required bool isStart}) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: isStart ? _happyHourStart : _happyHourEnd,
+      builder: (context, child) => Theme(
+        data: ThemeData.light().copyWith(colorScheme: const ColorScheme.light(primary: AppColors.primary)),
+        child: child!,
+      ),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isStart) {
+        _happyHourStart = picked;
+      } else {
+        _happyHourEnd = picked;
       }
     });
   }
@@ -190,9 +295,24 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
   }
 
   double? get _resolvedDiscountValue {
-    if (_offerType == OfferType.discount) return _discountPercent;
+    if (_offerType == OfferType.discount ||
+        _offerType == OfferType.happyHour ||
+        _offerType == OfferType.firstVisit ||
+        _offerType == OfferType.birthday) {
+      return _discountPercent;
+    }
     if (_offerType == OfferType.fixedPrice) return double.tryParse(_fixedPriceController.text.trim());
     return null;
+  }
+
+  ActiveHours? get _resolvedActiveHours {
+    if (_offerType != OfferType.happyHour) return null;
+    return ActiveHours(start: _formatTimeOfDay(_happyHourStart), end: _formatTimeOfDay(_happyHourEnd));
+  }
+
+  List<String> get _resolvedActiveDays {
+    if (_offerType != OfferType.happyHour) return const [];
+    return kAllWeekdayKeys.where(_activeDays.contains).toList();
   }
 
   Future<void> _submit() async {
@@ -234,12 +354,13 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
           endDate: _endDate,
           photo: _photo,
           terms: _termsController.text.trim().isEmpty ? null : _termsController.text.trim(),
-          contactPhone: _contactPhoneController.text.trim().isEmpty ? null : _contactPhoneController.text.trim(),
-          showContactPhone: _showContactPhone,
-          contactWebsite: _contactWebsiteController.text.trim().isEmpty ? null : _contactWebsiteController.text.trim(),
-          showContactWebsite: _showContactWebsite,
-          contactInstagram: _contactInstagramController.text.trim().isEmpty ? null : _contactInstagramController.text.trim(),
-          showContactInstagram: _showContactInstagram,
+          activeHours: _resolvedActiveHours,
+          activeDays: _resolvedActiveDays,
+          birthdayMatchId: _isBirthdayOffer ? widget.birthdayMatchId : null,
+          targetUserIds: _isBirthdayOffer ? widget.birthdayTargetUserIds : const [],
+          personalMessage: _isBirthdayOffer && _personalMessageController.text.trim().isNotEmpty
+              ? _personalMessageController.text.trim()
+              : null,
           onValidationError: (missing) {
             if (!mounted) return;
             setState(() => _fieldErrors = missing.toSet());
@@ -292,12 +413,8 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
           photo: _photo,
           hasExistingPhoto: widget.existingOffer?.imageUrl != null,
           terms: _termsController.text.trim().isEmpty ? null : _termsController.text.trim(),
-          contactPhone: _contactPhoneController.text.trim().isEmpty ? null : _contactPhoneController.text.trim(),
-          showContactPhone: _showContactPhone,
-          contactWebsite: _contactWebsiteController.text.trim().isEmpty ? null : _contactWebsiteController.text.trim(),
-          showContactWebsite: _showContactWebsite,
-          contactInstagram: _contactInstagramController.text.trim().isEmpty ? null : _contactInstagramController.text.trim(),
-          showContactInstagram: _showContactInstagram,
+          activeHours: _resolvedActiveHours,
+          activeDays: _resolvedActiveDays,
           onValidationError: (missing) {
             if (!mounted) return;
             setState(() => _fieldErrors = missing.toSet());
@@ -313,6 +430,13 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
           },
           onUploadTaskReady: (cancel) => _cancelUpload = cancel,
         );
+
+    // Same "editing a needs_revision offer resubmits it automatically"
+    // behavior as CreateVenueScreen._submitEdit — see that method's
+    // comment for the reasoning.
+    if (success && widget.existingOffer?.status == 'needs_revision') {
+      await ref.read(offerControllerProvider).resubmitOffer(widget.existingOffer!.id);
+    }
 
     if (!mounted) return;
     setState(() {
@@ -374,25 +498,56 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xxl),
                 _FieldLabel(loc.offerTypeLabel),
-                _OfferTypeSelector(
-                  selected: _offerType,
-                  onChanged: (t) => setState(() => _offerType = t),
-                ),
-                if (_offerType == OfferType.discount || _offerType == OfferType.fixedPrice) ...[
+                if (_isBirthdayOffer)
+                  _LockedOfferTypeDisplay(label: loc.offerTypeBirthdayOption)
+                else
+                  _OfferTypeSelector(
+                    selected: _offerType,
+                    onChanged: (t) => setState(() => _offerType = t),
+                  ),
+                if (_offerType == OfferType.discount ||
+                    _offerType == OfferType.fixedPrice ||
+                    _offerType == OfferType.happyHour ||
+                    _offerType == OfferType.firstVisit ||
+                    _offerType == OfferType.birthday) ...[
                   const SizedBox(height: AppSpacing.xxl),
-                  _FieldLabel(_offerType == OfferType.discount ? loc.offerDiscountAmountLabel : loc.offerFixedPriceLabel),
-                  if (_offerType == OfferType.discount)
-                    _DiscountSlider(
-                      value: _discountPercent,
-                      onChanged: (v) => setState(() => _discountPercent = v),
-                    )
-                  else
+                  _FieldLabel(_offerType == OfferType.fixedPrice ? loc.offerFixedPriceLabel : loc.offerDiscountAmountLabel),
+                  if (_offerType == OfferType.fixedPrice)
                     _LightTextField(
                       controller: _fixedPriceController,
                       hint: loc.offerFixedPriceHint,
                       errorText: _fieldErrors.contains(OfferFieldError.discountValue) ? loc.venueFieldRequiredError : null,
                       keyboardType: TextInputType.number,
+                    )
+                  else
+                    _DiscountSlider(
+                      value: _discountPercent,
+                      onChanged: (v) => setState(() => _discountPercent = v),
                     ),
+                ],
+                if (_offerType == OfferType.happyHour) ...[
+                  const SizedBox(height: AppSpacing.xxl),
+                  _FieldLabel(loc.offerActiveHoursLabel),
+                  _ActiveHoursRow(
+                    start: _happyHourStart,
+                    end: _happyHourEnd,
+                    hasError: _fieldErrors.contains(OfferFieldError.activeHours),
+                    onPickStart: () => _pickHappyHourTime(isStart: true),
+                    onPickEnd: () => _pickHappyHourTime(isStart: false),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  _FieldLabel(loc.offerActiveDaysLabel),
+                  _ActiveDaysSelector(
+                    loc: loc,
+                    selectedDays: _activeDays,
+                    onToggle: (day) => setState(() {
+                      if (_activeDays.contains(day)) {
+                        _activeDays.remove(day);
+                      } else {
+                        _activeDays.add(day);
+                      }
+                    }),
+                  ),
                 ],
                 const SizedBox(height: AppSpacing.xxl),
                 _FieldLabel(loc.offerDescriptionLabel),
@@ -404,51 +559,51 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xxl),
                 _FieldLabel(loc.offerValidityPeriodLabel),
-                _DateRangeRow(
-                  loc: loc,
-                  startDate: _startDate,
-                  endDate: _endDate,
-                  dateFormat: dateFormat,
-                  onPickStart: () => _pickDate(isStart: true),
-                  onPickEnd: () => _pickDate(isStart: false),
-                ),
+                if (_isBirthdayOffer)
+                  _BirthdayValidityDisplay(
+                    startDate: _startDate!,
+                    endDate: _endDate!,
+                    dateFormat: dateFormat,
+                    weekExtension: _birthdayWeekExtension,
+                    onWeekExtensionChanged: (v) => setState(() {
+                      _birthdayWeekExtension = v;
+                      _endDate = _birthdayEndDate(v);
+                    }),
+                  )
+                else
+                  _DateRangeRow(
+                    loc: loc,
+                    startDate: _startDate,
+                    endDate: _endDate,
+                    dateFormat: dateFormat,
+                    onPickStart: () => _pickDate(isStart: true),
+                    onPickEnd: () => _pickDate(isStart: false),
+                  ),
                 if (!_isEditing) ...[
                   const SizedBox(height: AppSpacing.xxl),
                   _FieldLabel(loc.offerVenuePickerLabel),
-                  _VenuePickerField(
-                    venue: _selectedVenue,
-                    hasError: _fieldErrors.contains(OfferFieldError.venue),
-                    onTap: _pickVenue,
+                  if (_isBirthdayOffer)
+                    _LockedOfferTypeDisplay(label: _selectedVenue?.name ?? '')
+                  else
+                    _VenuePickerField(
+                      venue: _selectedVenue,
+                      hasError: _fieldErrors.contains(OfferFieldError.venue),
+                      onTap: _pickVenue,
+                    ),
+                ],
+                if (_isBirthdayOffer) ...[
+                  const SizedBox(height: AppSpacing.xxl),
+                  _FieldLabel(loc.offerPersonalMessageLabel),
+                  _LightTextField(
+                    controller: _personalMessageController,
+                    hint: loc.offerPersonalMessageHint,
+                    maxLength: 100,
+                    maxLines: 2,
                   ),
                 ],
                 const SizedBox(height: AppSpacing.xxl),
                 _FieldLabel(loc.offerTermsLabel),
                 _LightTextField(controller: _termsController, hint: loc.offerTermsHint, maxLength: 200, maxLines: 3),
-                const SizedBox(height: AppSpacing.xxl),
-                _FieldLabel(loc.offerAdditionalInfoLabel),
-                _ContactToggleField(
-                  icon: Icons.call_outlined,
-                  controller: _contactPhoneController,
-                  hint: loc.offerContactPhoneHint,
-                  value: _showContactPhone,
-                  onChanged: (v) => setState(() => _showContactPhone = v),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _ContactToggleField(
-                  icon: Icons.public,
-                  controller: _contactWebsiteController,
-                  hint: loc.offerContactWebsiteHint,
-                  value: _showContactWebsite,
-                  onChanged: (v) => setState(() => _showContactWebsite = v),
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                _ContactToggleField(
-                  icon: Icons.camera_alt_outlined,
-                  controller: _contactInstagramController,
-                  hint: loc.offerContactInstagramHint,
-                  value: _showContactInstagram,
-                  onChanged: (v) => setState(() => _showContactInstagram = v),
-                ),
                 const SizedBox(height: AppSpacing.xxxl),
                 if (_submitting && _uploadProgress != null)
                   _UploadProgressCard(progress: _uploadProgress!, onCancel: _cancelUpload)
@@ -757,6 +912,8 @@ class _OfferTypeSelector extends StatelessWidget {
       (OfferType.gift, loc.offerTypeGiftOption, Icons.card_giftcard_outlined),
       (OfferType.buyOneGetOne, loc.offerTypeBuyOneGetOneOption, Icons.card_travel_outlined),
       (OfferType.fixedPrice, loc.offerTypeFixedPriceOption, Icons.sell_outlined),
+      (OfferType.happyHour, loc.offerTypeHappyHourOption, Icons.access_time_filled_rounded),
+      (OfferType.firstVisit, loc.offerTypeFirstVisitOption, Icons.card_giftcard_rounded),
     ];
 
     return Wrap(
@@ -792,6 +949,104 @@ class _OfferTypeSelector extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// Read-only stand-in for a field the birthday flow has already
+/// decided (offer type, venue) — same chip look as a permanently
+/// "selected" [_OfferTypeSelector] entry, just with a lock icon
+/// instead of a tap target.
+class _LockedOfferTypeDisplay extends StatelessWidget {
+  final String label;
+
+  const _LockedOfferTypeDisplay({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.lock_outline_rounded, size: 15, color: AppColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.primary),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Fixed "today, or today+6 with the checkbox" validity display for
+/// [OfferType.birthday] — replaces [_DateRangeRow]'s two tappable date
+/// fields entirely, since this window is never picked by the owner
+/// (per spec: "Etibarlılıq tarixi: bugün 00:00 – bugün 23:59 ...
+/// dəyişdirilə bilməz"), only ever extended by the one checkbox.
+class _BirthdayValidityDisplay extends StatelessWidget {
+  final DateTime startDate;
+  final DateTime endDate;
+  final DateFormat dateFormat;
+  final bool weekExtension;
+  final ValueChanged<bool> onWeekExtensionChanged;
+
+  const _BirthdayValidityDisplay({
+    required this.startDate,
+    required this.endDate,
+    required this.dateFormat,
+    required this.weekExtension,
+    required this.onWeekExtensionChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final rangeLabel = weekExtension ? '${dateFormat.format(startDate)} - ${dateFormat.format(endDate)}' : dateFormat.format(startDate);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadii.input)),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              children: [
+                const Icon(Icons.lock_outline_rounded, size: 15, color: ChatLightColors.inkFaint),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    rangeLabel,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          CheckboxListTile(
+            value: weekExtension,
+            onChanged: (v) => onWeekExtensionChanged(v ?? false),
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: EdgeInsets.zero,
+            dense: true,
+            activeColor: AppColors.primary,
+            title: Text(
+              loc.offerBirthdayWeekExtensionLabel,
+              style: const TextStyle(fontSize: 13.5, color: ChatLightColors.ink),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -904,6 +1159,152 @@ class _DateField extends StatelessWidget {
   }
 }
 
+/// Start/end time-of-day pair for [OfferType.happyHour] — same
+/// two-field row shape as [_DateRangeRow], just picking a daily
+/// wall-clock time instead of a calendar date.
+class _ActiveHoursRow extends StatelessWidget {
+  final TimeOfDay start;
+  final TimeOfDay end;
+  final bool hasError;
+  final VoidCallback onPickStart;
+  final VoidCallback onPickEnd;
+
+  const _ActiveHoursRow({
+    required this.start,
+    required this.end,
+    required this.hasError,
+    required this.onPickStart,
+    required this.onPickEnd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: _TimeField(
+            label: loc.offerActiveHoursStartLabel,
+            time: start,
+            hasError: hasError,
+            onTap: onPickStart,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _TimeField(
+            label: loc.offerActiveHoursEndLabel,
+            time: end,
+            hasError: hasError,
+            onTap: onPickEnd,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _TimeField extends StatelessWidget {
+  final String label;
+  final TimeOfDay time;
+  final bool hasError;
+  final VoidCallback onTap;
+
+  const _TimeField({required this.label, required this.time, required this.hasError, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppRadii.input),
+          border: hasError ? Border.all(color: AppColors.error) : null,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint)),
+            const SizedBox(height: 3),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _formatTimeOfDay(time),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                  ),
+                ),
+                Icon(Icons.access_time_outlined, size: 15, color: ChatLightColors.inkFaint),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Multi-select weekday chips for [OfferType.happyHour]'s
+/// `activeDays` — same chip visuals as [_OfferTypeSelector], reusing
+/// the app's one existing set of short weekday labels
+/// (`OpeningHoursEditor`'s own `_weekdayLabel`, duplicated here since
+/// that helper is private to that file) so "B.e/Ç.a/Ç/..." never
+/// drifts between the two screens.
+class _ActiveDaysSelector extends StatelessWidget {
+  final AppLocalizations loc;
+  final Set<String> selectedDays;
+  final ValueChanged<String> onToggle;
+
+  const _ActiveDaysSelector({required this.loc, required this.selectedDays, required this.onToggle});
+
+  String _labelFor(String day) => switch (day) {
+    'mon' => loc.venueWeekdayMon,
+    'tue' => loc.venueWeekdayTue,
+    'wed' => loc.venueWeekdayWed,
+    'thu' => loc.venueWeekdayThu,
+    'fri' => loc.venueWeekdayFri,
+    'sat' => loc.venueWeekdaySat,
+    _ => loc.venueWeekdaySun,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final day in kAllWeekdayKeys)
+          GestureDetector(
+            onTap: () => onToggle(day),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              width: 40,
+              height: 40,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selectedDays.contains(day) ? AppColors.primary.withValues(alpha: 0.12) : Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: selectedDays.contains(day) ? AppColors.primary : ChatLightColors.inkFaint.withValues(alpha: 0.18),
+                ),
+              ),
+              child: Text(
+                _labelFor(day),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: selectedDays.contains(day) ? AppColors.primary : ChatLightColors.inkSoft,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _VenuePickerField extends StatelessWidget {
   final Venue? venue;
   final bool hasError;
@@ -981,61 +1382,6 @@ class _VenuePickerField extends StatelessWidget {
           Text(loc.venueFieldRequiredError, style: const TextStyle(fontSize: 12.5, color: AppColors.error)),
         ],
       ],
-    );
-  }
-}
-
-class _ContactToggleField extends StatelessWidget {
-  final IconData icon;
-  final TextEditingController controller;
-  final String hint;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _ContactToggleField({
-    required this.icon,
-    required this.controller,
-    required this.hint,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadii.input)),
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: ChatLightColors.inkSoft),
-          const SizedBox(width: 10),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              style: const TextStyle(fontSize: 14.5, color: ChatLightColors.ink),
-              cursorColor: AppColors.primary,
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: TextStyle(color: ChatLightColors.inkFaint, fontSize: 14.5),
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                isDense: true,
-                filled: false,
-                contentPadding: const EdgeInsets.symmetric(vertical: 13),
-              ),
-            ),
-          ),
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            activeThumbColor: Colors.white,
-            activeTrackColor: AppColors.primary,
-            inactiveThumbColor: Colors.white,
-            inactiveTrackColor: ChatLightColors.cardSurface,
-          ),
-        ],
-      ),
     );
   }
 }

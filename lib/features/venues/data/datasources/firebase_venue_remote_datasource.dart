@@ -17,37 +17,49 @@ import 'venue_remote_datasource.dart';
 const kVenueGeoField = 'position';
 
 class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
-  FirebaseVenueRemoteDatasource({FirebaseFirestore? firestore, FirebaseStorage? storage})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+  FirebaseVenueRemoteDatasource({
+    FirebaseFirestore? firestore,
+    FirebaseStorage? storage,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _storage = storage ?? FirebaseStorage.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
-  CollectionReference<Map<String, dynamic>> get _venues => _firestore.collection('venues');
+  CollectionReference<Map<String, dynamic>> get _venues =>
+      _firestore.collection('venues');
 
   @override
   String allocateVenueId() => _venues.doc().id;
 
   @override
-  Future<void> setVenue(String venueId, Map<String, dynamic> data) => _venues.doc(venueId).set(data);
+  Future<void> setVenue(String venueId, Map<String, dynamic> data) =>
+      _venues.doc(venueId).set(data);
 
   @override
-  Future<void> updateVenue(String venueId, Map<String, dynamic> data) => _venues.doc(venueId).update(data);
+  Future<void> updateVenue(String venueId, Map<String, dynamic> data) =>
+      _venues.doc(venueId).update(data);
 
   @override
   Future<void> deleteVenue(String venueId) => _venues.doc(venueId).delete();
 
   @override
-  Stream<DocumentSnapshot<Map<String, dynamic>>> watchVenue(String venueId) => _venues.doc(venueId).snapshots();
+  Stream<DocumentSnapshot<Map<String, dynamic>>> watchVenue(String venueId) =>
+      _venues.doc(venueId).snapshots();
 
   @override
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchVenuesByOwner(String ownerId) {
-    return _venues.where('ownerId', isEqualTo: ownerId).orderBy('createdAt', descending: true).snapshots();
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchVenuesByOwner(
+    String ownerId,
+  ) {
+    return _venues
+        .where('ownerId', isEqualTo: ownerId)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
   }
 
   @override
-  Future<List<(DocumentSnapshot<Map<String, dynamic>>, double)>> queryWithinRadius({
+  Future<List<(DocumentSnapshot<Map<String, dynamic>>, double)>>
+  queryWithinRadius({
     required double lat,
     required double lng,
     required double radiusKm,
@@ -60,7 +72,7 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
       field: kVenueGeoField,
       geopointFrom: (data) => data[kVenueGeoField]['geopoint'] as GeoPoint,
       queryBuilder: (query) {
-        var q = query.where('status', isEqualTo: 'active');
+        var q = query.where('status', isEqualTo: 'approved');
         if (category != null) q = q.where('category', isEqualTo: category);
         return q;
       },
@@ -70,19 +82,29 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
       // the radius the user picked is the radius they actually get.
       strictMode: true,
     );
-    return results.map((r) => (r.documentSnapshot, r.distanceFromCenterInKm)).toList();
+    return results
+        .map((r) => (r.documentSnapshot, r.distanceFromCenterInKm))
+        .toList();
   }
 
   @override
-  Future<QuerySnapshot<Map<String, dynamic>>> queryByCountry(String country, {String? category}) {
-    var query = _venues.where('status', isEqualTo: 'active').where('country', isEqualTo: country);
+  Future<QuerySnapshot<Map<String, dynamic>>> queryByCountry(
+    String country, {
+    String? category,
+  }) {
+    var query = _venues
+        .where('status', isEqualTo: 'approved')
+        .where('country', isEqualTo: country);
     if (category != null) query = query.where('category', isEqualTo: category);
     return query.limit(300).get();
   }
 
   @override
-  Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({required int limit, String? category}) {
-    var query = _venues.where('status', isEqualTo: 'active');
+  Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({
+    required int limit,
+    String? category,
+  }) {
+    var query = _venues.where('status', isEqualTo: 'approved');
     if (category != null) query = query.where('category', isEqualTo: category);
     return query.limit(limit).get();
   }
@@ -95,7 +117,10 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
     ValueChanged<VoidCallback>? onTaskReady,
   }) async {
     final storageRef = _storage.ref('venue_photos/$venueId.jpg');
-    final task = storageRef.putFile(photo, SettableMetadata(contentType: 'image/jpeg'));
+    final task = storageRef.putFile(
+      photo,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
 
     onTaskReady?.call(task.cancel);
 
@@ -120,22 +145,81 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
     }
   }
 
-  CollectionReference<Map<String, dynamic>> _favorites(String uid) =>
-      _firestore.collection('users').doc(uid).collection('favorites');
+  CollectionReference<Map<String, dynamic>> _likes(String venueId) =>
+      _venues.doc(venueId).collection('likes');
 
   @override
-  Stream<Set<String>> watchFavoriteVenueIds(String uid) {
-    return _favorites(uid).snapshots().map((snapshot) => snapshot.docs.map((doc) => doc.id).toSet());
+  Stream<bool> watchIsLikedByMe(String venueId, String uid) {
+    return _likes(venueId).doc(uid).snapshots().map((doc) => doc.exists);
   }
 
   @override
-  Future<void> setFavorite({required String uid, required String venueId, required bool isFavorite}) async {
-    final favoriteDoc = _favorites(uid).doc(venueId);
-    if (isFavorite) {
-      await favoriteDoc.set({'createdAt': FieldValue.serverTimestamp()});
+  Future<void> setLiked({
+    required String uid,
+    required String venueId,
+    required bool isLiked,
+  }) async {
+    final likeDoc = _likes(venueId).doc(uid);
+    if (isLiked) {
+      await likeDoc.set({'createdAt': FieldValue.serverTimestamp()});
     } else {
-      await favoriteDoc.delete();
+      await likeDoc.delete();
     }
-    await _venues.doc(venueId).update({'favoriteCount': FieldValue.increment(isFavorite ? 1 : -1)});
+    // Deliberately NOT touching likeCount/rating here — the
+    // onVenueLikeCreated/onVenueLikeDeleted Cloud Function triggers
+    // own those fields exclusively (see functions/src/index.ts).
+  }
+
+  /// Matches CHECKIN_EXPIRY_MS in functions/src/index.ts — kept as one
+  /// literal in each runtime since Dart and TS can't share a constant,
+  /// but both must agree or the live count and the scheduled cleanup
+  /// would disagree about what "stale" means.
+  static const _checkinExpiry = Duration(hours: 2);
+
+  CollectionReference<Map<String, dynamic>> _activeCheckins(String venueId) =>
+      _venues.doc(venueId).collection('activeCheckins');
+
+  @override
+  Stream<int> watchActiveCheckinCount(String venueId) {
+    final cutoff = Timestamp.fromDate(DateTime.now().subtract(_checkinExpiry));
+    return _activeCheckins(venueId)
+        .where('createdAt', isGreaterThan: cutoff)
+        .snapshots()
+        .map((snap) => snap.docs.length);
+  }
+
+  @override
+  Stream<bool> watchIsCheckedInHere(String venueId, String uid) {
+    return _activeCheckins(
+      venueId,
+    ).doc(uid).snapshots().map((doc) => doc.exists);
+  }
+
+  @override
+  Future<void> checkIn({required String uid, required String venueId}) async {
+    final userRef = _firestore.collection('users').doc(uid);
+    await _firestore.runTransaction((tx) async {
+      final userSnap = await tx.get(userRef);
+      final oldVenueId = userSnap.data()?['activeCheckinVenueId'] as String?;
+      if (oldVenueId != null && oldVenueId != venueId) {
+        tx.delete(_activeCheckins(oldVenueId).doc(uid));
+      }
+      tx.set(_activeCheckins(venueId).doc(uid), {
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      tx.update(userRef, {'activeCheckinVenueId': venueId});
+    });
+  }
+
+  @override
+  Future<void> checkOut({required String uid}) async {
+    final userRef = _firestore.collection('users').doc(uid);
+    await _firestore.runTransaction((tx) async {
+      final userSnap = await tx.get(userRef);
+      final venueId = userSnap.data()?['activeCheckinVenueId'] as String?;
+      if (venueId == null) return;
+      tx.delete(_activeCheckins(venueId).doc(uid));
+      tx.update(userRef, {'activeCheckinVenueId': null});
+    });
   }
 }

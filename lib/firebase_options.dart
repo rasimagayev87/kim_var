@@ -26,10 +26,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -54,9 +51,18 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyA2KBMexV5G7aQMO_wR4JUA1LGR3ZCXemg',
-    appId: '1:148607007767:android:3a0ad3e575d9258de2f052',
+    appId: '1:148607007767:android:6d98717022be4acbe2f052',
     messagingSenderId: '148607007767',
     projectId: 'kim-var-73ce9',
     storageBucket: 'kim-var-73ce9.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyCe74fiUhRzGeaLl4TKh6zNh3D3_tnzQbg',
+    appId: '1:148607007767:ios:0c7970b1bc01b6a0e2f052',
+    messagingSenderId: '148607007767',
+    projectId: 'kim-var-73ce9',
+    storageBucket: 'kim-var-73ce9.firebasestorage.app',
+    iosBundleId: 'com.peakpin.app',
   );
 }

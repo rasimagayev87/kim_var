@@ -67,4 +67,10 @@ class UnimplementedCallRepository implements CallRepository {
 
   @override
   Future<void> setVideoEnabled(String callId, bool enabled) => throw UnimplementedError();
+
+  @override
+  Future<void> switchCamera(String callId) => throw UnimplementedError();
+
+  @override
+  Future<void> setSpeakerphoneOn(String callId, bool enabled) => throw UnimplementedError();
 }

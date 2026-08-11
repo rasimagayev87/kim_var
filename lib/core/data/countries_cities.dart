@@ -28,6 +28,47 @@ const kCountryNames = <String>[
   'Hindistan',
 ];
 
+/// Maps a country name from an uncontrolled source (the `geocoding`
+/// plugin's reverse-geocode result, which returns whatever spelling
+/// the OS's own geocoder feels like — e.g. "Azerbaycan" without the
+/// "ə") onto this list's exact spelling, so a value that ultimately
+/// traces back to a device geocoder still string-equals a value that
+/// traces back to [kCountryNames] itself (e.g. `UserProfile.country`,
+/// picked from this same list) — those two need to compare equal for
+/// country-scoped queries like `_countryCandidatesProvider` to find a
+/// venue/user at all. Falls back to [raw] unchanged if nothing in the
+/// list matches even after folding diacritics — better to keep an
+/// unrecognized country visible under its own name than drop it.
+String? canonicalCountryName(String? raw) {
+  if (raw == null || raw.trim().isEmpty) return raw;
+  final target = _foldCountryKey(raw);
+  for (final name in kCountryNames) {
+    if (_foldCountryKey(name) == target) return name;
+  }
+  return raw;
+}
+
+String _foldCountryKey(String s) {
+  return s
+      .replaceAll('ə', 'e')
+      .replaceAll('Ə', 'e')
+      .replaceAll('ı', 'i')
+      .replaceAll('İ', 'i')
+      .replaceAll('I', 'i')
+      .replaceAll('ö', 'o')
+      .replaceAll('Ö', 'o')
+      .replaceAll('ü', 'u')
+      .replaceAll('Ü', 'u')
+      .replaceAll('ş', 's')
+      .replaceAll('Ş', 's')
+      .replaceAll('ç', 'c')
+      .replaceAll('Ç', 'c')
+      .replaceAll('ğ', 'g')
+      .replaceAll('Ğ', 'g')
+      .toLowerCase()
+      .trim();
+}
+
 const kCitiesByCountry = <String, List<String>>{
   'Azərbaycan': [
     'Bakı', 'Gəncə', 'Sumqayıt', 'Mingəçevir', 'Naxçıvan', 'Şəki',

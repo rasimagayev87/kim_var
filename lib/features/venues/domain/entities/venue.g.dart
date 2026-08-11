@@ -24,11 +24,23 @@ _$VenueImpl _$$VenueImplFromJson(Map<String, dynamic> json) => _$VenueImpl(
   openingHours: const OpeningHoursConverter().fromJson(
     json['openingHours'] as Map<String, dynamic>?,
   ),
-  status: json['status'] as String? ?? 'active',
+  status: json['status'] as String? ?? 'pending',
+  reviewNote: json['reviewNote'] as String?,
+  reviewedBy: json['reviewedBy'] as String?,
+  reviewedAt: const NullableTimestampConverter().fromJson(json['reviewedAt']),
   verified: json['verified'] as bool? ?? false,
-  favoriteCount: (json['favoriteCount'] as num?)?.toInt() ?? 0,
+  likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
+  rating: (json['rating'] as num?)?.toDouble() ?? 3.0,
   createdAt: const TimestampConverter().fromJson(json['createdAt']),
   updatedAt: const NullableTimestampConverter().fromJson(json['updatedAt']),
+  socialLinks: const VenueSocialLinksConverter().fromJson(
+    json['socialLinks'] as Map<String, dynamic>?,
+  ),
+  audienceRadiusMode: json['audienceRadiusMode'] as String? ?? 'distance',
+  audienceRadiusKm: (json['audienceRadiusKm'] as num?)?.toDouble() ?? 1.0,
+  isPremium: json['isPremium'] as bool? ?? false,
+  birthdayNotificationsEnabled:
+      json['birthdayNotificationsEnabled'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$$VenueImplToJson(
@@ -46,8 +58,17 @@ Map<String, dynamic> _$$VenueImplToJson(
   'country': instance.country,
   'openingHours': const OpeningHoursConverter().toJson(instance.openingHours),
   'status': instance.status,
+  'reviewNote': instance.reviewNote,
+  'reviewedBy': instance.reviewedBy,
+  'reviewedAt': const NullableTimestampConverter().toJson(instance.reviewedAt),
   'verified': instance.verified,
-  'favoriteCount': instance.favoriteCount,
+  'likeCount': instance.likeCount,
+  'rating': instance.rating,
   'createdAt': const TimestampConverter().toJson(instance.createdAt),
   'updatedAt': const NullableTimestampConverter().toJson(instance.updatedAt),
+  'socialLinks': const VenueSocialLinksConverter().toJson(instance.socialLinks),
+  'audienceRadiusMode': instance.audienceRadiusMode,
+  'audienceRadiusKm': instance.audienceRadiusKm,
+  'isPremium': instance.isPremium,
+  'birthdayNotificationsEnabled': instance.birthdayNotificationsEnabled,
 };

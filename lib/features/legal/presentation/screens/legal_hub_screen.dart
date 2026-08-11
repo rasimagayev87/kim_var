@@ -49,7 +49,7 @@ class LegalHubScreen extends StatelessWidget {
                   title: loc.legalLicensesTitle,
                   onTap: () => showLicensePage(
                     context: context,
-                    applicationName: 'Meevima',
+                    applicationName: 'PeakPin',
                   ),
                 ),
               ],

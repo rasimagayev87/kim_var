@@ -32,12 +32,11 @@ abstract class OfferRepository {
     required DateTime endDate,
     required File? photo,
     String? terms,
-    String? contactPhone,
-    bool showContactPhone = false,
-    String? contactWebsite,
-    bool showContactWebsite = false,
-    String? contactInstagram,
-    bool showContactInstagram = false,
+    ActiveHours? activeHours,
+    List<String> activeDays,
+    String? birthdayMatchId,
+    List<String> targetUserIds,
+    String? personalMessage,
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   });
@@ -54,12 +53,8 @@ abstract class OfferRepository {
     File? photo,
     required bool hasExistingPhoto,
     String? terms,
-    String? contactPhone,
-    bool showContactPhone = false,
-    String? contactWebsite,
-    bool showContactWebsite = false,
-    String? contactInstagram,
-    bool showContactInstagram = false,
+    ActiveHours? activeHours,
+    List<String> activeDays,
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   });
@@ -98,4 +93,30 @@ abstract class OfferRepository {
   Stream<Set<String>> watchFavoriteOfferIds(String uid);
 
   Future<void> setFavorite({required String uid, required String offerId, required bool isFavorite});
+
+  /// Moves a `needs_revision` offer back to `pending` after the owner
+  /// has edited it — mirrors `VenueRepository.resubmitVenue`.
+  Future<void> resubmitOffer(String offerId);
+
+  /// Sets `Offer.boostedUntil` to now + [duration] — the owner-only
+  /// "Təklifi önə çək" action on Offer Details. No proximity/ownership
+  /// check here; the caller (`OfferController.boostOffer`) is the only
+  /// client path to this, gated by the UI only showing the boost
+  /// control to `offer.isOwnedBy(currentUid)`.
+  Future<void> boostOffer(String offerId, Duration duration);
+
+  /// Backs the `birthday_match` push's deep link
+  /// (`notification_navigation.dart`) — reads the venue + matched uids
+  /// a `computeBirthdayMatches` run wrote, so `CreateOfferScreen` can
+  /// pre-fill `preselectedVenueId`/`birthdayTargetUserIds`. Null if the
+  /// match doc doesn't exist (e.g. already deleted/pruned).
+  Future<({String venueId, List<String> matchedUserIds})?> fetchBirthdayMatch(String matchId);
+
+  /// Whether [uid] has already activated this `OfferType.firstVisit`
+  /// offer — backs Offer Details' "Aktivləşdir"/"İstifadə edilib"
+  /// button.
+  Stream<bool> watchIsRedeemedByMe(String offerId, String uid);
+
+  /// The one-time "Aktivləşdir" action for `OfferType.firstVisit`.
+  Future<void> redeemOffer(String offerId, String uid);
 }

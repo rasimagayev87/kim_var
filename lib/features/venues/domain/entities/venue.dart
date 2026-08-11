@@ -42,6 +42,31 @@ enum VenueCategory {
   other,
 }
 
+/// Categories the birthday-offer matching Cloud Function
+/// (`computeBirthdayMatches` in `functions/src/index.ts`) considers by
+/// default — every other category defaults to opted out AND doesn't
+/// show the toggle in `CreateVenueScreen` at all, per product decision
+/// to keep this simple until an "opt-in other categories" list exists.
+/// A venue in one of these categories still starts out
+/// [Venue.birthdayNotificationsEnabled] `true` only as a DEFAULT — the
+/// owner can turn it back off from the create/edit form.
+const kBirthdayEligibleVenueCategories = <VenueCategory>{
+  VenueCategory.restaurant,
+  VenueCategory.pub,
+  VenueCategory.coffeeShop,
+  VenueCategory.sweetsShop,
+  VenueCategory.fastFood,
+  VenueCategory.hotel,
+  VenueCategory.cinema,
+  VenueCategory.karaoke,
+  VenueCategory.nightClub,
+  VenueCategory.spa,
+  VenueCategory.cosmetology,
+  VenueCategory.photoStudio,
+  VenueCategory.beautySalon,
+  VenueCategory.kidsEntertainment,
+};
+
 const _venueCategoryIcons = <VenueCategory, IconData>{
   VenueCategory.restaurant: Icons.restaurant_outlined,
   VenueCategory.pub: Icons.local_bar_outlined,
@@ -69,7 +94,8 @@ const _venueCategoryIcons = <VenueCategory, IconData>{
   VenueCategory.other: Icons.category_outlined,
 };
 
-IconData venueCategoryIcon(VenueCategory category) => _venueCategoryIcons[category]!;
+IconData venueCategoryIcon(VenueCategory category) =>
+    _venueCategoryIcons[category]!;
 
 /// One day's open/close pair, both "HH:mm". Absence of an entry for a
 /// weekday in [OpeningHours.schedule] means closed that day. Kept as a
@@ -110,7 +136,10 @@ class OpeningHours {
   Map<String, dynamic> toMap() {
     return {
       'is24h': is24h,
-      'schedule': {for (final entry in schedule.entries) '${entry.key}': entry.value?.toMap()},
+      'schedule': {
+        for (final entry in schedule.entries)
+          '${entry.key}': entry.value?.toMap(),
+      },
     };
   }
 
@@ -119,28 +148,86 @@ class OpeningHours {
     final rawSchedule = map['schedule'] as Map?;
     final schedule = <int, DayHours?>{
       for (var weekday = 1; weekday <= 7; weekday++)
-        weekday: DayHours.fromMap((rawSchedule?['$weekday'] as Map?)?.cast<String, dynamic>()),
+        weekday: DayHours.fromMap(
+          (rawSchedule?['$weekday'] as Map?)?.cast<String, dynamic>(),
+        ),
     };
-    return OpeningHours(is24h: map['is24h'] as bool? ?? false, schedule: schedule);
+    return OpeningHours(
+      is24h: map['is24h'] as bool? ?? false,
+      schedule: schedule,
+    );
   }
+}
+
+/// Optional owner-provided social profiles, shown as extra
+/// contact/directions buttons on the venue profile screen — same
+/// plain-class-with-toMap/fromMap shape as [DayHours]/[OpeningHours],
+/// since it's a small immutable value type with no behavior worth a
+/// Freezed nested class for. All three fields are raw, un-prefixed
+/// values (a phone number, a username, a username) — the profile
+/// screen is what turns each into a real `wa.me`/`instagram.com`/
+/// `tiktok.com` URL, so this stays storage-shaped, not display-shaped.
+class VenueSocialLinks {
+  final String? whatsapp;
+  final String? instagram;
+  final String? tiktok;
+
+  const VenueSocialLinks({this.whatsapp, this.instagram, this.tiktok});
+
+  bool get isEmpty => whatsapp == null && instagram == null && tiktok == null;
+
+  Map<String, dynamic> toMap() => {
+    if (whatsapp != null) 'whatsapp': whatsapp,
+    if (instagram != null) 'instagram': instagram,
+    if (tiktok != null) 'tiktok': tiktok,
+  };
+
+  static VenueSocialLinks? fromMap(Map<String, dynamic>? map) {
+    if (map == null) return null;
+    final whatsapp = map['whatsapp'] as String?;
+    final instagram = map['instagram'] as String?;
+    final tiktok = map['tiktok'] as String?;
+    if (whatsapp == null && instagram == null && tiktok == null) return null;
+    return VenueSocialLinks(
+      whatsapp: whatsapp,
+      instagram: instagram,
+      tiktok: tiktok,
+    );
+  }
+}
+
+class VenueSocialLinksConverter
+    implements JsonConverter<VenueSocialLinks?, Map<String, dynamic>?> {
+  const VenueSocialLinksConverter();
+
+  @override
+  VenueSocialLinks? fromJson(Map<String, dynamic>? json) =>
+      VenueSocialLinks.fromMap(json);
+
+  @override
+  Map<String, dynamic>? toJson(VenueSocialLinks? links) => links?.toMap();
 }
 
 class VenueCategoryConverter implements JsonConverter<VenueCategory, String?> {
   const VenueCategoryConverter();
 
   @override
-  VenueCategory fromJson(String? json) =>
-      VenueCategory.values.firstWhere((c) => c.name == json, orElse: () => VenueCategory.other);
+  VenueCategory fromJson(String? json) => VenueCategory.values.firstWhere(
+    (c) => c.name == json,
+    orElse: () => VenueCategory.other,
+  );
 
   @override
   String toJson(VenueCategory category) => category.name;
 }
 
-class OpeningHoursConverter implements JsonConverter<OpeningHours, Map<String, dynamic>?> {
+class OpeningHoursConverter
+    implements JsonConverter<OpeningHours, Map<String, dynamic>?> {
   const OpeningHoursConverter();
 
   @override
-  OpeningHours fromJson(Map<String, dynamic>? json) => OpeningHours.fromMap(json);
+  OpeningHours fromJson(Map<String, dynamic>? json) =>
+      OpeningHours.fromMap(json);
 
   @override
   Map<String, dynamic> toJson(OpeningHours hours) => hours.toMap();
@@ -176,7 +263,8 @@ class NullableTimestampConverter implements JsonConverter<DateTime?, Object?> {
   }
 
   @override
-  Object? toJson(DateTime? date) => date == null ? null : Timestamp.fromDate(date);
+  Object? toJson(DateTime? date) =>
+      date == null ? null : Timestamp.fromDate(date);
 }
 
 @freezed
@@ -205,21 +293,76 @@ class Venue with _$Venue {
     String? country,
     @OpeningHoursConverter() required OpeningHours openingHours,
 
-    /// Defaults to 'active' — no moderation queue exists yet, so every
-    /// submitted venue is immediately visible. Kept as a string (not a
-    /// bool) specifically so a future 'pending'/'approved'/'rejected'
-    /// moderation flow is a value change here, not a schema migration.
-    @Default('active') String status,
+    /// 'pending' | 'approved' | 'needs_revision' | 'rejected'. New
+    /// venues start 'pending' and stay invisible to discovery until an
+    /// admin/moderator approves them — see firestore.rules, which
+    /// blocks the owner from writing this field directly; only the
+    /// admin panel's Server Actions (Admin SDK) may change it.
+    @Default('pending') String status,
+
+    /// Set by the reviewing admin/moderator when [status] is
+    /// 'needs_revision' or 'rejected' — shown to the owner as the
+    /// reason. Null otherwise.
+    String? reviewNote,
+
+    /// Admin/moderator uid who last set [status]. Null until reviewed.
+    String? reviewedBy,
+
+    /// When [reviewedBy] last set [status]. Null until reviewed.
+    @NullableTimestampConverter() DateTime? reviewedAt,
 
     /// Reserved for a future admin-verification badge — nothing sets
     /// this true yet, so it never renders today.
     @Default(false) bool verified,
 
-    /// Reserved for the favorites feature (`users/{uid}/favorites`) —
-    /// a denormalized counter nothing increments yet.
-    @Default(0) int favoriteCount,
+    /// Denormalized count of `venues/{id}/likes` docs — written ONLY by
+    /// the `onVenueLikeCreated`/`onVenueLikeDeleted` Cloud Function
+    /// triggers (see functions/src/index.ts), never directly by the
+    /// client (firestore.rules blocks that) so it can't be gamed by a
+    /// raw Firestore write.
+    @Default(0) int likeCount,
+
+    /// 0-5, one decimal — derived purely from [likeCount] by the same
+    /// triggers that maintain it (base 3.0 + 0.1 per 5 likes, capped at
+    /// 5.0). Never set directly by the client.
+    @Default(3.0) double rating,
     @TimestampConverter() required DateTime createdAt,
     @NullableTimestampConverter() DateTime? updatedAt,
+
+    /// Owner-provided WhatsApp/Instagram/TikTok — null (not an empty
+    /// object) when the owner filled in none of the three, so
+    /// `VenueProfileScreen` can tell "no social links at all" apart
+    /// from "links exist but this specific one is unset" with one check.
+    @VenueSocialLinksConverter() VenueSocialLinks? socialLinks,
+
+    /// 'distance' | 'country' | 'world' — same 3 modes as Discover's own
+    /// `DiscoverRadiusSelection`, just persisted here since the owner
+    /// picks one and it stays fixed, where Discover's version is
+    /// transient per-viewer session state, never saved.
+    @Default('distance') String audienceRadiusMode,
+
+    /// Only meaningful when [audienceRadiusMode] is 'distance' — radius
+    /// (km) the owner-only "live audience" counter on
+    /// [VenueProfileScreen] scans around [lat]/[lng] for recently-active
+    /// `users` docs — see `location_providers.dart`'s
+    /// `venueAudienceCountProvider`. Owner-editable from the create/edit
+    /// form (same option set as Discover's own radius picker); defaults
+    /// to 1km since venues have no other stored radius to default from.
+    @Default(1.0) double audienceRadiusKm,
+
+    /// Set only by a future paid-upgrade flow (never by the owner's own
+    /// create/edit form — no client write path exists for this yet).
+    /// Premium venues sort first within their radius in
+    /// [nearbyVenuesProvider] and get a crown badge next to their name.
+    @Default(false) bool isPremium,
+
+    /// Whether `computeBirthdayMatches` (the daily birthday-offer
+    /// matching Cloud Function) considers this venue at all — defaults
+    /// to `category`'s membership in [kBirthdayEligibleVenueCategories]
+    /// at creation time, owner-editable afterward from the create/edit
+    /// form ONLY for categories in that set (every other category
+    /// never shows the toggle, so this just stays `false` for them).
+    @Default(false) bool birthdayNotificationsEnabled,
   }) = _Venue;
 
   factory Venue.fromJson(Map<String, dynamic> json) => _$VenueFromJson(json);

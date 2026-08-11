@@ -17,6 +17,8 @@ class ValidatedOfferFields {
   final double? discountValue;
   final DateTime startDate;
   final DateTime endDate;
+  final ActiveHours? activeHours;
+  final List<String> activeDays;
 
   const ValidatedOfferFields({
     required this.title,
@@ -26,6 +28,8 @@ class ValidatedOfferFields {
     required this.discountValue,
     required this.startDate,
     required this.endDate,
+    required this.activeHours,
+    required this.activeDays,
   });
 }
 
@@ -44,6 +48,8 @@ List<OfferFieldError> _missingFields({
   required double? discountValue,
   required DateTime? startDate,
   required DateTime? endDate,
+  required ActiveHours? activeHours,
+  required List<String> activeDays,
 }) {
   final missing = <OfferFieldError>[];
   if (photo == null && !hasExistingPhoto) missing.add(OfferFieldError.photo);
@@ -51,8 +57,18 @@ List<OfferFieldError> _missingFields({
   if (category == null) missing.add(OfferFieldError.category);
   if (requireVenue && (venueId == null || venueId.isEmpty)) missing.add(OfferFieldError.venue);
   if (offerType == null) missing.add(OfferFieldError.offerType);
-  if ((offerType == OfferType.discount || offerType == OfferType.fixedPrice) && discountValue == null) {
+  const typesWithDiscountValue = {
+    OfferType.discount,
+    OfferType.fixedPrice,
+    OfferType.happyHour,
+    OfferType.firstVisit,
+    OfferType.birthday,
+  };
+  if (typesWithDiscountValue.contains(offerType) && discountValue == null) {
     missing.add(OfferFieldError.discountValue);
+  }
+  if (offerType == OfferType.happyHour && (activeHours == null || activeDays.isEmpty)) {
+    missing.add(OfferFieldError.activeHours);
   }
   if (startDate == null || endDate == null || endDate.isBefore(startDate)) {
     missing.add(OfferFieldError.dates);
@@ -77,6 +93,8 @@ ValidatedOfferFields validateOfferFields({
   required double? discountValue,
   required DateTime? startDate,
   required DateTime? endDate,
+  ActiveHours? activeHours,
+  List<String> activeDays = const [],
 }) {
   final trimmedTitle = title.trim();
   final missing = _missingFields(
@@ -90,20 +108,32 @@ ValidatedOfferFields validateOfferFields({
     discountValue: discountValue,
     startDate: startDate,
     endDate: endDate,
+    activeHours: activeHours,
+    activeDays: activeDays,
   );
 
   if (missing.isNotEmpty) {
     throw OfferValidationException(missing);
   }
 
+  final isHappyHour = offerType == OfferType.happyHour;
+  const typesWithDiscountValue = {
+    OfferType.discount,
+    OfferType.fixedPrice,
+    OfferType.happyHour,
+    OfferType.firstVisit,
+    OfferType.birthday,
+  };
   return ValidatedOfferFields(
     title: trimmedTitle,
     description: description.trim(),
     category: category!,
     offerType: offerType!,
-    discountValue: offerType == OfferType.discount || offerType == OfferType.fixedPrice ? discountValue : null,
+    discountValue: typesWithDiscountValue.contains(offerType) ? discountValue : null,
     startDate: startDate!,
     endDate: endDate!,
+    activeHours: isHappyHour ? activeHours : null,
+    activeDays: isHappyHour ? activeDays : const [],
   );
 }
 
@@ -138,12 +168,11 @@ class CreateOfferUseCase {
     required DateTime? endDate,
     required File? photo,
     String? terms,
-    String? contactPhone,
-    bool showContactPhone = false,
-    String? contactWebsite,
-    bool showContactWebsite = false,
-    String? contactInstagram,
-    bool showContactInstagram = false,
+    ActiveHours? activeHours,
+    List<String> activeDays = const [],
+    String? birthdayMatchId,
+    List<String> targetUserIds = const [],
+    String? personalMessage,
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
@@ -158,6 +187,8 @@ class CreateOfferUseCase {
       discountValue: discountValue,
       startDate: startDate,
       endDate: endDate,
+      activeHours: activeHours,
+      activeDays: activeDays,
     );
 
     await assertValidOfferPhoto(photo);
@@ -180,12 +211,11 @@ class CreateOfferUseCase {
       endDate: fields.endDate,
       photo: photo,
       terms: terms,
-      contactPhone: contactPhone,
-      showContactPhone: showContactPhone,
-      contactWebsite: contactWebsite,
-      showContactWebsite: showContactWebsite,
-      contactInstagram: contactInstagram,
-      showContactInstagram: showContactInstagram,
+      activeHours: fields.activeHours,
+      activeDays: fields.activeDays,
+      birthdayMatchId: fields.offerType == OfferType.birthday ? birthdayMatchId : null,
+      targetUserIds: fields.offerType == OfferType.birthday ? targetUserIds : const [],
+      personalMessage: fields.offerType == OfferType.birthday ? personalMessage : null,
       onUploadProgress: onUploadProgress,
       onUploadTaskReady: onUploadTaskReady,
     );

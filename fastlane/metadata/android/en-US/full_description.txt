@@ -1,6 +1,6 @@
-Meevima brings what's around you closer.
+PeakPin brings what's around you closer.
 
-Meevima is a social platform that connects you with nearby people, venues, and offers on a real-time map. Whether you're looking to meet new people in a new city or want to discover cafés and restaurants around you — Meevima brings it all together in one app.
+PeakPin is a social platform that connects you with nearby people, venues, and offers on a real-time map. Whether you're looking to meet new people in a new city or want to discover cafés and restaurants around you — PeakPin brings it all together in one app.
 
 What you can do:
 📍 Discover what's around you — See online users on the map within your chosen radius
@@ -13,4 +13,4 @@ What you can do:
 
 For people new to a city, students, tourists, freelancers, and anyone who wants to discover what's nearby.
 
-Download Meevima now!
+Download PeakPin now!

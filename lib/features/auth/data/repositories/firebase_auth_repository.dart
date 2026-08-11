@@ -38,7 +38,7 @@ class FirebaseAuthRepository implements AuthRepository {
     // to lowercase on creation regardless, so the `usernames` doc must
     // store the same lowercase form it will actually be matched against.
     final randomId = _firestore.collection('_').doc().id.toLowerCase();
-    return '$randomId@users.meevima.app';
+    return '$randomId@users.peakpin.app';
   }
 
   CollectionReference<Map<String, dynamic>> get _usernames => _firestore.collection('usernames');
@@ -384,6 +384,29 @@ class FirebaseAuthRepository implements AuthRepository {
     // Auth's OWN phoneNumber claim (just set by linkWithCredential
     // above via a real SMS OTP), never anything the client passes in.
     await _functions.httpsCallable('markPhoneVerified').call<Map<String, dynamic>>();
+  }
+
+  @override
+  Future<void> sendTwilioOtp(String phoneNumber) async {
+    await _functions.httpsCallable('sendOtp').call<Map<String, dynamic>>({'phoneNumber': phoneNumber});
+  }
+
+  @override
+  Future<void> verifyTwilioOtp({required String phoneNumber, required String code}) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('Təsdiqləmə üçün əvvəlcə giriş edilməlidir.');
+    }
+    final result = await _functions.httpsCallable('verifyOtp').call<Map<String, dynamic>>({
+      'phoneNumber': phoneNumber,
+      'code': code,
+      'tempUserId': user.uid,
+    });
+    final customToken = result.data['customToken'] as String;
+    // The account is already signed in — this just refreshes the
+    // session with the `phoneNumber` claim verifyOtp's Admin SDK call
+    // just set, exactly like `linkWithCredential` used to inline.
+    await _auth.signInWithCustomToken(customToken);
   }
 
   @override

@@ -19,6 +19,29 @@ enum NotificationType {
   venueOffer,
   venueAdded,
   venueVerified,
+
+  /// A venue's live audience just spiked well above its usual level
+  /// for this hour — see `computeVenueAudienceHistory` (scheduled
+  /// Cloud Function). Owner-only; tapping opens Create Offer
+  /// pre-filled with the venue (`targetType: 'venue_create_offer'`).
+  venuePeakHour,
+
+  /// A `birthdayMatches/{date}_{venueId}` doc was just created for this
+  /// venue — see `computeBirthdayMatches` (scheduled Cloud Function).
+  /// Owner-only. Deep-link navigation (opening Create Offer pre-filled
+  /// with the matched users) lands with the birthday create-offer flow
+  /// itself — until then this renders in the feed but does nothing on
+  /// tap, same graceful "unrecognized targetType" fallback every other
+  /// notification type gets from `notification_navigation.dart`.
+  birthdayMatch,
+
+  /// A `birthday` offer just got approved — sent to every uid in its
+  /// `targetUserIds` (see `notifyBirthdayTargetUsers`, the approval
+  /// branch of `onOfferUpdated`). `targetType: 'offer'`, same as any
+  /// other approved-offer notification, so it opens
+  /// `OfferDetailsScreen` with no extra navigation case needed — this
+  /// type only exists to give it its own icon/copy in the feed.
+  birthdayOffer,
   system,
   security,
   promotion,

@@ -1,4 +1,4 @@
-# kim_var
+# PeakPin
 
 A new Flutter project.
 

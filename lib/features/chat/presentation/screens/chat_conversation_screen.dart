@@ -62,6 +62,15 @@ class _ChatHeader extends StatelessWidget {
   final VoidCallback onVideoCall;
   final String callLabel;
   final String videoCallLabel;
+  /// False while the message request between these two hasn't been
+  /// accepted yet — calling a stranger before they've even accepted
+  /// your message request shouldn't be possible. Disabling the button
+  /// here (rather than just letting `_startCall` reject it) also keeps
+  /// it visibly greyed out and untappable, matching how `_Composer` is
+  /// already swapped out for `_PendingNotice`/`_RequestBanner` in the
+  /// same pending state.
+  final bool callsEnabled;
+  final String callsDisabledTooltip;
 
   const _ChatHeader({
     required this.peerName,
@@ -74,6 +83,8 @@ class _ChatHeader extends StatelessWidget {
     required this.onVideoCall,
     required this.callLabel,
     required this.videoCallLabel,
+    required this.callsEnabled,
+    required this.callsDisabledTooltip,
   });
 
   @override
@@ -158,14 +169,22 @@ class _ChatHeader extends StatelessWidget {
                 ),
               ),
               IconButton(
-                onPressed: onCall,
-                tooltip: callLabel,
-                icon: const Icon(Icons.call_outlined, color: ChatLightColors.inkSoft, size: 21),
+                onPressed: callsEnabled ? onCall : null,
+                tooltip: callsEnabled ? callLabel : callsDisabledTooltip,
+                icon: Icon(
+                  Icons.call_outlined,
+                  color: callsEnabled ? ChatLightColors.inkSoft : ChatLightColors.inkFaint,
+                  size: 21,
+                ),
               ),
               IconButton(
-                onPressed: onVideoCall,
-                tooltip: videoCallLabel,
-                icon: const Icon(Icons.videocam_outlined, color: ChatLightColors.inkSoft, size: 23),
+                onPressed: callsEnabled ? onVideoCall : null,
+                tooltip: callsEnabled ? videoCallLabel : callsDisabledTooltip,
+                icon: Icon(
+                  Icons.videocam_outlined,
+                  color: callsEnabled ? ChatLightColors.inkSoft : ChatLightColors.inkFaint,
+                  size: 23,
+                ),
               ),
             ],
           ),
@@ -468,6 +487,15 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
     if (!mounted) return;
 
     final loc = AppLocalizations.of(context);
+    // Defense in depth: the call buttons are already disabled in
+    // `_ChatHeader` while the message request isn't accepted, but this
+    // guards the one real code path that starts a call regardless of
+    // which UI trigger reaches it.
+    final chat = ref.read(chatByIdProvider(_chatId)).valueOrNull;
+    if (chat?.status != ChatRequestStatus.accepted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatCallDisabledTooltip)));
+      return;
+    }
     final type = video ? CallType.video : CallType.audio;
     try {
       final session = await ref.read(callRepositoryProvider).startCall(receiverId: widget.otherUid, type: type);
@@ -565,6 +593,8 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                   onVideoCall: () => _startCall(video: true),
                   callLabel: loc.chatVoiceCallLabel,
                   videoCallLabel: loc.chatVideoCallLabel,
+                  callsEnabled: chat?.status == ChatRequestStatus.accepted,
+                  callsDisabledTooltip: loc.chatCallDisabledTooltip,
                 ),
                 Expanded(
                   child: messagesAsync.when(
@@ -1528,7 +1558,13 @@ class _ComposerState extends ConsumerState<_Composer> {
             color: ChatLightColors.barTint.withValues(alpha: 0.6),
             border: const Border(top: BorderSide(color: Colors.black12, width: 0.6)),
           ),
-          padding: const EdgeInsets.fromLTRB(_Spacing.sm, _Spacing.sm, _Spacing.sm, _Spacing.sm),
+          // Right padding is deliberately larger than the other three sides —
+          // the trailing mic/send button used to sit only 8px from the
+          // physical screen edge, which made it easy to miss/hard to
+          // press reliably (bezel proximity leaves little margin for
+          // error). Nudging it in by a few more pixels keeps the whole
+          // row visually balanced while giving that button real room.
+          padding: const EdgeInsets.fromLTRB(_Spacing.sm, _Spacing.sm, _Spacing.md, _Spacing.sm),
           child: SafeArea(
             top: false,
             child: reviewing
@@ -1778,27 +1814,37 @@ class _TrailingActionButton extends StatelessWidget {
           : (details) => onRecordMove(details.localOffsetFromOrigin.dx, details.localOffsetFromOrigin.dy),
       onLongPressEnd: (hasText || lockedAndRecording) ? null : (_) => onRecordEnd(),
       onLongPressCancel: (hasText || lockedAndRecording) ? null : onRecordCancel,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle),
+      // The tappable region is deliberately a few pixels bigger than the
+      // visible 48x48 circle (still centered the same) — right next to
+      // the screen edge, a hit-test box exactly matching the visual
+      // circle leaves zero margin for a slightly-off finger.
+      child: SizedBox(
+        width: 56,
+        height: 56,
         child: Center(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
-            child: sending
-                ? const SizedBox(
-                    key: ValueKey('loading'),
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent),
-                  )
-                : Icon(
-                    hasText ? Icons.send_outlined : Icons.mic_none_outlined,
-                    key: ValueKey(hasText),
-                    color: AppColors.onAccent,
-                    size: 22,
-                  ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle),
+            child: Center(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 180),
+                child: sending
+                    ? const SizedBox(
+                        key: ValueKey('loading'),
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent),
+                      )
+                    : Icon(
+                        hasText ? Icons.send_outlined : Icons.mic_none_outlined,
+                        key: ValueKey(hasText),
+                        color: AppColors.onAccent,
+                        size: 22,
+                      ),
+              ),
+            ),
           ),
         ),
       ),

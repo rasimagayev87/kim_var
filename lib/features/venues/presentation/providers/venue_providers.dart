@@ -25,10 +25,14 @@ export '../../domain/repositories/venue_repository.dart' show VenueWithDistance;
 /// dependency graph is explicit end to end, and a future widget/unit
 /// test can override just this one node with a fake datasource
 /// without touching the repository or anything above it.
-final venueRemoteDatasourceProvider = Provider<VenueRemoteDatasource>((ref) => FirebaseVenueRemoteDatasource());
+final venueRemoteDatasourceProvider = Provider<VenueRemoteDatasource>(
+  (ref) => FirebaseVenueRemoteDatasource(),
+);
 
 final venueRepositoryProvider = Provider<VenueRepository>((ref) {
-  return FirebaseVenueRepository(datasource: ref.watch(venueRemoteDatasourceProvider));
+  return FirebaseVenueRepository(
+    datasource: ref.watch(venueRemoteDatasourceProvider),
+  );
 });
 
 final createVenueUseCaseProvider = Provider<CreateVenueUseCase>((ref) {
@@ -76,6 +80,10 @@ class VenueController {
     required String address,
     String? country,
     required OpeningHours openingHours,
+    VenueSocialLinks? socialLinks,
+    String audienceRadiusMode = 'distance',
+    double audienceRadiusKm = 1.0,
+    bool birthdayNotificationsEnabled = false,
     required void Function(List<VenueFieldError> missing) onValidationError,
     required void Function() onError,
     ValueChanged<double>? onUploadProgress,
@@ -85,7 +93,9 @@ class VenueController {
     if (uid == null) return null;
 
     try {
-      final venueId = await _ref.read(createVenueUseCaseProvider).call(
+      final venueId = await _ref
+          .read(createVenueUseCaseProvider)
+          .call(
             ownerId: uid,
             name: name,
             category: category,
@@ -95,6 +105,10 @@ class VenueController {
             address: address,
             country: country,
             openingHours: openingHours,
+            socialLinks: socialLinks,
+            audienceRadiusMode: audienceRadiusMode,
+            audienceRadiusKm: audienceRadiusKm,
+            birthdayNotificationsEnabled: birthdayNotificationsEnabled,
             onUploadProgress: onUploadProgress,
             onUploadTaskReady: onUploadTaskReady,
           );
@@ -128,13 +142,19 @@ class VenueController {
     required String address,
     String? country,
     required OpeningHours openingHours,
+    VenueSocialLinks? socialLinks,
+    String audienceRadiusMode = 'distance',
+    double audienceRadiusKm = 1.0,
+    bool birthdayNotificationsEnabled = false,
     required void Function(List<VenueFieldError> missing) onValidationError,
     required void Function() onError,
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
     try {
-      await _ref.read(updateVenueUseCaseProvider).call(
+      await _ref
+          .read(updateVenueUseCaseProvider)
+          .call(
             venueId: venueId,
             name: name,
             category: category,
@@ -145,6 +165,10 @@ class VenueController {
             address: address,
             country: country,
             openingHours: openingHours,
+            socialLinks: socialLinks,
+            audienceRadiusMode: audienceRadiusMode,
+            audienceRadiusKm: audienceRadiusKm,
+            birthdayNotificationsEnabled: birthdayNotificationsEnabled,
             onUploadProgress: onUploadProgress,
             onUploadTaskReady: onUploadTaskReady,
           );
@@ -160,7 +184,10 @@ class VenueController {
     }
   }
 
-  Future<bool> deleteVenue(String venueId, {required void Function() onError}) async {
+  Future<bool> deleteVenue(
+    String venueId, {
+    required void Function() onError,
+  }) async {
     try {
       await _ref.read(deleteVenueUseCaseProvider).call(venueId);
       _ref.invalidate(nearbyVenuesProvider);
@@ -172,50 +199,151 @@ class VenueController {
     }
   }
 
-  /// Flips [venueId]'s favorite state for the signed-in user. No-op
+  /// Flips [venueId]'s like state for the signed-in user. No-op
   /// (returns false) when signed out — the calling UI is expected to
   /// already be gated by the same auth check every other write in this
   /// app uses.
-  Future<bool> toggleFavorite(String venueId, {required bool isCurrentlyFavorite}) async {
+  Future<bool> toggleLike(
+    String venueId, {
+    required bool isCurrentlyLiked,
+  }) async {
     final uid = _currentUid();
     if (uid == null) return false;
 
     try {
-      await _ref.read(venueRepositoryProvider).setFavorite(
-            uid: uid,
-            venueId: venueId,
-            isFavorite: !isCurrentlyFavorite,
-          );
+      await _ref
+          .read(venueRepositoryProvider)
+          .setLiked(uid: uid, venueId: venueId, isLiked: !isCurrentlyLiked);
       return true;
     } catch (e, st) {
-      logError('venue_providers.toggleFavorite', e, st);
+      logError('venue_providers.toggleLike', e, st);
+      return false;
+    }
+  }
+
+  /// Flips [venue]'s check-in state for the signed-in user.
+  ///
+  /// Checking OUT is always allowed from anywhere (no GPS gate — a
+  /// gate only makes sense on the way in). Checking IN requires the
+  /// device to be within [_checkinRadiusMeters] of the venue, verified
+  /// here with the same `Geolocator.distanceBetween` math the Məkanlar
+  /// list already uses for sorting — GPS spoofing can't be fully
+  /// stopped client-side, so this is a UX/product gate, not a security
+  /// boundary (firestore.rules only enforces "own doc only").
+  static const _checkinRadiusMeters = 150.0;
+
+  Future<CheckinToggleResult> toggleCheckin(
+    Venue venue, {
+    required bool isCurrentlyCheckedInHere,
+  }) async {
+    final uid = _currentUid();
+    if (uid == null) return CheckinToggleResult.notSignedIn;
+
+    try {
+      if (isCurrentlyCheckedInHere) {
+        await _ref.read(venueRepositoryProvider).checkOut(uid: uid);
+        return CheckinToggleResult.success;
+      }
+
+      final position = _ref.read(locationControllerProvider).valueOrNull;
+      if (position == null) return CheckinToggleResult.locationUnavailable;
+
+      final distance = Geolocator.distanceBetween(
+        position.latitude,
+        position.longitude,
+        venue.lat,
+        venue.lng,
+      );
+      if (distance > _checkinRadiusMeters) return CheckinToggleResult.tooFar;
+
+      await _ref
+          .read(venueRepositoryProvider)
+          .checkIn(uid: uid, venueId: venue.id);
+      return CheckinToggleResult.success;
+    } catch (e, st) {
+      logError('venue_providers.toggleCheckin', e, st);
+      return CheckinToggleResult.error;
+    }
+  }
+
+  /// Called right after a successful [updateVenue] on a
+  /// `needs_revision` venue — moves it back to `pending` via the
+  /// `resubmitVenue` Cloud Function (the only client path there, see
+  /// firestore.rules). Returns false on any failure; the caller
+  /// already saved the edited fields either way, so a resubmit failure
+  /// here is "your edit saved but wasn't resubmitted yet, try again"
+  /// rather than a lost edit.
+  Future<bool> resubmitVenue(String venueId) async {
+    try {
+      await _ref.read(venueRepositoryProvider).resubmitVenue(venueId);
+      return true;
+    } catch (e, st) {
+      logError('venue_providers.resubmitVenue', e, st);
       return false;
     }
   }
 }
 
-final venueControllerProvider = Provider<VenueController>((ref) => VenueController(ref));
+enum CheckinToggleResult {
+  success,
+  tooFar,
+  locationUnavailable,
+  notSignedIn,
+  error,
+}
 
-/// Realtime set of venue ids the signed-in user has favorited — drives
-/// the filled-vs-outline heart state on both the list card and the
-/// profile screen, mirroring the [blockedUserIdsProvider] pattern used
-/// elsewhere in this app.
-final favoriteVenueIdsProvider = StreamProvider.autoDispose<Set<String>>((ref) {
-  final uid = _currentUid();
-  if (uid == null) return Stream.value(const {});
-  return ref.watch(venueRepositoryProvider).watchFavoriteVenueIds(uid);
-});
+final venueControllerProvider = Provider<VenueController>(
+  (ref) => VenueController(ref),
+);
+
+/// Whether the signed-in user has liked this one venue — a per-item
+/// `.family` watch (mirrors `isPostLikedByMeProvider`) rather than one
+/// big set, since `likes` now lives under each venue doc instead of
+/// centralized under the user.
+final isVenueLikedByMeProvider = StreamProvider.autoDispose
+    .family<bool, String>((ref, venueId) {
+      final uid = _currentUid();
+      if (uid == null) return Stream.value(false);
+      return ref.watch(venueRepositoryProvider).watchIsLikedByMe(venueId, uid);
+    });
+
+/// Live "Hazırda N istifadəçi buradadır" count on the venue profile.
+final venueActiveCheckinCountProvider = StreamProvider.autoDispose
+    .family<int, String>((ref, venueId) {
+      return ref
+          .watch(venueRepositoryProvider)
+          .watchActiveCheckinCount(venueId);
+    });
+
+/// Whether the signed-in user is checked in at THIS venue specifically.
+final isCheckedInHereProvider = StreamProvider.autoDispose.family<bool, String>(
+  (ref, venueId) {
+    final uid = _currentUid();
+    if (uid == null) return Stream.value(false);
+    return ref
+        .watch(venueRepositoryProvider)
+        .watchIsCheckedInHere(venueId, uid);
+  },
+);
 
 /// Wraps active venues with real Haversine distance from [position],
 /// sorted nearest-first — used for the Ölkə/Dünya modes, which don't
 /// go through GeoFlutterFire Plus (no radius to bound them by) but
 /// still need a distance to show and a sensible sort order.
-List<VenueWithDistance> _withDistanceFrom(List<Venue> venues, Position position) {
+List<VenueWithDistance> _withDistanceFrom(
+  List<Venue> venues,
+  Position position,
+) {
   final result = venues
       .map(
         (venue) => (
           venue: venue,
-          distanceMeters: Geolocator.distanceBetween(position.latitude, position.longitude, venue.lat, venue.lng),
+          distanceMeters: Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            venue.lat,
+            venue.lng,
+          ),
         ),
       )
       .toList();
@@ -225,7 +353,9 @@ List<VenueWithDistance> _withDistanceFrom(List<Venue> venues, Position position)
 
 /// The Filter bottom sheet's selected category — null means "every
 /// category". Mirrors `selectedOfferCategoryFilterProvider`.
-final selectedVenueCategoryFilterProvider = StateProvider<VenueCategory?>((ref) => null);
+final selectedVenueCategoryFilterProvider = StateProvider<VenueCategory?>(
+  (ref) => null,
+);
 
 /// Backs the Kəşf et → Məkanlar list — reuses the EXACT same radius
 /// system as İnsanlar ([selectedDiscoverModeProvider]/[locationControllerProvider])
@@ -237,29 +367,58 @@ final selectedVenueCategoryFilterProvider = StateProvider<VenueCategory?>((ref) 
 /// math to GeoFlutterFire Plus; country/world modes have no radius to
 /// bound them by, so they stay plain Haversine-sorted queries like
 /// before.
-final nearbyVenuesProvider = FutureProvider.autoDispose<List<VenueWithDistance>>((ref) async {
-  final position = ref.watch(locationControllerProvider).valueOrNull;
-  final selection = ref.watch(selectedDiscoverModeProvider);
-  final category = ref.watch(selectedVenueCategoryFilterProvider);
-  final repository = ref.watch(venueRepositoryProvider);
+///
+/// The radius/mode filter always runs first and is never widened —
+/// sorting only reorders the venues already inside it (premium first,
+/// then highest-rated, distance as the final tie-breaker), it never
+/// pulls in anything from outside the selected radius. This is a
+/// deliberate product policy: users must never see results sorted
+/// past what they chose.
+final nearbyVenuesProvider =
+    FutureProvider.autoDispose<List<VenueWithDistance>>((ref) async {
+      final position = ref.watch(locationControllerProvider).valueOrNull;
+      final selection = ref.watch(selectedDiscoverModeProvider);
+      final category = ref.watch(selectedVenueCategoryFilterProvider);
+      final repository = ref.watch(venueRepositoryProvider);
 
-  if (position == null) return const [];
+      if (position == null) return const [];
 
-  switch (selection.mode) {
-    case DiscoverRadiusMode.distance:
-      return repository.fetchVenuesWithinRadius(
-        lat: position.latitude,
-        lng: position.longitude,
-        radiusKm: selection.km!,
-        category: category,
-      );
-    case DiscoverRadiusMode.country:
-      final myCountry = ref.watch(profileControllerProvider.select((p) => p.country));
-      if (myCountry == null) return const [];
-      final venues = await repository.fetchVenuesByCountry(myCountry, category: category);
-      return _withDistanceFrom(venues, position);
-    case DiscoverRadiusMode.world:
-      final venues = await repository.fetchAllActiveVenues(category: category);
-      return _withDistanceFrom(venues, position);
-  }
-});
+      final result = switch (selection.mode) {
+        DiscoverRadiusMode.distance => await repository.fetchVenuesWithinRadius(
+          lat: position.latitude,
+          lng: position.longitude,
+          radiusKm: selection.km!,
+          category: category,
+        ),
+        DiscoverRadiusMode.country => await () async {
+          final myCountry = ref.watch(
+            profileControllerProvider.select((p) => p.country),
+          );
+          if (myCountry == null) return <VenueWithDistance>[];
+          final venues = await repository.fetchVenuesByCountry(
+            myCountry,
+            category: category,
+          );
+          return _withDistanceFrom(venues, position);
+        }(),
+        DiscoverRadiusMode.world => await () async {
+          final venues = await repository.fetchAllActiveVenues(
+            category: category,
+          );
+          return _withDistanceFrom(venues, position);
+        }(),
+      };
+
+      final sorted = [...result]
+        ..sort((a, b) {
+          final byPremium = (b.venue.isPremium ? 1 : 0).compareTo(
+            a.venue.isPremium ? 1 : 0,
+          );
+          if (byPremium != 0) return byPremium;
+          final byRating = b.venue.rating.compareTo(a.venue.rating);
+          return byRating != 0
+              ? byRating
+              : a.distanceMeters.compareTo(b.distanceMeters);
+        });
+      return sorted;
+    });

@@ -9,7 +9,7 @@ library;
 const String kTermsOfService = '''
 # 1. Ümumi müddəalar
 
-"Meevima" tətbiqindən istifadə etməklə siz aşağıdakı istifadə şərtlərini qəbul etmiş olursunuz. Bu şərtlərlə razı deyilsinizsə, xahiş edirik tətbiqdən istifadə etməyin.
+"PeakPin" tətbiqindən istifadə etməklə siz aşağıdakı istifadə şərtlərini qəbul etmiş olursunuz. Bu şərtlərlə razı deyilsinizsə, xahiş edirik tətbiqdən istifadə etməyin.
 
 # 2. Yaş məhdudiyyəti
 
@@ -36,7 +36,7 @@ Bəzi funksiyalar (genişləndirilmiş radius, əlavə filtrlər və s.) ödəni
 
 # 7. Məsuliyyətin məhdudlaşdırılması
 
-"Meevima" istifadəçilər arasındakı görüşlərin təhlükəsizliyinə görə məsuliyyət daşımır. Naməlum insanlarla görüşərkən ehtiyatlı olmağınızı tövsiyə edirik: ictimai yerdə görüşün, yaxınlarınızı xəbərdar edin.
+"PeakPin" istifadəçilər arasındakı görüşlərin təhlükəsizliyinə görə məsuliyyət daşımır. Naməlum insanlarla görüşərkən ehtiyatlı olmağınızı tövsiyə edirik: ictimai yerdə görüşün, yaxınlarınızı xəbərdar edin.
 
 # 8. Dəyişikliklər
 
@@ -44,7 +44,7 @@ Bu şərtlər zaman-zaman yenilənə bilər. Əhəmiyyətli dəyişikliklər bar
 
 # 9. Əlaqə
 
-Suallarınız üçün: support@meevima.app
+Suallarınız üçün: support@peakpin.app
 ''';
 
 const String kPrivacyPolicy = '''
@@ -80,5 +80,5 @@ Bu siyasət yeniləndikdə tətbiq daxilində bildiriş alacaqsınız.
 
 # 8. Əlaqə
 
-Məxfilik ilə bağlı suallarınız üçün: privacy@meevima.app
+Məxfilik ilə bağlı suallarınız üçün: privacy@peakpin.app
 ''';

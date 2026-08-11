@@ -40,6 +40,7 @@ class FirebasePrivacySettingsRepository implements PrivacySettingsRepository {
       whoCanMessageMe: _whoCanMessageMeFrom(data['whoCanMessageMe'] as String?),
       twoFactorEnabled: data['twoFactorEnabled'] as bool? ?? false,
       ghostModeEnabled: data['ghostModeEnabled'] as bool? ?? false,
+      birthdayOffersOptIn: data['birthdayOffersOptIn'] as bool? ?? false,
     );
   }
 

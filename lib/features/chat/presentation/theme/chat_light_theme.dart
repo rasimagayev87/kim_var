@@ -5,7 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 /// The chat feature (conversation screen + Söhbətlər list) is a
 /// deliberate exception to the app's dark theme — a calm, light
 /// "messaging" surface, closer to WhatsApp/Telegram than the rest of
-/// Meevima. These tokens are shared between both chat screens so they
+/// PeakPin. These tokens are shared between both chat screens so they
 /// stay pixel-identical; reusing [AppColors] instead would mean
 /// fighting a dark-mode palette (white text, dark cards) on what's now
 /// a light background.
@@ -26,8 +26,8 @@ class ChatLightColors {
   static const bubbleMineStart = Color(0xFFE4FBF7);
   static const composerFill = Color(0xFFE4E8EC);
   static const barTint = Color(0xFFEEF1F4);
-  static const onlineGreen = Color(0xFF22A87A);
-  static const onlineDot = Color(0xFF2ECC71);
+  static const onlineGreen = AppColors.cyanDark;
+  static const onlineDot = AppColors.cyanLight;
   static const contourLine = Color(0xFF0E3B36);
 }
 

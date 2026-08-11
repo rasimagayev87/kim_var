@@ -55,25 +55,64 @@ mixin _$Offer {
   /// Optional terms/eligibility text — free-form, shown as-is.
   String? get terms => throw _privateConstructorUsedError;
 
-  /// Contact fields are entered fresh per offer (not pulled live from
-  /// the venue profile, which has no phone/website of its own today)
-  /// — each is only shown on the details screen when its paired
-  /// `show*` toggle is on, matching the form's per-field visibility
-  /// toggles.
-  String? get contactPhone => throw _privateConstructorUsedError;
-  bool get showContactPhone => throw _privateConstructorUsedError;
-  String? get contactWebsite => throw _privateConstructorUsedError;
-  bool get showContactWebsite => throw _privateConstructorUsedError;
-  String? get contactInstagram => throw _privateConstructorUsedError;
-  bool get showContactInstagram => throw _privateConstructorUsedError;
-
-  /// Defaults to 'active' — no moderation queue exists yet, mirroring
-  /// [Venue.status]'s exact same not-yet-used moderation readiness.
+  /// 'pending' | 'approved' | 'needs_revision' | 'rejected' — same
+  /// moderation lifecycle as [Venue.status], including the
+  /// firestore.rules restriction that only the admin panel's Server
+  /// Actions may change it.
   String get status => throw _privateConstructorUsedError;
+
+  /// Set by the reviewing admin/moderator when [status] is
+  /// 'needs_revision' or 'rejected'. Null otherwise.
+  String? get reviewNote => throw _privateConstructorUsedError;
+
+  /// Admin/moderator uid who last set [status]. Null until reviewed.
+  String? get reviewedBy => throw _privateConstructorUsedError;
+
+  /// When [reviewedBy] last set [status]. Null until reviewed.
+  @NullableTimestampConverter()
+  DateTime? get reviewedAt => throw _privateConstructorUsedError;
   @TimestampConverter()
   DateTime get createdAt => throw _privateConstructorUsedError;
   @NullableTimestampConverter()
   DateTime? get updatedAt => throw _privateConstructorUsedError;
+
+  /// Set by the owner via `OfferController.boostOffer` (Offer Details
+  /// → the owner's own offer → the 3-dot menu, replacing the heart
+  /// every other viewer sees there). While in the future, the offer
+  /// sorts ahead of non-boosted ones in `nearbyOffersProvider` —
+  /// unlike venues (governed purely by user likes/votes, see
+  /// `Venue`'s own doc comments), a real time-boxed paid boost is the
+  /// actual product decision for offers specifically.
+  @NullableTimestampConverter()
+  DateTime? get boostedUntil => throw _privateConstructorUsedError;
+
+  /// Only set for [OfferType.happyHour] — the daily window (e.g.
+  /// 15:00–17:00) the discount is active. Null for every other type.
+  @ActiveHoursConverter()
+  ActiveHours? get activeHours => throw _privateConstructorUsedError;
+
+  /// Only meaningful for [OfferType.happyHour] — 'mon'..'sun' keys the
+  /// window runs on. The create form defaults every day checked, so
+  /// this is only ever empty for a type other than [happyHour].
+  List<String> get activeDays => throw _privateConstructorUsedError;
+
+  /// Only set for [OfferType.birthday] — the `birthdayMatches/{id}`
+  /// doc this offer was created from. Null for every other type.
+  String? get birthdayMatchId => throw _privateConstructorUsedError;
+
+  /// Only meaningful for [OfferType.birthday] — the specific uids this
+  /// offer is for, copied from the matching `birthdayMatches` doc
+  /// at creation time (so it stays correct even if that doc is later
+  /// pruned/changes). Empty for every other type. `nearbyOffersProvider`
+  /// and every other "everyone" offer stream filters a [birthday]
+  /// offer down to only viewers whose uid is in this list — see
+  /// `OfferRepository`'s query doc comments.
+  List<String> get targetUserIds => throw _privateConstructorUsedError;
+
+  /// Only meaningful for [OfferType.birthday] — the owner's optional
+  /// note to the birthday user(s) (max 100 chars, enforced by the
+  /// create form). Null when left blank.
+  String? get personalMessage => throw _privateConstructorUsedError;
 
   /// Serializes this Offer to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -108,15 +147,18 @@ abstract class $OfferCopyWith<$Res> {
     @TimestampConverter() DateTime endDate,
     String? imageUrl,
     String? terms,
-    String? contactPhone,
-    bool showContactPhone,
-    String? contactWebsite,
-    bool showContactWebsite,
-    String? contactInstagram,
-    bool showContactInstagram,
     String status,
+    String? reviewNote,
+    String? reviewedBy,
+    @NullableTimestampConverter() DateTime? reviewedAt,
     @TimestampConverter() DateTime createdAt,
     @NullableTimestampConverter() DateTime? updatedAt,
+    @NullableTimestampConverter() DateTime? boostedUntil,
+    @ActiveHoursConverter() ActiveHours? activeHours,
+    List<String> activeDays,
+    String? birthdayMatchId,
+    List<String> targetUserIds,
+    String? personalMessage,
   });
 }
 
@@ -153,15 +195,18 @@ class _$OfferCopyWithImpl<$Res, $Val extends Offer>
     Object? endDate = null,
     Object? imageUrl = freezed,
     Object? terms = freezed,
-    Object? contactPhone = freezed,
-    Object? showContactPhone = null,
-    Object? contactWebsite = freezed,
-    Object? showContactWebsite = null,
-    Object? contactInstagram = freezed,
-    Object? showContactInstagram = null,
     Object? status = null,
+    Object? reviewNote = freezed,
+    Object? reviewedBy = freezed,
+    Object? reviewedAt = freezed,
     Object? createdAt = null,
     Object? updatedAt = freezed,
+    Object? boostedUntil = freezed,
+    Object? activeHours = freezed,
+    Object? activeDays = null,
+    Object? birthdayMatchId = freezed,
+    Object? targetUserIds = null,
+    Object? personalMessage = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -237,34 +282,22 @@ class _$OfferCopyWithImpl<$Res, $Val extends Offer>
                 ? _value.terms
                 : terms // ignore: cast_nullable_to_non_nullable
                       as String?,
-            contactPhone: freezed == contactPhone
-                ? _value.contactPhone
-                : contactPhone // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            showContactPhone: null == showContactPhone
-                ? _value.showContactPhone
-                : showContactPhone // ignore: cast_nullable_to_non_nullable
-                      as bool,
-            contactWebsite: freezed == contactWebsite
-                ? _value.contactWebsite
-                : contactWebsite // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            showContactWebsite: null == showContactWebsite
-                ? _value.showContactWebsite
-                : showContactWebsite // ignore: cast_nullable_to_non_nullable
-                      as bool,
-            contactInstagram: freezed == contactInstagram
-                ? _value.contactInstagram
-                : contactInstagram // ignore: cast_nullable_to_non_nullable
-                      as String?,
-            showContactInstagram: null == showContactInstagram
-                ? _value.showContactInstagram
-                : showContactInstagram // ignore: cast_nullable_to_non_nullable
-                      as bool,
             status: null == status
                 ? _value.status
                 : status // ignore: cast_nullable_to_non_nullable
                       as String,
+            reviewNote: freezed == reviewNote
+                ? _value.reviewNote
+                : reviewNote // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            reviewedBy: freezed == reviewedBy
+                ? _value.reviewedBy
+                : reviewedBy // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            reviewedAt: freezed == reviewedAt
+                ? _value.reviewedAt
+                : reviewedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
             createdAt: null == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -273,6 +306,30 @@ class _$OfferCopyWithImpl<$Res, $Val extends Offer>
                 ? _value.updatedAt
                 : updatedAt // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            boostedUntil: freezed == boostedUntil
+                ? _value.boostedUntil
+                : boostedUntil // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            activeHours: freezed == activeHours
+                ? _value.activeHours
+                : activeHours // ignore: cast_nullable_to_non_nullable
+                      as ActiveHours?,
+            activeDays: null == activeDays
+                ? _value.activeDays
+                : activeDays // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
+            birthdayMatchId: freezed == birthdayMatchId
+                ? _value.birthdayMatchId
+                : birthdayMatchId // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            targetUserIds: null == targetUserIds
+                ? _value.targetUserIds
+                : targetUserIds // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
+            personalMessage: freezed == personalMessage
+                ? _value.personalMessage
+                : personalMessage // ignore: cast_nullable_to_non_nullable
+                      as String?,
           )
           as $Val,
     );
@@ -306,15 +363,18 @@ abstract class _$$OfferImplCopyWith<$Res> implements $OfferCopyWith<$Res> {
     @TimestampConverter() DateTime endDate,
     String? imageUrl,
     String? terms,
-    String? contactPhone,
-    bool showContactPhone,
-    String? contactWebsite,
-    bool showContactWebsite,
-    String? contactInstagram,
-    bool showContactInstagram,
     String status,
+    String? reviewNote,
+    String? reviewedBy,
+    @NullableTimestampConverter() DateTime? reviewedAt,
     @TimestampConverter() DateTime createdAt,
     @NullableTimestampConverter() DateTime? updatedAt,
+    @NullableTimestampConverter() DateTime? boostedUntil,
+    @ActiveHoursConverter() ActiveHours? activeHours,
+    List<String> activeDays,
+    String? birthdayMatchId,
+    List<String> targetUserIds,
+    String? personalMessage,
   });
 }
 
@@ -350,15 +410,18 @@ class __$$OfferImplCopyWithImpl<$Res>
     Object? endDate = null,
     Object? imageUrl = freezed,
     Object? terms = freezed,
-    Object? contactPhone = freezed,
-    Object? showContactPhone = null,
-    Object? contactWebsite = freezed,
-    Object? showContactWebsite = null,
-    Object? contactInstagram = freezed,
-    Object? showContactInstagram = null,
     Object? status = null,
+    Object? reviewNote = freezed,
+    Object? reviewedBy = freezed,
+    Object? reviewedAt = freezed,
     Object? createdAt = null,
     Object? updatedAt = freezed,
+    Object? boostedUntil = freezed,
+    Object? activeHours = freezed,
+    Object? activeDays = null,
+    Object? birthdayMatchId = freezed,
+    Object? targetUserIds = null,
+    Object? personalMessage = freezed,
   }) {
     return _then(
       _$OfferImpl(
@@ -434,34 +497,22 @@ class __$$OfferImplCopyWithImpl<$Res>
             ? _value.terms
             : terms // ignore: cast_nullable_to_non_nullable
                   as String?,
-        contactPhone: freezed == contactPhone
-            ? _value.contactPhone
-            : contactPhone // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        showContactPhone: null == showContactPhone
-            ? _value.showContactPhone
-            : showContactPhone // ignore: cast_nullable_to_non_nullable
-                  as bool,
-        contactWebsite: freezed == contactWebsite
-            ? _value.contactWebsite
-            : contactWebsite // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        showContactWebsite: null == showContactWebsite
-            ? _value.showContactWebsite
-            : showContactWebsite // ignore: cast_nullable_to_non_nullable
-                  as bool,
-        contactInstagram: freezed == contactInstagram
-            ? _value.contactInstagram
-            : contactInstagram // ignore: cast_nullable_to_non_nullable
-                  as String?,
-        showContactInstagram: null == showContactInstagram
-            ? _value.showContactInstagram
-            : showContactInstagram // ignore: cast_nullable_to_non_nullable
-                  as bool,
         status: null == status
             ? _value.status
             : status // ignore: cast_nullable_to_non_nullable
                   as String,
+        reviewNote: freezed == reviewNote
+            ? _value.reviewNote
+            : reviewNote // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        reviewedBy: freezed == reviewedBy
+            ? _value.reviewedBy
+            : reviewedBy // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        reviewedAt: freezed == reviewedAt
+            ? _value.reviewedAt
+            : reviewedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
         createdAt: null == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -470,6 +521,30 @@ class __$$OfferImplCopyWithImpl<$Res>
             ? _value.updatedAt
             : updatedAt // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        boostedUntil: freezed == boostedUntil
+            ? _value.boostedUntil
+            : boostedUntil // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        activeHours: freezed == activeHours
+            ? _value.activeHours
+            : activeHours // ignore: cast_nullable_to_non_nullable
+                  as ActiveHours?,
+        activeDays: null == activeDays
+            ? _value._activeDays
+            : activeDays // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
+        birthdayMatchId: freezed == birthdayMatchId
+            ? _value.birthdayMatchId
+            : birthdayMatchId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        targetUserIds: null == targetUserIds
+            ? _value._targetUserIds
+            : targetUserIds // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
+        personalMessage: freezed == personalMessage
+            ? _value.personalMessage
+            : personalMessage // ignore: cast_nullable_to_non_nullable
+                  as String?,
       ),
     );
   }
@@ -497,16 +572,21 @@ class _$OfferImpl extends _Offer {
     @TimestampConverter() required this.endDate,
     this.imageUrl,
     this.terms,
-    this.contactPhone,
-    this.showContactPhone = false,
-    this.contactWebsite,
-    this.showContactWebsite = false,
-    this.contactInstagram,
-    this.showContactInstagram = false,
-    this.status = 'active',
+    this.status = 'pending',
+    this.reviewNote,
+    this.reviewedBy,
+    @NullableTimestampConverter() this.reviewedAt,
     @TimestampConverter() required this.createdAt,
     @NullableTimestampConverter() this.updatedAt,
-  }) : super._();
+    @NullableTimestampConverter() this.boostedUntil,
+    @ActiveHoursConverter() this.activeHours,
+    final List<String> activeDays = const <String>[],
+    this.birthdayMatchId,
+    final List<String> targetUserIds = const <String>[],
+    this.personalMessage,
+  }) : _activeDays = activeDays,
+       _targetUserIds = targetUserIds,
+       super._();
 
   factory _$OfferImpl.fromJson(Map<String, dynamic> json) =>
       _$$OfferImplFromJson(json);
@@ -563,32 +643,27 @@ class _$OfferImpl extends _Offer {
   @override
   final String? terms;
 
-  /// Contact fields are entered fresh per offer (not pulled live from
-  /// the venue profile, which has no phone/website of its own today)
-  /// — each is only shown on the details screen when its paired
-  /// `show*` toggle is on, matching the form's per-field visibility
-  /// toggles.
-  @override
-  final String? contactPhone;
-  @override
-  @JsonKey()
-  final bool showContactPhone;
-  @override
-  final String? contactWebsite;
-  @override
-  @JsonKey()
-  final bool showContactWebsite;
-  @override
-  final String? contactInstagram;
-  @override
-  @JsonKey()
-  final bool showContactInstagram;
-
-  /// Defaults to 'active' — no moderation queue exists yet, mirroring
-  /// [Venue.status]'s exact same not-yet-used moderation readiness.
+  /// 'pending' | 'approved' | 'needs_revision' | 'rejected' — same
+  /// moderation lifecycle as [Venue.status], including the
+  /// firestore.rules restriction that only the admin panel's Server
+  /// Actions may change it.
   @override
   @JsonKey()
   final String status;
+
+  /// Set by the reviewing admin/moderator when [status] is
+  /// 'needs_revision' or 'rejected'. Null otherwise.
+  @override
+  final String? reviewNote;
+
+  /// Admin/moderator uid who last set [status]. Null until reviewed.
+  @override
+  final String? reviewedBy;
+
+  /// When [reviewedBy] last set [status]. Null until reviewed.
+  @override
+  @NullableTimestampConverter()
+  final DateTime? reviewedAt;
   @override
   @TimestampConverter()
   final DateTime createdAt;
@@ -596,9 +671,77 @@ class _$OfferImpl extends _Offer {
   @NullableTimestampConverter()
   final DateTime? updatedAt;
 
+  /// Set by the owner via `OfferController.boostOffer` (Offer Details
+  /// → the owner's own offer → the 3-dot menu, replacing the heart
+  /// every other viewer sees there). While in the future, the offer
+  /// sorts ahead of non-boosted ones in `nearbyOffersProvider` —
+  /// unlike venues (governed purely by user likes/votes, see
+  /// `Venue`'s own doc comments), a real time-boxed paid boost is the
+  /// actual product decision for offers specifically.
+  @override
+  @NullableTimestampConverter()
+  final DateTime? boostedUntil;
+
+  /// Only set for [OfferType.happyHour] — the daily window (e.g.
+  /// 15:00–17:00) the discount is active. Null for every other type.
+  @override
+  @ActiveHoursConverter()
+  final ActiveHours? activeHours;
+
+  /// Only meaningful for [OfferType.happyHour] — 'mon'..'sun' keys the
+  /// window runs on. The create form defaults every day checked, so
+  /// this is only ever empty for a type other than [happyHour].
+  final List<String> _activeDays;
+
+  /// Only meaningful for [OfferType.happyHour] — 'mon'..'sun' keys the
+  /// window runs on. The create form defaults every day checked, so
+  /// this is only ever empty for a type other than [happyHour].
+  @override
+  @JsonKey()
+  List<String> get activeDays {
+    if (_activeDays is EqualUnmodifiableListView) return _activeDays;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_activeDays);
+  }
+
+  /// Only set for [OfferType.birthday] — the `birthdayMatches/{id}`
+  /// doc this offer was created from. Null for every other type.
+  @override
+  final String? birthdayMatchId;
+
+  /// Only meaningful for [OfferType.birthday] — the specific uids this
+  /// offer is for, copied from the matching `birthdayMatches` doc
+  /// at creation time (so it stays correct even if that doc is later
+  /// pruned/changes). Empty for every other type. `nearbyOffersProvider`
+  /// and every other "everyone" offer stream filters a [birthday]
+  /// offer down to only viewers whose uid is in this list — see
+  /// `OfferRepository`'s query doc comments.
+  final List<String> _targetUserIds;
+
+  /// Only meaningful for [OfferType.birthday] — the specific uids this
+  /// offer is for, copied from the matching `birthdayMatches` doc
+  /// at creation time (so it stays correct even if that doc is later
+  /// pruned/changes). Empty for every other type. `nearbyOffersProvider`
+  /// and every other "everyone" offer stream filters a [birthday]
+  /// offer down to only viewers whose uid is in this list — see
+  /// `OfferRepository`'s query doc comments.
+  @override
+  @JsonKey()
+  List<String> get targetUserIds {
+    if (_targetUserIds is EqualUnmodifiableListView) return _targetUserIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_targetUserIds);
+  }
+
+  /// Only meaningful for [OfferType.birthday] — the owner's optional
+  /// note to the birthday user(s) (max 100 chars, enforced by the
+  /// create form). Null when left blank.
+  @override
+  final String? personalMessage;
+
   @override
   String toString() {
-    return 'Offer(id: $id, ownerId: $ownerId, venueId: $venueId, venueName: $venueName, venuePhotoUrl: $venuePhotoUrl, category: $category, title: $title, description: $description, offerType: $offerType, discountValue: $discountValue, lat: $lat, lng: $lng, address: $address, country: $country, startDate: $startDate, endDate: $endDate, imageUrl: $imageUrl, terms: $terms, contactPhone: $contactPhone, showContactPhone: $showContactPhone, contactWebsite: $contactWebsite, showContactWebsite: $showContactWebsite, contactInstagram: $contactInstagram, showContactInstagram: $showContactInstagram, status: $status, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'Offer(id: $id, ownerId: $ownerId, venueId: $venueId, venueName: $venueName, venuePhotoUrl: $venuePhotoUrl, category: $category, title: $title, description: $description, offerType: $offerType, discountValue: $discountValue, lat: $lat, lng: $lng, address: $address, country: $country, startDate: $startDate, endDate: $endDate, imageUrl: $imageUrl, terms: $terms, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, createdAt: $createdAt, updatedAt: $updatedAt, boostedUntil: $boostedUntil, activeHours: $activeHours, activeDays: $activeDays, birthdayMatchId: $birthdayMatchId, targetUserIds: $targetUserIds, personalMessage: $personalMessage)';
   }
 
   @override
@@ -632,23 +775,33 @@ class _$OfferImpl extends _Offer {
             (identical(other.imageUrl, imageUrl) ||
                 other.imageUrl == imageUrl) &&
             (identical(other.terms, terms) || other.terms == terms) &&
-            (identical(other.contactPhone, contactPhone) ||
-                other.contactPhone == contactPhone) &&
-            (identical(other.showContactPhone, showContactPhone) ||
-                other.showContactPhone == showContactPhone) &&
-            (identical(other.contactWebsite, contactWebsite) ||
-                other.contactWebsite == contactWebsite) &&
-            (identical(other.showContactWebsite, showContactWebsite) ||
-                other.showContactWebsite == showContactWebsite) &&
-            (identical(other.contactInstagram, contactInstagram) ||
-                other.contactInstagram == contactInstagram) &&
-            (identical(other.showContactInstagram, showContactInstagram) ||
-                other.showContactInstagram == showContactInstagram) &&
             (identical(other.status, status) || other.status == status) &&
+            (identical(other.reviewNote, reviewNote) ||
+                other.reviewNote == reviewNote) &&
+            (identical(other.reviewedBy, reviewedBy) ||
+                other.reviewedBy == reviewedBy) &&
+            (identical(other.reviewedAt, reviewedAt) ||
+                other.reviewedAt == reviewedAt) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
-                other.updatedAt == updatedAt));
+                other.updatedAt == updatedAt) &&
+            (identical(other.boostedUntil, boostedUntil) ||
+                other.boostedUntil == boostedUntil) &&
+            (identical(other.activeHours, activeHours) ||
+                other.activeHours == activeHours) &&
+            const DeepCollectionEquality().equals(
+              other._activeDays,
+              _activeDays,
+            ) &&
+            (identical(other.birthdayMatchId, birthdayMatchId) ||
+                other.birthdayMatchId == birthdayMatchId) &&
+            const DeepCollectionEquality().equals(
+              other._targetUserIds,
+              _targetUserIds,
+            ) &&
+            (identical(other.personalMessage, personalMessage) ||
+                other.personalMessage == personalMessage));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -673,15 +826,18 @@ class _$OfferImpl extends _Offer {
     endDate,
     imageUrl,
     terms,
-    contactPhone,
-    showContactPhone,
-    contactWebsite,
-    showContactWebsite,
-    contactInstagram,
-    showContactInstagram,
     status,
+    reviewNote,
+    reviewedBy,
+    reviewedAt,
     createdAt,
     updatedAt,
+    boostedUntil,
+    activeHours,
+    const DeepCollectionEquality().hash(_activeDays),
+    birthdayMatchId,
+    const DeepCollectionEquality().hash(_targetUserIds),
+    personalMessage,
   ]);
 
   /// Create a copy of Offer
@@ -718,15 +874,18 @@ abstract class _Offer extends Offer {
     @TimestampConverter() required final DateTime endDate,
     final String? imageUrl,
     final String? terms,
-    final String? contactPhone,
-    final bool showContactPhone,
-    final String? contactWebsite,
-    final bool showContactWebsite,
-    final String? contactInstagram,
-    final bool showContactInstagram,
     final String status,
+    final String? reviewNote,
+    final String? reviewedBy,
+    @NullableTimestampConverter() final DateTime? reviewedAt,
     @TimestampConverter() required final DateTime createdAt,
     @NullableTimestampConverter() final DateTime? updatedAt,
+    @NullableTimestampConverter() final DateTime? boostedUntil,
+    @ActiveHoursConverter() final ActiveHours? activeHours,
+    final List<String> activeDays,
+    final String? birthdayMatchId,
+    final List<String> targetUserIds,
+    final String? personalMessage,
   }) = _$OfferImpl;
   const _Offer._() : super._();
 
@@ -784,34 +943,76 @@ abstract class _Offer extends Offer {
   @override
   String? get terms;
 
-  /// Contact fields are entered fresh per offer (not pulled live from
-  /// the venue profile, which has no phone/website of its own today)
-  /// — each is only shown on the details screen when its paired
-  /// `show*` toggle is on, matching the form's per-field visibility
-  /// toggles.
-  @override
-  String? get contactPhone;
-  @override
-  bool get showContactPhone;
-  @override
-  String? get contactWebsite;
-  @override
-  bool get showContactWebsite;
-  @override
-  String? get contactInstagram;
-  @override
-  bool get showContactInstagram;
-
-  /// Defaults to 'active' — no moderation queue exists yet, mirroring
-  /// [Venue.status]'s exact same not-yet-used moderation readiness.
+  /// 'pending' | 'approved' | 'needs_revision' | 'rejected' — same
+  /// moderation lifecycle as [Venue.status], including the
+  /// firestore.rules restriction that only the admin panel's Server
+  /// Actions may change it.
   @override
   String get status;
+
+  /// Set by the reviewing admin/moderator when [status] is
+  /// 'needs_revision' or 'rejected'. Null otherwise.
+  @override
+  String? get reviewNote;
+
+  /// Admin/moderator uid who last set [status]. Null until reviewed.
+  @override
+  String? get reviewedBy;
+
+  /// When [reviewedBy] last set [status]. Null until reviewed.
+  @override
+  @NullableTimestampConverter()
+  DateTime? get reviewedAt;
   @override
   @TimestampConverter()
   DateTime get createdAt;
   @override
   @NullableTimestampConverter()
   DateTime? get updatedAt;
+
+  /// Set by the owner via `OfferController.boostOffer` (Offer Details
+  /// → the owner's own offer → the 3-dot menu, replacing the heart
+  /// every other viewer sees there). While in the future, the offer
+  /// sorts ahead of non-boosted ones in `nearbyOffersProvider` —
+  /// unlike venues (governed purely by user likes/votes, see
+  /// `Venue`'s own doc comments), a real time-boxed paid boost is the
+  /// actual product decision for offers specifically.
+  @override
+  @NullableTimestampConverter()
+  DateTime? get boostedUntil;
+
+  /// Only set for [OfferType.happyHour] — the daily window (e.g.
+  /// 15:00–17:00) the discount is active. Null for every other type.
+  @override
+  @ActiveHoursConverter()
+  ActiveHours? get activeHours;
+
+  /// Only meaningful for [OfferType.happyHour] — 'mon'..'sun' keys the
+  /// window runs on. The create form defaults every day checked, so
+  /// this is only ever empty for a type other than [happyHour].
+  @override
+  List<String> get activeDays;
+
+  /// Only set for [OfferType.birthday] — the `birthdayMatches/{id}`
+  /// doc this offer was created from. Null for every other type.
+  @override
+  String? get birthdayMatchId;
+
+  /// Only meaningful for [OfferType.birthday] — the specific uids this
+  /// offer is for, copied from the matching `birthdayMatches` doc
+  /// at creation time (so it stays correct even if that doc is later
+  /// pruned/changes). Empty for every other type. `nearbyOffersProvider`
+  /// and every other "everyone" offer stream filters a [birthday]
+  /// offer down to only viewers whose uid is in this list — see
+  /// `OfferRepository`'s query doc comments.
+  @override
+  List<String> get targetUserIds;
+
+  /// Only meaningful for [OfferType.birthday] — the owner's optional
+  /// note to the birthday user(s) (max 100 chars, enforced by the
+  /// create form). Null when left blank.
+  @override
+  String? get personalMessage;
 
   /// Create a copy of Offer
   /// with the given fields replaced by the non-null parameter values.

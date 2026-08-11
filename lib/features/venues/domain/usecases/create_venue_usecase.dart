@@ -110,6 +110,10 @@ class CreateVenueUseCase {
     required String address,
     String? country,
     required OpeningHours openingHours,
+    VenueSocialLinks? socialLinks,
+    String audienceRadiusMode = 'distance',
+    double audienceRadiusKm = 1.0,
+    bool birthdayNotificationsEnabled = false,
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
@@ -137,6 +141,10 @@ class CreateVenueUseCase {
       address: fields.address,
       country: fields.country,
       openingHours: fields.openingHours,
+      socialLinks: socialLinks,
+      audienceRadiusMode: audienceRadiusMode,
+      audienceRadiusKm: audienceRadiusKm,
+      birthdayNotificationsEnabled: birthdayNotificationsEnabled,
       onUploadProgress: onUploadProgress,
       onUploadTaskReady: onUploadTaskReady,
     );

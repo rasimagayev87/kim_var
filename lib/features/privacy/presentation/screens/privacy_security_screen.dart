@@ -100,6 +100,16 @@ class PrivacySecurityScreen extends ConsumerWidget {
                     if (!ok && context.mounted) showError();
                   },
                 ),
+                SettingsToggleRow(
+                  icon: Icons.cake_outlined,
+                  title: loc.privacyBirthdayOffersTitle,
+                  subtitle: loc.privacyBirthdayOffersDescription,
+                  value: settings.birthdayOffersOptIn,
+                  onChanged: (v) async {
+                    final ok = await controller.updateBirthdayOffersOptIn(v);
+                    if (!ok && context.mounted) showError();
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 16),

@@ -9,8 +9,10 @@ import 'package:image_picker/image_picker.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../auth/presentation/widgets/country_dial_code.dart';
 import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../../../location/presentation/providers/location_providers.dart';
 import '../../domain/entities/venue.dart';
 import '../../domain/venue_failure.dart';
 import '../providers/venue_providers.dart';
@@ -35,16 +37,42 @@ class CreateVenueScreen extends ConsumerStatefulWidget {
 }
 
 class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
-  late final _nameController = TextEditingController(text: widget.existingVenue?.name ?? '');
+  late final _nameController = TextEditingController(
+    text: widget.existingVenue?.name ?? '',
+  );
+  late final _whatsappController = TextEditingController(
+    text: widget.existingVenue?.socialLinks?.whatsapp ?? '',
+  );
+  late final _instagramController = TextEditingController(
+    text: widget.existingVenue?.socialLinks?.instagram ?? '',
+  );
+  late final _tiktokController = TextEditingController(
+    text: widget.existingVenue?.socialLinks?.tiktok ?? '',
+  );
 
   bool get _isEditing => widget.existingVenue != null;
 
   late VenueCategory? _category = widget.existingVenue?.category;
-  late LatLng? _pickedLatLng =
-      widget.existingVenue != null ? LatLng(widget.existingVenue!.lat, widget.existingVenue!.lng) : null;
+  late LatLng? _pickedLatLng = widget.existingVenue != null
+      ? LatLng(widget.existingVenue!.lat, widget.existingVenue!.lng)
+      : null;
   late String _address = widget.existingVenue?.address ?? '';
   late String? _country = widget.existingVenue?.country;
-  late OpeningHours _openingHours = widget.existingVenue?.openingHours ?? const OpeningHours();
+  late OpeningHours _openingHours =
+      widget.existingVenue?.openingHours ?? const OpeningHours();
+  late DiscoverRadiusSelection _audienceRadius = _initialAudienceRadius();
+
+  /// Only ever shown/editable when [_category] is in
+  /// [kBirthdayEligibleVenueCategories] — every other category doesn't
+  /// support this yet (see that constant's own doc comment), so this
+  /// stays at its category-derived default and is never surfaced for
+  /// them. Recomputed to the new category's default whenever the owner
+  /// changes [_category] while creating (never on edit, where the
+  /// stored value already reflects a real, possibly owner-overridden,
+  /// choice).
+  late bool _birthdayNotificationsEnabled =
+      widget.existingVenue?.birthdayNotificationsEnabled ??
+      (_category != null && kBirthdayEligibleVenueCategories.contains(_category));
   File? _photo;
   bool _submitting = false;
   Set<VenueFieldError> _fieldErrors = {};
@@ -62,13 +90,50 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _whatsappController.dispose();
+    _instagramController.dispose();
+    _tiktokController.dispose();
     super.dispose();
   }
+
+  /// Trims each field and treats a blank result as "not provided" —
+  /// null propagates all the way down to a Firestore write that omits
+  /// (create) or clears (update) the field, instead of storing "".
+  VenueSocialLinks? get _socialLinks {
+    String? clean(String raw) => raw.trim().isEmpty ? null : raw.trim();
+    final links = VenueSocialLinks(
+      whatsapp: clean(_whatsappController.text),
+      instagram: clean(_instagramController.text),
+      tiktok: clean(_tiktokController.text),
+    );
+    return links.isEmpty ? null : links;
+  }
+
+  DiscoverRadiusSelection _initialAudienceRadius() {
+    final existing = widget.existingVenue;
+    if (existing == null) return const DiscoverRadiusSelection.distance(1.0);
+    return switch (existing.audienceRadiusMode) {
+      'country' => const DiscoverRadiusSelection.country(),
+      'world' => const DiscoverRadiusSelection.world(),
+      _ => DiscoverRadiusSelection.distance(existing.audienceRadiusKm),
+    };
+  }
+
+  String get _audienceRadiusModeString => switch (_audienceRadius.mode) {
+    DiscoverRadiusMode.distance => 'distance',
+    DiscoverRadiusMode.country => 'country',
+    DiscoverRadiusMode.world => 'world',
+  };
+
+  double get _audienceRadiusKmValue => _audienceRadius.km ?? 1.0;
 
   Future<void> _pickOnMap() async {
     final result = await Navigator.push<(LatLng, String, String?)>(
       context,
-      MaterialPageRoute(builder: (_) => VenueLocationPickerScreen(initialPosition: _pickedLatLng)),
+      MaterialPageRoute(
+        builder: (_) =>
+            VenueLocationPickerScreen(initialPosition: _pickedLatLng),
+      ),
     );
     if (result != null) {
       setState(() {
@@ -84,10 +149,21 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
       context: context,
       backgroundColor: ChatLightColors.bg1,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadii.sheet),
+        ),
+      ),
       builder: (_) => _CategoryPickerSheet(selected: _category),
     );
-    if (selected != null) setState(() => _category = selected);
+    if (selected != null) {
+      setState(() {
+        _category = selected;
+        if (!_isEditing) {
+          _birthdayNotificationsEnabled = kBirthdayEligibleVenueCategories.contains(selected);
+        }
+      });
+    }
   }
 
   Future<void> _pickPhoto() async {
@@ -95,7 +171,11 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: ChatLightColors.bg1,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadii.sheet),
+        ),
+      ),
       builder: (sheetContext) {
         return SafeArea(
           top: false,
@@ -109,19 +189,41 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
                   alignment: Alignment.centerLeft,
                   child: Text(
                     loc.venuePhotoSheetTitle,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: ChatLightColors.ink,
+                    ),
                   ),
                 ),
               ),
               const SizedBox(height: AppSpacing.sm),
               ListTile(
-                leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
-                title: Text(loc.venuePhotoGalleryOption, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+                leading: const Icon(
+                  Icons.photo_library_outlined,
+                  color: AppColors.primary,
+                ),
+                title: Text(
+                  loc.venuePhotoGalleryOption,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: ChatLightColors.ink,
+                  ),
+                ),
                 onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
               ),
               ListTile(
-                leading: const Icon(Icons.camera_alt_outlined, color: AppColors.primary),
-                title: Text(loc.venuePhotoCameraOption, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+                leading: const Icon(
+                  Icons.camera_alt_outlined,
+                  color: AppColors.primary,
+                ),
+                title: Text(
+                  loc.venuePhotoCameraOption,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: ChatLightColors.ink,
+                  ),
+                ),
                 onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
               ),
               const SizedBox(height: AppSpacing.sm),
@@ -133,7 +235,11 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
     if (source == null || !mounted) return;
 
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: source, maxWidth: 1600, imageQuality: 85);
+    final picked = await picker.pickImage(
+      source: source,
+      maxWidth: 1600,
+      imageQuality: 85,
+    );
     if (picked == null || !mounted) return;
 
     final cropped = await ImageCropper().cropImage(
@@ -151,7 +257,10 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
           backgroundColor: ChatLightColors.bg1,
           lockAspectRatio: false,
         ),
-        IOSUiSettings(title: loc.venuePhotoCropTitle, aspectRatioLockEnabled: false),
+        IOSUiSettings(
+          title: loc.venuePhotoCropTitle,
+          aspectRatioLockEnabled: false,
+        ),
       ],
     );
     // A null result means the user cancelled the crop step — keep
@@ -181,7 +290,9 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
 
     final loc = AppLocalizations.of(context);
 
-    final venueId = await ref.read(venueControllerProvider).createVenue(
+    final venueId = await ref
+        .read(venueControllerProvider)
+        .createVenue(
           name: _nameController.text,
           category: _category,
           photo: _photo,
@@ -190,6 +301,10 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
           address: _address,
           country: _country,
           openingHours: _openingHours,
+          socialLinks: _socialLinks,
+          audienceRadiusMode: _audienceRadiusModeString,
+          audienceRadiusKm: _audienceRadiusKmValue,
+          birthdayNotificationsEnabled: _birthdayNotificationsEnabled,
           onValidationError: (missing) {
             if (!mounted) return;
             setState(() => _fieldErrors = missing.toSet());
@@ -231,7 +346,9 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
 
     final loc = AppLocalizations.of(context);
 
-    final success = await ref.read(venueControllerProvider).updateVenue(
+    final success = await ref
+        .read(venueControllerProvider)
+        .updateVenue(
           venueId: widget.existingVenue!.id,
           name: _nameController.text,
           category: _category,
@@ -242,6 +359,10 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
           address: _address,
           country: _country,
           openingHours: _openingHours,
+          socialLinks: _socialLinks,
+          audienceRadiusMode: _audienceRadiusModeString,
+          audienceRadiusKm: _audienceRadiusKmValue,
+          birthdayNotificationsEnabled: _birthdayNotificationsEnabled,
           onValidationError: (missing) {
             if (!mounted) return;
             setState(() => _fieldErrors = missing.toSet());
@@ -261,6 +382,18 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
           },
           onUploadTaskReady: (cancel) => _cancelUpload = cancel,
         );
+
+    // A needs_revision venue moves back to pending as a direct
+    // consequence of the owner editing it — no separate "resubmit"
+    // step for them to remember. Best-effort: the field edit above
+    // already succeeded either way, so a resubmit failure here isn't
+    // surfaced as the whole save failing, just silently left for the
+    // next edit (or a manual retry) to move it back to pending.
+    if (success && widget.existingVenue?.status == 'needs_revision') {
+      await ref
+          .read(venueControllerProvider)
+          .resubmitVenue(widget.existingVenue!.id);
+    }
 
     if (!mounted) return;
     setState(() {
@@ -285,11 +418,19 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: ChatLightColors.ink,
+          ),
         ),
         title: Text(
           _isEditing ? loc.venueEditTitle : loc.venueCreateTitle,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: ChatLightColors.ink,
+          ),
         ),
       ),
       body: Stack(
@@ -311,7 +452,9 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
                 _LightTextField(
                   controller: _nameController,
                   hint: loc.venueNameHint,
-                  errorText: _fieldErrors.contains(VenueFieldError.name) ? loc.venueFieldRequiredError : null,
+                  errorText: _fieldErrors.contains(VenueFieldError.name)
+                      ? loc.venueFieldRequiredError
+                      : null,
                   maxLength: 50,
                 ),
                 const SizedBox(height: AppSpacing.xxl),
@@ -336,6 +479,67 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
                   hasError: _fieldErrors.contains(VenueFieldError.location),
                   onTap: _pickOnMap,
                 ),
+                const SizedBox(height: AppSpacing.xxl),
+                Text(
+                  loc.venueSocialSectionLabel,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: ChatLightColors.ink,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _FieldLabel(loc.venueWhatsappLabel),
+                _LightTextField(
+                  controller: _whatsappController,
+                  hint: loc.venueWhatsappHint,
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _FieldLabel(loc.venueInstagramLabel),
+                _LightTextField(
+                  controller: _instagramController,
+                  hint: loc.venueInstagramHint,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _FieldLabel(loc.venueTiktokLabel),
+                _LightTextField(
+                  controller: _tiktokController,
+                  hint: loc.venueTiktokHint,
+                ),
+                const SizedBox(height: AppSpacing.xxl),
+                Text(
+                  loc.venueAudienceRadiusSectionLabel,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: ChatLightColors.ink,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  loc.venueAudienceRadiusHint,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: ChatLightColors.inkSoft,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _AudienceRadiusSelector(
+                  value: _audienceRadius,
+                  country: _country,
+                  onChanged: (selection) =>
+                      setState(() => _audienceRadius = selection),
+                ),
+                if (_category != null &&
+                    kBirthdayEligibleVenueCategories.contains(_category)) ...[
+                  const SizedBox(height: AppSpacing.xxl),
+                  _BirthdayNotificationsToggle(
+                    value: _birthdayNotificationsEnabled,
+                    onChanged: (v) =>
+                        setState(() => _birthdayNotificationsEnabled = v),
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.xxxl),
                 if (_submitting && _uploadProgress != null)
                   _UploadProgressCard(
@@ -350,19 +554,33 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
                       onPressed: _submitting ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
+                        disabledBackgroundColor: AppColors.primary.withValues(
+                          alpha: 0.5,
+                        ),
                         foregroundColor: ChatLightColors.contourLine,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.button)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.button),
+                        ),
                         elevation: 0,
-                        textStyle: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700),
+                        textStyle: const TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       child: _submitting
                           ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.4, color: ChatLightColors.contourLine),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: ChatLightColors.contourLine,
+                              ),
                             )
-                          : Text(_isEditing ? loc.venueSaveButton : loc.venueCreateButton),
+                          : Text(
+                              _isEditing
+                                  ? loc.venueSaveButton
+                                  : loc.venueCreateButton,
+                            ),
                     ),
                   ),
               ],
@@ -403,6 +621,376 @@ String venueCategoryLabel(AppLocalizations loc, VenueCategory category) {
   };
 }
 
+/// Same option set/UX shape as Discover's own radius picker
+/// ([kDefaultRadiusOptionsKm] row + a "Daha çox" sheet with
+/// [kExtraRadiusOptionsKm] plus Ölkə üzrə/Dünya üzrə) — the owner
+/// picks how wide an area counts as their venue's "audience", using
+/// the exact same rings/modes a viewer already knows from Discover,
+/// just persisted per-venue instead of transient per-session. No
+/// premium gating here unlike Discover's version — this is the venue
+/// owner configuring their own venue, not a viewer's search radius.
+String _audienceRadiusLabel(double km) => km < 1
+    ? '${(km * 1000).round()} m'
+    : '${km.toStringAsFixed(km % 1 == 0 ? 0 : 1)} km';
+
+class _AudienceRadiusSelector extends StatelessWidget {
+  final DiscoverRadiusSelection value;
+  final String? country;
+  final ValueChanged<DiscoverRadiusSelection> onChanged;
+
+  const _AudienceRadiusSelector({
+    required this.value,
+    required this.country,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isMoreSelected =
+        value.mode != DiscoverRadiusMode.distance ||
+        !kDefaultRadiusOptionsKm.contains(value.km);
+
+    return Row(
+      children: [
+        for (var i = 0; i < kDefaultRadiusOptionsKm.length; i++) ...[
+          if (i > 0) const SizedBox(width: 8),
+          Expanded(
+            child: _AudienceRadiusChip(
+              label: _audienceRadiusLabel(kDefaultRadiusOptionsKm[i]),
+              selected:
+                  value.mode == DiscoverRadiusMode.distance &&
+                  value.km == kDefaultRadiusOptionsKm[i],
+              onTap: () => onChanged(
+                DiscoverRadiusSelection.distance(kDefaultRadiusOptionsKm[i]),
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(width: 8),
+        Expanded(
+          child: _AudienceRadiusMoreChip(
+            selected: isMoreSelected,
+            onTap: () => _showMoreAudienceRadiusSheet(
+              context,
+              country: country,
+              value: value,
+              onSelected: onChanged,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _AudienceRadiusChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _AudienceRadiusChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : ChatLightColors.composerFill,
+          borderRadius: BorderRadius.circular(AppRadii.button),
+          border: selected ? null : Border.all(color: Colors.black12),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: selected
+                  ? ChatLightColors.contourLine
+                  : ChatLightColors.ink,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Same pill envelope as [_AudienceRadiusChip], styled as a neutral
+/// trigger (highlighted only when the CURRENT selection lives inside
+/// the sheet it opens — 5/10/30km or country/world — same "is one of
+/// my hidden options active" convention as Discover's own more-button).
+class _AudienceRadiusMoreChip extends StatelessWidget {
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _AudienceRadiusMoreChip({required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final color = selected ? ChatLightColors.contourLine : ChatLightColors.ink;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : ChatLightColors.composerFill,
+          borderRadius: BorderRadius.circular(AppRadii.button),
+          border: selected ? null : Border.all(color: Colors.black12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Flexible(
+              child: Text(
+                loc.radiusMoreButtonLabel,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(Icons.keyboard_arrow_down_outlined, size: 16, color: color),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void _showMoreAudienceRadiusSheet(
+  BuildContext context, {
+  required String? country,
+  required DiscoverRadiusSelection value,
+  required ValueChanged<DiscoverRadiusSelection> onSelected,
+}) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.surface,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
+    builder: (_) => _MoreAudienceRadiusPanel(
+      country: country,
+      value: value,
+      onSelected: onSelected,
+    ),
+  );
+}
+
+class _MoreAudienceRadiusPanel extends StatelessWidget {
+  final String? country;
+  final DiscoverRadiusSelection value;
+  final ValueChanged<DiscoverRadiusSelection> onSelected;
+
+  const _MoreAudienceRadiusPanel({
+    required this.country,
+    required this.value,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final countryFlag = flagForCountryName(country);
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Text(
+              loc.radiusMorePanelTitle,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: ChatLightColors.ink,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                for (var i = 0; i < kExtraRadiusOptionsKm.length; i++) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: _AudienceRadiusChip(
+                      label: _audienceRadiusLabel(kExtraRadiusOptionsKm[i]),
+                      selected:
+                          value.mode == DiscoverRadiusMode.distance &&
+                          value.km == kExtraRadiusOptionsKm[i],
+                      onTap: () {
+                        onSelected(
+                          DiscoverRadiusSelection.distance(
+                            kExtraRadiusOptionsKm[i],
+                          ),
+                        );
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _SpecialAudienceRadiusOption(
+                    icon: countryFlag == null ? Icons.flag_outlined : null,
+                    flag: countryFlag,
+                    label: loc.privacyRadiusCountryLabel,
+                    selected: value.mode == DiscoverRadiusMode.country,
+                    onTap: () {
+                      onSelected(const DiscoverRadiusSelection.country());
+                      Navigator.pop(context);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _SpecialAudienceRadiusOption(
+                    icon: Icons.public_outlined,
+                    flag: null,
+                    label: loc.privacyRadiusWorldLabel,
+                    selected: value.mode == DiscoverRadiusMode.world,
+                    onTap: () {
+                      onSelected(const DiscoverRadiusSelection.world());
+                      Navigator.pop(context);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Same pill envelope as [_AudienceRadiusChip] — a flag/globe icon plus
+/// a short label instead of a distance value, backing the Ölkə üzrə/
+/// Dünya üzrə options.
+class _SpecialAudienceRadiusOption extends StatelessWidget {
+  final IconData? icon;
+  final String? flag;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SpecialAudienceRadiusOption({
+    required this.icon,
+    required this.flag,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? ChatLightColors.contourLine : ChatLightColors.ink;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary : ChatLightColors.composerFill,
+          borderRadius: BorderRadius.circular(AppRadii.button),
+          border: selected ? null : Border.all(color: Colors.black12),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (flag != null)
+              Text(flag!, style: const TextStyle(fontSize: 20))
+            else
+              Icon(icon, size: 20, color: color),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Only ever rendered when `_category` is in
+/// `kBirthdayEligibleVenueCategories` — see that constant's doc
+/// comment for why every other category doesn't get this at all yet.
+class _BirthdayNotificationsToggle extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _BirthdayNotificationsToggle({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadii.input)),
+      child: Row(
+        children: [
+          const Icon(Icons.cake_outlined, size: 20, color: ChatLightColors.inkSoft),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  loc.venueBirthdayNotificationsTitle,
+                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  loc.venueBirthdayNotificationsHint,
+                  style: const TextStyle(fontSize: 12, color: ChatLightColors.inkSoft),
+                ),
+              ],
+            ),
+          ),
+          Switch(value: value, onChanged: onChanged, activeThumbColor: AppColors.primary),
+        ],
+      ),
+    );
+  }
+}
+
 class _FieldLabel extends StatelessWidget {
   final String label;
 
@@ -412,7 +1000,14 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Text(label, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 14.5,
+          fontWeight: FontWeight.w600,
+          color: ChatLightColors.ink,
+        ),
+      ),
     );
   }
 }
@@ -435,8 +1030,15 @@ class _LightTextField extends StatelessWidget {
   final String hint;
   final String? errorText;
   final int? maxLength;
+  final TextInputType? keyboardType;
 
-  const _LightTextField({required this.controller, required this.hint, this.errorText, this.maxLength});
+  const _LightTextField({
+    required this.controller,
+    required this.hint,
+    this.errorText,
+    this.maxLength,
+    this.keyboardType,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -449,8 +1051,18 @@ class _LightTextField extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(AppRadii.input),
-            border: Border.all(color: hasError ? AppColors.error : ChatLightColors.inkFaint.withValues(alpha: 0.18)),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2))],
+            border: Border.all(
+              color: hasError
+                  ? AppColors.error
+                  : ChatLightColors.inkFaint.withValues(alpha: 0.18),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: Row(
@@ -459,11 +1071,20 @@ class _LightTextField extends StatelessWidget {
                 child: TextField(
                   controller: controller,
                   maxLength: maxLength,
-                  style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500, color: ChatLightColors.ink),
+                  keyboardType: keyboardType,
+                  style: const TextStyle(
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w500,
+                    color: ChatLightColors.ink,
+                  ),
                   cursorColor: AppColors.primary,
                   decoration: InputDecoration(
                     hintText: hint,
-                    hintStyle: TextStyle(color: ChatLightColors.inkFaint, fontWeight: FontWeight.w400, fontSize: 15.5),
+                    hintStyle: TextStyle(
+                      color: ChatLightColors.inkFaint,
+                      fontWeight: FontWeight.w400,
+                      fontSize: 15.5,
+                    ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
@@ -482,7 +1103,10 @@ class _LightTextField extends StatelessWidget {
                   valueListenable: controller,
                   builder: (context, value, _) => Text(
                     '${value.text.length}/$maxLength',
-                    style: TextStyle(fontSize: 12, color: ChatLightColors.inkSoft),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: ChatLightColors.inkSoft,
+                    ),
                   ),
                 ),
             ],
@@ -490,7 +1114,10 @@ class _LightTextField extends StatelessWidget {
         ),
         if (hasError) ...[
           const SizedBox(height: 6),
-          Text(errorText!, style: const TextStyle(fontSize: 12.5, color: AppColors.error)),
+          Text(
+            errorText!,
+            style: const TextStyle(fontSize: 12.5, color: AppColors.error),
+          ),
         ],
       ],
     );
@@ -502,7 +1129,11 @@ class _CategoryField extends StatelessWidget {
   final bool hasError;
   final VoidCallback onTap;
 
-  const _CategoryField({required this.category, required this.hasError, required this.onTap});
+  const _CategoryField({
+    required this.category,
+    required this.hasError,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -518,8 +1149,16 @@ class _CategoryField extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(AppRadii.card),
-              border: hasError ? Border.all(color: AppColors.error, width: 1.2) : null,
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 3))],
+              border: hasError
+                  ? Border.all(color: AppColors.error, width: 1.2)
+                  : null,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
             child: Row(
               children: [
@@ -531,7 +1170,9 @@ class _CategoryField extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    category != null ? venueCategoryIcon(category!) : Icons.category_outlined,
+                    category != null
+                        ? venueCategoryIcon(category!)
+                        : Icons.category_outlined,
                     size: 20,
                     color: AppColors.primary,
                   ),
@@ -542,25 +1183,41 @@ class _CategoryField extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        category != null ? venueCategoryLabel(loc, category!) : loc.venueCategoryUnselectedLabel,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+                        category != null
+                            ? venueCategoryLabel(loc, category!)
+                            : loc.venueCategoryUnselectedLabel,
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: ChatLightColors.ink,
+                        ),
                       ),
                       const SizedBox(height: 1),
                       Text(
                         loc.venueCategoryChangeHint,
-                        style: TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: ChatLightColors.inkSoft,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: ChatLightColors.inkFaint, size: 20),
+                Icon(
+                  Icons.chevron_right,
+                  color: ChatLightColors.inkFaint,
+                  size: 20,
+                ),
               ],
             ),
           ),
         ),
         if (hasError) ...[
           const SizedBox(height: 6),
-          Text(loc.venueFieldRequiredError, style: const TextStyle(fontSize: 12.5, color: AppColors.error)),
+          Text(
+            loc.venueFieldRequiredError,
+            style: const TextStyle(fontSize: 12.5, color: AppColors.error),
+          ),
         ],
       ],
     );
@@ -588,7 +1245,11 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
     final loc = AppLocalizations.of(context);
     final query = _query.trim().toLowerCase();
     final categories = VenueCategory.values
-        .where((c) => query.isEmpty || venueCategoryLabel(loc, c).toLowerCase().contains(query))
+        .where(
+          (c) =>
+              query.isEmpty ||
+              venueCategoryLabel(loc, c).toLowerCase().contains(query),
+        )
         .toList();
 
     return SafeArea(
@@ -612,14 +1273,20 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
             ),
             Text(
               loc.venueCategoryPickerTitle,
-              style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w700,
+                color: ChatLightColors.ink,
+              ),
             ),
             const SizedBox(height: 12),
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(AppRadii.input),
-                border: Border.all(color: ChatLightColors.inkFaint.withValues(alpha: 0.18)),
+                border: Border.all(
+                  color: ChatLightColors.inkFaint.withValues(alpha: 0.18),
+                ),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 14),
               child: Row(
@@ -630,10 +1297,16 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                     child: TextField(
                       autofocus: false,
                       onChanged: (v) => setState(() => _query = v),
-                      style: const TextStyle(fontSize: 14.5, color: ChatLightColors.ink),
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        color: ChatLightColors.ink,
+                      ),
                       decoration: InputDecoration(
                         hintText: loc.venueCategorySearchHint,
-                        hintStyle: TextStyle(color: ChatLightColors.inkFaint, fontSize: 14.5),
+                        hintStyle: TextStyle(
+                          color: ChatLightColors.inkFaint,
+                          fontSize: 14.5,
+                        ),
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
                         focusedBorder: InputBorder.none,
@@ -642,7 +1315,9 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                         disabledBorder: InputBorder.none,
                         isDense: true,
                         filled: false,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 11),
+                        contentPadding: const EdgeInsets.symmetric(
+                          vertical: 11,
+                        ),
                       ),
                     ),
                   ),
@@ -664,30 +1339,46 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
                       borderRadius: BorderRadius.circular(14),
                       onTap: () => Navigator.pop(context, category),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 11,
+                        ),
                         child: Row(
                           children: [
                             Container(
                               width: 36,
                               height: 36,
                               decoration: BoxDecoration(
-                                color: isSelected ? AppColors.primary.withValues(alpha: 0.14) : ChatLightColors.cardSurface,
+                                color: isSelected
+                                    ? AppColors.primary.withValues(alpha: 0.14)
+                                    : ChatLightColors.cardSurface,
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: Icon(
                                 venueCategoryIcon(category),
                                 size: 18,
-                                color: isSelected ? AppColors.primary : ChatLightColors.ink,
+                                color: isSelected
+                                    ? AppColors.primary
+                                    : ChatLightColors.ink,
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Text(
                                 venueCategoryLabel(loc, category),
-                                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: ChatLightColors.ink,
+                                ),
                               ),
                             ),
-                            if (isSelected) const Icon(Icons.check, size: 18, color: AppColors.primary),
+                            if (isSelected)
+                              const Icon(
+                                Icons.check,
+                                size: 18,
+                                color: AppColors.primary,
+                              ),
                           ],
                         ),
                       ),
@@ -709,7 +1400,12 @@ class _LocationPickerField extends StatelessWidget {
   final bool hasError;
   final VoidCallback onTap;
 
-  const _LocationPickerField({required this.address, required this.picked, required this.hasError, required this.onTap});
+  const _LocationPickerField({
+    required this.address,
+    required this.picked,
+    required this.hasError,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -722,8 +1418,16 @@ class _LocationPickerField extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(AppRadii.card),
-          border: hasError ? Border.all(color: AppColors.error, width: 1.2) : null,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 3))],
+          border: hasError
+              ? Border.all(color: AppColors.error, width: 1.2)
+              : null,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -731,7 +1435,9 @@ class _LocationPickerField extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: picked ? AppColors.primary.withValues(alpha: 0.14) : ChatLightColors.cardSurface,
+                color: picked
+                    ? AppColors.primary.withValues(alpha: 0.14)
+                    : ChatLightColors.cardSurface,
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -746,8 +1452,14 @@ class _LocationPickerField extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    picked ? loc.venueLocationPickedLabel : loc.venuePickOnMapButton,
-                    style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+                    picked
+                        ? loc.venueLocationPickedLabel
+                        : loc.venuePickOnMapButton,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w600,
+                      color: ChatLightColors.ink,
+                    ),
                   ),
                   if (picked && address.isNotEmpty) ...[
                     const SizedBox(height: 2),
@@ -755,13 +1467,20 @@ class _LocationPickerField extends StatelessWidget {
                       address,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: ChatLightColors.inkSoft,
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: ChatLightColors.inkFaint, size: 20),
+            Icon(
+              Icons.chevron_right,
+              color: ChatLightColors.inkFaint,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -790,7 +1509,13 @@ class _UploadProgressCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppRadii.card),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -800,12 +1525,20 @@ class _UploadProgressCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   loc.venueUploadingLabel,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ChatLightColors.ink,
+                  ),
                 ),
               ),
               Text(
                 '$percent%',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
               ),
             ],
           ),
@@ -827,7 +1560,9 @@ class _UploadProgressCard extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,
                 side: const BorderSide(color: AppColors.error),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.button)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.button),
+                ),
               ),
               child: Text(loc.venueUploadCancelButton),
             ),
@@ -869,14 +1604,19 @@ class _VenuePhotoPicker extends StatelessWidget {
           color: ChatLightColors.cardSurface,
           borderRadius: BorderRadius.circular(AppRadii.card),
           border: Border.all(
-            color: hasError ? AppColors.error : ChatLightColors.inkFaint.withValues(alpha: 0.35),
+            color: hasError
+                ? AppColors.error
+                : ChatLightColors.inkFaint.withValues(alpha: 0.35),
             width: hasError ? 1.2 : 1.4,
           ),
           image: file != null
               ? DecorationImage(image: FileImage(file!), fit: BoxFit.cover)
               : hasExisting
-                  ? DecorationImage(image: NetworkImage(existingUrl!), fit: BoxFit.cover)
-                  : null,
+              ? DecorationImage(
+                  image: NetworkImage(existingUrl!),
+                  fit: BoxFit.cover,
+                )
+              : null,
         ),
         child: !hasAnyPhoto ? _buildPlaceholder(loc) : _buildRemoveButton(),
       ),
@@ -890,11 +1630,25 @@ class _VenuePhotoPicker extends StatelessWidget {
         Container(
           width: 52,
           height: 52,
-          decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.14), shape: BoxShape.circle),
-          child: const Icon(Icons.add_photo_alternate_outlined, color: AppColors.primary, size: 26),
+          decoration: BoxDecoration(
+            color: AppColors.primary.withValues(alpha: 0.14),
+            shape: BoxShape.circle,
+          ),
+          child: const Icon(
+            Icons.add_photo_alternate_outlined,
+            color: AppColors.primary,
+            size: 26,
+          ),
         ),
         const SizedBox(height: AppSpacing.sm),
-        Text(loc.venuePhotoLabel, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+        Text(
+          loc.venuePhotoLabel,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            color: ChatLightColors.ink,
+          ),
+        ),
       ],
     );
   }
@@ -909,7 +1663,10 @@ class _VenuePhotoPicker extends StatelessWidget {
           onTap: onRemove,
           child: Container(
             padding: const EdgeInsets.all(5),
-            decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: Colors.black54,
+              shape: BoxShape.circle,
+            ),
             child: const Icon(Icons.close, color: Colors.white, size: 18),
           ),
         ),

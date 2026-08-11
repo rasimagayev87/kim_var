@@ -114,6 +114,17 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     );
   }
 
+  Future<void> sendTwilioOtp(String phoneNumber) {
+    return _repository.sendTwilioOtp(phoneNumber);
+  }
+
+  Future<void> verifyTwilioOtp({
+    required String phoneNumber,
+    required String code,
+  }) {
+    return _repository.verifyTwilioOtp(phoneNumber: phoneNumber, code: code);
+  }
+
   Future<void> startPhoneRecoveryVerification({
     required String phoneNumber,
     required void Function(String verificationId) onCodeSent,

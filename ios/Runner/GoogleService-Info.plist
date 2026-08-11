@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>148607007767-1h42ucuoj1j3u80aug6kqmaob5jljgc2.apps.googleusercontent.com</string>
+	<string>148607007767-dkrl4dagoo9isvpgtjg3rmguhd715nqa.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.148607007767-1h42ucuoj1j3u80aug6kqmaob5jljgc2</string>
+	<string>com.googleusercontent.apps.148607007767-dkrl4dagoo9isvpgtjg3rmguhd715nqa</string>
 	<key>ANDROID_CLIENT_ID</key>
 	<string>148607007767-cvm58kqgqn0dv1dako8et4b8d1v7u1g6.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.meevima.app</string>
+	<string>com.peakpin.app</string>
 	<key>PROJECT_ID</key>
 	<string>kim-var-73ce9</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:148607007767:ios:2dccb516e81c1e0de2f052</string>
+	<string>1:148607007767:ios:0c7970b1bc01b6a0e2f052</string>
 </dict>
 </plist>

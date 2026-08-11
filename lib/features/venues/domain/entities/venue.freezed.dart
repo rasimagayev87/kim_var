@@ -44,23 +44,80 @@ mixin _$Venue {
   @OpeningHoursConverter()
   OpeningHours get openingHours => throw _privateConstructorUsedError;
 
-  /// Defaults to 'active' — no moderation queue exists yet, so every
-  /// submitted venue is immediately visible. Kept as a string (not a
-  /// bool) specifically so a future 'pending'/'approved'/'rejected'
-  /// moderation flow is a value change here, not a schema migration.
+  /// 'pending' | 'approved' | 'needs_revision' | 'rejected'. New
+  /// venues start 'pending' and stay invisible to discovery until an
+  /// admin/moderator approves them — see firestore.rules, which
+  /// blocks the owner from writing this field directly; only the
+  /// admin panel's Server Actions (Admin SDK) may change it.
   String get status => throw _privateConstructorUsedError;
+
+  /// Set by the reviewing admin/moderator when [status] is
+  /// 'needs_revision' or 'rejected' — shown to the owner as the
+  /// reason. Null otherwise.
+  String? get reviewNote => throw _privateConstructorUsedError;
+
+  /// Admin/moderator uid who last set [status]. Null until reviewed.
+  String? get reviewedBy => throw _privateConstructorUsedError;
+
+  /// When [reviewedBy] last set [status]. Null until reviewed.
+  @NullableTimestampConverter()
+  DateTime? get reviewedAt => throw _privateConstructorUsedError;
 
   /// Reserved for a future admin-verification badge — nothing sets
   /// this true yet, so it never renders today.
   bool get verified => throw _privateConstructorUsedError;
 
-  /// Reserved for the favorites feature (`users/{uid}/favorites`) —
-  /// a denormalized counter nothing increments yet.
-  int get favoriteCount => throw _privateConstructorUsedError;
+  /// Denormalized count of `venues/{id}/likes` docs — written ONLY by
+  /// the `onVenueLikeCreated`/`onVenueLikeDeleted` Cloud Function
+  /// triggers (see functions/src/index.ts), never directly by the
+  /// client (firestore.rules blocks that) so it can't be gamed by a
+  /// raw Firestore write.
+  int get likeCount => throw _privateConstructorUsedError;
+
+  /// 0-5, one decimal — derived purely from [likeCount] by the same
+  /// triggers that maintain it (base 3.0 + 0.1 per 5 likes, capped at
+  /// 5.0). Never set directly by the client.
+  double get rating => throw _privateConstructorUsedError;
   @TimestampConverter()
   DateTime get createdAt => throw _privateConstructorUsedError;
   @NullableTimestampConverter()
   DateTime? get updatedAt => throw _privateConstructorUsedError;
+
+  /// Owner-provided WhatsApp/Instagram/TikTok — null (not an empty
+  /// object) when the owner filled in none of the three, so
+  /// `VenueProfileScreen` can tell "no social links at all" apart
+  /// from "links exist but this specific one is unset" with one check.
+  @VenueSocialLinksConverter()
+  VenueSocialLinks? get socialLinks => throw _privateConstructorUsedError;
+
+  /// 'distance' | 'country' | 'world' — same 3 modes as Discover's own
+  /// `DiscoverRadiusSelection`, just persisted here since the owner
+  /// picks one and it stays fixed, where Discover's version is
+  /// transient per-viewer session state, never saved.
+  String get audienceRadiusMode => throw _privateConstructorUsedError;
+
+  /// Only meaningful when [audienceRadiusMode] is 'distance' — radius
+  /// (km) the owner-only "live audience" counter on
+  /// [VenueProfileScreen] scans around [lat]/[lng] for recently-active
+  /// `users` docs — see `location_providers.dart`'s
+  /// `venueAudienceCountProvider`. Owner-editable from the create/edit
+  /// form (same option set as Discover's own radius picker); defaults
+  /// to 1km since venues have no other stored radius to default from.
+  double get audienceRadiusKm => throw _privateConstructorUsedError;
+
+  /// Set only by a future paid-upgrade flow (never by the owner's own
+  /// create/edit form — no client write path exists for this yet).
+  /// Premium venues sort first within their radius in
+  /// [nearbyVenuesProvider] and get a crown badge next to their name.
+  bool get isPremium => throw _privateConstructorUsedError;
+
+  /// Whether `computeBirthdayMatches` (the daily birthday-offer
+  /// matching Cloud Function) considers this venue at all — defaults
+  /// to `category`'s membership in [kBirthdayEligibleVenueCategories]
+  /// at creation time, owner-editable afterward from the create/edit
+  /// form ONLY for categories in that set (every other category
+  /// never shows the toggle, so this just stays `false` for them).
+  bool get birthdayNotificationsEnabled => throw _privateConstructorUsedError;
 
   /// Serializes this Venue to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -89,10 +146,19 @@ abstract class $VenueCopyWith<$Res> {
     String? country,
     @OpeningHoursConverter() OpeningHours openingHours,
     String status,
+    String? reviewNote,
+    String? reviewedBy,
+    @NullableTimestampConverter() DateTime? reviewedAt,
     bool verified,
-    int favoriteCount,
+    int likeCount,
+    double rating,
     @TimestampConverter() DateTime createdAt,
     @NullableTimestampConverter() DateTime? updatedAt,
+    @VenueSocialLinksConverter() VenueSocialLinks? socialLinks,
+    String audienceRadiusMode,
+    double audienceRadiusKm,
+    bool isPremium,
+    bool birthdayNotificationsEnabled,
   });
 }
 
@@ -123,10 +189,19 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? country = freezed,
     Object? openingHours = null,
     Object? status = null,
+    Object? reviewNote = freezed,
+    Object? reviewedBy = freezed,
+    Object? reviewedAt = freezed,
     Object? verified = null,
-    Object? favoriteCount = null,
+    Object? likeCount = null,
+    Object? rating = null,
     Object? createdAt = null,
     Object? updatedAt = freezed,
+    Object? socialLinks = freezed,
+    Object? audienceRadiusMode = null,
+    Object? audienceRadiusKm = null,
+    Object? isPremium = null,
+    Object? birthdayNotificationsEnabled = null,
   }) {
     return _then(
       _value.copyWith(
@@ -178,14 +253,30 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
                 ? _value.status
                 : status // ignore: cast_nullable_to_non_nullable
                       as String,
+            reviewNote: freezed == reviewNote
+                ? _value.reviewNote
+                : reviewNote // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            reviewedBy: freezed == reviewedBy
+                ? _value.reviewedBy
+                : reviewedBy // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            reviewedAt: freezed == reviewedAt
+                ? _value.reviewedAt
+                : reviewedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
             verified: null == verified
                 ? _value.verified
                 : verified // ignore: cast_nullable_to_non_nullable
                       as bool,
-            favoriteCount: null == favoriteCount
-                ? _value.favoriteCount
-                : favoriteCount // ignore: cast_nullable_to_non_nullable
+            likeCount: null == likeCount
+                ? _value.likeCount
+                : likeCount // ignore: cast_nullable_to_non_nullable
                       as int,
+            rating: null == rating
+                ? _value.rating
+                : rating // ignore: cast_nullable_to_non_nullable
+                      as double,
             createdAt: null == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -194,6 +285,26 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
                 ? _value.updatedAt
                 : updatedAt // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            socialLinks: freezed == socialLinks
+                ? _value.socialLinks
+                : socialLinks // ignore: cast_nullable_to_non_nullable
+                      as VenueSocialLinks?,
+            audienceRadiusMode: null == audienceRadiusMode
+                ? _value.audienceRadiusMode
+                : audienceRadiusMode // ignore: cast_nullable_to_non_nullable
+                      as String,
+            audienceRadiusKm: null == audienceRadiusKm
+                ? _value.audienceRadiusKm
+                : audienceRadiusKm // ignore: cast_nullable_to_non_nullable
+                      as double,
+            isPremium: null == isPremium
+                ? _value.isPremium
+                : isPremium // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            birthdayNotificationsEnabled: null == birthdayNotificationsEnabled
+                ? _value.birthdayNotificationsEnabled
+                : birthdayNotificationsEnabled // ignore: cast_nullable_to_non_nullable
+                      as bool,
           )
           as $Val,
     );
@@ -221,10 +332,19 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     String? country,
     @OpeningHoursConverter() OpeningHours openingHours,
     String status,
+    String? reviewNote,
+    String? reviewedBy,
+    @NullableTimestampConverter() DateTime? reviewedAt,
     bool verified,
-    int favoriteCount,
+    int likeCount,
+    double rating,
     @TimestampConverter() DateTime createdAt,
     @NullableTimestampConverter() DateTime? updatedAt,
+    @VenueSocialLinksConverter() VenueSocialLinks? socialLinks,
+    String audienceRadiusMode,
+    double audienceRadiusKm,
+    bool isPremium,
+    bool birthdayNotificationsEnabled,
   });
 }
 
@@ -254,10 +374,19 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? country = freezed,
     Object? openingHours = null,
     Object? status = null,
+    Object? reviewNote = freezed,
+    Object? reviewedBy = freezed,
+    Object? reviewedAt = freezed,
     Object? verified = null,
-    Object? favoriteCount = null,
+    Object? likeCount = null,
+    Object? rating = null,
     Object? createdAt = null,
     Object? updatedAt = freezed,
+    Object? socialLinks = freezed,
+    Object? audienceRadiusMode = null,
+    Object? audienceRadiusKm = null,
+    Object? isPremium = null,
+    Object? birthdayNotificationsEnabled = null,
   }) {
     return _then(
       _$VenueImpl(
@@ -309,14 +438,30 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.status
             : status // ignore: cast_nullable_to_non_nullable
                   as String,
+        reviewNote: freezed == reviewNote
+            ? _value.reviewNote
+            : reviewNote // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        reviewedBy: freezed == reviewedBy
+            ? _value.reviewedBy
+            : reviewedBy // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        reviewedAt: freezed == reviewedAt
+            ? _value.reviewedAt
+            : reviewedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
         verified: null == verified
             ? _value.verified
             : verified // ignore: cast_nullable_to_non_nullable
                   as bool,
-        favoriteCount: null == favoriteCount
-            ? _value.favoriteCount
-            : favoriteCount // ignore: cast_nullable_to_non_nullable
+        likeCount: null == likeCount
+            ? _value.likeCount
+            : likeCount // ignore: cast_nullable_to_non_nullable
                   as int,
+        rating: null == rating
+            ? _value.rating
+            : rating // ignore: cast_nullable_to_non_nullable
+                  as double,
         createdAt: null == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -325,6 +470,26 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.updatedAt
             : updatedAt // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        socialLinks: freezed == socialLinks
+            ? _value.socialLinks
+            : socialLinks // ignore: cast_nullable_to_non_nullable
+                  as VenueSocialLinks?,
+        audienceRadiusMode: null == audienceRadiusMode
+            ? _value.audienceRadiusMode
+            : audienceRadiusMode // ignore: cast_nullable_to_non_nullable
+                  as String,
+        audienceRadiusKm: null == audienceRadiusKm
+            ? _value.audienceRadiusKm
+            : audienceRadiusKm // ignore: cast_nullable_to_non_nullable
+                  as double,
+        isPremium: null == isPremium
+            ? _value.isPremium
+            : isPremium // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        birthdayNotificationsEnabled: null == birthdayNotificationsEnabled
+            ? _value.birthdayNotificationsEnabled
+            : birthdayNotificationsEnabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
       ),
     );
   }
@@ -345,11 +510,20 @@ class _$VenueImpl extends _Venue {
     required this.address,
     this.country,
     @OpeningHoursConverter() required this.openingHours,
-    this.status = 'active',
+    this.status = 'pending',
+    this.reviewNote,
+    this.reviewedBy,
+    @NullableTimestampConverter() this.reviewedAt,
     this.verified = false,
-    this.favoriteCount = 0,
+    this.likeCount = 0,
+    this.rating = 3.0,
     @TimestampConverter() required this.createdAt,
     @NullableTimestampConverter() this.updatedAt,
+    @VenueSocialLinksConverter() this.socialLinks,
+    this.audienceRadiusMode = 'distance',
+    this.audienceRadiusKm = 1.0,
+    this.isPremium = false,
+    this.birthdayNotificationsEnabled = false,
   }) : _gallery = gallery,
        super._();
 
@@ -401,13 +575,29 @@ class _$VenueImpl extends _Venue {
   @OpeningHoursConverter()
   final OpeningHours openingHours;
 
-  /// Defaults to 'active' — no moderation queue exists yet, so every
-  /// submitted venue is immediately visible. Kept as a string (not a
-  /// bool) specifically so a future 'pending'/'approved'/'rejected'
-  /// moderation flow is a value change here, not a schema migration.
+  /// 'pending' | 'approved' | 'needs_revision' | 'rejected'. New
+  /// venues start 'pending' and stay invisible to discovery until an
+  /// admin/moderator approves them — see firestore.rules, which
+  /// blocks the owner from writing this field directly; only the
+  /// admin panel's Server Actions (Admin SDK) may change it.
   @override
   @JsonKey()
   final String status;
+
+  /// Set by the reviewing admin/moderator when [status] is
+  /// 'needs_revision' or 'rejected' — shown to the owner as the
+  /// reason. Null otherwise.
+  @override
+  final String? reviewNote;
+
+  /// Admin/moderator uid who last set [status]. Null until reviewed.
+  @override
+  final String? reviewedBy;
+
+  /// When [reviewedBy] last set [status]. Null until reviewed.
+  @override
+  @NullableTimestampConverter()
+  final DateTime? reviewedAt;
 
   /// Reserved for a future admin-verification badge — nothing sets
   /// this true yet, so it never renders today.
@@ -415,11 +605,21 @@ class _$VenueImpl extends _Venue {
   @JsonKey()
   final bool verified;
 
-  /// Reserved for the favorites feature (`users/{uid}/favorites`) —
-  /// a denormalized counter nothing increments yet.
+  /// Denormalized count of `venues/{id}/likes` docs — written ONLY by
+  /// the `onVenueLikeCreated`/`onVenueLikeDeleted` Cloud Function
+  /// triggers (see functions/src/index.ts), never directly by the
+  /// client (firestore.rules blocks that) so it can't be gamed by a
+  /// raw Firestore write.
   @override
   @JsonKey()
-  final int favoriteCount;
+  final int likeCount;
+
+  /// 0-5, one decimal — derived purely from [likeCount] by the same
+  /// triggers that maintain it (base 3.0 + 0.1 per 5 likes, capped at
+  /// 5.0). Never set directly by the client.
+  @override
+  @JsonKey()
+  final double rating;
   @override
   @TimestampConverter()
   final DateTime createdAt;
@@ -427,9 +627,54 @@ class _$VenueImpl extends _Venue {
   @NullableTimestampConverter()
   final DateTime? updatedAt;
 
+  /// Owner-provided WhatsApp/Instagram/TikTok — null (not an empty
+  /// object) when the owner filled in none of the three, so
+  /// `VenueProfileScreen` can tell "no social links at all" apart
+  /// from "links exist but this specific one is unset" with one check.
+  @override
+  @VenueSocialLinksConverter()
+  final VenueSocialLinks? socialLinks;
+
+  /// 'distance' | 'country' | 'world' — same 3 modes as Discover's own
+  /// `DiscoverRadiusSelection`, just persisted here since the owner
+  /// picks one and it stays fixed, where Discover's version is
+  /// transient per-viewer session state, never saved.
+  @override
+  @JsonKey()
+  final String audienceRadiusMode;
+
+  /// Only meaningful when [audienceRadiusMode] is 'distance' — radius
+  /// (km) the owner-only "live audience" counter on
+  /// [VenueProfileScreen] scans around [lat]/[lng] for recently-active
+  /// `users` docs — see `location_providers.dart`'s
+  /// `venueAudienceCountProvider`. Owner-editable from the create/edit
+  /// form (same option set as Discover's own radius picker); defaults
+  /// to 1km since venues have no other stored radius to default from.
+  @override
+  @JsonKey()
+  final double audienceRadiusKm;
+
+  /// Set only by a future paid-upgrade flow (never by the owner's own
+  /// create/edit form — no client write path exists for this yet).
+  /// Premium venues sort first within their radius in
+  /// [nearbyVenuesProvider] and get a crown badge next to their name.
+  @override
+  @JsonKey()
+  final bool isPremium;
+
+  /// Whether `computeBirthdayMatches` (the daily birthday-offer
+  /// matching Cloud Function) considers this venue at all — defaults
+  /// to `category`'s membership in [kBirthdayEligibleVenueCategories]
+  /// at creation time, owner-editable afterward from the create/edit
+  /// form ONLY for categories in that set (every other category
+  /// never shows the toggle, so this just stays `false` for them).
+  @override
+  @JsonKey()
+  final bool birthdayNotificationsEnabled;
+
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, verified: $verified, favoriteCount: $favoriteCount, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, birthdayNotificationsEnabled: $birthdayNotificationsEnabled)';
   }
 
   @override
@@ -452,19 +697,40 @@ class _$VenueImpl extends _Venue {
             (identical(other.openingHours, openingHours) ||
                 other.openingHours == openingHours) &&
             (identical(other.status, status) || other.status == status) &&
+            (identical(other.reviewNote, reviewNote) ||
+                other.reviewNote == reviewNote) &&
+            (identical(other.reviewedBy, reviewedBy) ||
+                other.reviewedBy == reviewedBy) &&
+            (identical(other.reviewedAt, reviewedAt) ||
+                other.reviewedAt == reviewedAt) &&
             (identical(other.verified, verified) ||
                 other.verified == verified) &&
-            (identical(other.favoriteCount, favoriteCount) ||
-                other.favoriteCount == favoriteCount) &&
+            (identical(other.likeCount, likeCount) ||
+                other.likeCount == likeCount) &&
+            (identical(other.rating, rating) || other.rating == rating) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
-                other.updatedAt == updatedAt));
+                other.updatedAt == updatedAt) &&
+            (identical(other.socialLinks, socialLinks) ||
+                other.socialLinks == socialLinks) &&
+            (identical(other.audienceRadiusMode, audienceRadiusMode) ||
+                other.audienceRadiusMode == audienceRadiusMode) &&
+            (identical(other.audienceRadiusKm, audienceRadiusKm) ||
+                other.audienceRadiusKm == audienceRadiusKm) &&
+            (identical(other.isPremium, isPremium) ||
+                other.isPremium == isPremium) &&
+            (identical(
+                  other.birthdayNotificationsEnabled,
+                  birthdayNotificationsEnabled,
+                ) ||
+                other.birthdayNotificationsEnabled ==
+                    birthdayNotificationsEnabled));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     runtimeType,
     id,
     ownerId,
@@ -478,11 +744,20 @@ class _$VenueImpl extends _Venue {
     country,
     openingHours,
     status,
+    reviewNote,
+    reviewedBy,
+    reviewedAt,
     verified,
-    favoriteCount,
+    likeCount,
+    rating,
     createdAt,
     updatedAt,
-  );
+    socialLinks,
+    audienceRadiusMode,
+    audienceRadiusKm,
+    isPremium,
+    birthdayNotificationsEnabled,
+  ]);
 
   /// Create a copy of Venue
   /// with the given fields replaced by the non-null parameter values.
@@ -512,10 +787,19 @@ abstract class _Venue extends Venue {
     final String? country,
     @OpeningHoursConverter() required final OpeningHours openingHours,
     final String status,
+    final String? reviewNote,
+    final String? reviewedBy,
+    @NullableTimestampConverter() final DateTime? reviewedAt,
     final bool verified,
-    final int favoriteCount,
+    final int likeCount,
+    final double rating,
     @TimestampConverter() required final DateTime createdAt,
     @NullableTimestampConverter() final DateTime? updatedAt,
+    @VenueSocialLinksConverter() final VenueSocialLinks? socialLinks,
+    final String audienceRadiusMode,
+    final double audienceRadiusKm,
+    final bool isPremium,
+    final bool birthdayNotificationsEnabled,
   }) = _$VenueImpl;
   const _Venue._() : super._();
 
@@ -555,28 +839,94 @@ abstract class _Venue extends Venue {
   @OpeningHoursConverter()
   OpeningHours get openingHours;
 
-  /// Defaults to 'active' — no moderation queue exists yet, so every
-  /// submitted venue is immediately visible. Kept as a string (not a
-  /// bool) specifically so a future 'pending'/'approved'/'rejected'
-  /// moderation flow is a value change here, not a schema migration.
+  /// 'pending' | 'approved' | 'needs_revision' | 'rejected'. New
+  /// venues start 'pending' and stay invisible to discovery until an
+  /// admin/moderator approves them — see firestore.rules, which
+  /// blocks the owner from writing this field directly; only the
+  /// admin panel's Server Actions (Admin SDK) may change it.
   @override
   String get status;
+
+  /// Set by the reviewing admin/moderator when [status] is
+  /// 'needs_revision' or 'rejected' — shown to the owner as the
+  /// reason. Null otherwise.
+  @override
+  String? get reviewNote;
+
+  /// Admin/moderator uid who last set [status]. Null until reviewed.
+  @override
+  String? get reviewedBy;
+
+  /// When [reviewedBy] last set [status]. Null until reviewed.
+  @override
+  @NullableTimestampConverter()
+  DateTime? get reviewedAt;
 
   /// Reserved for a future admin-verification badge — nothing sets
   /// this true yet, so it never renders today.
   @override
   bool get verified;
 
-  /// Reserved for the favorites feature (`users/{uid}/favorites`) —
-  /// a denormalized counter nothing increments yet.
+  /// Denormalized count of `venues/{id}/likes` docs — written ONLY by
+  /// the `onVenueLikeCreated`/`onVenueLikeDeleted` Cloud Function
+  /// triggers (see functions/src/index.ts), never directly by the
+  /// client (firestore.rules blocks that) so it can't be gamed by a
+  /// raw Firestore write.
   @override
-  int get favoriteCount;
+  int get likeCount;
+
+  /// 0-5, one decimal — derived purely from [likeCount] by the same
+  /// triggers that maintain it (base 3.0 + 0.1 per 5 likes, capped at
+  /// 5.0). Never set directly by the client.
+  @override
+  double get rating;
   @override
   @TimestampConverter()
   DateTime get createdAt;
   @override
   @NullableTimestampConverter()
   DateTime? get updatedAt;
+
+  /// Owner-provided WhatsApp/Instagram/TikTok — null (not an empty
+  /// object) when the owner filled in none of the three, so
+  /// `VenueProfileScreen` can tell "no social links at all" apart
+  /// from "links exist but this specific one is unset" with one check.
+  @override
+  @VenueSocialLinksConverter()
+  VenueSocialLinks? get socialLinks;
+
+  /// 'distance' | 'country' | 'world' — same 3 modes as Discover's own
+  /// `DiscoverRadiusSelection`, just persisted here since the owner
+  /// picks one and it stays fixed, where Discover's version is
+  /// transient per-viewer session state, never saved.
+  @override
+  String get audienceRadiusMode;
+
+  /// Only meaningful when [audienceRadiusMode] is 'distance' — radius
+  /// (km) the owner-only "live audience" counter on
+  /// [VenueProfileScreen] scans around [lat]/[lng] for recently-active
+  /// `users` docs — see `location_providers.dart`'s
+  /// `venueAudienceCountProvider`. Owner-editable from the create/edit
+  /// form (same option set as Discover's own radius picker); defaults
+  /// to 1km since venues have no other stored radius to default from.
+  @override
+  double get audienceRadiusKm;
+
+  /// Set only by a future paid-upgrade flow (never by the owner's own
+  /// create/edit form — no client write path exists for this yet).
+  /// Premium venues sort first within their radius in
+  /// [nearbyVenuesProvider] and get a crown badge next to their name.
+  @override
+  bool get isPremium;
+
+  /// Whether `computeBirthdayMatches` (the daily birthday-offer
+  /// matching Cloud Function) considers this venue at all — defaults
+  /// to `category`'s membership in [kBirthdayEligibleVenueCategories]
+  /// at creation time, owner-editable afterward from the create/edit
+  /// form ONLY for categories in that set (every other category
+  /// never shows the toggle, so this just stays `false` for them).
+  @override
+  bool get birthdayNotificationsEnabled;
 
   /// Create a copy of Venue
   /// with the given fields replaced by the non-null parameter values.

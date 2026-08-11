@@ -1,6 +1,6 @@
 {
-    "name": "kim_var",
-    "short_name": "kim_var",
+    "name": "peakpin",
+    "short_name": "peakpin",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

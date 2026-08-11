@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
 import '../../domain/entities/call_session.dart';
@@ -94,7 +95,7 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen> {
                     ),
                     _ResponseButton(
                       icon: Icons.call_rounded,
-                      color: Colors.green,
+                      color: AppColors.cyanDark,
                       label: loc.callActionAccept,
                       onTap: _accept,
                     ),

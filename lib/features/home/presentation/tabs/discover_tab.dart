@@ -8,9 +8,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/distance_formatter.dart';
 import '../../../../core/utils/distance_unit.dart';
-import '../../../../core/widgets/coming_soon_screen.dart';
 import '../../../../core/widgets/premium_upsell_sheet.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../widgets/avatar_pin_marker.dart';
 import '../../../auth/presentation/widgets/country_dial_code.dart';
 import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/screens/chat_conversation_screen.dart';
@@ -34,6 +34,7 @@ import '../../../venues/presentation/screens/create_venue_screen.dart';
 import '../../../venues/presentation/screens/my_venues_screen.dart';
 import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../../../venues/presentation/widgets/venue_filter_sheet.dart';
+import '../../../venues/presentation/widgets/venue_star_rating.dart';
 
 enum _DiscoverView { map, places, offers }
 
@@ -47,6 +48,38 @@ class DiscoverTab extends ConsumerStatefulWidget {
 class _DiscoverTabState extends ConsumerState<DiscoverTab> {
   GoogleMapController? _mapController;
   _DiscoverView _view = _DiscoverView.map;
+
+  // Keyed by 'userId|photoUrl' so a changed photo invalidates its own
+  // entry rather than showing a stale avatar. Never evicted — bounded
+  // by how many distinct nearby users this session ever sees, which is
+  // small enough that holding onto them for the widget's lifetime is
+  // cheaper than re-rendering the same bitmap on every rebuild.
+  final Map<String, BitmapDescriptor> _avatarMarkerCache = {};
+  final Set<String> _avatarMarkerPending = {};
+
+  BitmapDescriptor? _avatarMarkerFor(NearbyUser user) => _avatarMarker(user.id, user.photoUrl);
+
+  /// Shared by both the "me" marker and every nearby-user marker — [id]
+  /// just needs to be stable per person (their uid works for both).
+  BitmapDescriptor? _avatarMarker(String id, String? photoUrl) {
+    if (photoUrl == null || photoUrl.isEmpty) return null;
+
+    final cacheKey = '$id|$photoUrl';
+    final cached = _avatarMarkerCache[cacheKey];
+    if (cached != null) return cached;
+
+    if (_avatarMarkerPending.add(cacheKey)) {
+      AvatarPinMarker.build(photoUrl: photoUrl).then((marker) {
+        if (!mounted) return;
+        setState(() => _avatarMarkerCache[cacheKey] = marker);
+      }).catchError((_) {
+        // Network hiccup/unreadable image — falls back to the default
+        // pin below for this build; the next rebuild retries since the
+        // key never got cached (only removed from pending).
+      }).whenComplete(() => _avatarMarkerPending.remove(cacheKey));
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -213,18 +246,24 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
     final center = LatLng(position.latitude, position.longitude);
     final selection = ref.watch(selectedDiscoverModeProvider);
     final mapLocationSettings = ref.watch(mapLocationSettingsProvider).valueOrNull ?? const MapLocationSettings();
+    final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
+    final myPhotoUrl = ref.watch(profileControllerProvider).photoUrl;
 
     final markers = <Marker>{
       Marker(
         markerId: const MarkerId('me'),
         position: center,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        icon: (myUid == null ? null : _avatarMarker(myUid, myPhotoUrl)) ??
+            BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        anchor: const Offset(0.5, 1),
         infoWindow: InfoWindow(title: loc.meMarkerLabel),
       ),
       for (final u in nearbyUsers)
         Marker(
           markerId: MarkerId(u.id),
           position: LatLng(u.lat, u.lng),
+          icon: _avatarMarkerFor(u) ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          anchor: const Offset(0.5, 1),
           onTap: () => _showUserCard(context, position, u),
         ),
     };
@@ -1290,68 +1329,10 @@ class _VenueCard extends ConsumerWidget {
 
   const _VenueCard({required this.item, required this.loc, required this.distanceUnit});
 
-  Future<void> _openBoostMenu(BuildContext context) async {
-    // Boost is its own paid feature (per-duration pricing), unrelated to
-    // the VIP/Premium subscription — deliberately NOT showing
-    // showPremiumUpsellSheet here, which is branded for that other
-    // product and would misrepresent this one.
-    final hours = await showModalBottomSheet<int>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (sheetContext) {
-        final sheetLoc = AppLocalizations.of(sheetContext);
-        Widget tier(int h, String label) => ListTile(
-              leading: const Icon(Icons.trending_up_rounded, color: ChatLightColors.ink),
-              title: Text(label, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
-              subtitle: Text(sheetLoc.venueBoostPriceTba, style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkFaint)),
-              onTap: () => Navigator.pop(sheetContext, h),
-            );
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    sheetLoc.venueBoostMenuItem,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              tier(6, sheetLoc.venueBoost6h),
-              tier(12, sheetLoc.venueBoost12h),
-              tier(24, sheetLoc.venueBoost24h),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
-    );
-
-    if (hours == null || !context.mounted) return;
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ComingSoonScreen(
-          title: loc.venueBoostUpsellTitle,
-          icon: Icons.trending_up_rounded,
-          message: loc.venueBoostUpsellMessage,
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final venue = item.venue;
-    // .select scopes the rebuild to just this card's membership bit, so
-    // favoriting one venue doesn't rebuild every other card in the list.
-    final isFavorite = ref.watch(favoriteVenueIdsProvider.select((async) => async.valueOrNull?.contains(venue.id) ?? false));
+    final isLiked = ref.watch(isVenueLikedByMeProvider(venue.id)).valueOrNull ?? false;
     final currentUid = fb.FirebaseAuth.instance.currentUser?.uid;
     final isOwner = currentUid != null && venue.isOwnedBy(currentUid);
 
@@ -1435,6 +1416,10 @@ class _VenueCard extends ConsumerWidget {
                             const SizedBox(width: 4),
                             const Icon(Icons.verified, size: 15, color: AppColors.primary),
                           ],
+                          if (venue.isPremium) ...[
+                            const SizedBox(width: 4),
+                            const Icon(Icons.workspace_premium_rounded, size: 15, color: AppColors.gold),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 4),
@@ -1449,6 +1434,11 @@ class _VenueCard extends ConsumerWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
+                          ),
+                          VenueRatingBadge(
+                            rating: venue.rating,
+                            starSize: 11,
+                            textStyle: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: ChatLightColors.inkSoft),
                           ),
                         ],
                       ),
@@ -1492,9 +1482,14 @@ class _VenueCard extends ConsumerWidget {
             top: 0,
             right: 0,
             child: GestureDetector(
+              // A venue's prominence among OTHER people's votes is
+              // governed entirely by user likes — but the owner can't
+              // like their own venue (that would be self-inflation, the
+              // same reason they can't check in at their own venue), so
+              // the owner gets a premium-upsell menu here instead.
               onTap: isOwner
-                  ? () => _openBoostMenu(context)
-                  : () => ref.read(venueControllerProvider).toggleFavorite(venue.id, isCurrentlyFavorite: isFavorite),
+                  ? () => _openVenuePremiumMenu(context)
+                  : () => ref.read(venueControllerProvider).toggleLike(venue.id, isCurrentlyLiked: isLiked),
               child: Container(
                 width: 30,
                 height: 30,
@@ -1505,11 +1500,16 @@ class _VenueCard extends ConsumerWidget {
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
                 ),
                 child: isOwner
-                    ? const Icon(Icons.more_vert_outlined, size: 17, color: ChatLightColors.inkSoft)
-                    : Icon(
-                        isFavorite ? Icons.favorite : Icons.favorite_border,
-                        size: 15,
-                        color: isFavorite ? AppColors.primary : ChatLightColors.inkSoft,
+                    ? const Icon(Icons.more_vert_rounded, size: 17, color: ChatLightColors.inkSoft)
+                    : AnimatedScale(
+                        scale: isLiked ? 1.15 : 1.0,
+                        duration: const Duration(milliseconds: 180),
+                        curve: Curves.easeOutBack,
+                        child: Icon(
+                          isLiked ? Icons.favorite : Icons.favorite_border,
+                          size: 15,
+                          color: isLiked ? AppColors.primary : ChatLightColors.inkSoft,
+                        ),
                       ),
               ),
             ),
@@ -1518,6 +1518,15 @@ class _VenueCard extends ConsumerWidget {
       ),
         ),
       ),
+    );
+  }
+
+  void _openVenuePremiumMenu(BuildContext context) {
+    final sheetLoc = AppLocalizations.of(context);
+    showPremiumUpsellSheet(
+      context,
+      title: sheetLoc.venuePremiumMenuItem,
+      message: sheetLoc.venuePremiumUpsellMessage,
     );
   }
 

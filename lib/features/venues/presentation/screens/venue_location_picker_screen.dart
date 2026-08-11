@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../../core/data/countries_cities.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
@@ -23,10 +24,12 @@ class VenueLocationPickerScreen extends ConsumerStatefulWidget {
   const VenueLocationPickerScreen({super.key, this.initialPosition});
 
   @override
-  ConsumerState<VenueLocationPickerScreen> createState() => _VenueLocationPickerScreenState();
+  ConsumerState<VenueLocationPickerScreen> createState() =>
+      _VenueLocationPickerScreenState();
 }
 
-class _VenueLocationPickerScreenState extends ConsumerState<VenueLocationPickerScreen> {
+class _VenueLocationPickerScreenState
+    extends ConsumerState<VenueLocationPickerScreen> {
   GoogleMapController? _mapController;
   LatLng? _picked;
   String? _address;
@@ -50,10 +53,22 @@ class _VenueLocationPickerScreenState extends ConsumerState<VenueLocationPickerS
     setState(() => _resolvingAddress = true);
 
     try {
-      final placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
+      final placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
       if (!mounted || requestId != _geocodeRequestId) return;
-      final address = placemarks.isEmpty ? null : _formatPlacemark(placemarks.first);
-      final country = placemarks.isEmpty ? null : placemarks.first.country;
+      final address = placemarks.isEmpty
+          ? null
+          : _formatPlacemark(placemarks.first);
+      // The device geocoder returns whatever spelling it feels like
+      // (e.g. "Azerbaycan" without the "ə") — normalized onto
+      // `kCountryNames`' exact spelling so this string-equals
+      // `UserProfile.country` (picked from that same list) for
+      // country-scoped queries like `_countryCandidatesProvider`.
+      final country = canonicalCountryName(
+        placemarks.isEmpty ? null : placemarks.first.country,
+      );
       setState(() {
         _address = address;
         _country = (country?.isNotEmpty ?? false) ? country : null;
@@ -70,11 +85,18 @@ class _VenueLocationPickerScreenState extends ConsumerState<VenueLocationPickerS
   }
 
   String _formatPlacemark(Placemark p) {
-    final street = (p.thoroughfare?.isNotEmpty ?? false) ? p.thoroughfare! : (p.street ?? '');
+    final street = (p.thoroughfare?.isNotEmpty ?? false)
+        ? p.thoroughfare!
+        : (p.street ?? '');
     final houseNumber = p.subThoroughfare ?? '';
-    final area = (p.subLocality?.isNotEmpty ?? false) ? p.subLocality! : (p.locality ?? '');
+    final area = (p.subLocality?.isNotEmpty ?? false)
+        ? p.subLocality!
+        : (p.locality ?? '');
 
-    final streetLine = [street, houseNumber].where((s) => s.isNotEmpty).join(' ');
+    final streetLine = [
+      street,
+      houseNumber,
+    ].where((s) => s.isNotEmpty).join(' ');
     final parts = [streetLine, area].where((s) => s.isNotEmpty).toList();
     return parts.isEmpty ? '' : parts.join(', ');
   }
@@ -88,9 +110,14 @@ class _VenueLocationPickerScreenState extends ConsumerState<VenueLocationPickerS
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final myPosition = ref.watch(locationControllerProvider).valueOrNull;
-    final mapLocationSettings = ref.watch(mapLocationSettingsProvider).valueOrNull ?? const MapLocationSettings();
-    final center = widget.initialPosition ??
-        (myPosition != null ? LatLng(myPosition.latitude, myPosition.longitude) : const LatLng(40.4093, 49.8671));
+    final mapLocationSettings =
+        ref.watch(mapLocationSettingsProvider).valueOrNull ??
+        const MapLocationSettings();
+    final center =
+        widget.initialPosition ??
+        (myPosition != null
+            ? LatLng(myPosition.latitude, myPosition.longitude)
+            : const LatLng(40.4093, 49.8671));
 
     _picked ??= center;
 
@@ -102,7 +129,11 @@ class _VenueLocationPickerScreenState extends ConsumerState<VenueLocationPickerS
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.white),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: AppColors.white,
+          ),
         ),
         title: Text(loc.venueLocationPickerTitle),
       ),
@@ -140,9 +171,14 @@ class _VenueLocationPickerScreenState extends ConsumerState<VenueLocationPickerS
               onPressed: myPosition == null
                   ? null
                   : () {
-                      final here = LatLng(myPosition.latitude, myPosition.longitude);
+                      final here = LatLng(
+                        myPosition.latitude,
+                        myPosition.longitude,
+                      );
                       _onPick(here);
-                      _mapController?.animateCamera(CameraUpdate.newLatLng(here));
+                      _mapController?.animateCamera(
+                        CameraUpdate.newLatLng(here),
+                      );
                     },
               child: const Icon(Icons.my_location),
             ),
@@ -153,13 +189,25 @@ class _VenueLocationPickerScreenState extends ConsumerState<VenueLocationPickerS
             top: 12,
             child: Center(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: AppColors.surface,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 12, offset: const Offset(0, 4))],
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: Text(loc.venueLocationPickerHint, style: AppTextStyles.caption.copyWith(fontSize: 12.5)),
+                child: Text(
+                  loc.venueLocationPickerHint,
+                  style: AppTextStyles.caption.copyWith(fontSize: 12.5),
+                ),
               ),
             ),
           ),
@@ -177,7 +225,10 @@ class _VenueLocationPickerScreenState extends ConsumerState<VenueLocationPickerS
                   children: [
                     Container(
                       width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.surface,
                         borderRadius: BorderRadius.circular(AppRadii.card),
@@ -185,14 +236,25 @@ class _VenueLocationPickerScreenState extends ConsumerState<VenueLocationPickerS
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.location_on_outlined, size: 18, color: AppColors.primary),
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 18,
+                            color: AppColors.primary,
+                          ),
                           const SizedBox(width: 10),
                           Expanded(
                             child: _resolvingAddress
-                                ? Text(loc.venueLocationResolvingAddress, style: AppTextStyles.caption)
+                                ? Text(
+                                    loc.venueLocationResolvingAddress,
+                                    style: AppTextStyles.caption,
+                                  )
                                 : Text(
-                                    (_address == null || _address!.isEmpty) ? loc.venueLocationAddressUnavailable : _address!,
-                                    style: AppTextStyles.body.copyWith(fontSize: 13.5),
+                                    (_address == null || _address!.isEmpty)
+                                        ? loc.venueLocationAddressUnavailable
+                                        : _address!,
+                                    style: AppTextStyles.body.copyWith(
+                                      fontSize: 13.5,
+                                    ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -202,7 +264,13 @@ class _VenueLocationPickerScreenState extends ConsumerState<VenueLocationPickerS
                     ),
                     const SizedBox(height: 12),
                     ElevatedButton(
-                      onPressed: canConfirm ? () => Navigator.pop(context, (_picked!, _address ?? '', _country)) : null,
+                      onPressed: canConfirm
+                          ? () => Navigator.pop(context, (
+                              _picked!,
+                              _address ?? '',
+                              _country,
+                            ))
+                          : null,
                       child: Text(loc.venueLocationPickerConfirmButton),
                     ),
                   ],

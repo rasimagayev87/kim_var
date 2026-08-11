@@ -33,6 +33,9 @@ String offerTypeSearchLabel(AppLocalizations loc, OfferType type) {
     OfferType.gift => loc.offerTypeGiftOption,
     OfferType.buyOneGetOne => loc.offerTypeBuyOneGetOneOption,
     OfferType.fixedPrice => loc.offerTypeFixedPriceOption,
+    OfferType.happyHour => loc.offerTypeHappyHourOption,
+    OfferType.firstVisit => loc.offerTypeFirstVisitOption,
+    OfferType.birthday => loc.offerTypeBirthdayOption,
   };
 }
 
@@ -379,9 +382,15 @@ class _OfferTypeBadge extends StatelessWidget {
     final loc = AppLocalizations.of(context);
     final (color, lines) = switch (offer.offerType) {
       OfferType.discount => (AppColors.primary, ['${offer.discountValue?.round() ?? 0}%', loc.offerBadgeDiscountSuffix]),
-      OfferType.fixedPrice => (const Color(0xFF18C964), ['${offer.discountValue?.round() ?? 0}', loc.offerBadgeFixedPriceSuffix]),
+      OfferType.fixedPrice => (AppColors.cyanDark, ['${offer.discountValue?.round() ?? 0}', loc.offerBadgeFixedPriceSuffix]),
       OfferType.gift => (const Color(0xFFF5A524), [loc.offerBadgeGiftLabel]),
       OfferType.buyOneGetOne => (const Color(0xFF7C6CF2), [loc.offerBadgeBuyOneGetOneLabel, loc.offerBadgeGiftLabel]),
+      OfferType.happyHour => (
+        const Color(0xFFFF6B6B),
+        ['⏰', offer.activeHours != null ? '${offer.activeHours!.start}-${offer.activeHours!.end}' : ''],
+      ),
+      OfferType.firstVisit => (const Color(0xFF9B59F5), ['🎁', loc.offerBadgeFirstVisitLabel]),
+      OfferType.birthday => (const Color(0xFFFF4FA3), ['🎂', loc.offerBadgeBirthdayLabel]),
     };
 
     return Container(

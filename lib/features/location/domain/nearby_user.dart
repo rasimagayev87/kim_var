@@ -33,5 +33,6 @@ class NearbyUser {
 
   /// "İndi aktivdir" — active within the last 5 minutes, per spec.
   bool get isRecentlyActive =>
-      lastSeen != null && DateTime.now().difference(lastSeen!) <= const Duration(minutes: 5);
+      lastSeen != null &&
+      DateTime.now().difference(lastSeen!) <= const Duration(minutes: 5);
 }

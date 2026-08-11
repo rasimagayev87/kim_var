@@ -88,6 +88,22 @@ abstract class AuthRepository {
     required String phoneNumber,
   });
 
+  /// Twilio Verify equivalent of [startPhoneLinkVerification] — sends
+  /// the SMS via the `sendOtp` Cloud Function instead of Firebase's own
+  /// phone auth. Gated behind `kUseTwilioOtp`; see
+  /// [AccountVerificationScreen].
+  Future<void> sendTwilioOtp(String phoneNumber);
+
+  /// Twilio Verify equivalent of [confirmPhoneLink] — confirms via the
+  /// `verifyOtp` Cloud Function, which writes `isVerified`/`phoneNumber`
+  /// server-side and returns a custom token this then signs in with, so
+  /// the CURRENTLY signed-in account ends up verified exactly like
+  /// [confirmPhoneLink] leaves it.
+  Future<void> verifyTwilioOtp({
+    required String phoneNumber,
+    required String code,
+  });
+
   /// Sends an SMS code for the "Parolu unutdum" recovery path — never
   /// creates a new account. [phoneNumber] should already be known (via
   /// [isPhoneNumberTaken]) to belong to an existing account before

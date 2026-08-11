@@ -11,8 +11,24 @@ part 'offer.g.dart';
 /// [Offer.discountValue] (percentage / AZN respectively); [gift] and
 /// [buyOneGetOne] don't — their whole meaning is in the title/
 /// description, there's no single number that represents "1+1" or a
-/// free gift.
-enum OfferType { discount, gift, buyOneGetOne, fixedPrice }
+/// free gift. [happyHour] also carries a [Offer.discountValue]
+/// (percentage, same slider as [discount]) plus [Offer.activeHours]/
+/// [Offer.activeDays] — it's a discount, just a time-boxed-within-the-
+/// day one on top of the usual start/end date range. [firstVisit]
+/// carries a [Offer.discountValue] like [discount] but no other
+/// fields — its distinguishing behavior lives entirely in
+/// `offers/{offerId}/redemptions/{uid}`, a single-use-per-user
+/// activation tracked outside this entity (see `OfferRepository`'s
+/// `watchIsRedeemedByMe`/`redeemOffer`).
+///
+/// [birthday] is NEVER a manual choice in the create form's segmented
+/// control (see `_OfferTypeSelector` in `create_offer_screen.dart` —
+/// it's simply not one of the options rendered there) — it only ever
+/// gets set by the birthday-match deep-link flow, which pre-fills
+/// [Offer.birthdayMatchId]/[Offer.targetUserIds] and reuses
+/// [Offer.startDate]/[endDate] for the (non-editable, from that
+/// screen) validity window rather than a second set of date fields.
+enum OfferType { discount, gift, buyOneGetOne, fixedPrice, happyHour, firstVisit, birthday }
 
 class OfferTypeConverter implements JsonConverter<OfferType, String?> {
   const OfferTypeConverter();
@@ -23,6 +39,38 @@ class OfferTypeConverter implements JsonConverter<OfferType, String?> {
 
   @override
   String toJson(OfferType type) => type.name;
+}
+
+/// The daily time-of-day window an [OfferType.happyHour] offer is
+/// active — plain `HH:mm` strings (not [DateTime]/[TimeOfDay]) since
+/// this is a recurring daily window, not a single instant; storing it
+/// as a wall-clock string sidesteps timezone/date-math entirely, the
+/// same reasoning as `OpeningHours`' `DayHours` in `venue.dart`.
+class ActiveHours {
+  final String start;
+  final String end;
+
+  const ActiveHours({required this.start, required this.end});
+
+  Map<String, dynamic> toMap() => {'start': start, 'end': end};
+
+  static ActiveHours? fromMap(Map<String, dynamic>? map) {
+    if (map == null) return null;
+    final start = map['start'] as String?;
+    final end = map['end'] as String?;
+    if (start == null || end == null) return null;
+    return ActiveHours(start: start, end: end);
+  }
+}
+
+class ActiveHoursConverter implements JsonConverter<ActiveHours?, Map<String, dynamic>?> {
+  const ActiveHoursConverter();
+
+  @override
+  ActiveHours? fromJson(Map<String, dynamic>? json) => ActiveHours.fromMap(json);
+
+  @override
+  Map<String, dynamic>? toJson(ActiveHours? hours) => hours?.toMap();
 }
 
 /// A time-boxed promotion published by a venue owner (Kəşf et →
@@ -77,23 +125,59 @@ class Offer with _$Offer {
     /// Optional terms/eligibility text — free-form, shown as-is.
     String? terms,
 
-    /// Contact fields are entered fresh per offer (not pulled live from
-    /// the venue profile, which has no phone/website of its own today)
-    /// — each is only shown on the details screen when its paired
-    /// `show*` toggle is on, matching the form's per-field visibility
-    /// toggles.
-    String? contactPhone,
-    @Default(false) bool showContactPhone,
-    String? contactWebsite,
-    @Default(false) bool showContactWebsite,
-    String? contactInstagram,
-    @Default(false) bool showContactInstagram,
+    /// 'pending' | 'approved' | 'needs_revision' | 'rejected' — same
+    /// moderation lifecycle as [Venue.status], including the
+    /// firestore.rules restriction that only the admin panel's Server
+    /// Actions may change it.
+    @Default('pending') String status,
 
-    /// Defaults to 'active' — no moderation queue exists yet, mirroring
-    /// [Venue.status]'s exact same not-yet-used moderation readiness.
-    @Default('active') String status,
+    /// Set by the reviewing admin/moderator when [status] is
+    /// 'needs_revision' or 'rejected'. Null otherwise.
+    String? reviewNote,
+
+    /// Admin/moderator uid who last set [status]. Null until reviewed.
+    String? reviewedBy,
+
+    /// When [reviewedBy] last set [status]. Null until reviewed.
+    @NullableTimestampConverter() DateTime? reviewedAt,
     @TimestampConverter() required DateTime createdAt,
     @NullableTimestampConverter() DateTime? updatedAt,
+
+    /// Set by the owner via `OfferController.boostOffer` (Offer Details
+    /// → the owner's own offer → the 3-dot menu, replacing the heart
+    /// every other viewer sees there). While in the future, the offer
+    /// sorts ahead of non-boosted ones in `nearbyOffersProvider` —
+    /// unlike venues (governed purely by user likes/votes, see
+    /// `Venue`'s own doc comments), a real time-boxed paid boost is the
+    /// actual product decision for offers specifically.
+    @NullableTimestampConverter() DateTime? boostedUntil,
+
+    /// Only set for [OfferType.happyHour] — the daily window (e.g.
+    /// 15:00–17:00) the discount is active. Null for every other type.
+    @ActiveHoursConverter() ActiveHours? activeHours,
+
+    /// Only meaningful for [OfferType.happyHour] — 'mon'..'sun' keys the
+    /// window runs on. The create form defaults every day checked, so
+    /// this is only ever empty for a type other than [happyHour].
+    @Default(<String>[]) List<String> activeDays,
+
+    /// Only set for [OfferType.birthday] — the `birthdayMatches/{id}`
+    /// doc this offer was created from. Null for every other type.
+    String? birthdayMatchId,
+
+    /// Only meaningful for [OfferType.birthday] — the specific uids this
+    /// offer is for, copied from the matching `birthdayMatches` doc
+    /// at creation time (so it stays correct even if that doc is later
+    /// pruned/changes). Empty for every other type. `nearbyOffersProvider`
+    /// and every other "everyone" offer stream filters a [birthday]
+    /// offer down to only viewers whose uid is in this list — see
+    /// `OfferRepository`'s query doc comments.
+    @Default(<String>[]) List<String> targetUserIds,
+
+    /// Only meaningful for [OfferType.birthday] — the owner's optional
+    /// note to the birthday user(s) (max 100 chars, enforced by the
+    /// create form). Null when left blank.
+    String? personalMessage,
   }) = _Offer;
 
   factory Offer.fromJson(Map<String, dynamic> json) => _$OfferFromJson(json);
@@ -105,6 +189,8 @@ class Offer with _$Offer {
   }
 
   bool get isExpired => DateTime.now().isAfter(endDate);
+
+  bool get isBoosted => boostedUntil != null && DateTime.now().isBefore(boostedUntil!);
 
   bool isOwnedBy(String uid) => ownerId == uid;
 }

@@ -9,10 +9,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:kim_var/core/localization/locale_providers.dart';
-import 'package:kim_var/core/widgets/premium_button.dart';
-import 'package:kim_var/firebase_options.dart';
-import 'package:kim_var/main.dart';
+import 'package:peakpin/core/localization/locale_providers.dart';
+import 'package:peakpin/core/widgets/premium_button.dart';
+import 'package:peakpin/firebase_options.dart';
+import 'package:peakpin/main.dart';
 
 /// Store-screenshot account credentials — never hardcoded. Pass them at
 /// run time:
@@ -49,7 +49,7 @@ void main() {
 
     await tester.pumpWidget(ProviderScope(
       overrides: [localeProvider.overrideWith((ref) => LocaleController(initialLocale, prefs))],
-      child: const MeevimaApp(),
+      child: const PeakPinApp(),
     ));
     await tester.pumpAndSettle(const Duration(seconds: 3));
 
@@ -96,10 +96,10 @@ void main() {
     await tester.pumpAndSettle(const Duration(seconds: 2));
     await shot('05_profile');
 
-    // Profil → menu → Ayarlar → Meevima VIP
+    // Profil → menu → Ayarlar → PeakPin VIP
     await tester.tap(find.byIcon(Icons.menu_rounded));
     await tester.pumpAndSettle(const Duration(seconds: 1));
-    await tester.tap(find.text('Meevima VIP'));
+    await tester.tap(find.text('PeakPin VIP'));
     await tester.pumpAndSettle(const Duration(seconds: 1));
     await shot('06_vip');
   });

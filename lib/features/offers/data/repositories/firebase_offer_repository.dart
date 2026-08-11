@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
@@ -11,9 +12,12 @@ import '../datasources/firebase_offer_remote_datasource.dart';
 import '../datasources/offer_remote_datasource.dart';
 
 class FirebaseOfferRepository implements OfferRepository {
-  FirebaseOfferRepository({OfferRemoteDatasource? datasource}) : _datasource = datasource ?? FirebaseOfferRemoteDatasource();
+  FirebaseOfferRepository({OfferRemoteDatasource? datasource, FirebaseFunctions? functions})
+      : _datasource = datasource ?? FirebaseOfferRemoteDatasource(),
+        _functions = functions ?? FirebaseFunctions.instance;
 
   final OfferRemoteDatasource _datasource;
+  final FirebaseFunctions _functions;
 
   @override
   Future<String> createOffer({
@@ -34,12 +38,11 @@ class FirebaseOfferRepository implements OfferRepository {
     required DateTime endDate,
     required File? photo,
     String? terms,
-    String? contactPhone,
-    bool showContactPhone = false,
-    String? contactWebsite,
-    bool showContactWebsite = false,
-    String? contactInstagram,
-    bool showContactInstagram = false,
+    ActiveHours? activeHours,
+    List<String> activeDays = const [],
+    String? birthdayMatchId,
+    List<String> targetUserIds = const [],
+    String? personalMessage,
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
@@ -73,13 +76,12 @@ class FirebaseOfferRepository implements OfferRepository {
       'endDate': Timestamp.fromDate(endDate),
       'imageUrl': imageUrl,
       'terms': terms,
-      'contactPhone': contactPhone,
-      'showContactPhone': showContactPhone,
-      'contactWebsite': contactWebsite,
-      'showContactWebsite': showContactWebsite,
-      'contactInstagram': contactInstagram,
-      'showContactInstagram': showContactInstagram,
-      'status': 'active',
+      'activeHours': activeHours?.toMap(),
+      'activeDays': activeDays,
+      if (birthdayMatchId != null) 'birthdayMatchId': birthdayMatchId,
+      if (targetUserIds.isNotEmpty) 'targetUserIds': targetUserIds,
+      if (personalMessage != null) 'personalMessage': personalMessage,
+      'status': 'pending',
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -99,12 +101,8 @@ class FirebaseOfferRepository implements OfferRepository {
     File? photo,
     required bool hasExistingPhoto,
     String? terms,
-    String? contactPhone,
-    bool showContactPhone = false,
-    String? contactWebsite,
-    bool showContactWebsite = false,
-    String? contactInstagram,
-    bool showContactInstagram = false,
+    ActiveHours? activeHours,
+    List<String> activeDays = const [],
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
@@ -127,12 +125,8 @@ class FirebaseOfferRepository implements OfferRepository {
       'startDate': Timestamp.fromDate(startDate),
       'endDate': Timestamp.fromDate(endDate),
       'terms': terms,
-      'contactPhone': contactPhone,
-      'showContactPhone': showContactPhone,
-      'contactWebsite': contactWebsite,
-      'showContactWebsite': showContactWebsite,
-      'contactInstagram': contactInstagram,
-      'showContactInstagram': showContactInstagram,
+      'activeHours': activeHours?.toMap(),
+      'activeDays': activeDays,
       'updatedAt': FieldValue.serverTimestamp(),
       if (imageUrl != null) 'imageUrl': imageUrl,
     });
@@ -214,5 +208,33 @@ class FirebaseOfferRepository implements OfferRepository {
   @override
   Future<void> setFavorite({required String uid, required String offerId, required bool isFavorite}) {
     return _datasource.setFavorite(uid: uid, offerId: offerId, isFavorite: isFavorite);
+  }
+
+  @override
+  Future<void> resubmitOffer(String offerId) async {
+    await _functions.httpsCallable('resubmitOffer').call<Map<String, dynamic>>({'offerId': offerId});
+  }
+
+  @override
+  Future<void> boostOffer(String offerId, Duration duration) async {
+    await _datasource.updateOffer(offerId, {
+      'boostedUntil': Timestamp.fromDate(DateTime.now().add(duration)),
+    });
+  }
+
+  @override
+  Stream<bool> watchIsRedeemedByMe(String offerId, String uid) => _datasource.watchIsRedeemedByMe(offerId, uid);
+
+  @override
+  Future<void> redeemOffer(String offerId, String uid) => _datasource.redeemOffer(offerId, uid);
+
+  @override
+  Future<({String venueId, List<String> matchedUserIds})?> fetchBirthdayMatch(String matchId) async {
+    final snap = await FirebaseFirestore.instance.collection('birthdayMatches').doc(matchId).get();
+    final data = snap.data();
+    if (data == null) return null;
+    final venueId = data['venueId'] as String?;
+    if (venueId == null) return null;
+    return (venueId: venueId, matchedUserIds: (data['matchedUserIds'] as List?)?.cast<String>() ?? const []);
   }
 }

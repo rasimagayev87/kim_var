@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../offers/presentation/providers/offer_providers.dart';
+import '../../offers/presentation/screens/create_offer_screen.dart';
+import '../../offers/presentation/screens/offer_details_screen.dart';
 import '../../post_share/presentation/screens/post_detail_screen.dart';
 import '../../profile/presentation/screens/user_profile_screen.dart';
 import '../../venues/presentation/screens/venue_profile_screen.dart';
@@ -16,9 +20,29 @@ import '../domain/entities/notification.dart';
 /// targetId already covers every destination this module produces
 /// today, and a type this build doesn't recognize simply does nothing
 /// on tap rather than crashing.
-void openNotificationTarget(BuildContext context, AppNotification notification) {
+Future<void> openNotificationTarget(BuildContext context, WidgetRef ref, AppNotification notification) async {
   final targetId = notification.targetId;
   if (targetId == null) return;
+
+  // Needs an async fetch (the matched venue + uids) before there's
+  // anywhere to push to, unlike every other case below — handled
+  // first and separately so the switch stays a plain, synchronous
+  // `Navigator.push` dispatch for everything else.
+  if (notification.targetType == 'birthday_match') {
+    final match = await ref.read(offerRepositoryProvider).fetchBirthdayMatch(targetId);
+    if (match == null || !context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateOfferScreen(
+          preselectedVenueId: match.venueId,
+          birthdayMatchId: targetId,
+          birthdayTargetUserIds: match.matchedUserIds,
+        ),
+      ),
+    );
+    return;
+  }
 
   switch (notification.targetType) {
     case 'profile':
@@ -32,5 +56,16 @@ void openNotificationTarget(BuildContext context, AppNotification notification) 
     // venue itself is the real, existing destination.
     case 'venue_offer':
       Navigator.push(context, MaterialPageRoute(builder: (_) => VenueProfileScreen(venueId: targetId)));
+    // A real offer, not the venue it belongs to — offer moderation
+    // decisions (`onOfferUpdated`) and the "new offer near you" fanout
+    // (`notifyNearbyUsersOfNewOffer`) both use this.
+    case 'offer':
+      Navigator.push(context, MaterialPageRoute(builder: (_) => OfferDetailsScreen(offerId: targetId)));
+    // Peak-hour alert (see `computeVenueAudienceHistory`) — the venue
+    // owner's actual next step is placing an offer, not just looking
+    // at their own venue's profile, so this skips straight to the
+    // Create Offer form with the venue already selected.
+    case 'venue_create_offer':
+      Navigator.push(context, MaterialPageRoute(builder: (_) => CreateOfferScreen(preselectedVenueId: targetId)));
   }
 }

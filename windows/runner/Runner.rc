@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "kim_var" "\0"
+            VALUE "FileDescription", "peakpin" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "kim_var" "\0"
+            VALUE "InternalName", "peakpin" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "kim_var.exe" "\0"
-            VALUE "ProductName", "kim_var" "\0"
+            VALUE "OriginalFilename", "peakpin.exe" "\0"
+            VALUE "ProductName", "peakpin" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

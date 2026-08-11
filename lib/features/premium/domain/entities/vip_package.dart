@@ -24,7 +24,7 @@ const bool kSubscriptionsNotYetLive = true;
 /// store console. Kept as named constants so switching them later is
 /// a one-line change with no callers to touch.
 const kVipPackages = [
-  VipPackageOption(period: VipBillingPeriod.monthly, skuId: 'meevima_vip_monthly'),
-  VipPackageOption(period: VipBillingPeriod.quarterly, skuId: 'meevima_vip_quarterly'),
-  VipPackageOption(period: VipBillingPeriod.yearly, skuId: 'meevima_vip_yearly'),
+  VipPackageOption(period: VipBillingPeriod.monthly, skuId: 'peakpin_vip_monthly'),
+  VipPackageOption(period: VipBillingPeriod.quarterly, skuId: 'peakpin_vip_quarterly'),
+  VipPackageOption(period: VipBillingPeriod.yearly, skuId: 'peakpin_vip_yearly'),
 ];
