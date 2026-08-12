@@ -9,6 +9,10 @@ const STATUS_LABELS: Record<string, string> = {
   reviewed: "Nəzərdən keçirilib",
   actioned: "Əməliyyat edilib",
   dismissed: "Rədd edilib",
+  completed: "Ödənilib",
+  revision_pending: "Düzəliş gözlənilir",
+  refund_pending: "Geri qaytarılmalı",
+  refunded: "Geri qaytarılıb",
 };
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -20,6 +24,10 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "des
   reviewed: "secondary",
   actioned: "default",
   dismissed: "outline",
+  completed: "default",
+  revision_pending: "outline",
+  refund_pending: "destructive",
+  refunded: "secondary",
 };
 
 export function StatusBadge({ status }: { status: string }) {

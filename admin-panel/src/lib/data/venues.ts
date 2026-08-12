@@ -50,6 +50,12 @@ export interface AdminVenueRow {
   ownerName: string;
   ownerUsername: string | null;
   createdAt: string | null;
+  /** Only set while `status === 'needs_revision'` — see `setVenueStatus`. */
+  revisionDeadline: string | null;
+  /** Backing `payments/{paymentId}` doc, if any — see `Venue.paymentId`
+   * in the Flutter app. Null for venues created before that field
+   * existed. */
+  paymentId: string | null;
 }
 
 const FETCH_LIMIT = 200;
@@ -103,6 +109,7 @@ async function attachOwners(
     const data = doc.data();
     const owner = ownerByUid.get(data.ownerId as string);
     const createdAt = data.createdAt as FirebaseFirestore.Timestamp | undefined;
+    const revisionDeadline = data.revisionDeadline as FirebaseFirestore.Timestamp | undefined;
     return {
       id: doc.id,
       name: (data.name as string) ?? "",
@@ -116,6 +123,8 @@ async function attachOwners(
       ownerName: owner ? `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim() || "Naməlum" : "Naməlum",
       ownerUsername: (owner?.username as string) ?? null,
       createdAt: createdAt ? createdAt.toDate().toISOString() : null,
+      revisionDeadline: revisionDeadline ? revisionDeadline.toDate().toISOString() : null,
+      paymentId: (data.paymentId as string) || null,
     };
   });
 }

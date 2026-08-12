@@ -364,14 +364,40 @@ service cloud.firestore {
       // `lastPeakNotifiedAt` is the same kind of grant-of-trust field —
       // only `computeVenueAudienceHistory` (scheduled Cloud Function,
       // functions/src/index.ts) sets it, so the owner can't reset their
-      // own cooldown to spam themselves peak-hour pushes.
+      // own cooldown to spam themselves peak-hour pushes. `paymentId`/
+      // `revisionDeadline` are the same again — `paymentId` is fixed at
+      // creation (the client can't repoint a venue at a different
+      // payment), and `revisionDeadline` is set/cleared only by the
+      // admin panel and `resubmitVenue`/`expireVenueRevisionDeadlines`
+      // (functions/src/index.ts), so the owner can't grant themselves
+      // extra time to fix a flagged listing.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['likeCount', 'rating', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt']);
+          .hasAny(['likeCount', 'rating', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
+    }
+
+    // Top-level, separate from the (unrelated, still-unused) VIP-purchase
+    // `users/{userId}/payments` subcollection above — this one backs the
+    // venue-listing fee/refund state machine (see `Venue.paymentId`,
+    // `functions/src/index.ts`'s `processPaymentRefund`/
+    // `expireVenueRevisionDeadlines`), and is written by the owner's own
+    // client at venue-creation time (no payment provider is wired yet,
+    // so this stands in for a real checkout confirmation — see
+    // `FirebaseVenueRepository._createListingPayment`). Every status
+    // transition AFTER that initial write (`revision_pending`,
+    // `refund_pending`, `refunded`) is grant-of-trust — only the admin
+    // panel (Admin SDK) and the Cloud Functions above may make it, never
+    // the owner directly.
+    match /payments/{paymentId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.ownerId;
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.ownerId &&
+        request.resource.data.status == 'completed';
+      allow update, delete: if false;
     }
 
     // A user's like on a venue — existence alone is the "like", no

@@ -10,6 +10,7 @@ export type ModerationAction =
   | "venue.deactivated"
   | "venue.premiumGranted"
   | "venue.premiumRevoked"
+  | "payment.refunded"
   | "offer.approved"
   | "offer.needsRevision"
   | "offer.rejected"
@@ -37,7 +38,8 @@ export type ModerationTargetType =
   | "comment"
   | "report"
   | "broadcast"
-  | "admin";
+  | "admin"
+  | "payment";
 
 export interface ModerationLogRow {
   id: string;

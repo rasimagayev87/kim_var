@@ -307,6 +307,7 @@
   "eventSaveButton": "Yadda saxla",
   "venueCreateTitle": "Məkan profili",
   "venueEditTitle": "Məkana düzəliş et",
+  "venueRevisionDaysLeft": "{days} gün qaldı — bitəndə avtomatik rədd olunub ödənişiniz geri qaytarılacaq.",
   "venuePhotoLabel": "Şəkil/loqo əlavə et",
   "venuePhotoSheetTitle": "Şəkil əlavə et",
   "venuePhotoGalleryOption": "Qalereyadan seç",

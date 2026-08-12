@@ -56,6 +56,8 @@ function logActionForStatus(status: VenueStatus): ModerationAction {
   }
 }
 
+const REVISION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
 /**
  * `reviewNote` is required by the caller when `status` is
  * `needs_revision` (enforced again here, not just in the dialog, since
@@ -63,6 +65,15 @@ function logActionForStatus(status: VenueStatus): ModerationAction {
  * optional for `rejected` and cleared for every other status, matching
  * the owner-facing contract: only needs_revision/rejected ever show a
  * reason on the mobile side.
+ *
+ * Also drives the venue-listing payment side of the moderation
+ * decision, when the venue has a `paymentId` (older venues predating
+ * the payment feature won't): `needs_revision` starts a 7-day
+ * `revisionDeadline` and marks the payment `revision_pending`;
+ * `rejected` marks it `refund_pending`, which `processPaymentRefund`
+ * (Cloud Function) picks up for the admin's manual-tracking queue —
+ * see the Ödənişlər page. Every other status clears `revisionDeadline`
+ * and leaves the payment alone.
  */
 export async function setVenueStatus(id: string, status: VenueStatus, reviewNote?: string): Promise<ActionResult> {
   const check = await requireVenueModeration();
@@ -74,16 +85,30 @@ export async function setVenueStatus(id: string, status: VenueStatus, reviewNote
   }
 
   try {
-    await getAdminDb()
-      .collection("venues")
-      .doc(id)
-      .update({
-        status,
-        reviewNote: status === "needs_revision" || status === "rejected" ? note : null,
-        reviewedBy: check.admin.uid,
-        reviewedAt: new Date(),
-        updatedAt: new Date(),
-      });
+    const db = getAdminDb();
+    const ref = db.collection("venues").doc(id);
+    const snap = await ref.get();
+    const paymentId = (snap.data()?.paymentId as string | undefined) || null;
+
+    await ref.update({
+      status,
+      reviewNote: status === "needs_revision" || status === "rejected" ? note : null,
+      reviewedBy: check.admin.uid,
+      reviewedAt: new Date(),
+      revisionDeadline: status === "needs_revision" ? new Date(Date.now() + REVISION_WINDOW_MS) : null,
+      updatedAt: new Date(),
+    });
+
+    if (paymentId && (status === "needs_revision" || status === "rejected")) {
+      await db
+        .collection("payments")
+        .doc(paymentId)
+        .update({
+          status: status === "needs_revision" ? "revision_pending" : "refund_pending",
+          updatedAt: new Date(),
+        });
+    }
+
     await logModerationAction({
       actor: check.admin,
       action: logActionForStatus(status),
@@ -94,6 +119,7 @@ export async function setVenueStatus(id: string, status: VenueStatus, reviewNote
     revalidatePath("/venues");
     revalidatePath(`/venues/${id}`);
     revalidatePath("/dashboard");
+    if (paymentId) revalidatePath("/payments");
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "unknown-error" };

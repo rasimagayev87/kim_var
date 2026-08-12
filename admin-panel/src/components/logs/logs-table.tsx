@@ -9,6 +9,8 @@ const ACTION_LABELS: Record<string, string> = {
   "venue.deactivated": "Məkan deaktiv edildi",
   "venue.premiumGranted": "Məkan premium edildi",
   "venue.premiumRevoked": "Məkanın premiumu ləğv edildi",
+  "venue.needsRevision": "Məkan düzəlişə göndərildi",
+  "payment.refunded": "Ödəniş geri qaytarıldı kimi işarələndi",
   "offer.approved": "Təklif təsdiqləndi",
   "offer.rejected": "Təklif rədd edildi",
   "offer.activated": "Təklif aktiv edildi",
@@ -37,6 +39,7 @@ const TARGET_TYPE_LABELS: Record<string, string> = {
   report: "Şikayət",
   broadcast: "Bildiriş",
   admin: "Admin/moderator",
+  payment: "Ödəniş",
 };
 
 function formatDate(iso: string): string {

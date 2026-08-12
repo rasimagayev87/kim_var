@@ -7,6 +7,7 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
+import * as logger from "firebase-functions/logger";
 
 initializeApp();
 
@@ -1106,7 +1107,13 @@ export const onVenueUpdated = onDocumentUpdated("venues/{venueId}", async (event
   }
 
   if (before.status !== after.status) {
-    const notification = moderationStatusNotification("venue", name, after.status, after.reviewNote);
+    const notification = moderationStatusNotification(
+      "venue",
+      name,
+      after.status,
+      after.reviewNote,
+      Boolean(after.paymentId),
+    );
     if (notification) {
       await notifyUser({
         uid: ownerId,
@@ -1291,6 +1298,10 @@ function moderationStatusNotification(
   name: string,
   status: unknown,
   reviewNote: unknown,
+  // Only ever true for venue listings today (offers have no payment
+  // concept yet) — appends the 7-day/refund-timeline wording that only
+  // makes sense when a real `payments/{paymentId}` doc is attached.
+  hasPayment = false,
 ): { type: string; title: string; body: string } | null {
   const noun = kind === "venue" ? "Məkanınız" : "Təklifiniz";
   const quoted = name ? `"${name}"` : kind === "venue" ? "Məkanınız" : "Təklifiniz";
@@ -1303,18 +1314,24 @@ function moderationStatusNotification(
         title: `${noun} təsdiqləndi`,
         body: `${quoted} təsdiqləndi və artıq hər kəsə görünür.`,
       };
-    case "needs_revision":
+    case "needs_revision": {
+      const revisionSuffix = hasPayment
+        ? " 7 gün ərzində düzəldib yenidən göndərin, əks halda ödənişiniz avtomatik geri qaytarılacaq."
+        : "";
       return {
         type: `${kind}NeedsRevision`,
         title: `${noun} üzərində düzəliş tələb olunur`,
-        body: note ? `${quoted}: ${note}` : `${quoted} üzərində düzəliş tələb olunur. Ətraflı üçün elanınıza baxın.`,
+        body: (note ? `${quoted}: ${note}.` : `${quoted} üzərində düzəliş tələb olunur.`) + revisionSuffix,
       };
-    case "rejected":
+    }
+    case "rejected": {
+      const refundSuffix = hasPayment ? " Ödənişiniz 3-14 iş günü ərzində kartınıza qaytarılacaq." : "";
       return {
         type: `${kind}Rejected`,
         title: `${noun} rədd edildi`,
-        body: note ? `${quoted}: ${note}` : `${quoted} rədd edildi.`,
+        body: (note ? `${quoted}: ${note}.` : `${quoted} rədd edildi.`) + refundSuffix,
       };
+    }
     default:
       return null;
   }
@@ -1348,8 +1365,21 @@ export const resubmitVenue = onCall({ region: "us-central1" }, async (request) =
       reviewNote: null,
       reviewedBy: null,
       reviewedAt: null,
+      revisionDeadline: null,
       updatedAt: FieldValue.serverTimestamp(),
     });
+
+    // Undoes the "revision_pending" flag `setVenueStatus` (admin panel)
+    // set when this venue was sent back for revision — no new charge
+    // happens on resubmit, this just returns the existing payment to
+    // its normal "paid, awaiting review" state.
+    const paymentId = data.paymentId as string | undefined;
+    if (paymentId) {
+      tx.update(db.collection("payments").doc(paymentId), {
+        status: "completed",
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
   });
 
   return { ok: true };
@@ -1382,6 +1412,88 @@ export const resubmitOffer = onCall({ region: "us-central1" }, async (request) =
 
   return { ok: true };
 });
+
+/**
+ * Fires whenever a `payments/{paymentId}` doc's `status` newly becomes
+ * `refund_pending` (from admin rejection, or `expireVenueRevisionDeadlines`
+ * below auto-rejecting an expired revision window) — NOT on every write,
+ * so resubmitting (which flips a doc from `revision_pending` back to
+ * `completed`) or the admin's own "mark as refunded" action (which flips
+ * it to `refunded`) never re-triggers this.
+ *
+ * No payment provider (Epoint/Payriff/LEOpay) is wired yet, so this
+ * deliberately does NOT call a real refund API and does NOT advance
+ * `status` to `refunded` itself — it just logs enough for the admin
+ * panel's payments page (manual-tracking queue, filtered on
+ * `refund_pending`) to be the source of truth until a provider exists.
+ * Swapping in the real call later is a change to this one function
+ * only — the state machine, admin UI, and notifications around it stay
+ * the same.
+ */
+export const processPaymentRefund = onDocumentUpdated("payments/{paymentId}", async (event) => {
+  const before = event.data?.before.data();
+  const after = event.data?.after.data();
+  if (!before || !after) return;
+  if (before.status === "refund_pending" || after.status !== "refund_pending") return;
+
+  logger.info("processPaymentRefund: refund needed, awaiting manual processing", {
+    paymentId: event.params.paymentId,
+    ownerId: after.ownerId,
+    venueId: after.venueId,
+    amount: after.amount,
+    currency: after.currency,
+  });
+
+  // TODO: Epoint/Payriff/LEOpay inteqrasiyası tamamlananda burada
+  // provayderin real REFUND/CANCEL endpoint-inə server-side sorğu
+  // göndəriləcək (əməliyyat ID-si + məbləğ ilə), və uğurlu cavabdan
+  // sonra bu sənədin statusu 'refunded' ediləcək. Hələlik status
+  // 'refund_pending'də qalır — admin panelindəki Ödənişlər səhifəsi
+  // bunları əl ilə izləmək üçündür.
+});
+
+/**
+ * Daily sweep for venues an admin sent back for revision
+ * (`status: 'needs_revision'`) whose 7-day `revisionDeadline` has
+ * passed without the owner resubmitting — auto-rejects them and marks
+ * their payment for refund, exactly like the admin's own "Rədd et və
+ * pulu qaytar" action (see `setVenueStatus` in the admin panel).
+ * `onVenueUpdated` picks up the `status` change and sends the owner
+ * the same rejection notification either way.
+ */
+export const expireVenueRevisionDeadlines = onSchedule(
+  { schedule: "every 24 hours", region: "europe-west1" },
+  async () => {
+    const now = Timestamp.now();
+    const expired = await db
+      .collection("venues")
+      .where("status", "==", "needs_revision")
+      .where("revisionDeadline", "<=", now)
+      .get();
+
+    await Promise.all(
+      expired.docs.map(async (doc) => {
+        const data = doc.data();
+        await doc.ref.update({
+          status: "rejected",
+          revisionDeadline: null,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        const paymentId = data.paymentId as string | undefined;
+        if (paymentId) {
+          await db.collection("payments").doc(paymentId).update({
+            status: "refund_pending",
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
+      }),
+    );
+
+    if (expired.size > 0) {
+      logger.info("expireVenueRevisionDeadlines: auto-rejected expired venues", { count: expired.size });
+    }
+  },
+);
 
 /**
  * Cleans up a deleted post's `likes`/`comments` subcollections —

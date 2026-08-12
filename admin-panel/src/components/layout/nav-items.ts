@@ -7,6 +7,7 @@ import {
   Store,
   Tag,
   Users,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 
@@ -31,6 +32,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "İstifadəçilər", href: "/users", icon: Users, permission: "manageUsers" },
   { label: "Məkanlar", href: "/venues", icon: Store, permission: "moderateVenues" },
+  { label: "Ödənişlər", href: "/payments", icon: Wallet, permission: "moderateVenues" },
   { label: "Təkliflər", href: "/offers", icon: Tag, permission: "moderateOffers" },
   { label: "Şikayətlər", href: "/feedback", icon: Flag, permission: "manageFeedback" },
   { label: "Bildirişlər", href: "/notifications", icon: Megaphone, permission: "broadcastNotifications" },

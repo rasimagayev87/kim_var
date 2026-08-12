@@ -25,6 +25,12 @@ class FirebaseVenueRepository implements VenueRepository {
   final VenueRemoteDatasource _datasource;
   final FirebaseFunctions _functions;
 
+  /// Placeholder listing fee — no payment provider (Epoint/Payriff/
+  /// LEOpay) is wired yet, so this is never actually charged. Real
+  /// pricing arrives with that integration; until then this just gives
+  /// the `payments/{paymentId}` doc a plausible `amount` to carry.
+  static const double _venueListingFeeAzn = 5.0;
+
   @override
   Future<String> createVenue({
     required String ownerId,
@@ -51,6 +57,8 @@ class FirebaseVenueRepository implements VenueRepository {
       onTaskReady: onUploadTaskReady,
     );
 
+    final paymentId = await _createListingPayment(ownerId: ownerId, venueId: venueId);
+
     await _datasource.setVenue(venueId, {
       'ownerId': ownerId,
       'name': name,
@@ -63,6 +71,7 @@ class FirebaseVenueRepository implements VenueRepository {
       if (country != null) 'country': country,
       'openingHours': openingHours.toMap(),
       'status': 'pending',
+      'paymentId': paymentId,
       'verified': false,
       'likeCount': 0,
       'rating': 3.0,
@@ -75,6 +84,30 @@ class FirebaseVenueRepository implements VenueRepository {
     });
 
     return venueId;
+  }
+
+  /// Stands in for a real checkout: no payment provider is wired yet
+  /// (see the offer-boost TODO in `offer_details_screen.dart` for the
+  /// same caveat), so this writes the `payments/{paymentId}` doc
+  /// straight to `'completed'` instead of `'pending'` pending a webhook
+  /// confirmation. Once a provider exists, this becomes "create
+  /// 'pending', redirect to checkout, webhook flips it to 'completed'"
+  /// — the rest of the moderation/refund state machine (admin actions,
+  /// `expireVenueRevisionDeadlines`, `processPaymentRefund`) doesn't
+  /// change either way, since it all keys off this doc's `status`.
+  Future<String> _createListingPayment({required String ownerId, required String venueId}) async {
+    final ref = FirebaseFirestore.instance.collection('payments').doc();
+    await ref.set({
+      'ownerId': ownerId,
+      'venueId': venueId,
+      'type': 'venue_listing',
+      'amount': _venueListingFeeAzn,
+      'currency': 'AZN',
+      'status': 'completed',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+    return ref.id;
   }
 
   @override

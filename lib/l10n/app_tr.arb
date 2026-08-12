@@ -307,6 +307,7 @@
   "eventSaveButton": "Kaydet",
   "venueCreateTitle": "Mekan profili",
   "venueEditTitle": "Mekanı düzenle",
+  "venueRevisionDaysLeft": "{days} gün kaldı — bitince otomatik reddedilip ödemeniz iade edilecek.",
   "venuePhotoLabel": "Fotoğraf/logo ekle",
   "venuePhotoSheetTitle": "Fotoğraf ekle",
   "venuePhotoGalleryOption": "Galeriden seç",

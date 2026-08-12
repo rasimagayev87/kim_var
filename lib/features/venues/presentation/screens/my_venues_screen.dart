@@ -329,6 +329,7 @@ class _MyVenueCard extends ConsumerWidget {
               if (needsRevision)
                 _NeedsRevisionBanner(
                   reviewNote: venue.reviewNote,
+                  revisionDeadline: venue.revisionDeadline,
                   onEdit: () => Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -403,13 +404,15 @@ class _ModerationStatusBadge extends StatelessWidget {
 /// the owner needs to act, not just glance at a badge).
 class _NeedsRevisionBanner extends StatelessWidget {
   final String? reviewNote;
+  final DateTime? revisionDeadline;
   final VoidCallback onEdit;
 
-  const _NeedsRevisionBanner({required this.reviewNote, required this.onEdit});
+  const _NeedsRevisionBanner({required this.reviewNote, required this.revisionDeadline, required this.onEdit});
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
+    final daysLeft = revisionDeadline?.difference(DateTime.now()).inDays.clamp(0, 999);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
@@ -419,62 +422,78 @@ class _NeedsRevisionBanner extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.gold.withValues(alpha: 0.25)),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (reviewNote != null && reviewNote!.trim().isNotEmpty)
-            Expanded(
-              child: Text.rich(
-                TextSpan(
-                  children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              if (reviewNote != null && reviewNote!.trim().isNotEmpty)
+                Expanded(
+                  child: Text.rich(
                     TextSpan(
-                      text: '${loc.moderationReviewNotePrefix}: ',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: ChatLightColors.ink,
-                      ),
+                      children: [
+                        TextSpan(
+                          text: '${loc.moderationReviewNotePrefix}: ',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: ChatLightColors.ink,
+                          ),
+                        ),
+                        TextSpan(
+                          text: reviewNote,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: ChatLightColors.inkSoft,
+                          ),
+                        ),
+                      ],
                     ),
-                    TextSpan(
-                      text: reviewNote,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: ChatLightColors.inkSoft,
-                      ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                )
+              else
+                Expanded(
+                  child: Text(
+                    loc.moderationStatusNeedsRevision,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: ChatLightColors.ink,
                     ),
-                  ],
+                  ),
                 ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-            )
-          else
-            Expanded(
-              child: Text(
-                loc.moderationStatusNeedsRevision,
-                style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: ChatLightColors.ink,
+              const SizedBox(width: 8),
+              TextButton(
+                onPressed: onEdit,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  minimumSize: Size.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  loc.venueEditTitle,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
-            ),
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: onEdit,
-            style: TextButton.styleFrom(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            child: Text(
-              loc.venueEditTitle,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            ],
           ),
+          if (daysLeft != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              loc.venueRevisionDaysLeft(daysLeft),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.error,
+              ),
+            ),
+          ],
         ],
       ),
     );

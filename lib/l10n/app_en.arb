@@ -372,6 +372,7 @@
   "eventSaveButton": "Save",
   "venueCreateTitle": "Venue profile",
   "venueEditTitle": "Edit venue",
+  "venueRevisionDaysLeft": "{days} days left — after that it will be auto-rejected and your payment refunded.",
   "venuePhotoLabel": "Add photo/logo",
   "venuePhotoSheetTitle": "Add photo",
   "venuePhotoGalleryOption": "Choose from gallery",

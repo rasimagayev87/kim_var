@@ -340,6 +340,20 @@ class Venue with _$Venue {
     /// When [reviewedBy] last set [status]. Null until reviewed.
     @NullableTimestampConverter() DateTime? reviewedAt,
 
+    /// The `payments/{paymentId}` doc backing this venue's listing fee —
+    /// see `PaymentRecord`/`functions/src/index.ts`'s payment-refund
+    /// state machine. Null on venues created before this field existed.
+    String? paymentId,
+
+    /// Only set while [status] is 'needs_revision' — the owner has this
+    /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
+    /// Cloud Function) auto-rejects the venue and refunds the payment.
+    /// Cleared back to null by `resubmitVenue` on resubmission, and by
+    /// the admin panel whenever [status] moves away from
+    /// 'needs_revision'. Grant-of-trust like [status] itself — the owner
+    /// can't extend their own deadline (see firestore.rules).
+    @NullableTimestampConverter() DateTime? revisionDeadline,
+
     /// Reserved for a future admin-verification badge — nothing sets
     /// this true yet, so it never renders today.
     @Default(false) bool verified,

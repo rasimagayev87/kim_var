@@ -63,6 +63,21 @@ mixin _$Venue {
   @NullableTimestampConverter()
   DateTime? get reviewedAt => throw _privateConstructorUsedError;
 
+  /// The `payments/{paymentId}` doc backing this venue's listing fee —
+  /// see `PaymentRecord`/`functions/src/index.ts`'s payment-refund
+  /// state machine. Null on venues created before this field existed.
+  String? get paymentId => throw _privateConstructorUsedError;
+
+  /// Only set while [status] is 'needs_revision' — the owner has this
+  /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
+  /// Cloud Function) auto-rejects the venue and refunds the payment.
+  /// Cleared back to null by `resubmitVenue` on resubmission, and by
+  /// the admin panel whenever [status] moves away from
+  /// 'needs_revision'. Grant-of-trust like [status] itself — the owner
+  /// can't extend their own deadline (see firestore.rules).
+  @NullableTimestampConverter()
+  DateTime? get revisionDeadline => throw _privateConstructorUsedError;
+
   /// Reserved for a future admin-verification badge — nothing sets
   /// this true yet, so it never renders today.
   bool get verified => throw _privateConstructorUsedError;
@@ -159,6 +174,8 @@ abstract class $VenueCopyWith<$Res> {
     String? reviewNote,
     String? reviewedBy,
     @NullableTimestampConverter() DateTime? reviewedAt,
+    String? paymentId,
+    @NullableTimestampConverter() DateTime? revisionDeadline,
     bool verified,
     int likeCount,
     double rating,
@@ -203,6 +220,8 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? reviewNote = freezed,
     Object? reviewedBy = freezed,
     Object? reviewedAt = freezed,
+    Object? paymentId = freezed,
+    Object? revisionDeadline = freezed,
     Object? verified = null,
     Object? likeCount = null,
     Object? rating = null,
@@ -276,6 +295,14 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
             reviewedAt: freezed == reviewedAt
                 ? _value.reviewedAt
                 : reviewedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            paymentId: freezed == paymentId
+                ? _value.paymentId
+                : paymentId // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            revisionDeadline: freezed == revisionDeadline
+                ? _value.revisionDeadline
+                : revisionDeadline // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
             verified: null == verified
                 ? _value.verified
@@ -351,6 +378,8 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     String? reviewNote,
     String? reviewedBy,
     @NullableTimestampConverter() DateTime? reviewedAt,
+    String? paymentId,
+    @NullableTimestampConverter() DateTime? revisionDeadline,
     bool verified,
     int likeCount,
     double rating,
@@ -394,6 +423,8 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? reviewNote = freezed,
     Object? reviewedBy = freezed,
     Object? reviewedAt = freezed,
+    Object? paymentId = freezed,
+    Object? revisionDeadline = freezed,
     Object? verified = null,
     Object? likeCount = null,
     Object? rating = null,
@@ -468,6 +499,14 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.reviewedAt
             : reviewedAt // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        paymentId: freezed == paymentId
+            ? _value.paymentId
+            : paymentId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        revisionDeadline: freezed == revisionDeadline
+            ? _value.revisionDeadline
+            : revisionDeadline // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
         verified: null == verified
             ? _value.verified
             : verified // ignore: cast_nullable_to_non_nullable
@@ -536,6 +575,8 @@ class _$VenueImpl extends _Venue {
     this.reviewNote,
     this.reviewedBy,
     @NullableTimestampConverter() this.reviewedAt,
+    this.paymentId,
+    @NullableTimestampConverter() this.revisionDeadline,
     this.verified = false,
     this.likeCount = 0,
     this.rating = 3.0,
@@ -621,6 +662,23 @@ class _$VenueImpl extends _Venue {
   @override
   @NullableTimestampConverter()
   final DateTime? reviewedAt;
+
+  /// The `payments/{paymentId}` doc backing this venue's listing fee —
+  /// see `PaymentRecord`/`functions/src/index.ts`'s payment-refund
+  /// state machine. Null on venues created before this field existed.
+  @override
+  final String? paymentId;
+
+  /// Only set while [status] is 'needs_revision' — the owner has this
+  /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
+  /// Cloud Function) auto-rejects the venue and refunds the payment.
+  /// Cleared back to null by `resubmitVenue` on resubmission, and by
+  /// the admin panel whenever [status] moves away from
+  /// 'needs_revision'. Grant-of-trust like [status] itself — the owner
+  /// can't extend their own deadline (see firestore.rules).
+  @override
+  @NullableTimestampConverter()
+  final DateTime? revisionDeadline;
 
   /// Reserved for a future admin-verification badge — nothing sets
   /// this true yet, so it never renders today.
@@ -708,7 +766,7 @@ class _$VenueImpl extends _Venue {
 
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled)';
   }
 
   @override
@@ -737,6 +795,10 @@ class _$VenueImpl extends _Venue {
                 other.reviewedBy == reviewedBy) &&
             (identical(other.reviewedAt, reviewedAt) ||
                 other.reviewedAt == reviewedAt) &&
+            (identical(other.paymentId, paymentId) ||
+                other.paymentId == paymentId) &&
+            (identical(other.revisionDeadline, revisionDeadline) ||
+                other.revisionDeadline == revisionDeadline) &&
             (identical(other.verified, verified) ||
                 other.verified == verified) &&
             (identical(other.likeCount, likeCount) ||
@@ -783,6 +845,8 @@ class _$VenueImpl extends _Venue {
     reviewNote,
     reviewedBy,
     reviewedAt,
+    paymentId,
+    revisionDeadline,
     verified,
     likeCount,
     rating,
@@ -827,6 +891,8 @@ abstract class _Venue extends Venue {
     final String? reviewNote,
     final String? reviewedBy,
     @NullableTimestampConverter() final DateTime? reviewedAt,
+    final String? paymentId,
+    @NullableTimestampConverter() final DateTime? revisionDeadline,
     final bool verified,
     final int likeCount,
     final double rating,
@@ -899,6 +965,23 @@ abstract class _Venue extends Venue {
   @override
   @NullableTimestampConverter()
   DateTime? get reviewedAt;
+
+  /// The `payments/{paymentId}` doc backing this venue's listing fee —
+  /// see `PaymentRecord`/`functions/src/index.ts`'s payment-refund
+  /// state machine. Null on venues created before this field existed.
+  @override
+  String? get paymentId;
+
+  /// Only set while [status] is 'needs_revision' — the owner has this
+  /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
+  /// Cloud Function) auto-rejects the venue and refunds the payment.
+  /// Cleared back to null by `resubmitVenue` on resubmission, and by
+  /// the admin panel whenever [status] moves away from
+  /// 'needs_revision'. Grant-of-trust like [status] itself — the owner
+  /// can't extend their own deadline (see firestore.rules).
+  @override
+  @NullableTimestampConverter()
+  DateTime? get revisionDeadline;
 
   /// Reserved for a future admin-verification badge — nothing sets
   /// this true yet, so it never renders today.

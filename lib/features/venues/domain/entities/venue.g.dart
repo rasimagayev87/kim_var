@@ -28,6 +28,10 @@ _$VenueImpl _$$VenueImplFromJson(Map<String, dynamic> json) => _$VenueImpl(
   reviewNote: json['reviewNote'] as String?,
   reviewedBy: json['reviewedBy'] as String?,
   reviewedAt: const NullableTimestampConverter().fromJson(json['reviewedAt']),
+  paymentId: json['paymentId'] as String?,
+  revisionDeadline: const NullableTimestampConverter().fromJson(
+    json['revisionDeadline'],
+  ),
   verified: json['verified'] as bool? ?? false,
   likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
   rating: (json['rating'] as num?)?.toDouble() ?? 3.0,
@@ -64,6 +68,10 @@ Map<String, dynamic> _$$VenueImplToJson(
   'reviewNote': instance.reviewNote,
   'reviewedBy': instance.reviewedBy,
   'reviewedAt': const NullableTimestampConverter().toJson(instance.reviewedAt),
+  'paymentId': instance.paymentId,
+  'revisionDeadline': const NullableTimestampConverter().toJson(
+    instance.revisionDeadline,
+  ),
   'verified': instance.verified,
   'likeCount': instance.likeCount,
   'rating': instance.rating,

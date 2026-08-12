@@ -13,7 +13,17 @@ const ERROR_MESSAGES: Record<string, string> = {
   "note-required": "Səbəb xanası məcburidir.",
 };
 
-export function VenueStatusActions({ id, status }: { id: string; status: VenueStatus }) {
+export function VenueStatusActions({
+  id,
+  status,
+  revisionDeadlineDaysLeft,
+}: {
+  id: string;
+  status: VenueStatus;
+  /** Computed server-side (see the venue detail page) — avoids a
+   * client-side `Date.now()` call during render. */
+  revisionDeadlineDaysLeft?: number | null;
+}) {
   const [pending, startTransition] = useTransition();
 
   function apply(next: VenueStatus, successMessage: string, note?: string) {
@@ -48,28 +58,34 @@ export function VenueStatusActions({ id, status }: { id: string; status: VenueSt
           triggerVariant="outline"
           disabled={pending}
           title="Məkanı düzəlişə göndər"
-          description="Sahibə göstəriləcək bu qeyd olmadan davam etmək mümkün deyil."
+          description="Sahibə göstəriləcək bu qeyd olmadan davam etmək mümkün deyil. Sahibə 7 gün vaxt veriləcək — bu müddətdə düzəldib göndərməsə, ödənişi avtomatik geri qaytarılmaq üçün işarələnəcək."
           noteRequired
           submitLabel="Düzəlişə göndər"
           onSubmit={(note) => applyAsync("needs_revision", "Məkan düzəlişə göndərildi.", note)}
         />
         <ModerationNoteDialog
-          triggerLabel="Sil"
+          triggerLabel="Rədd et və pulu qaytar"
           triggerVariant="destructive"
           disabled={pending}
-          title="Məkanı sil"
-          description="Səbəb qeyd etmək opsionaldır."
+          title="Məkanı rədd et"
+          description="Səbəb qeyd etmək opsionaldır. Ödəniş varsa, geri qaytarılmaq üçün Ödənişlər səhifəsindəki əl-ilə-izləmə siyahısına düşəcək."
           noteRequired={false}
-          submitLabel="Sil"
+          submitLabel="Rədd et"
           submitVariant="destructive"
-          onSubmit={(note) => applyAsync("rejected", "Məkan silindi.", note)}
+          onSubmit={(note) => applyAsync("rejected", "Məkan rədd edildi.", note)}
         />
       </div>
     );
   }
 
   if (status === "needs_revision") {
-    return <p className="text-sm text-muted-foreground">Sahibin düzəliş edib yenidən göndərməsi gözlənilir.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        Sahibin düzəliş edib yenidən göndərməsi gözlənilir.
+        {revisionDeadlineDaysLeft != null &&
+          ` ${revisionDeadlineDaysLeft} gün qaldı — bitəndə avtomatik rədd olunub pulu geri qaytarılacaq.`}
+      </p>
+    );
   }
 
   if (status === "approved") {

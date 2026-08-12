@@ -16,6 +16,11 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString("az-AZ", { year: "numeric", month: "long", day: "numeric" });
 }
 
+function daysUntil(iso: string | null): number | null {
+  if (!iso) return null;
+  return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+}
+
 export default async function VenueDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = await getCurrentAdmin();
   if (!admin || !hasPermission(admin.role, "moderateVenues")) {
@@ -83,7 +88,11 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ id
           <CardTitle className="text-base">Moderasiya</CardTitle>
         </CardHeader>
         <CardContent>
-          <VenueStatusActions id={venue.id} status={venue.status} />
+          <VenueStatusActions
+            id={venue.id}
+            status={venue.status}
+            revisionDeadlineDaysLeft={daysUntil(venue.revisionDeadline)}
+          />
         </CardContent>
       </Card>
 
