@@ -586,7 +586,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
         ? loc.chatTypingIndicator
         : (isPeerOnline
             ? loc.chatOnlineStatus
-            : (peerLastSeen != null ? loc.chatLastSeenAt(formatRelativeTime(peerLastSeen, loc)) : loc.chatLastSeenUnknown));
+            : (peerLastSeen != null ? loc.chatLastSeenAt(formatLastSeen(peerLastSeen, loc)) : loc.chatLastSeenUnknown));
     final statusIsLive = isPeerTyping || isPeerOnline;
     final canCompose = !(chat != null &&
         (chat.needsResponseFrom(myUid) ||
