@@ -18,6 +18,11 @@ class AudioMessagePlayer extends StatefulWidget {
   final Color labelColor;
   final String? avatarUrl;
 
+  /// Fired the first time this message is actually played — the signal
+  /// this is a genuinely-listened-to voice message, distinct from just
+  /// having the chat open. Never fired again after the first call.
+  final VoidCallback? onPlayStarted;
+
   const AudioMessagePlayer({
     super.key,
     required this.audioUrl,
@@ -26,6 +31,7 @@ class AudioMessagePlayer extends StatefulWidget {
     required this.labelColor,
     this.durationMs,
     this.avatarUrl,
+    this.onPlayStarted,
   });
 
   @override
@@ -37,6 +43,7 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
   late Duration _duration = Duration(milliseconds: widget.durationMs ?? 0);
   Duration _position = Duration.zero;
   bool _isPlaying = false;
+  bool _playStartedFired = false;
   StreamSubscription<Duration>? _durationSub;
   StreamSubscription<Duration>? _positionSub;
   StreamSubscription<void>? _completeSub;
@@ -73,6 +80,10 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
     if (_isPlaying) {
       await _player.pause();
     } else {
+      if (!_playStartedFired) {
+        _playStartedFired = true;
+        widget.onPlayStarted?.call();
+      }
       await _player.play(UrlSource(widget.audioUrl));
     }
   }

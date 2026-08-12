@@ -219,6 +219,7 @@
   "chatReportReasonDangerous": "Dangerous behavior",
   "chatReportReasonOther": "Other",
   "chatSendBlockedError": "You can't send a message to this user.",
+  "chatSendNotAllowedByRecipientError": "This user's privacy settings don't allow you to message them.",
   "chatUserBlockedNotice": "User blocked.",
   "chatEmptyConversation": "Say hello 👋",
   "chatEmptyStateTitle": "Send the first message",

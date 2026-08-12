@@ -1,4 +1,5 @@
 import '../../../../core/utils/age_calculator.dart';
+import '../../../../core/utils/presence_utils.dart';
 
 class UserProfile {
   final String? username;
@@ -84,6 +85,11 @@ class UserProfile {
       isVerified: isVerified ?? this.isVerified,
     );
   }
+
+  /// See `isRecentlyOnline`'s doc comment — [online] alone can't be
+  /// trusted (a force-quit/crash can leave it stuck `true`), so this
+  /// also checks how fresh [lastSeen] is.
+  bool get isRecentlyActive => isRecentlyOnline(online: online, lastSeen: lastSeen);
 }
 
 const kGenderOptions = <String>['Kişi', 'Qadın', 'Bildirmək istəmirəm'];

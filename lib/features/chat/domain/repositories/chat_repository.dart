@@ -133,7 +133,23 @@ abstract class ChatRepository {
   /// viewed, to advance delivered/read receipts and clear unread count.
   Future<void> markDelivered(String chatId, String myUid);
 
-  Future<void> markRead(String chatId, String myUid);
+  /// Sweeps every unread incoming message in [chatId] as read, EXCEPT
+  /// voice messages — those only become "read" via [markMessageRead],
+  /// triggered by actually pressing play (see `AudioMessagePlayer`).
+  /// Always clears `unreadCount.$myUid` regardless of [showReadReceipts]
+  /// (the unread badge is this user's own inbox state, not a receipt
+  /// broadcast to the sender). When [showReadReceipts] is false, no
+  /// `readAt` is written at all — only `deliveredAt` — so the sender
+  /// never sees this user's read status, matching WhatsApp's read
+  /// receipts toggle.
+  Future<void> markRead(String chatId, String myUid, {required bool showReadReceipts});
+
+  /// Marks a single message as read — used for voice messages once the
+  /// recipient actually presses play, rather than the instant blanket
+  /// sweep [markRead] does for text/media on chat-open. No-ops the
+  /// `readAt` write when [showReadReceipts] is false, same rule as
+  /// [markRead].
+  Future<void> markMessageRead(String chatId, String messageId, String myUid, {required bool showReadReceipts});
 
   Future<void> setTyping({required String chatId, required String uid, required bool isTyping});
 

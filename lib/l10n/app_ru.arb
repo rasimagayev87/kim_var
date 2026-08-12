@@ -182,6 +182,7 @@
   "chatReportReasonDangerous": "Опасное поведение",
   "chatReportReasonOther": "Другое",
   "chatSendBlockedError": "Вы не можете отправить сообщение этому пользователю.",
+  "chatSendNotAllowedByRecipientError": "Настройки приватности этого пользователя не позволяют вам отправить сообщение.",
   "chatUserBlockedNotice": "Пользователь заблокирован.",
   "chatEmptyConversation": "Поздоровайтесь 👋",
   "chatEmptyStateTitle": "Отправьте первое сообщение",

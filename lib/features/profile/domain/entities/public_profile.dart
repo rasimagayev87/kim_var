@@ -1,4 +1,5 @@
 import '../../../../core/utils/age_calculator.dart';
+import '../../../../core/utils/presence_utils.dart';
 
 /// Another user's profile as seen from the outside (map/card stack,
 /// chat header, etc.) — distinct from [UserProfile], which is always
@@ -34,4 +35,7 @@ class PublicProfile {
 
   /// Always derived from [birthDate] — see [UserProfile.age].
   int? get age => birthDate == null ? null : calculateAge(birthDate!);
+
+  /// Self-healing presence check — see [isRecentlyOnline].
+  bool get isRecentlyActive => isRecentlyOnline(online: online, lastSeen: lastSeen);
 }

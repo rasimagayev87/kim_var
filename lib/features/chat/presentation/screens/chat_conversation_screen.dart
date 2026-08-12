@@ -28,6 +28,7 @@ import '../../../profile/presentation/providers/public_profile_providers.dart';
 import '../../../profile/presentation/screens/user_profile_screen.dart';
 import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../post_share/presentation/screens/post_detail_screen.dart';
+import '../../../privacy/presentation/providers/privacy_providers.dart';
 import '../../domain/chat_failure.dart';
 import '../../domain/entities/chat.dart';
 import '../../domain/entities/chat_message.dart';
@@ -203,6 +204,8 @@ String _chatFailureMessage(AppLocalizations loc, ChatFailure type) {
       return loc.chatSendBlockedError;
     case ChatFailure.requestPending:
       return loc.chatRequestPendingNotice;
+    case ChatFailure.notAllowedByRecipient:
+      return loc.chatSendNotAllowedByRecipientError;
   }
 }
 
@@ -347,13 +350,15 @@ class ChatConversationScreen extends ConsumerStatefulWidget {
   ConsumerState<ChatConversationScreen> createState() => _ChatConversationScreenState();
 }
 
-class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen> {
+class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen> with WidgetsBindingObserver {
   final _textController = TextEditingController();
   final _textFocusNode = FocusNode();
   final _scrollController = ScrollController();
   Timer? _typingTimer;
+  Timer? _markSeenDebounce;
   bool _isTyping = false;
   bool _sending = false;
+  bool _isForeground = true;
   String? _myUid;
   late final String _chatId;
 
@@ -362,12 +367,15 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
     super.initState();
     _myUid = fb.FirebaseAuth.instance.currentUser?.uid;
     _chatId = chatIdWith(widget.otherUid);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _markSeen());
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requestMarkSeen());
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _typingTimer?.cancel();
+    _markSeenDebounce?.cancel();
     if (_isTyping) {
       ref.read(chatControllerProvider.notifier).setTyping(_chatId, false);
     }
@@ -375,6 +383,28 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
     _textFocusNode.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _isForeground = state == AppLifecycleState.resumed;
+    if (_isForeground) _requestMarkSeen();
+  }
+
+  /// Debounced so a screen that's opened and immediately swiped back
+  /// away (before the delay fires) never counts as "genuinely viewed" —
+  /// per the bug report, sending alone (or an instant open-then-close)
+  /// must never auto-mark as read. Also skipped entirely while
+  /// backgrounded (`_isForeground`), so a Firestore snapshot arriving
+  /// to an already-mounted-but-backgrounded screen doesn't silently
+  /// mark it read either — that was the actual repro for the "offline
+  /// recipient shows read instantly" bug: this screen staying mounted
+  /// in the background while `ref.listen` kept firing on new messages.
+  void _requestMarkSeen() {
+    _markSeenDebounce?.cancel();
+    _markSeenDebounce = Timer(const Duration(milliseconds: 500), () {
+      if (mounted && _isForeground) _markSeen();
+    });
   }
 
   void _markSeen() {
@@ -527,7 +557,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
       final prevLen = previous?.valueOrNull?.length ?? 0;
       final nextLen = next.valueOrNull?.length ?? 0;
       if (nextLen > prevLen) {
-        _markSeen();
+        _requestMarkSeen();
         _scrollToBottom();
       }
     });
@@ -550,7 +580,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
     final peerPhoto = peer?.photoUrl ?? widget.otherPhotoUrl;
     final myPhoto = ref.watch(profileControllerProvider).photoUrl;
     final isPeerTyping = chat?.typingUserId == widget.otherUid;
-    final isPeerOnline = peer?.online == true;
+    final isPeerOnline = peer?.isRecentlyActive == true;
     final peerLastSeen = peer?.lastSeen;
     final statusText = isPeerTyping
         ? loc.chatTypingIndicator
@@ -860,7 +890,7 @@ class _MessageBubble extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildContent(context, textColor),
+              _buildContent(context, ref, textColor),
               const SizedBox(height: 3),
               Padding(
                 padding: isMedia ? const EdgeInsets.only(right: _Spacing.xs + 2, bottom: 2) : EdgeInsets.zero,
@@ -876,15 +906,21 @@ class _MessageBubble extends ConsumerWidget {
                     ),
                     if (isMine) ...[
                       const SizedBox(width: _Spacing.xs),
-                      Icon(
-                        message.deliveryStatus == MessageDeliveryStatus.read
-                            ? Icons.done_all
-                            : (message.deliveryStatus == MessageDeliveryStatus.delivered ? Icons.done_all : Icons.done),
-                        size: 14,
-                        color: message.deliveryStatus == MessageDeliveryStatus.read
-                            ? AppColors.primary
-                            : (isMedia ? Colors.white70 : ChatLightColors.inkFaint),
-                      ),
+                      Builder(builder: (context) {
+                        // "Mesaj oxundu məlumatını göstər" is bidirectional
+                        // (WhatsApp's own rule, see PrivacySettings.showReadReceipts'
+                        // doc comment): turning it off also hides read receipts
+                        // FROM this user, even on their own sent messages, even
+                        // though the recipient genuinely did read it.
+                        final myShowReadReceipts = ref.watch(privacySettingsProvider).valueOrNull?.showReadReceipts ?? true;
+                        final isRead = myShowReadReceipts && message.deliveryStatus == MessageDeliveryStatus.read;
+                        final isDelivered = isRead || message.deliveryStatus != MessageDeliveryStatus.sent;
+                        return Icon(
+                          isDelivered ? Icons.done_all : Icons.done,
+                          size: 14,
+                          color: isRead ? AppColors.primary : (isMedia ? Colors.white70 : ChatLightColors.inkFaint),
+                        );
+                      }),
                     ],
                   ],
                 ),
@@ -978,7 +1014,7 @@ class _MessageBubble extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context, Color textColor) {
+  Widget _buildContent(BuildContext context, WidgetRef ref, Color textColor) {
     if (message.isImage && message.mediaUrl != null) {
       return GestureDetector(
         onTap: () => Navigator.push(
@@ -1027,6 +1063,9 @@ class _MessageBubble extends ConsumerWidget {
         trackColor: ChatLightColors.composerFill,
         labelColor: ChatLightColors.inkFaint,
         avatarUrl: avatarUrl,
+        onPlayStarted: isMine
+            ? null
+            : () => ref.read(chatControllerProvider.notifier).markMessageRead(chatId, message.id),
       );
     }
     return Text(message.text ?? '', style: AppTextStyles.body.copyWith(color: textColor, fontSize: 15));

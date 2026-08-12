@@ -553,7 +553,7 @@ class _ChatCard extends ConsumerWidget {
                             ? const Icon(Icons.person_outline, color: ChatLightColors.inkFaint, size: 24)
                             : null,
                       ),
-                      if (peer?.online == true)
+                      if (peer?.isRecentlyActive == true)
                         Positioned(
                           right: -1,
                           bottom: -1,

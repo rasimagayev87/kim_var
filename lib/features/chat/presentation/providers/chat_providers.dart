@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../privacy/presentation/providers/privacy_providers.dart';
 import '../../data/repositories/firebase_chat_repository.dart';
 import '../../domain/chat_failure.dart';
 import '../../domain/entities/chat.dart';
@@ -474,8 +475,20 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
   Future<void> markRead(String chatId) {
     final uid = _currentUid();
     if (uid == null) return Future.value();
-    return _ref.read(chatRepositoryProvider).markRead(chatId, uid);
+    return _ref.read(chatRepositoryProvider).markRead(chatId, uid, showReadReceipts: _showReadReceipts());
   }
+
+  /// Triggered by actually pressing play on a voice message — see
+  /// `AudioMessagePlayer.onPlayStarted` and `ChatRepository.markMessageRead`.
+  Future<void> markMessageRead(String chatId, String messageId) {
+    final uid = _currentUid();
+    if (uid == null) return Future.value();
+    return _ref
+        .read(chatRepositoryProvider)
+        .markMessageRead(chatId, messageId, uid, showReadReceipts: _showReadReceipts());
+  }
+
+  bool _showReadReceipts() => _ref.read(privacySettingsProvider).valueOrNull?.showReadReceipts ?? true;
 
   Future<void> setTyping(String chatId, bool isTyping) {
     final uid = _currentUid();

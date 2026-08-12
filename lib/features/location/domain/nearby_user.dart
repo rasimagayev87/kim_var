@@ -1,3 +1,5 @@
+import '../../../core/utils/presence_utils.dart';
+
 class NearbyUser {
   final String id;
   final String name;
@@ -31,8 +33,7 @@ class NearbyUser {
     this.lastSeen,
   });
 
-  /// "İndi aktivdir" — active within the last 5 minutes, per spec.
-  bool get isRecentlyActive =>
-      lastSeen != null &&
-      DateTime.now().difference(lastSeen!) <= const Duration(minutes: 5);
+  /// "İndi aktivdir" — see `isRecentlyOnline`'s doc comment for why
+  /// this checks staleness rather than trusting [online] on its own.
+  bool get isRecentlyActive => isRecentlyOnline(online: online, lastSeen: lastSeen);
 }

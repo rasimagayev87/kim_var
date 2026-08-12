@@ -182,6 +182,7 @@
   "chatReportReasonDangerous": "Təhlükəli davranış",
   "chatReportReasonOther": "Digər",
   "chatSendBlockedError": "Bu istifadəçiyə mesaj göndərə bilməzsiniz.",
+  "chatSendNotAllowedByRecipientError": "Bu istifadəçinin məxfilik ayarları sizin mesaj göndərməyinizə imkan vermir.",
   "chatUserBlockedNotice": "İstifadəçi blok edildi.",
   "chatEmptyConversation": "Salam de 👋",
   "chatEmptyStateTitle": "İlk mesajı sən göndər",

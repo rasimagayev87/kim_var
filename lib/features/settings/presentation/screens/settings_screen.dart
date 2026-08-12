@@ -444,7 +444,7 @@ class _LogoutRowState extends ConsumerState<_LogoutRow> {
     setState(() => _loggingOut = true);
 
     try {
-      await ref.read(presenceControllerProvider).setOffline().timeout(
+      await ref.read(presenceControllerProvider).setOfflineNow().timeout(
             _presenceWriteTimeout,
             onTimeout: () {},
           );

@@ -444,7 +444,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
-                                if (user.online) ...[
+                                if (user.isRecentlyActive) ...[
                                   const SizedBox(width: 6),
                                   Container(
                                     width: 8,

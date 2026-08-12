@@ -356,6 +356,11 @@ class FirebaseChatRepository implements ChatRepository {
       throw const ChatException(ChatFailure.blocked);
     }
 
+    final chatExistsAlready = (await chatRef.get()).exists;
+    if (!chatExistsAlready && !await _canMessage(senderId, otherUid)) {
+      throw const ChatException(ChatFailure.notAllowedByRecipient);
+    }
+
     await _firestore.runTransaction((tx) async {
       final chatSnap = await tx.get(chatRef);
 
@@ -408,6 +413,25 @@ class FirebaseChatRepository implements ChatRepository {
   /// `users/{uid}.blockedUsers` arrays directly rather than going through
   /// `SafetyRepository` to keep this repository's own dependencies self
   /// contained.
+  /// "Kim mənə mesaj göndərə bilər" — only gates starting a brand-new
+  /// chat (see the `!chatExistsAlready` check at the only call site);
+  /// mirrors `PrivacySettings.whoCanMessageMe` without importing the
+  /// privacy feature's domain layer, since this repository only needs
+  /// the raw string value off `users/{otherUid}`.
+  Future<bool> _canMessage(String senderId, String otherUid) async {
+    final otherDoc = await _users.doc(otherUid).get();
+    final value = otherDoc.data()?['whoCanMessageMe'] as String? ?? 'everyone';
+    switch (value) {
+      case 'noOne':
+        return false;
+      case 'verifiedOnly':
+        final senderDoc = await _users.doc(senderId).get();
+        return senderDoc.data()?['isVerified'] as bool? ?? false;
+      default:
+        return true;
+    }
+  }
+
   Future<bool> _isBlockedPair(String uidA, String uidB) async {
     final results = await Future.wait([_users.doc(uidA).get(), _users.doc(uidB).get()]);
     final aBlocked = (results[0].data()?['blockedUsers'] as List?)?.cast<String>() ?? const [];
@@ -441,21 +465,39 @@ class FirebaseChatRepository implements ChatRepository {
   }
 
   @override
-  Future<void> markRead(String chatId, String myUid) async {
+  Future<void> markRead(String chatId, String myUid, {required bool showReadReceipts}) async {
     final incoming =
         await _chats.doc(chatId).collection('messages').where('senderId', isNotEqualTo: myUid).get();
     final batch = _firestore.batch();
     for (final doc in incoming.docs) {
       final data = doc.data();
-      if (data['readAt'] == null) {
+      // Voice messages only become "read" via markMessageRead, once the
+      // recipient actually presses play — never on blanket chat-open.
+      final isVoiceOrCall = data['type'] == 'audio' || data['type'] == 'call';
+      if (showReadReceipts && !isVoiceOrCall && data['readAt'] == null) {
         batch.update(doc.reference, {
           'readAt': FieldValue.serverTimestamp(),
           if (data['deliveredAt'] == null) 'deliveredAt': FieldValue.serverTimestamp(),
         });
+      } else if (data['deliveredAt'] == null) {
+        batch.update(doc.reference, {'deliveredAt': FieldValue.serverTimestamp()});
       }
     }
     batch.update(_chats.doc(chatId), {'unreadCount.$myUid': 0});
     await batch.commit();
+  }
+
+  @override
+  Future<void> markMessageRead(String chatId, String messageId, String myUid, {required bool showReadReceipts}) async {
+    if (!showReadReceipts) return;
+    final ref = _chats.doc(chatId).collection('messages').doc(messageId);
+    final doc = await ref.get();
+    final data = doc.data();
+    if (data == null || data['senderId'] == myUid || data['readAt'] != null) return;
+    await ref.update({
+      'readAt': FieldValue.serverTimestamp(),
+      if (data['deliveredAt'] == null) 'deliveredAt': FieldValue.serverTimestamp(),
+    });
   }
 
   @override

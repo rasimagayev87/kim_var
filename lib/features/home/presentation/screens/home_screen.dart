@@ -71,7 +71,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    ref.read(presenceControllerProvider).setOffline();
+    ref.read(presenceControllerProvider).setOfflineNow();
     super.dispose();
   }
 
@@ -82,7 +82,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
       presence.setOnline();
       ref.read(deviceSessionControllerProvider).touchCurrentSession();
     } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
-      presence.setOffline();
+      // Grace period, not an immediate offline write — see
+      // PresenceController.scheduleOffline's doc comment.
+      presence.scheduleOffline();
     }
   }
 

@@ -125,7 +125,7 @@ class UserProfileScreen extends ConsumerWidget {
                                 textAlign: TextAlign.center,
                               ),
                             ),
-                            if (profile?.online == true) ...[
+                            if (profile?.isRecentlyActive == true) ...[
                               const SizedBox(width: 8),
                               Container(
                                 width: 9,
