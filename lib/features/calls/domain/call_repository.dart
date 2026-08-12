@@ -57,4 +57,13 @@ abstract class CallRepository {
   /// earpiece/default output (`false`). No Firestore write — purely a
   /// local device setting, same as [setMuted].
   Future<void> setSpeakerphoneOn(String callId, bool enabled);
+
+  /// This device's own cumulative bytes sent + received on [callId]'s
+  /// peer connection so far (from `RTCPeerConnection.getStats()`'s
+  /// `outbound-rtp`/`inbound-rtp` reports) — null if the connection has
+  /// no stats yet (e.g. the call never got past `ringing`). Only
+  /// reflects this device's own measurement, not a shared/authoritative
+  /// figure — the other participant's own call log entry may show a
+  /// slightly different number for the same call.
+  Future<int?> getDataUsageBytes(String callId);
 }

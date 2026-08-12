@@ -283,6 +283,28 @@ class FirebaseCallRepository implements CallRepository {
   @override
   Future<void> setSpeakerphoneOn(String callId, bool enabled) => Helper.setSpeakerphoneOn(enabled);
 
+  @override
+  Future<int?> getDataUsageBytes(String callId) async {
+    final pc = _peerConnections[callId];
+    if (pc == null) return null;
+    try {
+      final reports = await pc.getStats();
+      var total = 0;
+      for (final report in reports) {
+        if (report.type == 'outbound-rtp' || report.type == 'inbound-rtp') {
+          final sent = report.values['bytesSent'];
+          final received = report.values['bytesReceived'];
+          if (sent is num) total += sent.toInt();
+          if (received is num) total += received.toInt();
+        }
+      }
+      return total;
+    } catch (e, st) {
+      logError('firebase_call_repository.getDataUsageBytes', e, st);
+      return null;
+    }
+  }
+
   CallSession _sessionFromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
     return CallSession(

@@ -73,4 +73,7 @@ class UnimplementedCallRepository implements CallRepository {
 
   @override
   Future<void> setSpeakerphoneOn(String callId, bool enabled) => throw UnimplementedError();
+
+  @override
+  Future<int?> getDataUsageBytes(String callId) => Future.value(null);
 }

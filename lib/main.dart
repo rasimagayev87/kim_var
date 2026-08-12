@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/localization/locale_providers.dart';
 import 'core/navigation/deep_link_handler.dart';
 import 'core/theme/app_theme.dart';
+import 'features/calls/presentation/widgets/call_pip_overlay.dart';
 import 'features/onboarding/presentation/screens/splash_screen.dart';
 import 'firebase_options.dart';
 import 'l10n/app_localizations.dart';
@@ -64,6 +65,17 @@ class PeakPinApp extends ConsumerWidget {
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       home: const SplashScreen(),
+      // Floats the minimized-call PiP bubble above whatever route is
+      // currently showing, regardless of navigation depth — it has to
+      // live here, above the Navigator, rather than inside any one
+      // screen, since minimizing a call is specifically meant to let
+      // the user navigate freely underneath it.
+      builder: (context, child) => Stack(
+        children: [
+          if (child != null) child,
+          const CallPipOverlay(),
+        ],
+      ),
     );
   }
 }

@@ -20,6 +20,7 @@ import '../../../../core/widgets/friendly_error_state.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../theme/chat_light_theme.dart';
 import '../../../calls/domain/entities/call_session.dart';
+import '../../../calls/presentation/providers/active_call_controller.dart';
 import '../../../calls/presentation/providers/call_providers.dart';
 import '../../../calls/presentation/screens/call_screen.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
@@ -502,7 +503,9 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
       if (!mounted) return;
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => CallScreen(callId: session.id, otherUid: widget.otherUid, type: type)),
+        MaterialPageRoute(
+          builder: (_) => CallScreen(callId: session.id, otherUid: widget.otherUid, type: type, isCaller: true),
+        ),
       );
     } catch (e, st) {
       logError('chat_conversation_screen._startCall', e, st);
@@ -596,6 +599,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                   callsEnabled: chat?.status == ChatRequestStatus.accepted,
                   callsDisabledTooltip: loc.chatCallDisabledTooltip,
                 ),
+                _OngoingCallBanner(otherUid: widget.otherUid),
                 Expanded(
                   child: messagesAsync.when(
                     loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
@@ -624,6 +628,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                                 message: item.message,
                                 isMine: item.message.senderId == myUid,
                                 avatarUrl: item.message.senderId == myUid ? myPhoto : peerPhoto,
+                                myUid: myUid,
                                 topGap: item.tightGap ? _Spacing.sm : 18,
                               ),
                             _PendingItem() => _PendingMessageBubble(
@@ -722,11 +727,72 @@ class _EmptyConversationState extends StatelessWidget {
 
 enum _MessageMenuAction { deleteForMe, deleteForEveryone, forward }
 
+/// Sticky "Zəng davam edir · 02:14" strip under the header — only ever
+/// visible while there's a minimized call with *this* chat's other
+/// participant (a full-screen [CallScreen] covers this screen entirely
+/// while not minimized, so there's no case where a call is active,
+/// isn't minimized, and this conversation screen is still on-view).
+/// Tapping it un-minimizes back to the full-screen call UI.
+class _OngoingCallBanner extends ConsumerWidget {
+  final String otherUid;
+
+  const _OngoingCallBanner({required this.otherUid});
+
+  String _formatDuration(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final call = ref.watch(activeCallControllerProvider);
+    if (!call.hasActiveCall || !call.minimized || call.otherUid != otherUid) {
+      return const SizedBox.shrink();
+    }
+    final loc = AppLocalizations.of(context);
+
+    return GestureDetector(
+      onTap: () {
+        ref.read(activeCallControllerProvider.notifier).restore();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CallScreen(
+              callId: call.callId!,
+              otherUid: call.otherUid!,
+              type: call.type!,
+              isCaller: call.isCaller,
+            ),
+          ),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: AppColors.primary.withValues(alpha: 0.12),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.call_rounded, size: 14, color: AppColors.primary),
+            const SizedBox(width: 6),
+            Text(
+              loc.chatCallOngoingBannerLabel(_formatDuration(call.duration)),
+              style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 12.5),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _MessageBubble extends ConsumerWidget {
   final String chatId;
   final ChatMessage message;
   final bool isMine;
   final String? avatarUrl;
+  final String myUid;
 
   /// 8-12px for a same-sender burst, 16-20px otherwise — computed once
   /// per item by `_buildThreadItems`, not by this widget.
@@ -738,11 +804,19 @@ class _MessageBubble extends ConsumerWidget {
     required this.message,
     required this.isMine,
     this.avatarUrl,
+    required this.myUid,
     required this.topGap,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Call-log entries are a centered system-style pill, not a
+    // left/right sender bubble — bail out before any of the bubble
+    // chrome below.
+    if (message.isCall) {
+      return _CallLogRow(message: message, myUid: myUid, topGap: topGap);
+    }
+
     // Differentiated by a cyan-tinted gradient (mine) vs plain white
     // (theirs), matching the approved premium-light mockup — the old
     // dark-theme version differentiated by shade alone.
@@ -956,6 +1030,100 @@ class _MessageBubble extends ConsumerWidget {
       );
     }
     return Text(message.text ?? '', style: AppTextStyles.body.copyWith(color: textColor, fontSize: 15));
+  }
+}
+
+/// WhatsApp-style call-log entry — a centered system pill rather than
+/// a left/right sender bubble, since a call is something that happened
+/// *to the conversation*, not a message either side "sent". Wording
+/// and arrow direction depend on [ChatMessage.callerId] vs [myUid],
+/// not on who happened to write the log doc (see `logCallMessage`'s
+/// doc comment) — "Cavab verilmədi" only makes sense from the caller's
+/// own side.
+class _CallLogRow extends StatelessWidget {
+  final ChatMessage message;
+  final String myUid;
+  final double topGap;
+
+  const _CallLogRow({required this.message, required this.myUid, required this.topGap});
+
+  String _formatDuration(AppLocalizations loc, int totalSeconds) {
+    final minutes = totalSeconds ~/ 60;
+    final seconds = totalSeconds % 60;
+    if (minutes <= 0) return loc.chatCallDurationSecOnly(seconds);
+    return loc.chatCallDurationMinSec(minutes, seconds);
+  }
+
+  String _formatDataUsage(int bytes) {
+    const mb = 1024 * 1024;
+    const gb = 1024 * mb;
+    if (bytes >= gb) return '${(bytes / gb).toStringAsFixed(1)} GB';
+    return '${(bytes / mb).toStringAsFixed(1)} MB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final iAmCaller = message.callerId == myUid;
+    final isVideo = message.callMessageType == CallMessageType.video;
+    final missed = message.callOutcome == CallMessageOutcome.missed;
+
+    final Color tint = missed ? AppColors.error : const Color(0xFF16A34A);
+    final IconData icon = missed
+        ? (iAmCaller ? Icons.call_missed_outgoing : Icons.call_missed)
+        : (isVideo ? Icons.videocam_outlined : Icons.call_outlined);
+
+    final String label = missed
+        ? (iAmCaller
+            ? loc.chatCallNoAnswerLabel
+            : (isVideo ? loc.chatCallMissedVideoLabel : loc.chatCallMissedVoiceLabel))
+        : (isVideo ? loc.chatCallCompletedVideoLabel : loc.chatCallCompletedVoiceLabel);
+
+    final durationSeconds = message.callDurationSeconds;
+    final dataUsage = message.callDataUsageBytes;
+
+    return Center(
+      child: Container(
+        margin: EdgeInsets.only(top: topGap),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: BoxDecoration(
+          color: tint.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: tint.withValues(alpha: 0.22)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: 16, color: tint),
+                const SizedBox(width: 6),
+                Text(
+                  !missed && durationSeconds != null
+                      ? '$label · ${_formatDuration(loc, durationSeconds)}'
+                      : label,
+                  style: AppTextStyles.caption.copyWith(color: tint, fontWeight: FontWeight.w700, fontSize: 12.5),
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  DateFormat('HH:mm').format(message.sentAt),
+                  style: AppTextStyles.caption.copyWith(color: ChatLightColors.inkFaint, fontSize: 11.5),
+                ),
+              ],
+            ),
+            if (!missed && dataUsage != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                loc.chatCallDataUsageLabel(_formatDataUsage(dataUsage)),
+                style: AppTextStyles.caption.copyWith(color: ChatLightColors.inkFaint, fontSize: 10.5),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 

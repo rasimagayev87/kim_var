@@ -9,6 +9,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../calls/presentation/providers/call_providers.dart';
 import '../../../calls/presentation/screens/incoming_call_screen.dart';
+import '../../../chat/presentation/providers/chat_providers.dart' show totalUnreadChatCountProvider;
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../../location/presentation/providers/presence_provider.dart';
 import '../../../privacy/presentation/providers/privacy_providers.dart';
@@ -90,6 +91,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     final loc = AppLocalizations.of(context);
     final unreadNotificationCount =
         ref.watch(notificationListControllerProvider.select((s) => s.unreadCount));
+    final unreadChatCount = ref.watch(totalUnreadChatCountProvider);
 
     ref.listen(incomingCallProvider, (previous, next) {
       final session = next.valueOrNull;
@@ -157,7 +159,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
               },
               items: [
                 _NavItemData(icon: Icons.explore_outlined, label: loc.navDiscoverLabel),
-                _NavItemData(icon: Icons.chat_bubble_outline, label: loc.navChatsLabel),
+                _NavItemData(icon: Icons.chat_bubble_outline, label: loc.navChatsLabel, badgeCount: unreadChatCount),
                 _NavItemData(icon: Icons.play_circle_outline, label: loc.navFeedLabel),
                 _NavItemData(
                   icon: Icons.notifications_outlined,

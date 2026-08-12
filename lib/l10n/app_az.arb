@@ -209,6 +209,36 @@
   "chatVoiceCallLabel": "Səsli zəng",
   "chatVideoCallLabel": "Video zəng",
   "chatCallDisabledTooltip": "Zəng etmək üçün mesaj istəyi qəbul olunmalıdır",
+  "chatCallMissedVoiceLabel": "Cavabsız səsli zəng",
+  "chatCallMissedVideoLabel": "Cavabsız video zəng",
+  "chatCallNoAnswerLabel": "Cavab verilmədi",
+  "chatCallCompletedVoiceLabel": "Səsli zəng",
+  "chatCallCompletedVideoLabel": "Video zəng",
+  "chatCallDurationMinSec": "{minutes} dəq {seconds} san",
+  "@chatCallDurationMinSec": {
+    "placeholders": {
+      "minutes": {"type": "int"},
+      "seconds": {"type": "int"}
+    }
+  },
+  "chatCallDurationSecOnly": "{seconds} san",
+  "@chatCallDurationSecOnly": {
+    "placeholders": {
+      "seconds": {"type": "int"}
+    }
+  },
+  "chatCallDataUsageLabel": "≈ {usage} istifadə olundu",
+  "@chatCallDataUsageLabel": {
+    "placeholders": {
+      "usage": {"type": "String"}
+    }
+  },
+  "chatCallOngoingBannerLabel": "Zəng davam edir · {duration}",
+  "@chatCallOngoingBannerLabel": {
+    "placeholders": {
+      "duration": {"type": "String"}
+    }
+  },
   "callStatusRinging": "Zəng edilir...",
   "callStatusConnecting": "Bağlanır...",
   "callStatusIncoming": "Gələn zəng",

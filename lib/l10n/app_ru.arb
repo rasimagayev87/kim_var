@@ -209,6 +209,36 @@
   "chatVoiceCallLabel": "Голосовой звонок",
   "chatVideoCallLabel": "Видеозвонок",
   "chatCallDisabledTooltip": "Чтобы звонить, запрос на сообщение должен быть принят",
+  "chatCallMissedVoiceLabel": "Пропущенный голосовой звонок",
+  "chatCallMissedVideoLabel": "Пропущенный видеозвонок",
+  "chatCallNoAnswerLabel": "Нет ответа",
+  "chatCallCompletedVoiceLabel": "Голосовой звонок",
+  "chatCallCompletedVideoLabel": "Видеозвонок",
+  "chatCallDurationMinSec": "{minutes} мин {seconds} сек",
+  "@chatCallDurationMinSec": {
+    "placeholders": {
+      "minutes": {"type": "int"},
+      "seconds": {"type": "int"}
+    }
+  },
+  "chatCallDurationSecOnly": "{seconds} сек",
+  "@chatCallDurationSecOnly": {
+    "placeholders": {
+      "seconds": {"type": "int"}
+    }
+  },
+  "chatCallDataUsageLabel": "≈ {usage} использовано",
+  "@chatCallDataUsageLabel": {
+    "placeholders": {
+      "usage": {"type": "String"}
+    }
+  },
+  "chatCallOngoingBannerLabel": "Звонок продолжается · {duration}",
+  "@chatCallOngoingBannerLabel": {
+    "placeholders": {
+      "duration": {"type": "String"}
+    }
+  },
   "callStatusRinging": "Звоним...",
   "callStatusConnecting": "Соединение...",
   "callStatusIncoming": "Входящий звонок",

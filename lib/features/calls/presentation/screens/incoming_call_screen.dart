@@ -40,7 +40,12 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen> {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => CallScreen(callId: widget.session.id, otherUid: widget.session.callerId, type: widget.session.type),
+        builder: (_) => CallScreen(
+          callId: widget.session.id,
+          otherUid: widget.session.callerId,
+          type: widget.session.type,
+          isCaller: false,
+        ),
       ),
     );
   }

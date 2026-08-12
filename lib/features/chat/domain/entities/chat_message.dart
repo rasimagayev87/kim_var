@@ -1,4 +1,12 @@
-enum MessageType { text, image, video, audio, post }
+enum MessageType { text, image, video, audio, post, call }
+
+enum CallMessageType { voice, video }
+
+/// No `ongoing` value here on purpose — a call in progress is
+/// represented by the live `calls/{callId}` doc (see `call_providers.dart`),
+/// not by this message. The chat-log message for a given call is only
+/// ever written once, after it reaches a terminal state.
+enum CallMessageOutcome { missed, completed }
 
 /// Where a confirmed [ChatMessage] sits in the delivery pipeline. There is
 /// no `sending`/`failed` value here on purpose — those only apply to a
@@ -31,6 +39,21 @@ class ChatMessage {
   final String? postId;
   final bool postIsVideo;
 
+  /// Set only for [MessageType.call] — who placed the call, distinct
+  /// from [senderId] (which, for a call-log message, is whichever
+  /// participant's device happened to write the log — see
+  /// `firebase_chat_repository.dart`'s `logCallMessage`). The rail's
+  /// arrow direction and "Cavab verilmədi" vs plain "Cavabsız" wording
+  /// depend on comparing [callerId] against the viewing user's own uid,
+  /// not against [senderId].
+  final String? callerId;
+  final CallMessageType? callMessageType;
+  final CallMessageOutcome? callOutcome;
+
+  /// Null for a missed call (never connected, so no duration/usage).
+  final int? callDurationSeconds;
+  final int? callDataUsageBytes;
+
   final MessageType type;
   final DateTime sentAt;
   final DateTime? deliveredAt;
@@ -53,6 +76,11 @@ class ChatMessage {
     this.durationMs,
     this.postId,
     this.postIsVideo = false,
+    this.callerId,
+    this.callMessageType,
+    this.callOutcome,
+    this.callDurationSeconds,
+    this.callDataUsageBytes,
     this.deliveredAt,
     this.readAt,
     this.deletedFor = const [],
@@ -62,6 +90,7 @@ class ChatMessage {
   bool get isVideo => type == MessageType.video;
   bool get isAudio => type == MessageType.audio;
   bool get isPost => type == MessageType.post;
+  bool get isCall => type == MessageType.call;
 
   MessageDeliveryStatus get deliveryStatus {
     if (readAt != null) return MessageDeliveryStatus.read;

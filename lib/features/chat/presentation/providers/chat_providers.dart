@@ -62,6 +62,20 @@ final chatByIdProvider = StreamProvider.autoDispose.family<Chat?, String>((ref, 
   return ref.watch(chatRepositoryProvider).watchChat(chatId);
 });
 
+/// Sum of every chat's unread count for the current user — backs the
+/// bottom nav's Chat tab badge. Missed-call log messages count toward
+/// this the same as any other unread message (see
+/// `logCallMessage`/`_sendMessage`'s shared unread-increment path), so
+/// there's no separate missed-call counter to maintain: opening a chat
+/// (which zeroes its `unreadCount` for this user) clears both unread
+/// texts and unseen missed calls in that chat together.
+final totalUnreadChatCountProvider = Provider.autoDispose<int>((ref) {
+  final uid = _currentUid();
+  if (uid == null) return 0;
+  final chats = ref.watch(chatsProvider).valueOrNull ?? const <Chat>[];
+  return chats.fold(0, (sum, chat) => sum + chat.unreadFor(uid));
+});
+
 const _kChatPageSize = 30;
 
 class ChatListState {
@@ -330,6 +344,37 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
     } catch (e, st) {
       logError('chat_providers.ChatController.sendPost', e, st);
       return false;
+    }
+  }
+
+  /// Writes a call-log message into the chat with [otherUid] once a
+  /// call reaches a terminal state — see `CallScreen`'s hang-up path,
+  /// its only caller. Never throws; a failed log write shouldn't block
+  /// the caller from actually hanging up.
+  Future<void> logCall({
+    required String otherUid,
+    required String callId,
+    required String callerId,
+    required CallMessageType callMessageType,
+    required CallMessageOutcome callOutcome,
+    int? callDurationSeconds,
+    int? callDataUsageBytes,
+  }) async {
+    final uid = _currentUid();
+    if (uid == null) return;
+    try {
+      await _ref.read(chatRepositoryProvider).logCallMessage(
+            participantIds: [uid, otherUid],
+            senderId: uid,
+            callId: callId,
+            callerId: callerId,
+            callMessageType: callMessageType,
+            callOutcome: callOutcome,
+            callDurationSeconds: callDurationSeconds,
+            callDataUsageBytes: callDataUsageBytes,
+          );
+    } catch (e, st) {
+      logError('chat_providers.ChatController.logCall', e, st);
     }
   }
 
@@ -603,8 +648,10 @@ class PendingMessagesController extends StateNotifier<Map<String, List<PendingOu
         );
       case MessageType.text:
       case MessageType.post:
-        // Neither ever becomes a pending/failed upload — text has no
-        // upload step, and post-shares go through ChatController.sendPost.
+      case MessageType.call:
+        // None of these ever become a pending/failed upload — text has
+        // no upload step, post-shares go through ChatController.sendPost,
+        // and call logs go through ChatController.logCall.
         return Future.value();
     }
   }

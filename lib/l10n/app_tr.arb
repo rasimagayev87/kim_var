@@ -209,6 +209,36 @@
   "chatVoiceCallLabel": "Sesli arama",
   "chatVideoCallLabel": "Görüntülü arama",
   "chatCallDisabledTooltip": "Arayabilmek için mesaj isteğinin kabul edilmesi gerekir",
+  "chatCallMissedVoiceLabel": "Cevapsız sesli arama",
+  "chatCallMissedVideoLabel": "Cevapsız görüntülü arama",
+  "chatCallNoAnswerLabel": "Cevap verilmedi",
+  "chatCallCompletedVoiceLabel": "Sesli arama",
+  "chatCallCompletedVideoLabel": "Görüntülü arama",
+  "chatCallDurationMinSec": "{minutes} dk {seconds} sn",
+  "@chatCallDurationMinSec": {
+    "placeholders": {
+      "minutes": {"type": "int"},
+      "seconds": {"type": "int"}
+    }
+  },
+  "chatCallDurationSecOnly": "{seconds} sn",
+  "@chatCallDurationSecOnly": {
+    "placeholders": {
+      "seconds": {"type": "int"}
+    }
+  },
+  "chatCallDataUsageLabel": "≈ {usage} kullanıldı",
+  "@chatCallDataUsageLabel": {
+    "placeholders": {
+      "usage": {"type": "String"}
+    }
+  },
+  "chatCallOngoingBannerLabel": "Arama devam ediyor · {duration}",
+  "@chatCallOngoingBannerLabel": {
+    "placeholders": {
+      "duration": {"type": "String"}
+    }
+  },
   "callStatusRinging": "Aranıyor...",
   "callStatusConnecting": "Bağlanıyor...",
   "callStatusIncoming": "Gelen arama",

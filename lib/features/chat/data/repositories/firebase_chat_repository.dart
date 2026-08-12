@@ -189,6 +189,45 @@ class FirebaseChatRepository implements ChatRepository {
   }
 
   @override
+  Future<void> logCallMessage({
+    required List<String> participantIds,
+    required String senderId,
+    required String callId,
+    required String callerId,
+    required CallMessageType callMessageType,
+    required CallMessageOutcome callOutcome,
+    int? callDurationSeconds,
+    int? callDataUsageBytes,
+  }) {
+    final chatId = chatIdFor(participantIds);
+    final lastMessage = callOutcome == CallMessageOutcome.missed
+        ? (callMessageType == CallMessageType.video ? 'Cavabsız video zəng' : 'Cavabsız səsli zəng')
+        : (callMessageType == CallMessageType.video ? 'Video zəng' : 'Səsli zəng');
+
+    return _sendMessage(
+      participantIds: participantIds,
+      senderId: senderId,
+      // Deterministic id (the call's own id, not a fresh auto-id) so a
+      // retried/duplicate call to this method for the same call
+      // overwrites the same doc instead of logging it twice.
+      messageRef: _chats.doc(chatId).collection('messages').doc(callId),
+      buildMessage: (receiverId) => {
+        'senderId': senderId,
+        'receiverId': receiverId,
+        'type': 'call',
+        'callerId': callerId,
+        'callMessageType': callMessageType.name,
+        'callOutcome': callOutcome.name,
+        if (callDurationSeconds != null) 'callDurationSeconds': callDurationSeconds,
+        if (callDataUsageBytes != null) 'callDataUsageBytes': callDataUsageBytes,
+        'sentAt': FieldValue.serverTimestamp(),
+      },
+      lastMessage: lastMessage,
+      lastMessageType: 'call',
+    );
+  }
+
+  @override
   Future<void> deleteMessageForMe({required String chatId, required String messageId, required String uid}) {
     return _chats.doc(chatId).collection('messages').doc(messageId).update({
       'deletedFor': FieldValue.arrayUnion([uid]),
@@ -473,6 +512,11 @@ class FirebaseChatRepository implements ChatRepository {
       durationMs: (data['durationMs'] as num?)?.toInt(),
       postId: data['postId'] as String?,
       postIsVideo: data['postIsVideo'] as bool? ?? false,
+      callerId: data['callerId'] as String?,
+      callMessageType: _callMessageTypeFrom(data['callMessageType'] as String?),
+      callOutcome: _callOutcomeFrom(data['callOutcome'] as String?),
+      callDurationSeconds: (data['callDurationSeconds'] as num?)?.toInt(),
+      callDataUsageBytes: (data['callDataUsageBytes'] as num?)?.toInt(),
       type: _typeFrom(data['type'] as String?) ?? MessageType.text,
       sentAt: (data['sentAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       deliveredAt: (data['deliveredAt'] as Timestamp?)?.toDate(),
@@ -504,6 +548,30 @@ class FirebaseChatRepository implements ChatRepository {
         return MessageType.text;
       case 'post':
         return MessageType.post;
+      case 'call':
+        return MessageType.call;
+      default:
+        return null;
+    }
+  }
+
+  CallMessageType? _callMessageTypeFrom(String? value) {
+    switch (value) {
+      case 'voice':
+        return CallMessageType.voice;
+      case 'video':
+        return CallMessageType.video;
+      default:
+        return null;
+    }
+  }
+
+  CallMessageOutcome? _callOutcomeFrom(String? value) {
+    switch (value) {
+      case 'missed':
+        return CallMessageOutcome.missed;
+      case 'completed':
+        return CallMessageOutcome.completed;
       default:
         return null;
     }

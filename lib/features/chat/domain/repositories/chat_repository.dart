@@ -82,6 +82,24 @@ abstract class ChatRepository {
     required bool isVideo,
   });
 
+  /// Writes a call-log message ([MessageType.call]) once a call reaches
+  /// a terminal state — see `CallScreen`'s hang-up path, which is the
+  /// only caller of this today (the caller side only, to avoid both
+  /// participants racing to log the same call twice — see the
+  /// implementation's doc comment). [callId] doubles as the message id
+  /// so a retry/duplicate call is idempotent rather than creating a
+  /// second log entry.
+  Future<void> logCallMessage({
+    required List<String> participantIds,
+    required String senderId,
+    required String callId,
+    required String callerId,
+    required CallMessageType callMessageType,
+    required CallMessageOutcome callOutcome,
+    int? callDurationSeconds,
+    int? callDataUsageBytes,
+  });
+
   /// Hides [messageId] from [uid]'s own view only — the other
   /// participant's copy is untouched.
   Future<void> deleteMessageForMe({required String chatId, required String messageId, required String uid});
