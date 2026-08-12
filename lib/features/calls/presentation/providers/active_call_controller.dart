@@ -138,14 +138,33 @@ class ActiveCallController extends StateNotifier<ActiveCallUiState> {
     }
 
     _sessionSub = _ref.read(callRepositoryProvider).watchCall(callId).listen(_onSessionUpdate);
+    // `watchLocalStream`/`watchRemoteStream` already replay whatever
+    // stream is currently open to a *new* subscriber (see that
+    // method's own doc comment in firebase_call_repository.dart) — but
+    // that only solves subscribing late relative to when the stream
+    // opened. It doesn't solve subscribing *before the renderer
+    // exists*: `startCall`/`acceptCall` opens the local camera before
+    // this controller ever runs, so this listener's first (and often
+    // only, for a stream that doesn't change again) event can easily
+    // fire while `_initRenderers` is still mid-`await` and
+    // `state.localRenderer` is still null — `?.srcObject = stream`
+    // then silently no-ops, and nothing re-applies it once the
+    // renderer shows up. Tracking the last-seen stream here and
+    // re-applying it once the renderer exists (in `_initRenderers`)
+    // closes that race regardless of which finishes first.
     _localStreamSub = repo.watchLocalStream(callId).listen((stream) {
+      _lastLocalStream = stream;
       state.localRenderer?.srcObject = stream;
     });
     _remoteStreamSub = repo.watchRemoteStream(callId).listen((stream) {
+      _lastRemoteStream = stream;
       state.remoteRenderer?.srcObject = stream;
       if (stream != null) state = state.copyWith(hasRemoteVideo: true);
     });
   }
+
+  MediaStream? _lastLocalStream;
+  MediaStream? _lastRemoteStream;
 
   Future<void> _initRenderers() async {
     final local = RTCVideoRenderer();
@@ -157,7 +176,14 @@ class ActiveCallController extends StateNotifier<ActiveCallUiState> {
       await remote.dispose();
       return;
     }
-    state = state.copyWith(localRenderer: local, remoteRenderer: remote, renderersReady: true);
+    local.srcObject = _lastLocalStream;
+    remote.srcObject = _lastRemoteStream;
+    state = state.copyWith(
+      localRenderer: local,
+      remoteRenderer: remote,
+      renderersReady: true,
+      hasRemoteVideo: _lastRemoteStream != null,
+    );
   }
 
   void _onSessionUpdate(CallSession? session) {
