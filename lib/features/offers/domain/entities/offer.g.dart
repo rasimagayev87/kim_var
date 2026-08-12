@@ -31,6 +31,10 @@ _$OfferImpl _$$OfferImplFromJson(Map<String, dynamic> json) => _$OfferImpl(
   reviewNote: json['reviewNote'] as String?,
   reviewedBy: json['reviewedBy'] as String?,
   reviewedAt: const NullableTimestampConverter().fromJson(json['reviewedAt']),
+  paymentId: json['paymentId'] as String?,
+  revisionDeadline: const NullableTimestampConverter().fromJson(
+    json['revisionDeadline'],
+  ),
   createdAt: const TimestampConverter().fromJson(json['createdAt']),
   updatedAt: const NullableTimestampConverter().fromJson(json['updatedAt']),
   boostedUntil: const NullableTimestampConverter().fromJson(
@@ -78,6 +82,10 @@ Map<String, dynamic> _$$OfferImplToJson(
   'reviewNote': instance.reviewNote,
   'reviewedBy': instance.reviewedBy,
   'reviewedAt': const NullableTimestampConverter().toJson(instance.reviewedAt),
+  'paymentId': instance.paymentId,
+  'revisionDeadline': const NullableTimestampConverter().toJson(
+    instance.revisionDeadline,
+  ),
   'createdAt': const TimestampConverter().toJson(instance.createdAt),
   'updatedAt': const NullableTimestampConverter().toJson(instance.updatedAt),
   'boostedUntil': const NullableTimestampConverter().toJson(

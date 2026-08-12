@@ -35,8 +35,14 @@ function logActionForStatus(status: OfferStatus): ModerationAction {
   }
 }
 
-/** Same required-note-for-needs_revision contract as `setVenueStatus`
- * — see its doc comment. */
+const REVISION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * Same required-note-for-needs_revision contract as `setVenueStatus`,
+ * and the same payment side-effects (needs_revision → 7-day deadline +
+ * `revision_pending`; rejected → `refund_pending`) — see that
+ * function's doc comment for the full reasoning, identical here.
+ */
 export async function setOfferStatus(id: string, status: OfferStatus, reviewNote?: string): Promise<ActionResult> {
   const check = await requireOfferModeration();
   if ("denied" in check) return check.denied;
@@ -47,16 +53,30 @@ export async function setOfferStatus(id: string, status: OfferStatus, reviewNote
   }
 
   try {
-    await getAdminDb()
-      .collection("offers")
-      .doc(id)
-      .update({
-        status,
-        reviewNote: status === "needs_revision" || status === "rejected" ? note : null,
-        reviewedBy: check.admin.uid,
-        reviewedAt: new Date(),
-        updatedAt: new Date(),
-      });
+    const db = getAdminDb();
+    const ref = db.collection("offers").doc(id);
+    const snap = await ref.get();
+    const paymentId = (snap.data()?.paymentId as string | undefined) || null;
+
+    await ref.update({
+      status,
+      reviewNote: status === "needs_revision" || status === "rejected" ? note : null,
+      reviewedBy: check.admin.uid,
+      reviewedAt: new Date(),
+      revisionDeadline: status === "needs_revision" ? new Date(Date.now() + REVISION_WINDOW_MS) : null,
+      updatedAt: new Date(),
+    });
+
+    if (paymentId && (status === "needs_revision" || status === "rejected")) {
+      await db
+        .collection("payments")
+        .doc(paymentId)
+        .update({
+          status: status === "needs_revision" ? "revision_pending" : "refund_pending",
+          updatedAt: new Date(),
+        });
+    }
+
     await logModerationAction({
       actor: check.admin,
       action: logActionForStatus(status),
@@ -67,6 +87,7 @@ export async function setOfferStatus(id: string, status: OfferStatus, reviewNote
     revalidatePath("/offers");
     revalidatePath(`/offers/${id}`);
     revalidatePath("/dashboard");
+    if (paymentId) revalidatePath("/payments");
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "unknown-error" };

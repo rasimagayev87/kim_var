@@ -18,6 +18,12 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 const TYPE_LABELS: Record<string, string> = {
   venue_listing: "Məkan elanı",
+  offer_listing: "Təklif elanı",
+};
+
+const LISTING_TYPE_PATH: Record<string, string> = {
+  venue: "venues",
+  offer: "offers",
 };
 
 function formatDate(iso: string | null): string {
@@ -57,7 +63,7 @@ export function PaymentsTable({ payments }: { payments: AdminPaymentRow[] }) {
         <TableHeader>
           <TableRow>
             <TableHead>Sahib</TableHead>
-            <TableHead>Məkan</TableHead>
+            <TableHead>Elan</TableHead>
             <TableHead>Növ</TableHead>
             <TableHead>Məbləğ</TableHead>
             <TableHead>Tarix</TableHead>
@@ -75,9 +81,9 @@ export function PaymentsTable({ payments }: { payments: AdminPaymentRow[] }) {
                 </Link>
               </TableCell>
               <TableCell className="text-sm">
-                {payment.venueId ? (
-                  <Link href={`/venues/${payment.venueId}`} className="hover:underline">
-                    {payment.venueName ?? payment.venueId}
+                {payment.listingType && payment.listingId ? (
+                  <Link href={`/${LISTING_TYPE_PATH[payment.listingType]}/${payment.listingId}`} className="hover:underline">
+                    {payment.listingName ?? payment.listingId}
                   </Link>
                 ) : (
                   <span className="text-muted-foreground">—</span>

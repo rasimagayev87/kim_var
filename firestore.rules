@@ -382,16 +382,18 @@ service cloud.firestore {
 
     // Top-level, separate from the (unrelated, still-unused) VIP-purchase
     // `users/{userId}/payments` subcollection above — this one backs the
-    // venue-listing fee/refund state machine (see `Venue.paymentId`,
-    // `functions/src/index.ts`'s `processPaymentRefund`/
-    // `expireVenueRevisionDeadlines`), and is written by the owner's own
-    // client at venue-creation time (no payment provider is wired yet,
-    // so this stands in for a real checkout confirmation — see
-    // `FirebaseVenueRepository._createListingPayment`). Every status
-    // transition AFTER that initial write (`revision_pending`,
-    // `refund_pending`, `refunded`) is grant-of-trust — only the admin
-    // panel (Admin SDK) and the Cloud Functions above may make it, never
-    // the owner directly.
+    // venue/offer listing fee/refund state machine (see
+    // `Venue.paymentId`/`Offer.paymentId`, `listingType`/`listingId`
+    // distinguishing which, `functions/src/index.ts`'s
+    // `processPaymentRefund`/`expireListingRevisionDeadlines`), and is
+    // written by the owner's own client at venue/offer-creation time (no
+    // payment provider is wired yet, so this stands in for a real
+    // checkout confirmation — see `createListingPayment` in
+    // `lib/core/data/listing_payment.dart`, shared by both repositories).
+    // Every status transition AFTER that initial write
+    // (`revision_pending`, `refund_pending`, `refunded`) is
+    // grant-of-trust — only the admin panel (Admin SDK) and the Cloud
+    // Functions above may make it, never the owner directly.
     match /payments/{paymentId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.ownerId;
       allow create: if request.auth != null &&
@@ -456,12 +458,14 @@ service cloud.firestore {
       // `ownerId` is immutable, same reasoning as venues. `status`/
       // `reviewNote`/`reviewedBy`/`reviewedAt` are admin-panel-only —
       // same reasoning as venues' update rule; `resubmitOffer` (Cloud
-      // Function) is the only path back to 'pending'.
+      // Function) is the only path back to 'pending'. `paymentId`/
+      // `revisionDeadline` are the same grant-of-trust pairing as
+      // `Venue.paymentId`/`revisionDeadline` — see that rule's comment.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt']);
+          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'paymentId', 'revisionDeadline']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }

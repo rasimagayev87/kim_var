@@ -1145,7 +1145,13 @@ export const onOfferUpdated = onDocumentUpdated("offers/{offerId}", async (event
   if (!ownerId) return;
   const title = (after.title as string | undefined) ?? "";
 
-  const notification = moderationStatusNotification("offer", title, after.status, after.reviewNote);
+  const notification = moderationStatusNotification(
+    "offer",
+    title,
+    after.status,
+    after.reviewNote,
+    Boolean(after.paymentId),
+  );
   if (notification) {
     await notifyUser({
       uid: ownerId,
@@ -1338,6 +1344,22 @@ function moderationStatusNotification(
 }
 
 /**
+ * Undoes the "revision_pending" flag `setVenueStatus`/`setOfferStatus`
+ * (admin panel) set when a listing was sent back for revision — shared
+ * by `resubmitVenue`/`resubmitOffer` since resubmitting either never
+ * charges again, it just returns the existing payment to its normal
+ * "paid, awaiting review" state. No-ops for listings predating the
+ * payment feature (no `paymentId`).
+ */
+function revertRevisionPayment(tx: FirebaseFirestore.Transaction, paymentId: string | undefined): void {
+  if (!paymentId) return;
+  tx.update(db.collection("payments").doc(paymentId), {
+    status: "completed",
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/**
  * Owner resubmits a `needs_revision` venue after editing it — the only
  * way `status` can move back to `pending` once reviewed, since
  * firestore.rules blocks the owner from writing `status` directly.
@@ -1369,17 +1391,7 @@ export const resubmitVenue = onCall({ region: "us-central1" }, async (request) =
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    // Undoes the "revision_pending" flag `setVenueStatus` (admin panel)
-    // set when this venue was sent back for revision — no new charge
-    // happens on resubmit, this just returns the existing payment to
-    // its normal "paid, awaiting review" state.
-    const paymentId = data.paymentId as string | undefined;
-    if (paymentId) {
-      tx.update(db.collection("payments").doc(paymentId), {
-        status: "completed",
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-    }
+    revertRevisionPayment(tx, data.paymentId as string | undefined);
   });
 
   return { ok: true };
@@ -1406,8 +1418,10 @@ export const resubmitOffer = onCall({ region: "us-central1" }, async (request) =
       reviewNote: null,
       reviewedBy: null,
       reviewedAt: null,
+      revisionDeadline: null,
       updatedAt: FieldValue.serverTimestamp(),
     });
+    revertRevisionPayment(tx, data.paymentId as string | undefined);
   });
 
   return { ok: true };
@@ -1415,11 +1429,13 @@ export const resubmitOffer = onCall({ region: "us-central1" }, async (request) =
 
 /**
  * Fires whenever a `payments/{paymentId}` doc's `status` newly becomes
- * `refund_pending` (from admin rejection, or `expireVenueRevisionDeadlines`
+ * `refund_pending` (from admin rejection, or `expireListingRevisionDeadlines`
  * below auto-rejecting an expired revision window) — NOT on every write,
  * so resubmitting (which flips a doc from `revision_pending` back to
  * `completed`) or the admin's own "mark as refunded" action (which flips
- * it to `refunded`) never re-triggers this.
+ * it to `refunded`) never re-triggers this. Shared by both venue and
+ * offer listings (`listingType` on the doc), same as everything else
+ * downstream of `payments/{paymentId}`.
  *
  * No payment provider (Epoint/Payriff/LEOpay) is wired yet, so this
  * deliberately does NOT call a real refund API and does NOT advance
@@ -1439,7 +1455,8 @@ export const processPaymentRefund = onDocumentUpdated("payments/{paymentId}", as
   logger.info("processPaymentRefund: refund needed, awaiting manual processing", {
     paymentId: event.params.paymentId,
     ownerId: after.ownerId,
-    venueId: after.venueId,
+    listingType: after.listingType,
+    listingId: after.listingId,
     amount: after.amount,
     currency: after.currency,
   });
@@ -1453,44 +1470,64 @@ export const processPaymentRefund = onDocumentUpdated("payments/{paymentId}", as
 });
 
 /**
- * Daily sweep for venues an admin sent back for revision
- * (`status: 'needs_revision'`) whose 7-day `revisionDeadline` has
- * passed without the owner resubmitting — auto-rejects them and marks
- * their payment for refund, exactly like the admin's own "Rədd et və
- * pulu qaytar" action (see `setVenueStatus` in the admin panel).
- * `onVenueUpdated` picks up the `status` change and sends the owner
- * the same rejection notification either way.
+ * One collection's worth of `expireListingRevisionDeadlines`'s sweep —
+ * shared by the venues and offers passes below so the "find expired,
+ * reject, mark payment refund_pending" logic only exists once. Returns
+ * how many docs it touched, purely for the summary log line.
  */
-export const expireVenueRevisionDeadlines = onSchedule(
-  { schedule: "every 24 hours", region: "europe-west1" },
-  async () => {
-    const now = Timestamp.now();
-    const expired = await db
-      .collection("venues")
-      .where("status", "==", "needs_revision")
-      .where("revisionDeadline", "<=", now)
-      .get();
+async function expireRevisionDeadlinesFor(collectionName: "venues" | "offers"): Promise<number> {
+  const now = Timestamp.now();
+  const expired = await db
+    .collection(collectionName)
+    .where("status", "==", "needs_revision")
+    .where("revisionDeadline", "<=", now)
+    .get();
 
-    await Promise.all(
-      expired.docs.map(async (doc) => {
-        const data = doc.data();
-        await doc.ref.update({
-          status: "rejected",
-          revisionDeadline: null,
+  await Promise.all(
+    expired.docs.map(async (doc) => {
+      const data = doc.data();
+      await doc.ref.update({
+        status: "rejected",
+        revisionDeadline: null,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      const paymentId = data.paymentId as string | undefined;
+      if (paymentId) {
+        await db.collection("payments").doc(paymentId).update({
+          status: "refund_pending",
           updatedAt: FieldValue.serverTimestamp(),
         });
-        const paymentId = data.paymentId as string | undefined;
-        if (paymentId) {
-          await db.collection("payments").doc(paymentId).update({
-            status: "refund_pending",
-            updatedAt: FieldValue.serverTimestamp(),
-          });
-        }
-      }),
-    );
+      }
+    }),
+  );
 
-    if (expired.size > 0) {
-      logger.info("expireVenueRevisionDeadlines: auto-rejected expired venues", { count: expired.size });
+  return expired.size;
+}
+
+/**
+ * Daily sweep — in one invocation — for venues AND offers an admin
+ * sent back for revision (`status: 'needs_revision'`) whose 7-day
+ * `revisionDeadline` has passed without the owner resubmitting —
+ * auto-rejects them and marks their payment for refund, exactly like
+ * the admin's own "Rədd et və pulu qaytar" action (see
+ * `setVenueStatus`/`setOfferStatus` in the admin panel).
+ * `onVenueUpdated`/`onOfferUpdated` pick up the `status` change and
+ * send the owner the same rejection notification either way. Firestore
+ * has no single query spanning two different top-level collections, so
+ * "one pass" here means one scheduled invocation running both queries,
+ * not one query — `expireRevisionDeadlinesFor` is the shared logic
+ * that keeps this from being two near-identical functions.
+ */
+export const expireListingRevisionDeadlines = onSchedule(
+  { schedule: "every 24 hours", region: "europe-west1" },
+  async () => {
+    const [venueCount, offerCount] = await Promise.all([
+      expireRevisionDeadlinesFor("venues"),
+      expireRevisionDeadlinesFor("offers"),
+    ]);
+
+    if (venueCount > 0 || offerCount > 0) {
+      logger.info("expireListingRevisionDeadlines: auto-rejected expired listings", { venueCount, offerCount });
     }
   },
 );

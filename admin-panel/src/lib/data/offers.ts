@@ -18,6 +18,12 @@ export interface AdminOfferRow {
   startDate: string | null;
   endDate: string | null;
   createdAt: string | null;
+  /** Only set while `status === 'needs_revision'` — see `setOfferStatus`. */
+  revisionDeadline: string | null;
+  /** Backing `payments/{paymentId}` doc, if any — see `Offer.paymentId`
+   * in the Flutter app. Null for offers created before that field
+   * existed. */
+  paymentId: string | null;
 }
 
 const FETCH_LIMIT = 200;
@@ -86,6 +92,8 @@ async function attachOwners(docs: FirebaseFirestore.QueryDocumentSnapshot[]): Pr
       startDate: toIso(data.startDate),
       endDate: toIso(data.endDate),
       createdAt: toIso(data.createdAt),
+      revisionDeadline: toIso(data.revisionDeadline),
+      paymentId: (data.paymentId as string) || null,
     };
   });
 }

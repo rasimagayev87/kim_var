@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
+import '../../../../core/data/listing_payment.dart';
 import '../../domain/entities/venue.dart';
 import '../../domain/repositories/venue_repository.dart';
 import '../datasources/firebase_venue_remote_datasource.dart';
@@ -57,7 +58,13 @@ class FirebaseVenueRepository implements VenueRepository {
       onTaskReady: onUploadTaskReady,
     );
 
-    final paymentId = await _createListingPayment(ownerId: ownerId, venueId: venueId);
+    final paymentId = await createListingPayment(
+      ownerId: ownerId,
+      listingType: 'venue',
+      listingId: venueId,
+      type: 'venue_listing',
+      amount: _venueListingFeeAzn,
+    );
 
     await _datasource.setVenue(venueId, {
       'ownerId': ownerId,
@@ -84,30 +91,6 @@ class FirebaseVenueRepository implements VenueRepository {
     });
 
     return venueId;
-  }
-
-  /// Stands in for a real checkout: no payment provider is wired yet
-  /// (see the offer-boost TODO in `offer_details_screen.dart` for the
-  /// same caveat), so this writes the `payments/{paymentId}` doc
-  /// straight to `'completed'` instead of `'pending'` pending a webhook
-  /// confirmation. Once a provider exists, this becomes "create
-  /// 'pending', redirect to checkout, webhook flips it to 'completed'"
-  /// — the rest of the moderation/refund state machine (admin actions,
-  /// `expireVenueRevisionDeadlines`, `processPaymentRefund`) doesn't
-  /// change either way, since it all keys off this doc's `status`.
-  Future<String> _createListingPayment({required String ownerId, required String venueId}) async {
-    final ref = FirebaseFirestore.instance.collection('payments').doc();
-    await ref.set({
-      'ownerId': ownerId,
-      'venueId': venueId,
-      'type': 'venue_listing',
-      'amount': _venueListingFeeAzn,
-      'currency': 'AZN',
-      'status': 'completed',
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-    return ref.id;
   }
 
   @override

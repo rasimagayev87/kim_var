@@ -140,6 +140,16 @@ class Offer with _$Offer {
 
     /// When [reviewedBy] last set [status]. Null until reviewed.
     @NullableTimestampConverter() DateTime? reviewedAt,
+
+    /// The `payments/{paymentId}` doc backing this offer's listing fee
+    /// — same payment/refund state machine as [Venue.paymentId]. Null
+    /// on offers created before this field existed.
+    String? paymentId,
+
+    /// Only set while [status] is 'needs_revision' — same 7-day
+    /// resubmit-or-auto-reject-and-refund contract as
+    /// [Venue.revisionDeadline]. Grant-of-trust, see firestore.rules.
+    @NullableTimestampConverter() DateTime? revisionDeadline,
     @TimestampConverter() required DateTime createdAt,
     @NullableTimestampConverter() DateTime? updatedAt,
 

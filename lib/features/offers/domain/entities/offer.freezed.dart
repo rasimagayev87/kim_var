@@ -71,6 +71,17 @@ mixin _$Offer {
   /// When [reviewedBy] last set [status]. Null until reviewed.
   @NullableTimestampConverter()
   DateTime? get reviewedAt => throw _privateConstructorUsedError;
+
+  /// The `payments/{paymentId}` doc backing this offer's listing fee
+  /// — same payment/refund state machine as [Venue.paymentId]. Null
+  /// on offers created before this field existed.
+  String? get paymentId => throw _privateConstructorUsedError;
+
+  /// Only set while [status] is 'needs_revision' — same 7-day
+  /// resubmit-or-auto-reject-and-refund contract as
+  /// [Venue.revisionDeadline]. Grant-of-trust, see firestore.rules.
+  @NullableTimestampConverter()
+  DateTime? get revisionDeadline => throw _privateConstructorUsedError;
   @TimestampConverter()
   DateTime get createdAt => throw _privateConstructorUsedError;
   @NullableTimestampConverter()
@@ -151,6 +162,8 @@ abstract class $OfferCopyWith<$Res> {
     String? reviewNote,
     String? reviewedBy,
     @NullableTimestampConverter() DateTime? reviewedAt,
+    String? paymentId,
+    @NullableTimestampConverter() DateTime? revisionDeadline,
     @TimestampConverter() DateTime createdAt,
     @NullableTimestampConverter() DateTime? updatedAt,
     @NullableTimestampConverter() DateTime? boostedUntil,
@@ -199,6 +212,8 @@ class _$OfferCopyWithImpl<$Res, $Val extends Offer>
     Object? reviewNote = freezed,
     Object? reviewedBy = freezed,
     Object? reviewedAt = freezed,
+    Object? paymentId = freezed,
+    Object? revisionDeadline = freezed,
     Object? createdAt = null,
     Object? updatedAt = freezed,
     Object? boostedUntil = freezed,
@@ -298,6 +313,14 @@ class _$OfferCopyWithImpl<$Res, $Val extends Offer>
                 ? _value.reviewedAt
                 : reviewedAt // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            paymentId: freezed == paymentId
+                ? _value.paymentId
+                : paymentId // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            revisionDeadline: freezed == revisionDeadline
+                ? _value.revisionDeadline
+                : revisionDeadline // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
             createdAt: null == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -367,6 +390,8 @@ abstract class _$$OfferImplCopyWith<$Res> implements $OfferCopyWith<$Res> {
     String? reviewNote,
     String? reviewedBy,
     @NullableTimestampConverter() DateTime? reviewedAt,
+    String? paymentId,
+    @NullableTimestampConverter() DateTime? revisionDeadline,
     @TimestampConverter() DateTime createdAt,
     @NullableTimestampConverter() DateTime? updatedAt,
     @NullableTimestampConverter() DateTime? boostedUntil,
@@ -414,6 +439,8 @@ class __$$OfferImplCopyWithImpl<$Res>
     Object? reviewNote = freezed,
     Object? reviewedBy = freezed,
     Object? reviewedAt = freezed,
+    Object? paymentId = freezed,
+    Object? revisionDeadline = freezed,
     Object? createdAt = null,
     Object? updatedAt = freezed,
     Object? boostedUntil = freezed,
@@ -513,6 +540,14 @@ class __$$OfferImplCopyWithImpl<$Res>
             ? _value.reviewedAt
             : reviewedAt // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        paymentId: freezed == paymentId
+            ? _value.paymentId
+            : paymentId // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        revisionDeadline: freezed == revisionDeadline
+            ? _value.revisionDeadline
+            : revisionDeadline // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
         createdAt: null == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -576,6 +611,8 @@ class _$OfferImpl extends _Offer {
     this.reviewNote,
     this.reviewedBy,
     @NullableTimestampConverter() this.reviewedAt,
+    this.paymentId,
+    @NullableTimestampConverter() this.revisionDeadline,
     @TimestampConverter() required this.createdAt,
     @NullableTimestampConverter() this.updatedAt,
     @NullableTimestampConverter() this.boostedUntil,
@@ -664,6 +701,19 @@ class _$OfferImpl extends _Offer {
   @override
   @NullableTimestampConverter()
   final DateTime? reviewedAt;
+
+  /// The `payments/{paymentId}` doc backing this offer's listing fee
+  /// — same payment/refund state machine as [Venue.paymentId]. Null
+  /// on offers created before this field existed.
+  @override
+  final String? paymentId;
+
+  /// Only set while [status] is 'needs_revision' — same 7-day
+  /// resubmit-or-auto-reject-and-refund contract as
+  /// [Venue.revisionDeadline]. Grant-of-trust, see firestore.rules.
+  @override
+  @NullableTimestampConverter()
+  final DateTime? revisionDeadline;
   @override
   @TimestampConverter()
   final DateTime createdAt;
@@ -741,7 +791,7 @@ class _$OfferImpl extends _Offer {
 
   @override
   String toString() {
-    return 'Offer(id: $id, ownerId: $ownerId, venueId: $venueId, venueName: $venueName, venuePhotoUrl: $venuePhotoUrl, category: $category, title: $title, description: $description, offerType: $offerType, discountValue: $discountValue, lat: $lat, lng: $lng, address: $address, country: $country, startDate: $startDate, endDate: $endDate, imageUrl: $imageUrl, terms: $terms, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, createdAt: $createdAt, updatedAt: $updatedAt, boostedUntil: $boostedUntil, activeHours: $activeHours, activeDays: $activeDays, birthdayMatchId: $birthdayMatchId, targetUserIds: $targetUserIds, personalMessage: $personalMessage)';
+    return 'Offer(id: $id, ownerId: $ownerId, venueId: $venueId, venueName: $venueName, venuePhotoUrl: $venuePhotoUrl, category: $category, title: $title, description: $description, offerType: $offerType, discountValue: $discountValue, lat: $lat, lng: $lng, address: $address, country: $country, startDate: $startDate, endDate: $endDate, imageUrl: $imageUrl, terms: $terms, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, revisionDeadline: $revisionDeadline, createdAt: $createdAt, updatedAt: $updatedAt, boostedUntil: $boostedUntil, activeHours: $activeHours, activeDays: $activeDays, birthdayMatchId: $birthdayMatchId, targetUserIds: $targetUserIds, personalMessage: $personalMessage)';
   }
 
   @override
@@ -782,6 +832,10 @@ class _$OfferImpl extends _Offer {
                 other.reviewedBy == reviewedBy) &&
             (identical(other.reviewedAt, reviewedAt) ||
                 other.reviewedAt == reviewedAt) &&
+            (identical(other.paymentId, paymentId) ||
+                other.paymentId == paymentId) &&
+            (identical(other.revisionDeadline, revisionDeadline) ||
+                other.revisionDeadline == revisionDeadline) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
@@ -830,6 +884,8 @@ class _$OfferImpl extends _Offer {
     reviewNote,
     reviewedBy,
     reviewedAt,
+    paymentId,
+    revisionDeadline,
     createdAt,
     updatedAt,
     boostedUntil,
@@ -878,6 +934,8 @@ abstract class _Offer extends Offer {
     final String? reviewNote,
     final String? reviewedBy,
     @NullableTimestampConverter() final DateTime? reviewedAt,
+    final String? paymentId,
+    @NullableTimestampConverter() final DateTime? revisionDeadline,
     @TimestampConverter() required final DateTime createdAt,
     @NullableTimestampConverter() final DateTime? updatedAt,
     @NullableTimestampConverter() final DateTime? boostedUntil,
@@ -963,6 +1021,19 @@ abstract class _Offer extends Offer {
   @override
   @NullableTimestampConverter()
   DateTime? get reviewedAt;
+
+  /// The `payments/{paymentId}` doc backing this offer's listing fee
+  /// — same payment/refund state machine as [Venue.paymentId]. Null
+  /// on offers created before this field existed.
+  @override
+  String? get paymentId;
+
+  /// Only set while [status] is 'needs_revision' — same 7-day
+  /// resubmit-or-auto-reject-and-refund contract as
+  /// [Venue.revisionDeadline]. Grant-of-trust, see firestore.rules.
+  @override
+  @NullableTimestampConverter()
+  DateTime? get revisionDeadline;
   @override
   @TimestampConverter()
   DateTime get createdAt;

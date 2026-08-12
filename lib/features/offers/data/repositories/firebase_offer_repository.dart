@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
+import '../../../../core/data/listing_payment.dart';
 import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../domain/entities/offer.dart';
 import '../../domain/repositories/offer_repository.dart';
@@ -18,6 +19,10 @@ class FirebaseOfferRepository implements OfferRepository {
 
   final OfferRemoteDatasource _datasource;
   final FirebaseFunctions _functions;
+
+  /// Placeholder listing fee — see `FirebaseVenueRepository._venueListingFeeAzn`
+  /// for the same "no provider wired yet" caveat.
+  static const double _offerListingFeeAzn = 3.0;
 
   @override
   Future<String> createOffer({
@@ -57,6 +62,14 @@ class FirebaseOfferRepository implements OfferRepository {
       );
     }
 
+    final paymentId = await createListingPayment(
+      ownerId: ownerId,
+      listingType: 'offer',
+      listingId: offerId,
+      type: 'offer_listing',
+      amount: _offerListingFeeAzn,
+    );
+
     await _datasource.setOffer(offerId, {
       'ownerId': ownerId,
       'venueId': venueId,
@@ -82,6 +95,7 @@ class FirebaseOfferRepository implements OfferRepository {
       if (targetUserIds.isNotEmpty) 'targetUserIds': targetUserIds,
       if (personalMessage != null) 'personalMessage': personalMessage,
       'status': 'pending',
+      'paymentId': paymentId,
       'createdAt': FieldValue.serverTimestamp(),
     });
 

@@ -15,6 +15,11 @@ function formatDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString("az-AZ", { year: "numeric", month: "long", day: "numeric" });
 }
 
+function daysUntil(iso: string | null): number | null {
+  if (!iso) return null;
+  return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+}
+
 export default async function OfferDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = await getCurrentAdmin();
   if (!admin || !hasPermission(admin.role, "moderateOffers")) {
@@ -91,7 +96,11 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
           <CardTitle className="text-base">Moderasiya</CardTitle>
         </CardHeader>
         <CardContent>
-          <OfferStatusActions id={offer.id} status={offer.status} />
+          <OfferStatusActions
+            id={offer.id}
+            status={offer.status}
+            revisionDeadlineDaysLeft={daysUntil(offer.revisionDeadline)}
+          />
         </CardContent>
       </Card>
     </div>

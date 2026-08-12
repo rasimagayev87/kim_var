@@ -113,6 +113,14 @@
         { "fieldPath": "venueId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "offers",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "revisionDeadline", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [
