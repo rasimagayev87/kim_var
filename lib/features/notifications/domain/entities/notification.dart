@@ -10,6 +10,15 @@
 /// a synchronized app release.
 enum NotificationType {
   follow,
+
+  /// The server's actual type string for an instant follow (see
+  /// `onFollowCreated` in functions/src/index.ts) — [follow] above was
+  /// never produced by anything and doesn't match, so a follow
+  /// notification silently fell through to [other] until this was
+  /// added. Kept both names rather than renaming [follow]: something
+  /// may eventually want a request-based `follow` type once
+  /// [followRequest]/[followAccepted] get a real producer.
+  newFollower,
   followRequest,
   followAccepted,
   likePost,
@@ -19,6 +28,16 @@ enum NotificationType {
   venueOffer,
   venueAdded,
   venueVerified,
+
+  /// Admin moderation decisions on a venue/offer — see
+  /// `moderationStatusNotification` in functions/src/index.ts, which is
+  /// the single producer for all 6 of these.
+  venueApproved,
+  venueNeedsRevision,
+  venueRejected,
+  offerApproved,
+  offerNeedsRevision,
+  offerRejected,
 
   /// A venue's live audience just spiked well above its usual level
   /// for this hour — see `computeVenueAudienceHistory` (scheduled

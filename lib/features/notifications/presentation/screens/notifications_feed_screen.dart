@@ -11,6 +11,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../settings/notifications/presentation/screens/notifications_screen.dart' as settings;
 import '../../domain/entities/notification.dart';
+import '../notification_localizer.dart';
 import '../notification_navigation.dart';
 import '../providers/notification_providers.dart';
 
@@ -210,6 +211,7 @@ class _GlassHeader extends StatelessWidget {
 
 const Map<NotificationType, IconData> _notificationIcons = {
   NotificationType.follow: Icons.person_add_alt_1,
+  NotificationType.newFollower: Icons.person_add_alt_1,
   NotificationType.followRequest: Icons.person_add_alt,
   NotificationType.followAccepted: Icons.how_to_reg_outlined,
   NotificationType.likePost: Icons.favorite,
@@ -222,6 +224,12 @@ const Map<NotificationType, IconData> _notificationIcons = {
   NotificationType.venuePeakHour: Icons.local_fire_department_rounded,
   NotificationType.birthdayMatch: Icons.cake_rounded,
   NotificationType.birthdayOffer: Icons.card_giftcard_rounded,
+  NotificationType.venueApproved: Icons.check_circle_rounded,
+  NotificationType.offerApproved: Icons.check_circle_rounded,
+  NotificationType.venueNeedsRevision: Icons.edit_note_rounded,
+  NotificationType.offerNeedsRevision: Icons.edit_note_rounded,
+  NotificationType.venueRejected: Icons.cancel_rounded,
+  NotificationType.offerRejected: Icons.cancel_rounded,
   NotificationType.system: Icons.info,
   NotificationType.security: Icons.shield,
   NotificationType.promotion: Icons.campaign,
@@ -240,6 +248,15 @@ class _NotificationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUnread = !notification.isRead;
+    // Notifications written after this feature shipped carry `metadata`
+    // (type params) and render fully per the app's current language;
+    // older ones have none (the server used to write pre-rendered AZ
+    // text directly) and fall back to that original text verbatim —
+    // deliberately not migrated, see notification_localizer.dart's doc
+    // comment.
+    final localized = localizeNotification(notification, loc);
+    final title = localized?.title ?? notification.title;
+    final body = localized?.body ?? notification.body;
 
     return Material(
       color: isUnread ? AppColors.primary.withValues(alpha: 0.06) : Colors.white,
@@ -259,15 +276,15 @@ class _NotificationCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      notification.title,
+                      title,
                       style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (notification.body.isNotEmpty) ...[
+                    if (body.isNotEmpty) ...[
                       const SizedBox(height: 3),
                       Text(
-                        notification.body,
+                        body,
                         style: TextStyle(fontSize: 13, color: ChatLightColors.inkSoft, height: 1.35),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,

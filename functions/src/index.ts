@@ -433,8 +433,23 @@ async function notifyUser(params: {
   uid: string;
   category: string;
   type: string;
+  // AZ text — used ONLY for the FCM push payload below, never
+  // persisted to the Firestore doc (the in-app feed renders per the
+  // recipient's current app language from `params.params`+`type`
+  // instead — see `lib/features/notifications/presentation/
+  // notification_localizer.dart`). A push notification fires whether
+  // or not the app is open, so there's no client to localize it at
+  // send time; this stays Azerbaijani until the project stores each
+  // user's chosen language server-side.
   title: string;
   body: string;
+  // Structured data the client-side localizer renders from — every
+  // call site now passes this (even `{}` when a type's body has no
+  // interpolation) so `metadata` on the written doc is never null,
+  // which is what tells the feed "this is a new-format notification,
+  // render it localized" vs. falling back to raw title/body for
+  // pre-migration docs that have none.
+  params?: Record<string, unknown>;
   senderId?: string;
   senderName?: string;
   senderPhoto?: string | null;
@@ -454,8 +469,7 @@ async function notifyUser(params: {
     .collection("notifications")
     .add({
       type: params.type,
-      title: params.title,
-      body: params.body,
+      metadata: params.params ?? null,
       imageUrl: null,
       senderId: params.senderId ?? null,
       senderName: params.senderName ?? null,
@@ -544,6 +558,7 @@ export const onFollowCreated = onDocumentCreated("follows/{followId}", async (ev
     type: "newFollower",
     title: follower.name,
     body: "Sizi izləməyə başladı",
+    params: {},
     senderId: followerId,
     senderName: follower.name,
     senderPhoto: follower.photoUrl,
@@ -567,6 +582,7 @@ export const onPostLikeCreated = onDocumentCreated("posts/{postId}/likes/{uid}",
     type: "likePost",
     title: liker.name,
     body: "Paylaşımını bəyəndi",
+    params: {},
     senderId: likerId,
     senderName: liker.name,
     senderPhoto: liker.photoUrl,
@@ -833,6 +849,7 @@ export const computeVenueAudienceHistory = onSchedule(
               body: name
                 ? `"${name}" ətrafında adətən daha az insan olur — indi təklif yerləşdirin.`
                 : "Ətrafınızda adətən daha az insan olur — indi təklif yerləşdirin.",
+              params: { venueName: name },
               targetId: venueDoc.id,
               targetType: "venue_create_offer",
             });
@@ -983,6 +1000,7 @@ export const computeBirthdayMatches = onSchedule(
         type: "birthdayMatch",
         title: "🎂 Ad günü fürsəti",
         body: `Bugün yaxınlığınızda ${matchedUserIds.length} PeakPin istifadəçisinin doğum günüdür. Onlara xüsusi təklif yarat!`,
+        params: { count: matchedUserIds.length },
         targetId: matchRef.id,
         targetType: "birthday_match",
       });
@@ -1024,6 +1042,7 @@ export const onPostCommentCreated = onDocumentCreated("posts/{postId}/comments/{
       type: "replyComment",
       title: commenter.name,
       body: preview || "Şərhinizə cavab yazdı",
+      params: { preview },
       senderId: commenterId,
       senderName: commenter.name,
       senderPhoto: commenter.photoUrl,
@@ -1043,6 +1062,7 @@ export const onPostCommentCreated = onDocumentCreated("posts/{postId}/comments/{
     type: "commentPost",
     title: commenter.name,
     body: preview || "Paylaşımına şərh yazdı",
+    params: { preview },
     senderId: commenterId,
     senderName: commenter.name,
     senderPhoto: commenter.photoUrl,
@@ -1069,6 +1089,7 @@ export const onVenueCreated = onDocumentCreated("venues/{venueId}", async (event
     type: "venueAdded",
     title: "Məkanınız əlavə edildi",
     body: name ? `"${name}" uğurla yaradıldı.` : "Məkanınız uğurla yaradıldı.",
+    params: { venueName: name },
     targetId: event.params.venueId,
     targetType: "venue",
   });
@@ -1101,6 +1122,7 @@ export const onVenueUpdated = onDocumentUpdated("venues/{venueId}", async (event
       type: "venueVerified",
       title: "Məkanınız təsdiqləndi",
       body: name ? `"${name}" artıq təsdiqlənmiş məkandır.` : "Məkanınız təsdiqləndi.",
+      params: { venueName: name },
       targetId: event.params.venueId,
       targetType: "venue",
     });
@@ -1200,6 +1222,7 @@ async function notifyBirthdayTargetUsers(offerId: string, offer: FirebaseFiresto
         body: venueName
           ? `${venueName} sənin ad günün üçün xüsusi təklif hazırladı!`
           : "Sənin ad günün üçün xüsusi təklif hazırlandı!",
+        params: { venueName },
         targetId: offerId,
         targetType: "offer",
       }),
@@ -1284,6 +1307,7 @@ async function notifyNearbyUsersOfNewOffer(
         type: "venueOffer",
         title: venueName ? `☕ ${venueName} yaxınlığınızda` : "Yaxınlığınızda yeni təklif",
         body: offerTitle,
+        params: { venueName, offerTitle },
         targetId: offerId,
         targetType: "offer",
       });
@@ -1308,10 +1332,16 @@ function moderationStatusNotification(
   // concept yet) — appends the 7-day/refund-timeline wording that only
   // makes sense when a real `payments/{paymentId}` doc is attached.
   hasPayment = false,
-): { type: string; title: string; body: string } | null {
+): { type: string; title: string; body: string; params: Record<string, unknown> } | null {
   const noun = kind === "venue" ? "Məkanınız" : "Təklifiniz";
   const quoted = name ? `"${name}"` : kind === "venue" ? "Məkanınız" : "Təklifiniz";
   const note = typeof reviewNote === "string" && reviewNote.trim() ? reviewNote.trim() : undefined;
+  // venue.name/offer.title are required fields — always non-empty by
+  // the time a listing exists to be moderated, so the client-side
+  // localizer templates always interpolate a real `{name}` and doesn't
+  // need its own noun-fallback branch the way this function's own
+  // `quoted` still defensively does for the push text above.
+  const params: Record<string, unknown> = { name, hasPayment: hasPayment, ...(note ? { note } : {}) };
 
   switch (status) {
     case "approved":
@@ -1319,6 +1349,7 @@ function moderationStatusNotification(
         type: `${kind}Approved`,
         title: `${noun} təsdiqləndi`,
         body: `${quoted} təsdiqləndi və artıq hər kəsə görünür.`,
+        params,
       };
     case "needs_revision": {
       const revisionSuffix = hasPayment
@@ -1328,6 +1359,7 @@ function moderationStatusNotification(
         type: `${kind}NeedsRevision`,
         title: `${noun} üzərində düzəliş tələb olunur`,
         body: (note ? `${quoted}: ${note}.` : `${quoted} üzərində düzəliş tələb olunur.`) + revisionSuffix,
+        params,
       };
     }
     case "rejected": {
@@ -1336,6 +1368,7 @@ function moderationStatusNotification(
         type: `${kind}Rejected`,
         title: `${noun} rədd edildi`,
         body: (note ? `${quoted}: ${note}.` : `${quoted} rədd edildi.`) + refundSuffix,
+        params,
       };
     }
     default:
