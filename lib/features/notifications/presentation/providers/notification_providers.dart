@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/repositories/firebase_notification_repository.dart';
 import '../../domain/entities/notification.dart';
 import '../../domain/repositories/notification_repository.dart';
@@ -202,5 +203,15 @@ class NotificationListController extends StateNotifier<NotificationListState> {
 }
 
 final notificationListControllerProvider = StateNotifierProvider<NotificationListController, NotificationListState>((ref) {
+  // NotificationListController isn't autoDispose, so without this watch
+  // it's built once and keeps its Firestore listener bound to whatever
+  // uid was signed in at that moment — signing out and into a different
+  // account (no full app restart) would otherwise leave the feed stuck
+  // showing the PREVIOUS account's notifications forever (and tapping
+  // one would permission-deny, since its targetId/chat/etc. belongs to
+  // that other account). Same fix as chatListControllerProvider in
+  // chat_providers.dart — watching authStateProvider makes Riverpod
+  // dispose and recreate this controller on every sign-in/sign-out.
+  ref.watch(authStateProvider);
   return NotificationListController(ref);
 });
