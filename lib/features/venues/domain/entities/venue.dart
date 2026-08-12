@@ -39,6 +39,22 @@ enum VenueCategory {
   tattoo,
   photoStudio,
   kidsEntertainment,
+  // Added later than the original 24 above — appended as their own
+  // loosely-grouped block rather than interleaved, per explicit
+  // product direction that ordering among the new ones only needed to
+  // be "sensible", not alphabetical or woven into the original list.
+  pharmacyOptics,
+  dentalClinic,
+  perfumeryCosmetics,
+  carWash,
+  carRepair,
+  supermarket,
+  bookstoreStationery,
+  petStore,
+  tailor,
+  dryCleaning,
+  applianceRepair,
+  tutoringCenter,
   other,
 }
 
@@ -65,6 +81,7 @@ const kBirthdayEligibleVenueCategories = <VenueCategory>{
   VenueCategory.photoStudio,
   VenueCategory.beautySalon,
   VenueCategory.kidsEntertainment,
+  VenueCategory.perfumeryCosmetics,
 };
 
 const _venueCategoryIcons = <VenueCategory, IconData>{
@@ -91,6 +108,18 @@ const _venueCategoryIcons = <VenueCategory, IconData>{
   VenueCategory.tattoo: Icons.brush_outlined,
   VenueCategory.photoStudio: Icons.photo_camera_outlined,
   VenueCategory.kidsEntertainment: Icons.child_care_outlined,
+  VenueCategory.pharmacyOptics: Icons.local_pharmacy_outlined,
+  VenueCategory.dentalClinic: Icons.medication_outlined,
+  VenueCategory.perfumeryCosmetics: Icons.soap_outlined,
+  VenueCategory.carWash: Icons.local_car_wash_outlined,
+  VenueCategory.carRepair: Icons.car_repair_outlined,
+  VenueCategory.supermarket: Icons.local_grocery_store_outlined,
+  VenueCategory.bookstoreStationery: Icons.menu_book_outlined,
+  VenueCategory.petStore: Icons.pets_outlined,
+  VenueCategory.tailor: Icons.checkroom_outlined,
+  VenueCategory.dryCleaning: Icons.local_laundry_service_outlined,
+  VenueCategory.applianceRepair: Icons.handyman_outlined,
+  VenueCategory.tutoringCenter: Icons.school_outlined,
   VenueCategory.other: Icons.category_outlined,
 };
 

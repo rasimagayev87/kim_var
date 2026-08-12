@@ -617,6 +617,18 @@ String venueCategoryLabel(AppLocalizations loc, VenueCategory category) {
     VenueCategory.tattoo => loc.venueCategoryTattoo,
     VenueCategory.photoStudio => loc.venueCategoryPhotoStudio,
     VenueCategory.kidsEntertainment => loc.venueCategoryKidsEntertainment,
+    VenueCategory.pharmacyOptics => loc.venueCategoryPharmacyOptics,
+    VenueCategory.dentalClinic => loc.venueCategoryDentalClinic,
+    VenueCategory.perfumeryCosmetics => loc.venueCategoryPerfumeryCosmetics,
+    VenueCategory.carWash => loc.venueCategoryCarWash,
+    VenueCategory.carRepair => loc.venueCategoryCarRepair,
+    VenueCategory.supermarket => loc.venueCategorySupermarket,
+    VenueCategory.bookstoreStationery => loc.venueCategoryBookstoreStationery,
+    VenueCategory.petStore => loc.venueCategoryPetStore,
+    VenueCategory.tailor => loc.venueCategoryTailor,
+    VenueCategory.dryCleaning => loc.venueCategoryDryCleaning,
+    VenueCategory.applianceRepair => loc.venueCategoryApplianceRepair,
+    VenueCategory.tutoringCenter => loc.venueCategoryTutoringCenter,
     VenueCategory.other => loc.venueCategoryOther,
   };
 }
