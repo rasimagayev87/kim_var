@@ -11,7 +11,13 @@
 /// "owner's followers" in the strict one-way sense.
 enum ProfileVisibility { everyone, followersOnly, noOne }
 
-enum WhoCanMessageMe { everyone, verifiedOnly, noOne }
+/// `followersOnly` is enforced the same way as [ProfileVisibility]'s own
+/// `followersOnly` — against the real `follows` graph
+/// (`FirebaseChatRepository._canMessage`), either direction counting,
+/// checked server-side before a brand-new chat is allowed to start
+/// (see `_sendMessage`'s `!chatExistsAlready` branch — an already-
+/// accepted conversation is never retroactively blocked).
+enum WhoCanMessageMe { everyone, followersOnly }
 
 /// Which of the 3 "Görünmə radiusu" modes is active — mirrors
 /// `DiscoverRadiusMode` in `location_providers.dart` (distance ring,

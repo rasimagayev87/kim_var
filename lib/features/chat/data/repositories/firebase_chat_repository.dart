@@ -409,29 +409,32 @@ class FirebaseChatRepository implements ChatRepository {
     });
   }
 
-  /// True if either [uidA] has blocked [uidB], or vice versa — reads both
-  /// `users/{uid}.blockedUsers` arrays directly rather than going through
-  /// `SafetyRepository` to keep this repository's own dependencies self
-  /// contained.
   /// "Kim mənə mesaj göndərə bilər" — only gates starting a brand-new
   /// chat (see the `!chatExistsAlready` check at the only call site);
   /// mirrors `PrivacySettings.whoCanMessageMe` without importing the
   /// privacy feature's domain layer, since this repository only needs
-  /// the raw string value off `users/{otherUid}`.
+  /// the raw string value off `users/{otherUid}`. `followersOnly` is
+  /// enforced against the real `follows` graph — same either-direction
+  /// rule as `ProfileVisibility.followersOnly` (see
+  /// `FirebaseFollowRepository`'s doc id scheme, mirrored directly here
+  /// rather than depending on that repository).
   Future<bool> _canMessage(String senderId, String otherUid) async {
     final otherDoc = await _users.doc(otherUid).get();
     final value = otherDoc.data()?['whoCanMessageMe'] as String? ?? 'everyone';
-    switch (value) {
-      case 'noOne':
-        return false;
-      case 'verifiedOnly':
-        final senderDoc = await _users.doc(senderId).get();
-        return senderDoc.data()?['isVerified'] as bool? ?? false;
-      default:
-        return true;
-    }
+    if (value != 'followersOnly') return true;
+
+    final follows = _firestore.collection('follows');
+    final results = await Future.wait([
+      follows.doc('${senderId}_$otherUid').get(),
+      follows.doc('${otherUid}_$senderId').get(),
+    ]);
+    return results[0].exists || results[1].exists;
   }
 
+  /// True if either [uidA] has blocked [uidB], or vice versa — reads both
+  /// `users/{uid}.blockedUsers` arrays directly rather than going through
+  /// `SafetyRepository` to keep this repository's own dependencies self
+  /// contained.
   Future<bool> _isBlockedPair(String uidA, String uidB) async {
     final results = await Future.wait([_users.doc(uidA).get(), _users.doc(uidB).get()]);
     final aBlocked = (results[0].data()?['blockedUsers'] as List?)?.cast<String>() ?? const [];

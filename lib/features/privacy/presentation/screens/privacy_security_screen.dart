@@ -232,10 +232,8 @@ class PrivacySecurityScreen extends ConsumerWidget {
     switch (v) {
       case WhoCanMessageMe.everyone:
         return loc.privacyMessagePermEveryone;
-      case WhoCanMessageMe.verifiedOnly:
-        return loc.privacyMessagePermVerifiedOnly;
-      case WhoCanMessageMe.noOne:
-        return loc.privacyMessagePermNoOne;
+      case WhoCanMessageMe.followersOnly:
+        return loc.privacyMessagePermFollowersOnly;
     }
   }
 
@@ -274,8 +272,7 @@ class PrivacySecurityScreen extends ConsumerWidget {
       current: current,
       options: [
         _Option(WhoCanMessageMe.everyone, loc.privacyMessagePermEveryone),
-        _Option(WhoCanMessageMe.verifiedOnly, loc.privacyMessagePermVerifiedOnly),
-        _Option(WhoCanMessageMe.noOne, loc.privacyMessagePermNoOne),
+        _Option(WhoCanMessageMe.followersOnly, loc.privacyMessagePermFollowersOnly),
       ],
       onSelected: (value, _) => onSelected(value),
     );
