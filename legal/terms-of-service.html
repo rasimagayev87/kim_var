@@ -7,6 +7,7 @@
 <style>
   :root {
     --bg: #F4F6F8;
+    --surface: #EEF2F4;
     --card: #FFFFFF;
     --text: #111827;
     --text-secondary: #6B7280;
@@ -22,21 +23,22 @@
     line-height: 1.65;
   }
   .wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
-  header { text-align: center; margin-bottom: 40px; }
-  header .logo {
-    font-weight: 800; font-size: 28px; letter-spacing: -0.02em;
-    background: linear-gradient(90deg, #7C3AED, #12D6E8);
-    -webkit-background-clip: text; background-clip: text; color: transparent;
-    margin-bottom: 8px;
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px; flex-wrap: wrap; gap: 12px;
   }
+  .logo { font-weight: 800; font-size: 19px; letter-spacing: -0.02em; color: var(--text); }
+  .logo span { color: #08BDD0; }
+  header { text-align: center; margin-bottom: 40px; }
   header h1 { font-size: 22px; margin: 8px 0 4px; }
   header .updated { color: var(--text-secondary); font-size: 14px; }
-  .lang-toggle { display: flex; justify-content: center; gap: 8px; margin: 24px 0 40px; }
+  .lang-toggle { display: flex; background: var(--surface); border-radius: 99px; padding: 4px; gap: 2px; }
   .lang-toggle button {
-    border: 1px solid var(--divider); background: var(--card); color: var(--text);
-    padding: 8px 18px; border-radius: 18px; font-size: 14px; font-weight: 600; cursor: pointer;
+    border: none; background: transparent; color: var(--text-secondary);
+    padding: 7px 16px; border-radius: 99px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: .2s;
   }
-  .lang-toggle button.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .lang-toggle button.active { background: var(--accent); color: #fff; }
   section.card { background: var(--card); border-radius: 22px; padding: 32px 28px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
   h2 { font-size: 17px; margin-top: 32px; margin-bottom: 10px; }
   h2:first-child { margin-top: 0; }
@@ -51,16 +53,18 @@
 </head>
 <body>
 <div class="wrap">
+  <div class="top-bar">
+    <div class="logo">Peak<span>Pin</span></div>
+    <div class="lang-toggle">
+      <button class="active" onclick="showLang('az', this)">AZ</button>
+      <button onclick="showLang('en', this)">EN</button>
+    </div>
+  </div>
+
   <header>
-    <div class="logo">peakpin</div>
     <h1 id="page-title">İstifadə Şərtləri</h1>
     <div class="updated">Son yenilənmə: 23 iyul 2026</div>
   </header>
-
-  <div class="lang-toggle">
-    <button class="active" onclick="showLang('az', this)">Azərbaycan</button>
-    <button onclick="showLang('en', this)">English</button>
-  </div>
 
   <section class="card">
     <div class="lang-block active" id="az">

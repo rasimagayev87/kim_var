@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PeakPin — İcma Qaydaları / Community Guidelines</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F6F8; --surface:#EEF2F4; --card:#FFFFFF;
+    --ink:#111827; --muted:#6B7280; --accent:#12D6E8; --accent-hover:#08BDD0;
+    --divider:rgba(0,0,0,.06);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{ background:var(--bg); color:var(--ink); font-family:'Inter',sans-serif; line-height:1.65; }
+  .wrap{ max-width:780px; margin:0 auto; padding:40px 20px 80px; }
+
+  .top-bar{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:28px; flex-wrap:wrap; gap:12px;
+  }
+  .logo{ font-weight:800; font-size:19px; letter-spacing:-.02em; }
+  .logo span{ color:var(--accent-hover); }
+  .lang-toggle{ display:flex; background:var(--surface); border-radius:99px; padding:4px; gap:2px; }
+  .lang-toggle button{
+    border:none; background:transparent; padding:7px 16px; border-radius:99px;
+    font-family:'Inter',sans-serif; font-weight:600; font-size:12px; color:var(--muted); cursor:pointer;
+    transition:.2s;
+  }
+  .lang-toggle button.active{ background:var(--accent); color:#fff; }
+
+  .card{
+    background:var(--card); border-radius:22px; padding:36px clamp(20px,5vw,48px);
+    box-shadow:0 1px 3px rgba(0,0,0,.04);
+  }
+
+  h1{ font-size:clamp(24px,3.4vw,32px); font-weight:800; letter-spacing:-.02em; margin-bottom:6px; }
+  .meta{ color:var(--muted); font-size:13px; margin-bottom:28px; }
+
+  .intro{ font-size:15px; color:var(--ink); margin-bottom:10px; }
+  .intro.muted{ color:var(--muted); }
+
+  h2{
+    font-size:19px; font-weight:700; margin:34px 0 14px; padding-top:18px;
+    border-top:1px solid var(--divider);
+  }
+  h2:first-of-type{ border-top:none; padding-top:0; margin-top:28px; }
+
+  h3{ font-size:15px; font-weight:700; margin:18px 0 6px; color:var(--ink); }
+  p{ font-size:14.5px; color:var(--ink); margin-bottom:10px; }
+  p.sub{ color:var(--muted); font-size:13.5px; }
+  ul{ margin:8px 0 14px 20px; }
+  li{ font-size:14.5px; margin-bottom:6px; }
+
+  .callout{
+    background:var(--surface); border-radius:16px; padding:16px 20px; margin:16px 0;
+    border-left:3px solid var(--accent);
+  }
+  .callout p{ margin-bottom:4px; font-size:14px; }
+  .callout p:last-child{ margin-bottom:0; }
+
+  footer{ text-align:center; color:var(--muted); font-size:12px; margin-top:36px; }
+  footer a{ color:var(--accent-hover); text-decoration:none; }
+
+  .lang-block{ display:none; }
+  .lang-block.visible{ display:block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top-bar">
+    <div class="logo">Peak<span>Pin</span></div>
+    <div class="lang-toggle">
+      <button id="btn-az" class="active" onclick="setLang('az')">AZ</button>
+      <button id="btn-en" onclick="setLang('en')">EN</button>
+    </div>
+  </div>
+
+  <div class="card">
+
+    <!-- ===================== AZ ===================== -->
+    <div id="lang-az" class="lang-block visible">
+      <h1>İcma Qaydaları</h1>
+      <p class="meta">Yayımlanma tarixi: 11 Avqust 2026 · Yürürlük tarixi: 11 Avqust 2026</p>
+
+      <p class="intro">PeakPin, ətrafınızdakı insanları, məkanları və imkanları kəşf etmək üçün yaradılmış bir platformadır. Missiyamız sadədir: insanları real dünyada bir-birinə yaxınlaşdırmaq və bunu təhlükəsiz, hörmətli bir mühitdə etmək.</p>
+      <p class="intro muted">Bu İcma Qaydaları, PeakPin-in hər kəs üçün təhlükəsiz və pozitiv bir təcrübə təqdim etməsinə kömək etmək məqsədi daşıyır. Bu qaydalar platformamızdakı hər kəs və hər şey üçün keçərlidir — istifadəçilər, məkan sahibləri və paylaşılan bütün məzmun daxil olmaqla.</p>
+
+      <h2>Təhlükəsizlik və Nəzakət</h2>
+
+      <h3>Zorakılıq və Cinayət Təşkil Edən Davranış</h3>
+      <p>Təhdidlərə, zorakılığın təşviq və ya tərənnüm edilməsinə, cinayətin təşviqinə və ya zərərli əməllərin necə həyata keçiriləcəyini izah edən məzmuna icazə vermirik.</p>
+
+      <h3>Nifrət Nitqi və Nifrət Davranışı</h3>
+      <p>Nifrəti təşviq edən və ya irq, din, cinsiyət, cinsi yönəlim, əlillik kimi qorunan xüsusiyyətlərə əsaslanaraq insanlara qarşı nifrəti və ya hücumları təşviq edən məzmuna icazə vermirik.</p>
+
+      <h3>Yetkinlik Yaşına Çatmayanların Təhlükəsizliyi</h3>
+      <p>Yetkinlik yaşına çatmayanların cinsi və ya fiziki istismarını göstərən, təşviq edən və ya buna imkan yaradan hər hansı məzmuna sıfır tolerantlıqla yanaşırıq. Yetkinlik yaşına çatmayanlarla əlaqə qurmaq üçün platformadan sui-istifadə edilməsinə icazə vermirik.</p>
+
+      <h3>Təqib, Zorbalıq və Fiziki Təhlükəsizlik</h3>
+      <p>PeakPin lokasiya əsaslı bir platforma olduğu üçün bu bölmə xüsusi əhəmiyyət daşıyır:</p>
+      <ul>
+        <li>İstənilməyən təkrarlanan əlaqə, izləmə (stalking) və ya başqa bir istifadəçinin razılığı olmadan onun yerini müəyyən etməyə çalışmaq qadağandır</li>
+        <li>Başqa bir istifadəçini alçaltmaq, hədələmək və ya qorxutmaq məqsədi daşıyan davranış qadağandır</li>
+        <li>Bir istifadəçinin real ünvanını, iş yerini və ya digər lokasiya-həssas məlumatlarını onun razılığı olmadan başqaları ilə paylaşmaq qadağandır</li>
+      </ul>
+      <div class="callout">
+        <p><strong>Fiziki görüşlər üçün təhlükəsizlik tövsiyəsi:</strong> PeakPin vasitəsilə tanışdığınız insanlarla ilk görüşünüzü həmişə açıq, ictimai bir məkanda edin, bir yaxınınıza xəbər verin və "Ghost Mode" kimi məxfilik alətlərindən lazım gəldikdə istifadə edin.</p>
+      </div>
+
+      <h2>Zehni və Fiziki Sağlamlıq</h2>
+
+      <h3>İntihar və Özünə Zərər Vermə</h3>
+      <p>İntihar və ya özünə zərər vermə əməllərini göstərən, təşviq edən və ya bunların necə ediləcəyini izah edən məzmuna icazə vermirik. Çətinlik yaşayan istifadəçiləri dəstək resurslarına yönləndiririk.</p>
+
+      <h3>Yemə Pozuqluğu və Bədən Qavrayışı</h3>
+      <p>Yemə pozuqluğunu, təhlükəli çəki itkisi metodlarını və ya zərərli bədən müqayisələrini təşviq edən məzmuna icazə vermirik.</p>
+
+      <h2>Həssas və Yetkinlərə Uyğun Mövzular</h2>
+
+      <h3>Bədən Nümayişi və Cinsiləşdirilmiş Davranış</h3>
+      <p>Çılpaqlıq, cinsi fəaliyyət və ya yetkinlik yaşına çatmayanları əhatə edən hər hansı uyğunsuz davranış daxil olmaqla, müəyyən bədən nümayişi növlərinə və ya cinsi davranışlara icazə vermirik.</p>
+
+      <h3>Sarsıdıcı Məzmun</h3>
+      <p>İzləyicilərdə emosional sıxıntıya səbəb ola biləcək, həddindən artıq sarsıdıcı, zorakı və ya narahatedici məzmuna icazə vermirik.</p>
+
+      <h2>Bütövlük və Həqiqilik</h2>
+
+      <h3>Saxta Profillər və Kimlik Fırıldaqçılığı</h3>
+      <p>PeakPin-də real insanlarla tanışırsınız — bu, xüsusi məsuliyyət tələb edir:</p>
+      <ul>
+        <li>Başqa bir şəxsin kimliyini götürən, saxta yaş/görünüş məlumatı təqdim edən profillərə icazə verilmir</li>
+        <li>Bir profil arxasında real, mövcud bir insan olmalıdır — bot və ya avtomatlaşdırılmış hesablara icazə verilmir</li>
+      </ul>
+
+      <h3>Yanlış Məlumat və Aldadıcı Davranış</h3>
+      <p>İnsanlara və ya cəmiyyətə ciddi zərər verə biləcək yanlış məlumatlara, həmçinin platformamızı manipulyasiya etməyə çalışan hesablara və ya süni şəkildə əlaqəni artıran xidmətlərin ticarətinə icazə vermirik.</p>
+
+      <h3>Orijinal Olmayan Məzmun və Əqli Mülkiyyət</h3>
+      <p>Müəllif hüququ ilə qorunan və ya ticarət markası daşıyan məzmunun icazəsiz yenidən paylaşılması daxil olmaqla, əqli mülkiyyət hüquqlarını pozan məzmuna icazə vermirik.</p>
+
+      <h2>Məkanlar və Təkliflər üçün Əlavə Qaydalar</h2>
+      <p>PeakPin-də biznes sahibləri məkan və təklif əlavə edə bilirlər. Bu bölmə yalnız onlara aiddir:</p>
+      <ul>
+        <li><strong>Saxta məkan yaradılması qadağandır</strong> — mövcud olmayan, real ünvanı olmayan və ya sizə məxsus olmayan bir biznesi əlavə etmək qadağandır</li>
+        <li><strong>Aldadıcı təkliflər qadağandır</strong> — real olmayan endirimlər, yerinə yetirilməyəcək kampaniyalar və ya qiymət manipulyasiyası qadağandır</li>
+        <li>Bütün məkan və təkliflər moderasiyadan keçir; təsdiqlənməmiş və ya yanlış məlumat ehtiva edən elanlar silinə bilər</li>
+      </ul>
+
+      <h2>Tənzimlənən Məhsullar və Kommersiya Fəaliyyəti</h2>
+      <p>Tənzimlənən, qadağan olunmuş və ya yüksək riskli məhsul və xidmətlərin ticarətinə, bazarlanmasına və ya tanıtımına icazə vermirik. Bir məhsulu, brendi və ya biznesi tanıtırsınızsa, bunu aydın şəkildə bildirməlisiniz.</p>
+
+      <h2>Məxfilik və Təhlükəsizlik</h2>
+
+      <h3>Şəxsi Məlumatlar</h3>
+      <p>Kimlik oğurluğuna, təqibə (stalking) və ya fırıldaqçılığa səbəb ola biləcək şəxsi məlumatların (telefon nömrəsi, ünvan, kimlik sənədi və s.) başqalarının razılığı olmadan paylaşılmasına icazə vermirik.</p>
+
+      <h3>Lokasiya Təhlükəsizliyi</h3>
+      <p>PeakPin-in əsas xüsusiyyəti lokasiya əsaslı kəşfdir — buna görə lokasiya məlumatının sui-istifadəsinə xüsusi diqqətlə yanaşırıq. İstifadəçilərin öz lokasiya görünürlüyünü idarə etmək hüququ var (radius seçimi, Ghost Mode) və bu alətləri manipulyasiya etməyə və ya keçib getməyə çalışan davranışlara icazə vermirik.</p>
+
+      <h3>Platform Təhlükəsizliyi</h3>
+      <p>PeakPin sistemlərinə icazəsiz giriş, tərs mühəndislik və ya sistemləri başqa yollarla təhlükəyə atma cəhdlərinə icazə vermirik.</p>
+
+      <h2>Qaydaların Tətbiqi</h2>
+      <p>Bu qaydaları pozan məzmun və ya hesablarla bağlı aşağıdakı tədbirləri görə bilərik:</p>
+      <ul>
+        <li>Məzmunun silinməsi</li>
+        <li>Məzmuna yaş məhdudiyyəti tətbiq edilməsi</li>
+        <li>Hesabın müvəqqəti məhdudlaşdırılması və ya daimi bağlanması</li>
+        <li>Ciddi hallarda müvafiq orqanlara məlumat verilməsi</li>
+      </ul>
+      <p>Qərarımızla razı deyilsinizsə, Ayarlar → Yardım bölməsindən etiraz təqdim edə bilərsiniz.</p>
+
+      <footer>© 2026 PeakPin · Bakı, Azərbaycan · Suallar üçün: <a href="mailto:admin@peakpin.app">admin@peakpin.app</a></footer>
+    </div>
+
+    <!-- ===================== EN ===================== -->
+    <div id="lang-en" class="lang-block">
+      <h1>Community Guidelines</h1>
+      <p class="meta">Published: August 11, 2026 · Effective: August 11, 2026</p>
+
+      <p class="intro">PeakPin is a platform for discovering the people, places, and opportunities around you. Our mission is simple: bring people closer together in the real world, and do it in a safe, respectful environment.</p>
+      <p class="intro muted">These Community Guidelines exist to help PeakPin remain a safe and positive experience for everyone. They apply to everyone and everything on our platform — including users, venue owners, and all shared content.</p>
+
+      <h2>Safety and Civility</h2>
+
+      <h3>Violence and Criminal Behavior</h3>
+      <p>We don't allow threats, the promotion or celebration of violence, the promotion of crime, or content that explains how to carry out harmful acts.</p>
+
+      <h3>Hate Speech and Hateful Behavior</h3>
+      <p>We don't allow content that promotes hatred or incites attacks against people based on protected attributes such as race, religion, gender, sexual orientation, or disability.</p>
+
+      <h3>Minor Safety</h3>
+      <p>We have zero tolerance for any content that depicts, promotes, or enables the sexual or physical abuse of minors, and we don't allow the platform to be misused to contact minors.</p>
+
+      <h3>Stalking, Bullying, and Physical Safety</h3>
+      <p>Because PeakPin is a location-based platform, this section carries particular weight:</p>
+      <ul>
+        <li>Unwanted repeated contact, stalking, or attempting to determine another user's location without consent is prohibited</li>
+        <li>Behavior intended to humiliate, threaten, or intimidate another user is prohibited</li>
+        <li>Sharing a user's real address, workplace, or other location-sensitive information with others without their consent is prohibited</li>
+      </ul>
+      <div class="callout">
+        <p><strong>Safety tip for in-person meetups:</strong> Always meet people you've connected with on PeakPin in a public place for the first time, let someone you trust know your plans, and use privacy tools like Ghost Mode when needed.</p>
+      </div>
+
+      <h2>Mental and Physical Wellbeing</h2>
+
+      <h3>Suicide and Self-Harm</h3>
+      <p>We don't allow content that depicts, promotes, or provides instructions for suicide or self-harm. We direct users who may be struggling toward support resources.</p>
+
+      <h3>Eating Disorders and Body Image</h3>
+      <p>We don't allow content that promotes eating disorders, dangerous weight-loss methods, or harmful body comparisons.</p>
+
+      <h2>Sensitive and Adult Themes</h2>
+
+      <h3>Nudity and Sexualized Behavior</h3>
+      <p>We don't allow certain types of nudity or sexual behavior, including content involving minors in any inappropriate context.</p>
+
+      <h3>Graphic and Disturbing Content</h3>
+      <p>We don't allow excessively graphic, violent, or disturbing content, particularly content that could cause emotional distress to viewers.</p>
+
+      <h2>Integrity and Authenticity</h2>
+
+      <h3>Fake Profiles and Impersonation</h3>
+      <p>PeakPin connects you with real people — this carries particular responsibility:</p>
+      <ul>
+        <li>Profiles that impersonate another person or misrepresent age or appearance are not allowed</li>
+        <li>Every profile must represent a real, existing person — bots and automated accounts are not allowed</li>
+      </ul>
+
+      <h3>Misinformation and Deceptive Behavior</h3>
+      <p>We don't allow misinformation that could cause serious harm to individuals or society, nor accounts attempting to manipulate the platform or services that artificially boost engagement.</p>
+
+      <h3>Non-Original Content and Intellectual Property</h3>
+      <p>We don't allow content that infringes intellectual property rights, including unauthorized reposting of copyrighted or trademarked material.</p>
+
+      <h2>Additional Rules for Venues and Offers</h2>
+      <p>Business owners can add venues and offers on PeakPin. This section applies specifically to them:</p>
+      <ul>
+        <li><strong>Fake venue listings are prohibited</strong> — adding a business that doesn't exist, has no real address, or doesn't belong to you is not allowed</li>
+        <li><strong>Deceptive offers are prohibited</strong> — discounts that aren't real, promotions that won't be honored, or price manipulation is not allowed</li>
+        <li>All venues and offers go through moderation; unverified or misleading listings may be removed</li>
+      </ul>
+
+      <h2>Regulated Goods and Commercial Activity</h2>
+      <p>We don't allow the trade, marketing, or promotion of regulated, prohibited, or high-risk goods and services. If you're promoting a product, brand, or business, you must clearly disclose it.</p>
+
+      <h2>Privacy and Security</h2>
+
+      <h3>Personal Information</h3>
+      <p>We don't allow sharing personal information (phone numbers, addresses, ID documents, etc.) that could lead to identity theft, stalking, or fraud without the person's consent.</p>
+
+      <h3>Location Safety</h3>
+      <p>Location-based discovery is core to PeakPin — so we pay particular attention to the misuse of location data. Users have the right to control their own location visibility (radius selection, Ghost Mode), and we don't allow attempts to manipulate or circumvent these tools.</p>
+
+      <h3>Platform Security</h3>
+      <p>We don't allow attempts to gain unauthorized access to PeakPin's systems, reverse-engineer them, or otherwise compromise them.</p>
+
+      <h2>Enforcement</h2>
+      <p>We may take the following actions on content or accounts that violate these guidelines:</p>
+      <ul>
+        <li>Removing content</li>
+        <li>Applying an age restriction to content</li>
+        <li>Temporarily restricting or permanently suspending an account</li>
+        <li>In serious cases, reporting to relevant authorities</li>
+      </ul>
+      <p>If you disagree with our decision, you can submit an appeal through Settings → Help.</p>
+
+      <footer>© 2026 PeakPin · Baku, Azerbaijan · Questions: <a href="mailto:admin@peakpin.app">admin@peakpin.app</a></footer>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  function setLang(lang){
+    document.getElementById('lang-az').classList.toggle('visible', lang === 'az');
+    document.getElementById('lang-en').classList.toggle('visible', lang === 'en');
+    document.getElementById('btn-az').classList.toggle('active', lang === 'az');
+    document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+  }
+</script>
+</body>
+</html>

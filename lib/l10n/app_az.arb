@@ -455,6 +455,18 @@
   "venueGenericErrorMessage": "Əməliyyat baş tutmadı. Bir az sonra yenidən cəhd edin.",
   "venuePremiumMenuItem": "Məkanı premium et",
   "venuePremiumUpsellMessage": "Premium məkanlar seçdiyiniz radius üzrə ən öndə göstərilir və adının yanında premium nişanı görünür.",
+  "venuePremiumMenuItemActive": "Premium",
+  "venuePremiumInfoTitle": "Premium Məkan",
+  "venuePremiumInfoStatusMessage": "Bu məkan premium statusundadır.",
+  "venuePremiumInfoExplanationMessage": "Premium məkanlar seçilən radius üzrə ən öndə göstərilir və adının yanında premium nişanı görünür.",
+  "venuePremiumInfoSinceLabel": "{date} tarixindən aktivdir",
+  "@venuePremiumInfoSinceLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "venueLiveAudienceCount": "{count} nəfər ətrafınızda",
   "@venueLiveAudienceCount": {
     "placeholders": {
@@ -777,7 +789,7 @@
   "supportMessageErrorMessage": "Mesaj göndərilmədi. Bir az sonra yenidən cəhd edin.",
   "legalPrivacyPolicyTitle": "Məxfilik siyasəti",
   "legalTermsOfServiceTitle": "İstifadə şərtləri",
-  "legalLicensesTitle": "Lisenziyalar",
+  "legalCommunityGuidelinesTitle": "İcma Qaydaları",
   "aboutWhatsNewTitle": "Yeniliklər",
   "aboutSocialMediaTitle": "Sosial media",
   "aboutSocialMediaComingSoonLabel": "Tezliklə",

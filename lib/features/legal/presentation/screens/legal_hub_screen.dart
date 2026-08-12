@@ -5,11 +5,14 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/settings_group.dart';
 import '../../../../l10n/app_localizations.dart';
 
-/// Hosted on Firebase Hosting (`legal/` public dir, see firebase.json) —
-/// same static pages linked from app-store listings, so the in-app rows
-/// and the store links always show identical content.
-const String kPrivacyPolicyUrl = 'https://kim-var-73ce9.web.app/privacy-policy.html';
-const String kTermsOfServiceUrl = 'https://kim-var-73ce9.web.app/terms-of-service.html';
+/// Served from peakpin.app (peakpin-landing's public/ dir) rather than
+/// the internal kim-var-73ce9.web.app Firebase Hosting domain — that
+/// domain still hosts the same files (see kim_var/legal/ +
+/// firebase.json) as a mirror, but user-facing links should always
+/// show the branded peakpin.app domain, not the old project id.
+const String kPrivacyPolicyUrl = 'https://peakpin.app/privacy-policy.html';
+const String kTermsOfServiceUrl = 'https://peakpin.app/terms-of-service.html';
+const String kCommunityGuidelinesUrl = 'https://peakpin.app/community-guidelines.html';
 
 class LegalHubScreen extends StatelessWidget {
   const LegalHubScreen({super.key});
@@ -45,12 +48,9 @@ class LegalHubScreen extends StatelessWidget {
                   onTap: () => launchUrl(Uri.parse(kTermsOfServiceUrl), mode: LaunchMode.externalApplication),
                 ),
                 SettingsMenuRow(
-                  icon: Icons.article_outlined,
-                  title: loc.legalLicensesTitle,
-                  onTap: () => showLicensePage(
-                    context: context,
-                    applicationName: 'PeakPin',
-                  ),
+                  icon: Icons.groups_outlined,
+                  title: loc.legalCommunityGuidelinesTitle,
+                  onTap: () => launchUrl(Uri.parse(kCommunityGuidelinesUrl), mode: LaunchMode.externalApplication),
                 ),
               ],
             ),

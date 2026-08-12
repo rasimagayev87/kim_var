@@ -38,7 +38,12 @@ class PostReelItem extends ConsumerStatefulWidget {
   final bool isCurrent;
   final bool muted;
 
-  const PostReelItem({super.key, required this.post, required this.isCurrent, required this.muted});
+  const PostReelItem({
+    super.key,
+    required this.post,
+    required this.isCurrent,
+    required this.muted,
+  });
 
   @override
   ConsumerState<PostReelItem> createState() => _PostReelItemState();
@@ -73,7 +78,9 @@ class _PostReelItemState extends ConsumerState<PostReelItem> {
   Future<void> _initVideo() async {
     _paused = false;
     _fastSpeed = false;
-    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.post.mediaUrl));
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.post.mediaUrl),
+    );
     _controller = controller;
     try {
       await controller.initialize();
@@ -153,13 +160,16 @@ class _PostReelItemState extends ConsumerState<PostReelItem> {
             ),
           ),
         ),
-        if (widget.post.mediaType == PostMediaType.video) _VideoTapZones(
-          paused: _paused,
-          fastSpeed: _fastSpeed,
-          onTogglePlayPause: _togglePlayPause,
-          onToggleSpeed: _toggleSpeed,
-          onDownload: () => showVideoDownloadSheet(context, widget.post),
-        ),
+        if (widget.post.mediaType == PostMediaType.video)
+          _VideoTapZones(
+            paused: _paused,
+            fastSpeed: _fastSpeed,
+            onTogglePlayPause: _togglePlayPause,
+            onToggleSpeed: _toggleSpeed,
+            onDownload: () => showVideoDownloadSheet(context, widget.post),
+          ),
+        if (widget.post.mediaType == PostMediaType.video && _controller != null)
+          _VideoProgressBar(controller: _controller!),
         _BottomInfo(post: widget.post),
         _RightActionRail(post: widget.post),
       ],
@@ -179,12 +189,30 @@ class _PostReelItemState extends ConsumerState<PostReelItem> {
     if (controller == null || !controller.value.isInitialized) {
       return const _MediaShimmer();
     }
-    return FittedBox(
-      fit: BoxFit.cover,
-      child: SizedBox(
-        width: controller.value.size.width,
-        height: controller.value.size.height,
-        child: VideoPlayer(controller),
+
+    // Portrait video (the common case — this is a Reels/TikTok-style
+    // feed) fills the screen edge-to-edge; cropping a few pixels off
+    // the sides is unnoticeable. Landscape/square video gets
+    // letterboxed (contain, black bars) instead — covering it would
+    // crop the top/bottom of a 16:9 clip, cutting off real content.
+    final aspectRatio = controller.value.aspectRatio;
+    if (aspectRatio < 1) {
+      return FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: controller.value.size.width,
+          height: controller.value.size.height,
+          child: VideoPlayer(controller),
+        ),
+      );
+    }
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: AspectRatio(
+          aspectRatio: aspectRatio,
+          child: VideoPlayer(controller),
+        ),
       ),
     );
   }
@@ -225,7 +253,12 @@ class _VideoTapZones extends StatelessWidget {
     return Positioned.fill(
       child: Row(
         children: [
-          Expanded(child: GestureDetector(behavior: HitTestBehavior.translucent, onTap: onToggleSpeed)),
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: onToggleSpeed,
+            ),
+          ),
           Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
@@ -237,21 +270,35 @@ class _VideoTapZones extends StatelessWidget {
                   if (paused)
                     Container(
                       padding: const EdgeInsets.all(16),
-                      decoration: const BoxDecoration(color: Color(0x66000000), shape: BoxShape.circle),
-                      child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 40),
+                      decoration: const BoxDecoration(
+                        color: Color(0x66000000),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 40,
+                      ),
                     ),
                   if (fastSpeed)
                     Positioned(
                       top: 56,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: const Color(0x99000000),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: const Text(
                           '2x',
-                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 12.5),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12.5,
+                          ),
                         ),
                       ),
                     ),
@@ -259,8 +306,92 @@ class _VideoTapZones extends StatelessWidget {
               ),
             ),
           ),
-          Expanded(child: GestureDetector(behavior: HitTestBehavior.translucent, onTap: onToggleSpeed)),
+          Expanded(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: onToggleSpeed,
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+/// Scrubbable progress bar + "0:14 / 0:42" position/duration readout,
+/// pinned across the bottom of the video. Rebuilds on every
+/// [VideoPlayerController] value tick (video_player emits these
+/// continuously during playback) rather than polling on a timer.
+/// Dragging seeks live — [VideoPlayerController.seekTo] is cheap
+/// enough to call on every [Slider.onChanged], not just on release.
+class _VideoProgressBar extends StatelessWidget {
+  final VideoPlayerController controller;
+
+  const _VideoProgressBar({required this.controller});
+
+  String _format(Duration d) {
+    final minutes = d.inMinutes;
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Positioned(
+      left: 12,
+      right: 12,
+      bottom: 14,
+      child: ValueListenableBuilder<VideoPlayerValue>(
+        valueListenable: controller,
+        builder: (context, value, _) {
+          final duration = value.duration;
+          if (duration <= Duration.zero) return const SizedBox.shrink();
+          final position = value.position > duration
+              ? duration
+              : value.position;
+
+          return Row(
+            children: [
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 2.5,
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 5.5,
+                    ),
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 12,
+                    ),
+                    activeTrackColor: AppColors.primary,
+                    inactiveTrackColor: Colors.white.withValues(alpha: 0.35),
+                    thumbColor: Colors.white,
+                    overlayColor: AppColors.primary.withValues(alpha: 0.25),
+                  ),
+                  child: Slider(
+                    min: 0,
+                    max: duration.inMilliseconds.toDouble(),
+                    value: position.inMilliseconds.toDouble().clamp(
+                      0,
+                      duration.inMilliseconds.toDouble(),
+                    ),
+                    onChanged: (ms) =>
+                        controller.seekTo(Duration(milliseconds: ms.round())),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '${_format(position)} / ${_format(duration)}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -280,8 +411,15 @@ class MuteToggleButton extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(11),
-        decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), shape: BoxShape.circle),
-        child: Icon(muted ? Icons.volume_off_outlined : Icons.volume_up_outlined, color: Colors.white, size: 18),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.35),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(
+          muted ? Icons.volume_off_outlined : Icons.volume_up_outlined,
+          color: Colors.white,
+          size: 18,
+        ),
       ),
     );
   }
@@ -296,12 +434,14 @@ class _BottomInfo extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final profile = ref.watch(publicProfileProvider(post.userId)).valueOrNull;
-    final name = (profile?.name.isNotEmpty ?? false) ? profile!.name : loc.defaultUserName;
+    final name = (profile?.name.isNotEmpty ?? false)
+        ? profile!.name
+        : loc.defaultUserName;
 
     return Positioned(
       left: 16,
       right: 88,
-      bottom: 22,
+      bottom: 54,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -348,49 +488,55 @@ class _RightActionRail extends ConsumerWidget {
 
     return Positioned(
       right: 12,
-      bottom: 20,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          GestureDetector(
-            onTap: () async {
-              if (!await requireVerified(context, ref)) return;
-              if (!context.mounted) return;
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => UserProfileScreen(uid: post.userId)),
-              );
-            },
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: const Color(0xFF2A2A2A),
-                border: Border.all(color: Colors.white, width: 1.5),
-              ),
-              child: ClipOval(
-                child: profile?.photoUrl != null
-                    ? Image.network(profile!.photoUrl!, fit: BoxFit.cover)
-                    : const Icon(Icons.person_outline, color: Colors.white70),
+      top: 0,
+      bottom: 0,
+      child: Align(
+        alignment: Alignment.centerRight,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GestureDetector(
+              onTap: () async {
+                if (!await requireVerified(context, ref)) return;
+                if (!context.mounted) return;
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => UserProfileScreen(uid: post.userId),
+                  ),
+                );
+              },
+              child: Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF2A2A2A),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: ClipOval(
+                  child: profile?.photoUrl != null
+                      ? Image.network(profile!.photoUrl!, fit: BoxFit.cover)
+                      : const Icon(Icons.person_outline, color: Colors.white70),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 22),
-          _LikeAction(post: post),
-          const SizedBox(height: 20),
-          _RailAction(
-            icon: Icons.mode_comment_outlined,
-            count: post.commentsCount,
-            onTap: () => showCommentsSheet(context, post.id),
-          ),
-          const SizedBox(height: 20),
-          _RailAction(
-            icon: Icons.share_outlined,
-            count: null,
-            onTap: () => showPostShareOptions(context, post),
-          ),
-        ],
+            const SizedBox(height: 22),
+            _LikeAction(post: post),
+            const SizedBox(height: 20),
+            _RailAction(
+              icon: Icons.mode_comment_outlined,
+              count: post.commentsCount,
+              onTap: () => showCommentsSheet(context, post.id),
+            ),
+            const SizedBox(height: 20),
+            _RailAction(
+              icon: Icons.share_outlined,
+              count: null,
+              onTap: () => showPostShareOptions(context, post),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -407,7 +553,8 @@ class _LikeAction extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final isLiked = ref.watch(isPostLikedByMeProvider(post.id)).valueOrNull ?? false;
+    final isLiked =
+        ref.watch(isPostLikedByMeProvider(post.id)).valueOrNull ?? false;
 
     return _RailAction(
       icon: isLiked ? Icons.favorite : Icons.favorite_border,
@@ -416,9 +563,13 @@ class _LikeAction extends ConsumerWidget {
       onTap: () async {
         if (!await requireVerified(context, ref)) return;
         if (!context.mounted) return;
-        final ok = await ref.read(postControllerProvider).toggleLike(post.id, !isLiked);
+        final ok = await ref
+            .read(postControllerProvider)
+            .toggleLike(post.id, !isLiked);
         if (!ok && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.postLikeErrorMessage)));
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(loc.postLikeErrorMessage)));
         }
       },
     );
@@ -431,7 +582,12 @@ class _RailAction extends StatelessWidget {
   final Color iconColor;
   final VoidCallback? onTap;
 
-  const _RailAction({required this.icon, this.count, this.iconColor = Colors.white, this.onTap});
+  const _RailAction({
+    required this.icon,
+    this.count,
+    this.iconColor = Colors.white,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -440,7 +596,12 @@ class _RailAction extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: iconColor, size: 28, shadows: const [Shadow(color: Colors.black54, blurRadius: 6)]),
+          Icon(
+            icon,
+            color: iconColor,
+            size: 28,
+            shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
+          ),
           if (count != null && count! > 0) ...[
             const SizedBox(height: 4),
             Text(
@@ -467,7 +628,9 @@ void showVideoDownloadSheet(BuildContext context, Post post) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.surface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (_) => _VideoDownloadSheet(post: post),
   );
 }
@@ -509,17 +672,21 @@ class _VideoDownloadSheetState extends State<_VideoDownloadSheet> {
       final total = response.contentLength ?? 0;
 
       final dir = await getTemporaryDirectory();
-      tempFile = File('${dir.path}/peakpin_download_${DateTime.now().millisecondsSinceEpoch}.mp4');
+      tempFile = File(
+        '${dir.path}/peakpin_download_${DateTime.now().millisecondsSinceEpoch}.mp4',
+      );
       final sink = tempFile.openWrite();
 
       var received = 0;
-      await response.stream.map((chunk) {
-        received += chunk.length;
-        if (total > 0 && mounted) {
-          setState(() => _progress = received / total);
-        }
-        return chunk;
-      }).pipe(sink);
+      await response.stream
+          .map((chunk) {
+            received += chunk.length;
+            if (total > 0 && mounted) {
+              setState(() => _progress = received / total);
+            }
+            return chunk;
+          })
+          .pipe(sink);
       await sink.close();
 
       await Gal.putVideo(tempFile.path, album: 'PeakPin');
@@ -541,10 +708,7 @@ class _VideoDownloadSheetState extends State<_VideoDownloadSheet> {
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: _content(loc),
-        ),
+        child: Column(mainAxisSize: MainAxisSize.min, children: _content(loc)),
       ),
     );
   }
@@ -555,14 +719,23 @@ class _VideoDownloadSheetState extends State<_VideoDownloadSheet> {
         return [
           ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.download_outlined, color: AppColors.primary),
-            title: Text(loc.feedDownloadVideoOption, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
+            leading: const Icon(
+              Icons.download_outlined,
+              color: AppColors.primary,
+            ),
+            title: Text(
+              loc.feedDownloadVideoOption,
+              style: AppTextStyles.body.copyWith(fontSize: 15.5),
+            ),
             onTap: _startDownload,
           ),
         ];
       case _DownloadState.downloading:
         return [
-          CircularProgressIndicator(value: _progress > 0 ? _progress : null, color: AppColors.primary),
+          CircularProgressIndicator(
+            value: _progress > 0 ? _progress : null,
+            color: AppColors.primary,
+          ),
           const SizedBox(height: 16),
           Text(
             loc.feedDownloadInProgressMessage((_progress * 100).round()),
@@ -571,15 +744,25 @@ class _VideoDownloadSheetState extends State<_VideoDownloadSheet> {
         ];
       case _DownloadState.completed:
         return [
-          const Icon(Icons.check_circle_outline, color: AppColors.primary, size: 36),
+          const Icon(
+            Icons.check_circle_outline,
+            color: AppColors.primary,
+            size: 36,
+          ),
           const SizedBox(height: 12),
-          Text(loc.feedDownloadCompleteMessage, style: AppTextStyles.body.copyWith(fontSize: 14.5)),
+          Text(
+            loc.feedDownloadCompleteMessage,
+            style: AppTextStyles.body.copyWith(fontSize: 14.5),
+          ),
         ];
       case _DownloadState.error:
         return [
           const Icon(Icons.error_outline, color: AppColors.error, size: 36),
           const SizedBox(height: 12),
-          Text(loc.feedDownloadErrorMessage, style: AppTextStyles.body.copyWith(fontSize: 14.5)),
+          Text(
+            loc.feedDownloadErrorMessage,
+            style: AppTextStyles.body.copyWith(fontSize: 14.5),
+          ),
         ];
     }
   }

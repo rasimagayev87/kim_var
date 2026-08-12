@@ -32,6 +32,7 @@ import '../../../venues/domain/venue_open_status.dart';
 import '../../../venues/presentation/providers/venue_providers.dart';
 import '../../../venues/presentation/screens/create_venue_screen.dart';
 import '../../../venues/presentation/screens/my_venues_screen.dart';
+import '../../../venues/presentation/screens/venue_premium_info_screen.dart';
 import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../../../venues/presentation/widgets/venue_filter_sheet.dart';
 import '../../../venues/presentation/widgets/venue_star_rating.dart';
@@ -1488,7 +1489,7 @@ class _VenueCard extends ConsumerWidget {
               // same reason they can't check in at their own venue), so
               // the owner gets a premium-upsell menu here instead.
               onTap: isOwner
-                  ? () => _openVenuePremiumMenu(context)
+                  ? () => _openVenuePremiumMenu(context, venue)
                   : () => ref.read(venueControllerProvider).toggleLike(venue.id, isCurrentlyLiked: isLiked),
               child: Container(
                 width: 30,
@@ -1500,7 +1501,12 @@ class _VenueCard extends ConsumerWidget {
                   boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
                 ),
                 child: isOwner
-                    ? const Icon(Icons.more_vert_rounded, size: 17, color: ChatLightColors.inkSoft)
+                    ? Tooltip(
+                        message: venue.isPremium ? loc.venuePremiumMenuItemActive : loc.venuePremiumMenuItem,
+                        child: venue.isPremium
+                            ? const Icon(Icons.workspace_premium_rounded, size: 17, color: AppColors.gold)
+                            : const Icon(Icons.more_vert_rounded, size: 17, color: ChatLightColors.inkSoft),
+                      )
                     : AnimatedScale(
                         scale: isLiked ? 1.15 : 1.0,
                         duration: const Duration(milliseconds: 180),
@@ -1521,7 +1527,14 @@ class _VenueCard extends ConsumerWidget {
     );
   }
 
-  void _openVenuePremiumMenu(BuildContext context) {
+  void _openVenuePremiumMenu(BuildContext context, Venue venue) {
+    if (venue.isPremium) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => VenuePremiumInfoScreen(premiumSince: venue.premiumSince)),
+      );
+      return;
+    }
     final sheetLoc = AppLocalizations.of(context);
     showPremiumUpsellSheet(
       context,

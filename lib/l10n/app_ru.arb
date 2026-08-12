@@ -455,6 +455,18 @@
   "venueGenericErrorMessage": "Не удалось выполнить действие. Попробуйте ещё раз чуть позже.",
   "venuePremiumMenuItem": "Сделать заведение премиум",
   "venuePremiumUpsellMessage": "Премиум-заведения показываются первыми в своём радиусе, а рядом с названием появляется значок премиум.",
+  "venuePremiumMenuItemActive": "Премиум",
+  "venuePremiumInfoTitle": "Премиум-заведение",
+  "venuePremiumInfoStatusMessage": "Это заведение имеет премиум-статус.",
+  "venuePremiumInfoExplanationMessage": "Премиум-заведения показываются первыми в своём радиусе, а рядом с названием появляется значок премиум.",
+  "venuePremiumInfoSinceLabel": "Активно с {date}",
+  "@venuePremiumInfoSinceLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "venueLiveAudienceCount": "{count} человек рядом",
   "@venueLiveAudienceCount": {
     "placeholders": {
@@ -777,7 +789,7 @@
   "supportMessageErrorMessage": "Сообщение не отправлено. Повторите попытку позже.",
   "legalPrivacyPolicyTitle": "Политика конфиденциальности",
   "legalTermsOfServiceTitle": "Условия использования",
-  "legalLicensesTitle": "Лицензии",
+  "legalCommunityGuidelinesTitle": "Правила сообщества",
   "aboutWhatsNewTitle": "Что нового",
   "aboutSocialMediaTitle": "Социальные сети",
   "aboutSocialMediaComingSoonLabel": "Скоро",

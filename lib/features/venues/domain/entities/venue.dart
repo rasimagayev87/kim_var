@@ -356,6 +356,15 @@ class Venue with _$Venue {
     /// [nearbyVenuesProvider] and get a crown badge next to their name.
     @Default(false) bool isPremium,
 
+    /// When [isPremium] most recently turned on, from the admin
+    /// panel's toggle (`admin-panel/src/lib/actions/venues.ts`) — the
+    /// only write path for this field. Re-toggling premium on again
+    /// after turning it off resets this to the new grant time, since
+    /// nothing tracks premium history beyond "currently on since X".
+    /// Shown on `VenuePremiumInfoScreen`; `null` on venues predating
+    /// this field.
+    @NullableTimestampConverter() DateTime? premiumSince,
+
     /// Whether `computeBirthdayMatches` (the daily birthday-offer
     /// matching Cloud Function) considers this venue at all — defaults
     /// to `category`'s membership in [kBirthdayEligibleVenueCategories]

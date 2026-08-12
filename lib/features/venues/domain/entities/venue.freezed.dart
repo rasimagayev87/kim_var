@@ -111,6 +111,16 @@ mixin _$Venue {
   /// [nearbyVenuesProvider] and get a crown badge next to their name.
   bool get isPremium => throw _privateConstructorUsedError;
 
+  /// When [isPremium] most recently turned on, from the admin
+  /// panel's toggle (`admin-panel/src/lib/actions/venues.ts`) — the
+  /// only write path for this field. Re-toggling premium on again
+  /// after turning it off resets this to the new grant time, since
+  /// nothing tracks premium history beyond "currently on since X".
+  /// Shown on `VenuePremiumInfoScreen`; `null` on venues predating
+  /// this field.
+  @NullableTimestampConverter()
+  DateTime? get premiumSince => throw _privateConstructorUsedError;
+
   /// Whether `computeBirthdayMatches` (the daily birthday-offer
   /// matching Cloud Function) considers this venue at all — defaults
   /// to `category`'s membership in [kBirthdayEligibleVenueCategories]
@@ -158,6 +168,7 @@ abstract class $VenueCopyWith<$Res> {
     String audienceRadiusMode,
     double audienceRadiusKm,
     bool isPremium,
+    @NullableTimestampConverter() DateTime? premiumSince,
     bool birthdayNotificationsEnabled,
   });
 }
@@ -201,6 +212,7 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? audienceRadiusMode = null,
     Object? audienceRadiusKm = null,
     Object? isPremium = null,
+    Object? premiumSince = freezed,
     Object? birthdayNotificationsEnabled = null,
   }) {
     return _then(
@@ -301,6 +313,10 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
                 ? _value.isPremium
                 : isPremium // ignore: cast_nullable_to_non_nullable
                       as bool,
+            premiumSince: freezed == premiumSince
+                ? _value.premiumSince
+                : premiumSince // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
             birthdayNotificationsEnabled: null == birthdayNotificationsEnabled
                 ? _value.birthdayNotificationsEnabled
                 : birthdayNotificationsEnabled // ignore: cast_nullable_to_non_nullable
@@ -344,6 +360,7 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     String audienceRadiusMode,
     double audienceRadiusKm,
     bool isPremium,
+    @NullableTimestampConverter() DateTime? premiumSince,
     bool birthdayNotificationsEnabled,
   });
 }
@@ -386,6 +403,7 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? audienceRadiusMode = null,
     Object? audienceRadiusKm = null,
     Object? isPremium = null,
+    Object? premiumSince = freezed,
     Object? birthdayNotificationsEnabled = null,
   }) {
     return _then(
@@ -486,6 +504,10 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.isPremium
             : isPremium // ignore: cast_nullable_to_non_nullable
                   as bool,
+        premiumSince: freezed == premiumSince
+            ? _value.premiumSince
+            : premiumSince // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
         birthdayNotificationsEnabled: null == birthdayNotificationsEnabled
             ? _value.birthdayNotificationsEnabled
             : birthdayNotificationsEnabled // ignore: cast_nullable_to_non_nullable
@@ -523,6 +545,7 @@ class _$VenueImpl extends _Venue {
     this.audienceRadiusMode = 'distance',
     this.audienceRadiusKm = 1.0,
     this.isPremium = false,
+    @NullableTimestampConverter() this.premiumSince,
     this.birthdayNotificationsEnabled = false,
   }) : _gallery = gallery,
        super._();
@@ -662,6 +685,17 @@ class _$VenueImpl extends _Venue {
   @JsonKey()
   final bool isPremium;
 
+  /// When [isPremium] most recently turned on, from the admin
+  /// panel's toggle (`admin-panel/src/lib/actions/venues.ts`) — the
+  /// only write path for this field. Re-toggling premium on again
+  /// after turning it off resets this to the new grant time, since
+  /// nothing tracks premium history beyond "currently on since X".
+  /// Shown on `VenuePremiumInfoScreen`; `null` on venues predating
+  /// this field.
+  @override
+  @NullableTimestampConverter()
+  final DateTime? premiumSince;
+
   /// Whether `computeBirthdayMatches` (the daily birthday-offer
   /// matching Cloud Function) considers this venue at all — defaults
   /// to `category`'s membership in [kBirthdayEligibleVenueCategories]
@@ -674,7 +708,7 @@ class _$VenueImpl extends _Venue {
 
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, birthdayNotificationsEnabled: $birthdayNotificationsEnabled)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled)';
   }
 
   @override
@@ -720,6 +754,8 @@ class _$VenueImpl extends _Venue {
                 other.audienceRadiusKm == audienceRadiusKm) &&
             (identical(other.isPremium, isPremium) ||
                 other.isPremium == isPremium) &&
+            (identical(other.premiumSince, premiumSince) ||
+                other.premiumSince == premiumSince) &&
             (identical(
                   other.birthdayNotificationsEnabled,
                   birthdayNotificationsEnabled,
@@ -756,6 +792,7 @@ class _$VenueImpl extends _Venue {
     audienceRadiusMode,
     audienceRadiusKm,
     isPremium,
+    premiumSince,
     birthdayNotificationsEnabled,
   ]);
 
@@ -799,6 +836,7 @@ abstract class _Venue extends Venue {
     final String audienceRadiusMode,
     final double audienceRadiusKm,
     final bool isPremium,
+    @NullableTimestampConverter() final DateTime? premiumSince,
     final bool birthdayNotificationsEnabled,
   }) = _$VenueImpl;
   const _Venue._() : super._();
@@ -918,6 +956,17 @@ abstract class _Venue extends Venue {
   /// [nearbyVenuesProvider] and get a crown badge next to their name.
   @override
   bool get isPremium;
+
+  /// When [isPremium] most recently turned on, from the admin
+  /// panel's toggle (`admin-panel/src/lib/actions/venues.ts`) — the
+  /// only write path for this field. Re-toggling premium on again
+  /// after turning it off resets this to the new grant time, since
+  /// nothing tracks premium history beyond "currently on since X".
+  /// Shown on `VenuePremiumInfoScreen`; `null` on venues predating
+  /// this field.
+  @override
+  @NullableTimestampConverter()
+  DateTime? get premiumSince;
 
   /// Whether `computeBirthdayMatches` (the daily birthday-offer
   /// matching Cloud Function) considers this venue at all — defaults

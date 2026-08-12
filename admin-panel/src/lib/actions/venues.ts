@@ -110,7 +110,11 @@ export async function setVenuePremium(id: string, premium: boolean): Promise<Act
   if ("denied" in check) return check.denied;
 
   try {
-    await getAdminDb().collection("venues").doc(id).update({ isPremium: premium, updatedAt: new Date() });
+    const updates: Record<string, unknown> = { isPremium: premium, updatedAt: new Date() };
+    // Re-granting after a revoke resets this to the new grant date —
+    // nothing tracks premium history beyond "currently on since X".
+    if (premium) updates.premiumSince = new Date();
+    await getAdminDb().collection("venues").doc(id).update(updates);
     await logModerationAction({
       actor: check.admin,
       action: premium ? "venue.premiumGranted" : "venue.premiumRevoked",

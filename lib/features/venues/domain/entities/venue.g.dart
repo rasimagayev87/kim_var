@@ -39,6 +39,9 @@ _$VenueImpl _$$VenueImplFromJson(Map<String, dynamic> json) => _$VenueImpl(
   audienceRadiusMode: json['audienceRadiusMode'] as String? ?? 'distance',
   audienceRadiusKm: (json['audienceRadiusKm'] as num?)?.toDouble() ?? 1.0,
   isPremium: json['isPremium'] as bool? ?? false,
+  premiumSince: const NullableTimestampConverter().fromJson(
+    json['premiumSince'],
+  ),
   birthdayNotificationsEnabled:
       json['birthdayNotificationsEnabled'] as bool? ?? false,
 );
@@ -70,5 +73,8 @@ Map<String, dynamic> _$$VenueImplToJson(
   'audienceRadiusMode': instance.audienceRadiusMode,
   'audienceRadiusKm': instance.audienceRadiusKm,
   'isPremium': instance.isPremium,
+  'premiumSince': const NullableTimestampConverter().toJson(
+    instance.premiumSince,
+  ),
   'birthdayNotificationsEnabled': instance.birthdayNotificationsEnabled,
 };

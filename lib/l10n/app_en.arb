@@ -520,6 +520,18 @@
   "venueGenericErrorMessage": "That didn't go through. Please try again in a moment.",
   "venuePremiumMenuItem": "Make venue premium",
   "venuePremiumUpsellMessage": "Premium venues are shown first within their radius, with a premium badge next to their name.",
+  "venuePremiumMenuItemActive": "Premium",
+  "venuePremiumInfoTitle": "Premium Venue",
+  "venuePremiumInfoStatusMessage": "This venue has premium status.",
+  "venuePremiumInfoExplanationMessage": "Premium venues are shown first within their radius, with a premium badge next to their name.",
+  "venuePremiumInfoSinceLabel": "Active since {date}",
+  "@venuePremiumInfoSinceLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "venueLiveAudienceCount": "{count} nearby",
   "@venueLiveAudienceCount": {
     "placeholders": {
@@ -891,7 +903,7 @@
   "supportMessageErrorMessage": "The message wasn't sent. Please try again shortly.",
   "legalPrivacyPolicyTitle": "Privacy Policy",
   "legalTermsOfServiceTitle": "Terms of Service",
-  "legalLicensesTitle": "Licenses",
+  "legalCommunityGuidelinesTitle": "Community Guidelines",
   "aboutWhatsNewTitle": "What's new",
   "aboutSocialMediaTitle": "Social media",
   "aboutSocialMediaComingSoonLabel": "Coming soon",
