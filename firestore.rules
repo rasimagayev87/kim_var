@@ -25,6 +25,18 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(uid)).data.isVerified == true;
     }
 
+    // App-wide config, read-only from the client — currently just
+    // `config/legal` (currentTermsVersion/currentPrivacyVersion, see
+    // `lib/features/legal/legal_versions.dart` and
+    // `consent_dialog.dart`'s re-consent check on Home mount).
+    // Hand-edited via the Firebase Console (or a one-off admin script)
+    // when a legal doc changes materially — no client write path
+    // exists or should exist.
+    match /config/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
     match /users/{userId} {
       // Any signed-in user can read profiles (needed to show
       // nearby users on the map / discover list).
@@ -166,12 +178,18 @@ service cloud.firestore {
     // the same authEmail, old one deleted) never touches the sign-in
     // credential, unlike a real address this can be safely public:
     // it's useless without the password too.
+    // `consent` (added alongside the original 3 fields) is the
+    // registration-screen checkbox's record — parked here rather than
+    // on `users/{uid}` because that doc doesn't exist yet at
+    // registration time (see `FirebaseAuthRepository.registerWithUsername`'s
+    // doc comment); `completeOnboarding` reads it back from here and
+    // copies it onto `users/{uid}.consent` once that doc is created.
     match /usernames/{usernameId} {
       allow get: if true;
       allow create: if request.auth != null &&
         resource == null &&
         request.auth.uid == request.resource.data.uid &&
-        request.resource.data.keys().hasOnly(['uid', 'authEmail', 'createdAt']);
+        request.resource.data.keys().hasOnly(['uid', 'authEmail', 'createdAt', 'consent']);
       allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
       allow update: if false;
     }

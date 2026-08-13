@@ -34,9 +34,20 @@ abstract class AuthRepository {
   /// Creates the Firebase Auth user and reserves [username]. Signs
   /// the caller out immediately after — registration never leaves you
   /// signed in, the UI always routes to Login next.
+  ///
+  /// [termsAccepted]/[termsVersion]/[privacyVersion] record the legal
+  /// consent the registration screen's checkbox gates on — written
+  /// onto the `usernames/{username}` reservation doc (the only thing
+  /// created at this point; `users/{uid}` itself doesn't exist until
+  /// `completeOnboarding`, which is a genuinely separate session after
+  /// the forced sign-out above) and copied onto `users/{uid}.consent`
+  /// once that doc is created.
   Future<void> registerWithUsername({
     required String username,
     required String password,
+    required bool termsAccepted,
+    required String termsVersion,
+    required String privacyVersion,
   });
 
   /// Returns the signed-in user and whether this is their first time

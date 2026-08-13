@@ -142,6 +142,9 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<void> registerWithUsername({
     required String username,
     required String password,
+    required bool termsAccepted,
+    required String termsVersion,
+    required String privacyVersion,
   }) async {
     final normalized = username.trim();
     final authEmail = _randomAuthEmail();
@@ -158,6 +161,17 @@ class FirebaseAuthRepository implements AuthRepository {
           'uid': user.uid,
           'authEmail': authEmail,
           'createdAt': FieldValue.serverTimestamp(),
+          // Parked here, not on `users/{uid}` directly — that doc
+          // doesn't exist yet (see `completeOnboarding`, a genuinely
+          // separate later session after the forced sign-out below).
+          // `completeOnboarding` reads this back and copies it onto
+          // `users/{uid}.consent` once that doc is actually created.
+          'consent': {
+            'termsAccepted': termsAccepted,
+            'acceptedAt': FieldValue.serverTimestamp(),
+            'termsVersion': termsVersion,
+            'privacyVersion': privacyVersion,
+          },
         },
       );
     } finally {
@@ -249,10 +263,26 @@ class FirebaseAuthRepository implements AuthRepository {
       throw StateError('Onboarding tamamlanmazdan əvvəl giriş edilməlidir.');
     }
 
+    // The consent record was written to `usernames/{username}` at
+    // registration time (a separate, earlier session — see
+    // `registerWithUsername`'s doc comment) since `users/{uid}` didn't
+    // exist yet to hold it directly. Read it back now and fold it into
+    // the doc actually being created below. Absent only for an account
+    // that somehow reaches onboarding without having gone through this
+    // app's own registration screen — no known path does that today,
+    // but this degrades to "no consent recorded" rather than throwing.
+    Map<String, dynamic>? consent;
+    final displayName = user.displayName;
+    if (displayName != null) {
+      final usernameDoc = await _usernames.doc(displayName.toLowerCase()).get();
+      consent = (usernameDoc.data()?['consent'] as Map?)?.cast<String, dynamic>();
+    }
+
     await _firestore.collection('users').doc(user.uid).set({
       'uid': user.uid,
       'username': user.displayName,
       'loginProvider': _providerFrom(user).name,
+      if (consent != null) 'consent': consent,
       'firstName': firstName,
       'lastName': lastName,
       'birthDate': Timestamp.fromDate(birthDate),

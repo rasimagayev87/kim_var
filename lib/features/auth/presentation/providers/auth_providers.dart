@@ -37,8 +37,17 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
   Future<void> registerWithUsername({
     required String username,
     required String password,
+    required bool termsAccepted,
+    required String termsVersion,
+    required String privacyVersion,
   }) {
-    return _repository.registerWithUsername(username: username, password: password);
+    return _repository.registerWithUsername(
+      username: username,
+      password: password,
+      termsAccepted: termsAccepted,
+      termsVersion: termsVersion,
+      privacyVersion: privacyVersion,
+    );
   }
 
   Future<(AppUser, bool)> loginWithUsername({

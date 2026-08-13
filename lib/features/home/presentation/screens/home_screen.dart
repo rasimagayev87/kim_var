@@ -10,6 +10,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../calls/presentation/providers/call_providers.dart';
 import '../../../calls/presentation/screens/incoming_call_screen.dart';
 import '../../../chat/presentation/providers/chat_providers.dart' show totalUnreadChatCountProvider;
+import '../../../legal/presentation/widgets/consent_dialog.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../../location/presentation/providers/presence_provider.dart';
 import '../../../privacy/presentation/providers/privacy_providers.dart';
@@ -53,6 +54,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     ref.read(deviceSessionControllerProvider).touchCurrentSession();
     ref.read(notificationPreferencesControllerProvider).syncSubscriptions();
     _applySavedGpsAccuracy();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) checkAndShowConsentDialogIfNeeded(context, ref);
+    });
   }
 
   /// Applies the saved GPS dəqiqliyi preference to the live

@@ -11,6 +11,8 @@ import '../../../../core/utils/app_logger.dart';
 import '../../../../core/widgets/premium_button.dart';
 import '../../../../core/widgets/premium_text_field.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../legal/legal_versions.dart';
+import '../../../legal/presentation/widgets/consent_checkbox_row.dart';
 import '../providers/auth_providers.dart';
 import 'login_screen.dart';
 
@@ -38,6 +40,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Timer? _debounce;
   _UsernameStatus _usernameStatus = _UsernameStatus.idle;
   bool _submitting = false;
+  bool _consentAccepted = false;
   String? _passwordError;
 
   @override
@@ -91,6 +94,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       setState(() => _passwordError = loc.registerPasswordMismatchError);
       return;
     }
+    // Defense in depth — the submit button is already disabled while
+    // unchecked (see `onPressed` below), this just guards the one real
+    // code path that creates an account regardless of which UI trigger
+    // reaches it.
+    if (!_consentAccepted) return;
 
     setState(() => _submitting = true);
 
@@ -98,6 +106,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       await ref.read(authControllerProvider.notifier).registerWithUsername(
             username: username,
             password: password,
+            termsAccepted: true,
+            termsVersion: kCurrentTermsVersion,
+            privacyVersion: kCurrentPrivacyVersion,
           );
 
       if (!mounted) return;
@@ -203,11 +214,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     const SizedBox(height: 12),
                     Text(_passwordError!, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
                   ],
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 20),
+                  ConsentCheckboxRow(
+                    value: _consentAccepted,
+                    onChanged: (value) => setState(() => _consentAccepted = value),
+                  ),
+                  const SizedBox(height: 20),
                   PremiumButton(
                     label: loc.registerSubmitButton,
                     loading: _submitting,
-                    onPressed: _handleRegister,
+                    onPressed: _consentAccepted ? _handleRegister : null,
                   ),
                   const SizedBox(height: 24),
                 ],
