@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/utils/age_calculator.dart';
+import '../../../../core/utils/presence_utils.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../safety/presentation/providers/safety_providers.dart';
 import '../../domain/location_failure.dart';
@@ -13,6 +15,13 @@ import '../../domain/nearby_user.dart';
 
 final locationControllerProvider =
     StateNotifierProvider<LocationController, AsyncValue<Position>>((ref) {
+      // Same fix as chatListControllerProvider/notificationListControllerProvider
+      // — LocationController isn't autoDispose, so without this watch its
+      // live GPS stream (which keeps writing `online: true`/lat/lng to
+      // whatever uid is CURRENTLY signed in on every position update)
+      // would otherwise keep running against a session that's already
+      // moved on, instead of starting clean for whoever just signed in.
+      ref.watch(authStateProvider);
       return LocationController()..refresh();
     });
 
@@ -280,6 +289,14 @@ final radiusUserCountsProvider = Provider<Map<double, int>>((ref) {
       continue;
     if (_isGhostMode(data)) continue;
 
+    // Keeps this count in sync with [nearbyUsersProvider]'s own
+    // filter below — otherwise a radius button could say "12 nearby"
+    // while only showing 5 pins, because most of the 12 are stale
+    // `online: true` writes rather than someone actually online now.
+    final candidateOnline = data['online'] as bool? ?? false;
+    final candidateLastSeen = (data['lastSeen'] as Timestamp?)?.toDate();
+    if (!isRecentlyOnline(online: candidateOnline, lastSeen: candidateLastSeen)) continue;
+
     final lat = (data['lat'] as num?)?.toDouble();
     final lng = (data['lng'] as num?)?.toDouble();
     if (lat == null || lng == null) continue;
@@ -389,6 +406,20 @@ final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
     if (myUid != null && _isBlockedPair(myUid, myBlockedIds, uid, data))
       continue;
     if (_isGhostMode(data)) continue;
+
+    // The map only ever shows who's online RIGHT NOW — [_nearbyCandidatesProvider]'s
+    // own 15-minute lastSeen window (and the country/world modes' raw
+    // `online == true` query, which has no staleness check at all) both
+    // exist purely to bound how much of `users` gets scanned/streamed,
+    // not to decide who's actually still online. This is that decision
+    // — the same self-healing check `discover_tab.dart` uses for the
+    // green dot, applied here to the pin's existence too: signing out
+    // (writes `online: false` immediately) or a stale write past
+    // `kOnlineStalenessThreshold` both make someone disappear from the
+    // map, not just lose their dot.
+    final candidateOnline = data['online'] as bool? ?? false;
+    final candidateLastSeen = (data['lastSeen'] as Timestamp?)?.toDate();
+    if (!isRecentlyOnline(online: candidateOnline, lastSeen: candidateLastSeen)) continue;
 
     final lat = (data['lat'] as num?)?.toDouble();
     final lng = (data['lng'] as num?)?.toDouble();
