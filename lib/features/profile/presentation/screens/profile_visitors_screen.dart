@@ -6,6 +6,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../providers/profile_visitors_providers.dart';
 import '../providers/public_profile_providers.dart';
+import 'user_profile_screen.dart';
 
 /// Real-time list of who viewed the signed-in user's profile in the
 /// last 30 days (see profile_visitors_providers.dart) — only ever
@@ -94,6 +95,10 @@ class _VisitorTile extends ConsumerWidget {
       subtitle: Text(
         formatRelativeTime(visit.viewedAt, loc),
         style: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 12.5),
+      ),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => UserProfileScreen(uid: visit.viewerId)),
       ),
     );
   }
