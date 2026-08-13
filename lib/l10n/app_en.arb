@@ -906,6 +906,7 @@
   "notifOpenSettingsButton": "Open system settings",
   "notifPushTitle": "Push notifications",
   "notifEmailTitle": "Email notifications",
+  "notifEmailComingSoonLabel": "Coming soon",
   "notifUpdateErrorMessage": "The change wasn't saved. Please try again shortly.",
   "notifNewFollowerBody": "Started following you",
   "notifLikePostBody": "Liked your post",

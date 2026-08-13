@@ -792,6 +792,7 @@
   "notifOpenSettingsButton": "Открыть настройки системы",
   "notifPushTitle": "Push-уведомления",
   "notifEmailTitle": "Email-уведомления",
+  "notifEmailComingSoonLabel": "Скоро",
   "notifUpdateErrorMessage": "Изменение не сохранено. Повторите попытку позже.",
   "notifNewFollowerBody": "Начал(а) отслеживать вас",
   "notifLikePostBody": "Понравилась ваша публикация",

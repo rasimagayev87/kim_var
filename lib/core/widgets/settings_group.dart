@@ -122,10 +122,16 @@ class SettingsToggleRow extends StatelessWidget {
   final String title;
   final String? subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+
+  /// Null makes the row non-interactive (switch greyed out, no tap
+  /// response) — for a toggle that's visible but not wired to anything
+  /// real yet, paired with a "Tezliklə" [badge] rather than removing
+  /// the row outright.
+  final ValueChanged<bool>? onChanged;
 
   /// Optional small pill rendered between the title/subtitle column and
-  /// the switch — e.g. a "VIP" badge on a premium-gated toggle.
+  /// the switch — e.g. a "VIP" badge on a premium-gated toggle, or a
+  /// "Tezliklə" badge on a disabled one.
   final Widget? badge;
 
   const SettingsToggleRow({
@@ -142,39 +148,43 @@ class SettingsToggleRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final resolvedColor = iconColor ?? AppColors.textSecondary;
+    final disabled = onChanged == null;
     return InkWell(
-      onTap: () => onChanged(!value),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-        child: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(color: AppColors.backgroundDark, borderRadius: BorderRadius.circular(11)),
-              child: Icon(icon, color: resolvedColor, size: 18),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: AppTextStyles.body.copyWith(fontSize: 15.5, fontWeight: FontWeight.w600)),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle!,
-                      style: AppTextStyles.caption.copyWith(fontSize: 12.5),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
+      onTap: disabled ? null : () => onChanged!(!value),
+      child: Opacity(
+        opacity: disabled ? 0.5 : 1,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+          child: Row(
+            children: [
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(color: AppColors.backgroundDark, borderRadius: BorderRadius.circular(11)),
+                child: Icon(icon, color: resolvedColor, size: 18),
               ),
-            ),
-            if (badge != null) ...[badge!, const SizedBox(width: 6)],
-            Switch(value: value, onChanged: onChanged, activeThumbColor: AppColors.primary),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: AppTextStyles.body.copyWith(fontSize: 15.5, fontWeight: FontWeight.w600)),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: AppTextStyles.caption.copyWith(fontSize: 12.5),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (badge != null) ...[badge!, const SizedBox(width: 6)],
+              Switch(value: value, onChanged: onChanged, activeThumbColor: AppColors.primary),
+            ],
+          ),
         ),
       ),
     );

@@ -67,13 +67,6 @@ class NotificationsScreen extends ConsumerWidget {
                   onChanged: (v) => onCategoryChanged('followers', v),
                 ),
                 SettingsToggleRow(
-                  icon: Icons.person_add_alt_1_outlined,
-                  title: loc.notifNewUsersTitle,
-                  subtitle: loc.notifNewUsersSubtitle,
-                  value: prefs.newUsers,
-                  onChanged: (v) => onCategoryChanged('newUsers', v),
-                ),
-                SettingsToggleRow(
                   icon: Icons.favorite_border,
                   title: loc.notifLikesTitle,
                   subtitle: loc.notifLikesSubtitle,
@@ -101,27 +94,6 @@ class NotificationsScreen extends ConsumerWidget {
                   value: prefs.venueUpdates,
                   onChanged: (v) => onCategoryChanged('venueUpdates', v),
                 ),
-                SettingsToggleRow(
-                  icon: Icons.shield_outlined,
-                  title: loc.notifSecurityTitle,
-                  subtitle: loc.notifSecuritySubtitle,
-                  value: prefs.security,
-                  onChanged: (v) => onCategoryChanged('security', v),
-                ),
-                SettingsToggleRow(
-                  icon: Icons.campaign_outlined,
-                  title: loc.notifSystemTitle,
-                  subtitle: loc.notifSystemSubtitle,
-                  value: prefs.systemNotifications,
-                  onChanged: (v) => onCategoryChanged('systemNotifications', v),
-                ),
-                SettingsToggleRow(
-                  icon: Icons.local_activity_outlined,
-                  title: loc.notifMarketingTitle,
-                  subtitle: loc.notifMarketingSubtitle,
-                  value: prefs.marketing,
-                  onChanged: (v) => onCategoryChanged('marketing', v),
-                ),
               ],
             ),
             const SizedBox(height: 16),
@@ -139,11 +111,9 @@ class NotificationsScreen extends ConsumerWidget {
                 SettingsToggleRow(
                   icon: Icons.email_outlined,
                   title: loc.notifEmailTitle,
-                  value: prefs.emailEnabled,
-                  onChanged: (v) async {
-                    final ok = await controller.toggleEmail(v);
-                    if (!ok && context.mounted) showError();
-                  },
+                  value: false,
+                  onChanged: null,
+                  badge: SettingsPill(label: loc.notifEmailComingSoonLabel, color: AppColors.textMuted),
                 ),
               ],
             ),

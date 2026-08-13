@@ -792,6 +792,7 @@
   "notifOpenSettingsButton": "Sistem ayarlarına git",
   "notifPushTitle": "Push bildirimleri",
   "notifEmailTitle": "E-posta bildirimleri",
+  "notifEmailComingSoonLabel": "Yakında",
   "notifUpdateErrorMessage": "Değişiklik kaydedilmedi. Lütfen daha sonra tekrar deneyin.",
   "notifNewFollowerBody": "Sizi takip etmeye başladı",
   "notifLikePostBody": "Paylaşımını beğendi",
