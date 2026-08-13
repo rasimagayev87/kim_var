@@ -9,6 +9,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/relative_time_formatter.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
+import '../../../profile/presentation/screens/user_profile_screen.dart';
 import '../../domain/entities/story.dart';
 import '../../domain/entities/story_view.dart';
 import '../providers/story_providers.dart';
@@ -42,6 +43,18 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
   late final AnimationController _progressController;
   bool _deleting = false;
 
+  /// Bumped on every [_loadVideoIfNeeded] call so a slow, stale
+  /// image-precache or video-initialize future that resolves after the
+  /// user has already skipped away can detect it's obsolete and no-op
+  /// instead of starting the progress bar for the wrong story.
+  int _loadGeneration = 0;
+
+  /// True once the current story's media has actually finished loading
+  /// (image precached, or video initialized) — the progress bar must
+  /// not start until this flips, otherwise it can run out before the
+  /// media is even visible on a slow connection.
+  bool _mediaReady = false;
+
   @override
   void initState() {
     super.initState();
@@ -60,23 +73,40 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
     super.dispose();
   }
 
-  void _loadVideoIfNeeded(Story story) {
+  Future<void> _loadVideoIfNeeded(Story story) async {
     _videoController?.dispose();
     _videoController = null;
+    _progressController.stop();
+    final generation = ++_loadGeneration;
+    setState(() => _mediaReady = false);
+
     if (story.mediaType != StoryMediaType.video) {
+      try {
+        await precacheImage(NetworkImage(story.mediaUrl), context);
+      } catch (_) {
+        // Falls through — Image.network will still attempt to render
+        // and show its own error state; the story shouldn't get stuck.
+      }
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _mediaReady = true);
       _startProgress(_kImageStoryDuration);
       return;
     }
 
     final controller = VideoPlayerController.networkUrl(Uri.parse(story.mediaUrl));
     _videoController = controller;
-    controller.initialize().then((_) {
-      if (!mounted || _videoController != controller) return;
-      setState(() {});
-      controller.play();
-      final videoDuration = controller.value.duration;
-      _startProgress(videoDuration > Duration.zero ? videoDuration : _kImageStoryDuration);
-    });
+    try {
+      await controller.initialize();
+    } catch (_) {
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() => _mediaReady = true);
+      return;
+    }
+    if (!mounted || generation != _loadGeneration) return;
+    setState(() => _mediaReady = true);
+    controller.play();
+    final videoDuration = controller.value.duration;
+    _startProgress(videoDuration > Duration.zero ? videoDuration : _kImageStoryDuration);
   }
 
   void _startProgress(Duration duration) {
@@ -183,7 +213,9 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
             },
             child: Center(
               child: story.mediaType == StoryMediaType.image
-                  ? Image.network(story.mediaUrl, fit: BoxFit.contain)
+                  ? (_mediaReady
+                      ? Image.network(story.mediaUrl, fit: BoxFit.contain)
+                      : const CircularProgressIndicator(color: AppColors.primary))
                   : (_videoController?.value.isInitialized ?? false)
                       ? AspectRatio(
                           aspectRatio: _videoController!.value.aspectRatio,
@@ -420,24 +452,31 @@ class _ViewerRow extends ConsumerWidget {
     final profile = ref.watch(publicProfileProvider(view.viewerId)).valueOrNull;
     final name = (profile?.name ?? '').isEmpty ? loc.defaultUserName : profile!.name;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: AppColors.card,
-            backgroundImage: profile?.photoUrl != null ? NetworkImage(profile!.photoUrl!) : null,
-            child: profile?.photoUrl == null
-                ? const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 18)
-                : null,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(name, style: AppTextStyles.body.copyWith(fontSize: 14.5, fontWeight: FontWeight.w500)),
-          ),
-          Text(DateFormat('HH:mm').format(view.viewedAt), style: AppTextStyles.caption.copyWith(fontSize: 12)),
-        ],
+    return InkWell(
+      onTap: () {
+        final navigator = Navigator.of(context);
+        navigator.pop();
+        navigator.push(MaterialPageRoute(builder: (_) => UserProfileScreen(uid: view.viewerId)));
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: AppColors.card,
+              backgroundImage: profile?.photoUrl != null ? NetworkImage(profile!.photoUrl!) : null,
+              child: profile?.photoUrl == null
+                  ? const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 18)
+                  : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(name, style: AppTextStyles.body.copyWith(fontSize: 14.5, fontWeight: FontWeight.w500)),
+            ),
+            Text(DateFormat('HH:mm').format(view.viewedAt), style: AppTextStyles.caption.copyWith(fontSize: 12)),
+          ],
+        ),
       ),
     );
   }
