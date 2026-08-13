@@ -6,17 +6,25 @@ import 'package:video_player/video_player.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/relative_time_formatter.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
 import '../../domain/entities/story.dart';
 import '../../domain/entities/story_view.dart';
 import '../providers/story_providers.dart';
 
-/// Full-screen viewer for the signed-in user's OWN active stories —
-/// tap the right half to advance, left half to go back (closes on
-/// stepping past either end), matching the standard tap-to-navigate
-/// story-viewer interaction rather than swipe paging. A thin segmented
-/// bar at the top shows position among [stories].
+/// How long an image story stays up before auto-advancing — matches
+/// the Instagram/TikTok convention this screen otherwise follows. A
+/// video story instead runs for its own actual duration (see
+/// [_StoryViewerScreenState._startProgress]), same as those apps.
+const _kImageStoryDuration = Duration(seconds: 5);
+
+/// Full-screen viewer for a user's active stories — auto-advances
+/// through [stories] as each one's progress bar finishes (Instagram/
+/// TikTok-style), and pops back out once the last one finishes. Tap
+/// the right half to skip ahead, left half to go back, both resetting
+/// progress for the story landed on; closes on stepping past either
+/// end, whether that step was a tap or the timer itself running out.
 class StoryViewerScreen extends ConsumerStatefulWidget {
   final List<Story> stories;
   final int initialIndex;
@@ -27,15 +35,20 @@ class StoryViewerScreen extends ConsumerStatefulWidget {
   ConsumerState<StoryViewerScreen> createState() => _StoryViewerScreenState();
 }
 
-class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
+class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with SingleTickerProviderStateMixin {
   late int _index = widget.initialIndex;
   late List<Story> _stories = widget.stories;
   VideoPlayerController? _videoController;
+  late final AnimationController _progressController;
   bool _deleting = false;
 
   @override
   void initState() {
     super.initState();
+    _progressController = AnimationController(vsync: this)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) _goTo(_index + 1);
+      });
     _loadVideoIfNeeded(_stories[_index]);
     _recordViewIfNeeded(_stories[_index]);
   }
@@ -43,21 +56,35 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
   @override
   void dispose() {
     _videoController?.dispose();
+    _progressController.dispose();
     super.dispose();
   }
 
   void _loadVideoIfNeeded(Story story) {
     _videoController?.dispose();
     _videoController = null;
-    if (story.mediaType != StoryMediaType.video) return;
+    if (story.mediaType != StoryMediaType.video) {
+      _startProgress(_kImageStoryDuration);
+      return;
+    }
 
     final controller = VideoPlayerController.networkUrl(Uri.parse(story.mediaUrl));
     _videoController = controller;
     controller.initialize().then((_) {
-      if (!mounted) return;
+      if (!mounted || _videoController != controller) return;
       setState(() {});
       controller.play();
+      final videoDuration = controller.value.duration;
+      _startProgress(videoDuration > Duration.zero ? videoDuration : _kImageStoryDuration);
     });
+  }
+
+  void _startProgress(Duration duration) {
+    _progressController
+      ..stop()
+      ..duration = duration
+      ..value = 0
+      ..forward();
   }
 
   /// Viewing your OWN story never counts as a "view" — only records
@@ -71,7 +98,8 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
 
   void _goTo(int index) {
     if (index < 0 || index >= _stories.length) {
-      Navigator.pop(context);
+      _progressController.stop();
+      if (mounted) Navigator.pop(context);
       return;
     }
     setState(() => _index = index);
@@ -82,6 +110,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
   Future<void> _confirmDelete(Story story) async {
     if (_deleting) return;
     final loc = AppLocalizations.of(context);
+    _progressController.stop();
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -99,7 +128,11 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
         ],
       ),
     );
-    if (confirmed != true || !mounted) return;
+    if (!mounted) return;
+    if (confirmed != true) {
+      _progressController.forward();
+      return;
+    }
 
     setState(() => _deleting = true);
     final ok = await ref.read(storyControllerProvider).deleteStory(story.id);
@@ -108,6 +141,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
     if (!ok) {
       setState(() => _deleting = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.storyDeleteErrorMessage)));
+      _progressController.forward();
       return;
     }
 
@@ -126,9 +160,12 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     final story = _stories[_index];
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
     final isOwner = myUid != null && myUid == story.creatorId;
+    final profile = ref.watch(publicProfileProvider(story.creatorId)).valueOrNull;
+    final creatorName = (profile?.name ?? '').isEmpty ? loc.defaultUserName : profile!.name;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -162,47 +199,83 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                child: Row(
+                child: Column(
                   children: [
-                    for (var i = 0; i < _stories.length; i++) ...[
-                      if (i > 0) const SizedBox(width: 4),
-                      Expanded(
-                        child: Container(
-                          height: 3,
-                          decoration: BoxDecoration(
-                            color: i <= _index ? AppColors.primary : Colors.white24,
-                            borderRadius: BorderRadius.circular(2),
+                    Row(
+                      children: [
+                        for (var i = 0; i < _stories.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 4),
+                          Expanded(
+                            child: AnimatedBuilder(
+                              animation: _progressController,
+                              builder: (context, _) {
+                                final fraction = i < _index
+                                    ? 1.0
+                                    : i == _index
+                                        ? _progressController.value
+                                        : 0.0;
+                                return _SegmentBar(fraction: fraction);
+                              },
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: AppColors.card,
+                          backgroundImage: profile?.photoUrl != null ? NetworkImage(profile!.photoUrl!) : null,
+                          child: profile?.photoUrl == null
+                              ? const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 16)
+                              : null,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  creatorName,
+                                  style: AppTextStyles.body.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                formatRelativeTime(story.createdAt, loc),
+                                style: AppTextStyles.caption.copyWith(color: Colors.white70, fontSize: 12.5),
+                              ),
+                            ],
                           ),
                         ),
-                      ),
-                    ],
+                        if (isOwner)
+                          IconButton(
+                            onPressed: _deleting ? null : () => _confirmDelete(story),
+                            icon: _deleting
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.delete_outline, color: Colors.white),
+                          ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.close, color: Colors.white),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
-              ),
-            ),
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: SafeArea(
-              child: Row(
-                children: [
-                  if (isOwner)
-                    IconButton(
-                      onPressed: _deleting ? null : () => _confirmDelete(story),
-                      icon: _deleting
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                            )
-                          : const Icon(Icons.delete_outline, color: Colors.white),
-                    ),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: Colors.white),
-                  ),
-                ],
               ),
             ),
           ),
@@ -224,14 +297,34 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> {
   }
 }
 
+/// One Instagram-style progress segment — a static track plus a fill
+/// sized to [fraction] (0.0–1.0), left-aligned so it reads as
+/// "filling up" rather than growing from the center.
+class _SegmentBar extends StatelessWidget {
+  final double fraction;
+
+  const _SegmentBar({required this.fraction});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(2),
+      child: Container(
+        height: 3,
+        color: Colors.white24,
+        alignment: Alignment.centerLeft,
+        child: FractionallySizedBox(
+          widthFactor: fraction.clamp(0.0, 1.0),
+          child: Container(color: AppColors.primary),
+        ),
+      ),
+    );
+  }
+}
+
 /// Bottom-left "X baxış" affordance — only the story's own creator can
-/// ever see this list ("baxanlar", see `firestore.rules`), which this
-/// screen only ever shows to its owner anyway (it's reached solely
-/// from the self-profile ring). Note: since nothing yet lets OTHER
-/// users open someone else's story, no view ever actually gets
-/// recorded — this button/sheet is real and will start showing real
-/// viewers the moment a "watch someone else's story" entry point
-/// exists elsewhere in the app.
+/// ever see this list ("baxanlar", see `firestore.rules`); shown only
+/// when [StoryViewerScreen] is opened by its own owner.
 class _ViewersButton extends ConsumerWidget {
   final String storyId;
 

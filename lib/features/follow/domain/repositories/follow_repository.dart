@@ -10,6 +10,16 @@ abstract class FollowRepository {
 
   Stream<bool> watchIsFollowing({required String followerId, required String followeeId});
 
+  /// True if either direction of the edge exists between [uidA]/[uidB]
+  /// — the same "counts either way" rule already used for
+  /// `ProfileVisibility.followersOnly` and `WhoCanMessageMe.followersOnly`,
+  /// and for `StoryVisibility.followers` (see `firestore.rules`'
+  /// `isFollowingOrFollowedBy`, which this mirrors exactly). One-shot,
+  /// not a stream — callers filtering a list (e.g. story visibility)
+  /// need a point-in-time answer per item, not a live subscription per
+  /// candidate.
+  Future<bool> isFollowingOrFollowedBy(String uidA, String uidB);
+
   Future<void> follow({required String followerId, required String followeeId});
 
   Future<void> unfollow({required String followerId, required String followeeId});

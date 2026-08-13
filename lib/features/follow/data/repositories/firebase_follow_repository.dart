@@ -29,6 +29,15 @@ class FirebaseFollowRepository implements FollowRepository {
   }
 
   @override
+  Future<bool> isFollowingOrFollowedBy(String uidA, String uidB) async {
+    final results = await Future.wait([
+      _follows.doc(_docId(uidA, uidB)).get(),
+      _follows.doc(_docId(uidB, uidA)).get(),
+    ]);
+    return results[0].exists || results[1].exists;
+  }
+
+  @override
   Future<void> follow({required String followerId, required String followeeId}) {
     return _follows.doc(_docId(followerId, followeeId)).set({
       'followerId': followerId,
