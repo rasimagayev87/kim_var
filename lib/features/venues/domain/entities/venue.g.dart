@@ -48,6 +48,10 @@ _$VenueImpl _$$VenueImplFromJson(Map<String, dynamic> json) => _$VenueImpl(
   ),
   birthdayNotificationsEnabled:
       json['birthdayNotificationsEnabled'] as bool? ?? false,
+  availableSeats: (json['availableSeats'] as num?)?.toInt(),
+  seatsUpdatedAt: const NullableTimestampConverter().fromJson(
+    json['seatsUpdatedAt'],
+  ),
 );
 
 Map<String, dynamic> _$$VenueImplToJson(
@@ -85,4 +89,8 @@ Map<String, dynamic> _$$VenueImplToJson(
     instance.premiumSince,
   ),
   'birthdayNotificationsEnabled': instance.birthdayNotificationsEnabled,
+  'availableSeats': instance.availableSeats,
+  'seatsUpdatedAt': const NullableTimestampConverter().toJson(
+    instance.seatsUpdatedAt,
+  ),
 };

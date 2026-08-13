@@ -8,6 +8,7 @@ import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../domain/entities/venue.dart';
 import '../../domain/venue_open_status.dart';
 import '../providers/venue_providers.dart';
+import '../widgets/seat_count_editor_sheet.dart';
 import 'create_venue_screen.dart';
 
 /// Owner-only management screen — every venue the signed-in user has
@@ -92,7 +93,7 @@ class MyVenuesScreen extends ConsumerWidget {
   }
 }
 
-enum _MyVenueCardAction { edit, delete }
+enum _MyVenueCardAction { edit, seats, delete }
 
 class _MyVenueCard extends ConsumerWidget {
   final Venue venue;
@@ -127,6 +128,14 @@ class _MyVenueCard extends ConsumerWidget {
               onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.edit),
             ),
             ListTile(
+              leading: const Icon(Icons.event_seat_outlined, color: ChatLightColors.ink),
+              title: Text(
+                loc.seatsSheetTitle,
+                style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+              ),
+              onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.seats),
+            ),
+            ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,
                 color: AppColors.error,
@@ -146,15 +155,18 @@ class _MyVenueCard extends ConsumerWidget {
 
     if (!context.mounted || action == null) return;
 
-    if (action == _MyVenueCardAction.edit) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => CreateVenueScreen(existingVenue: venue),
-        ),
-      );
-    } else {
-      _confirmDelete(context, ref);
+    switch (action) {
+      case _MyVenueCardAction.edit:
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => CreateVenueScreen(existingVenue: venue),
+          ),
+        );
+      case _MyVenueCardAction.seats:
+        showSeatCountEditorSheet(context, venue);
+      case _MyVenueCardAction.delete:
+        _confirmDelete(context, ref);
     }
   }
 

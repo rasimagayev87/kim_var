@@ -282,6 +282,19 @@ class VenueController {
       return false;
     }
   }
+
+  /// "Boş yer sayı" quick-edit sheet's Save action — see
+  /// `VenueRepository.updateAvailableSeats`'s doc comment for why this
+  /// is a standalone write, separate from [updateVenue].
+  Future<bool> updateAvailableSeats({required String venueId, required int availableSeats}) async {
+    try {
+      await _ref.read(venueRepositoryProvider).updateAvailableSeats(venueId: venueId, availableSeats: availableSeats);
+      return true;
+    } catch (e, st) {
+      logError('venue_providers.updateAvailableSeats', e, st);
+      return false;
+    }
+  }
 }
 
 enum CheckinToggleResult {

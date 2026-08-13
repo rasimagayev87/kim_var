@@ -415,6 +415,21 @@ class Venue with _$Venue {
     /// form ONLY for categories in that set (every other category
     /// never shows the toggle, so this just stays `false` for them).
     @Default(false) bool birthdayNotificationsEnabled,
+
+    /// Owner-set "current free seats" count (0-50), edited from the
+    /// standalone seat-count sheet on `MyVenuesScreen` (NOT the
+    /// create/edit form — this is meant for frequent, lightweight
+    /// updates, not a full re-submit). Null means the owner has never
+    /// turned this feature on — [SeatAvailabilityCard] on
+    /// `VenueProfileScreen` renders nothing at all in that case, rather
+    /// than showing a misleading "0 seats".
+    int? availableSeats,
+
+    /// When [availableSeats] was last written — always set together
+    /// with it (`FieldValue.serverTimestamp()`), null exactly when
+    /// [availableSeats] is null. Powers the "X dəq əvvəl yeniləndi"
+    /// caption under the card.
+    @NullableTimestampConverter() DateTime? seatsUpdatedAt,
   }) = _Venue;
 
   factory Venue.fromJson(Map<String, dynamic> json) => _$VenueFromJson(json);
@@ -427,4 +442,20 @@ class Venue with _$Venue {
   }
 
   bool isOwnedBy(String uid) => ownerId == uid;
+}
+
+/// The 3 [SeatAvailabilityCard] states, derived purely from
+/// [Venue.availableSeats] — kept as a plain enum rather than inline
+/// thresholds so the same "which color/label" logic isn't duplicated
+/// anywhere else that might need it later.
+enum SeatAvailabilityLevel { plenty, low, full }
+
+extension SeatAvailabilityX on Venue {
+  SeatAvailabilityLevel? get seatAvailabilityLevel {
+    final seats = availableSeats;
+    if (seats == null) return null;
+    if (seats == 0) return SeatAvailabilityLevel.full;
+    if (seats <= 5) return SeatAvailabilityLevel.low;
+    return SeatAvailabilityLevel.plenty;
+  }
 }

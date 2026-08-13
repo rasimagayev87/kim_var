@@ -144,6 +144,22 @@ mixin _$Venue {
   /// never shows the toggle, so this just stays `false` for them).
   bool get birthdayNotificationsEnabled => throw _privateConstructorUsedError;
 
+  /// Owner-set "current free seats" count (0-50), edited from the
+  /// standalone seat-count sheet on `MyVenuesScreen` (NOT the
+  /// create/edit form — this is meant for frequent, lightweight
+  /// updates, not a full re-submit). Null means the owner has never
+  /// turned this feature on — [SeatAvailabilityCard] on
+  /// `VenueProfileScreen` renders nothing at all in that case, rather
+  /// than showing a misleading "0 seats".
+  int? get availableSeats => throw _privateConstructorUsedError;
+
+  /// When [availableSeats] was last written — always set together
+  /// with it (`FieldValue.serverTimestamp()`), null exactly when
+  /// [availableSeats] is null. Powers the "X dəq əvvəl yeniləndi"
+  /// caption under the card.
+  @NullableTimestampConverter()
+  DateTime? get seatsUpdatedAt => throw _privateConstructorUsedError;
+
   /// Serializes this Venue to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -187,6 +203,8 @@ abstract class $VenueCopyWith<$Res> {
     bool isPremium,
     @NullableTimestampConverter() DateTime? premiumSince,
     bool birthdayNotificationsEnabled,
+    int? availableSeats,
+    @NullableTimestampConverter() DateTime? seatsUpdatedAt,
   });
 }
 
@@ -233,6 +251,8 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? isPremium = null,
     Object? premiumSince = freezed,
     Object? birthdayNotificationsEnabled = null,
+    Object? availableSeats = freezed,
+    Object? seatsUpdatedAt = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -348,6 +368,14 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
                 ? _value.birthdayNotificationsEnabled
                 : birthdayNotificationsEnabled // ignore: cast_nullable_to_non_nullable
                       as bool,
+            availableSeats: freezed == availableSeats
+                ? _value.availableSeats
+                : availableSeats // ignore: cast_nullable_to_non_nullable
+                      as int?,
+            seatsUpdatedAt: freezed == seatsUpdatedAt
+                ? _value.seatsUpdatedAt
+                : seatsUpdatedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
           )
           as $Val,
     );
@@ -391,6 +419,8 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     bool isPremium,
     @NullableTimestampConverter() DateTime? premiumSince,
     bool birthdayNotificationsEnabled,
+    int? availableSeats,
+    @NullableTimestampConverter() DateTime? seatsUpdatedAt,
   });
 }
 
@@ -436,6 +466,8 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? isPremium = null,
     Object? premiumSince = freezed,
     Object? birthdayNotificationsEnabled = null,
+    Object? availableSeats = freezed,
+    Object? seatsUpdatedAt = freezed,
   }) {
     return _then(
       _$VenueImpl(
@@ -551,6 +583,14 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.birthdayNotificationsEnabled
             : birthdayNotificationsEnabled // ignore: cast_nullable_to_non_nullable
                   as bool,
+        availableSeats: freezed == availableSeats
+            ? _value.availableSeats
+            : availableSeats // ignore: cast_nullable_to_non_nullable
+                  as int?,
+        seatsUpdatedAt: freezed == seatsUpdatedAt
+            ? _value.seatsUpdatedAt
+            : seatsUpdatedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
       ),
     );
   }
@@ -588,6 +628,8 @@ class _$VenueImpl extends _Venue {
     this.isPremium = false,
     @NullableTimestampConverter() this.premiumSince,
     this.birthdayNotificationsEnabled = false,
+    this.availableSeats,
+    @NullableTimestampConverter() this.seatsUpdatedAt,
   }) : _gallery = gallery,
        super._();
 
@@ -764,9 +806,27 @@ class _$VenueImpl extends _Venue {
   @JsonKey()
   final bool birthdayNotificationsEnabled;
 
+  /// Owner-set "current free seats" count (0-50), edited from the
+  /// standalone seat-count sheet on `MyVenuesScreen` (NOT the
+  /// create/edit form — this is meant for frequent, lightweight
+  /// updates, not a full re-submit). Null means the owner has never
+  /// turned this feature on — [SeatAvailabilityCard] on
+  /// `VenueProfileScreen` renders nothing at all in that case, rather
+  /// than showing a misleading "0 seats".
+  @override
+  final int? availableSeats;
+
+  /// When [availableSeats] was last written — always set together
+  /// with it (`FieldValue.serverTimestamp()`), null exactly when
+  /// [availableSeats] is null. Powers the "X dəq əvvəl yeniləndi"
+  /// caption under the card.
+  @override
+  @NullableTimestampConverter()
+  final DateTime? seatsUpdatedAt;
+
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt)';
   }
 
   @override
@@ -823,7 +883,11 @@ class _$VenueImpl extends _Venue {
                   birthdayNotificationsEnabled,
                 ) ||
                 other.birthdayNotificationsEnabled ==
-                    birthdayNotificationsEnabled));
+                    birthdayNotificationsEnabled) &&
+            (identical(other.availableSeats, availableSeats) ||
+                other.availableSeats == availableSeats) &&
+            (identical(other.seatsUpdatedAt, seatsUpdatedAt) ||
+                other.seatsUpdatedAt == seatsUpdatedAt));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -858,6 +922,8 @@ class _$VenueImpl extends _Venue {
     isPremium,
     premiumSince,
     birthdayNotificationsEnabled,
+    availableSeats,
+    seatsUpdatedAt,
   ]);
 
   /// Create a copy of Venue
@@ -904,6 +970,8 @@ abstract class _Venue extends Venue {
     final bool isPremium,
     @NullableTimestampConverter() final DateTime? premiumSince,
     final bool birthdayNotificationsEnabled,
+    final int? availableSeats,
+    @NullableTimestampConverter() final DateTime? seatsUpdatedAt,
   }) = _$VenueImpl;
   const _Venue._() : super._();
 
@@ -1059,6 +1127,24 @@ abstract class _Venue extends Venue {
   /// never shows the toggle, so this just stays `false` for them).
   @override
   bool get birthdayNotificationsEnabled;
+
+  /// Owner-set "current free seats" count (0-50), edited from the
+  /// standalone seat-count sheet on `MyVenuesScreen` (NOT the
+  /// create/edit form — this is meant for frequent, lightweight
+  /// updates, not a full re-submit). Null means the owner has never
+  /// turned this feature on — [SeatAvailabilityCard] on
+  /// `VenueProfileScreen` renders nothing at all in that case, rather
+  /// than showing a misleading "0 seats".
+  @override
+  int? get availableSeats;
+
+  /// When [availableSeats] was last written — always set together
+  /// with it (`FieldValue.serverTimestamp()`), null exactly when
+  /// [availableSeats] is null. Powers the "X dəq əvvəl yeniləndi"
+  /// caption under the card.
+  @override
+  @NullableTimestampConverter()
+  DateTime? get seatsUpdatedAt;
 
   /// Create a copy of Venue
   /// with the given fields replaced by the non-null parameter values.

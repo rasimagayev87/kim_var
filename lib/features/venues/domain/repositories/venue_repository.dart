@@ -116,4 +116,13 @@ abstract class VenueRepository {
   /// on any failure (not-owner, wrong status, network) — callers show
   /// a generic error, same convention as everywhere else in this app.
   Future<void> resubmitVenue(String venueId);
+
+  /// Standalone write for [Venue.availableSeats] — deliberately NOT
+  /// part of [updateVenue]'s full edit flow, since this is meant for
+  /// frequent, lightweight updates from a quick stepper sheet, not a
+  /// full form resubmit. Always stamps [Venue.seatsUpdatedAt] to now.
+  Future<void> updateAvailableSeats({
+    required String venueId,
+    required int availableSeats,
+  });
 }

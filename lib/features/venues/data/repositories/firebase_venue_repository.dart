@@ -252,4 +252,12 @@ class FirebaseVenueRepository implements VenueRepository {
       'venueId': venueId,
     });
   }
+
+  @override
+  Future<void> updateAvailableSeats({required String venueId, required int availableSeats}) {
+    return _datasource.updateVenue(venueId, {
+      'availableSeats': availableSeats,
+      'seatsUpdatedAt': FieldValue.serverTimestamp(),
+    });
+  }
 }

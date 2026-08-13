@@ -14,6 +14,7 @@ import '../../../settings/map_location/presentation/providers/map_location_provi
 import '../../domain/entities/venue.dart';
 import '../../domain/venue_open_status.dart';
 import '../providers/venue_providers.dart';
+import '../widgets/seat_availability_card.dart';
 import '../widgets/venue_star_rating.dart';
 import 'create_venue_screen.dart';
 
@@ -180,6 +181,8 @@ class _VenueProfileContent extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 18),
+                SeatAvailabilityCard(venue: venue),
+                if (venue.availableSeats != null) const SizedBox(height: 12),
                 if (isOwner) ...[
                   _LiveAudienceCard(venue: venue),
                   const SizedBox(height: 12),
