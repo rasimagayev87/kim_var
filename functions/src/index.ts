@@ -1386,6 +1386,90 @@ export const refreshHappyHourOfferStatus = onSchedule(
   }
 );
 
+// ── Waitlist ──────────────────────────────────────────────────────────
+
+/** A `called` entry auto-reverts to `no_show` if the owner never marks
+ * it seated within this long — mirrors the "5 dəqiqəyə gəlin" push
+ * copy with some slack for the sweep's own 5-minute cadence. */
+const WAITLIST_NO_SHOW_TIMEOUT_MS = 10 * 60 * 1000;
+
+/**
+ * Keeps every `waiting` entry's `queuePosition` correct — fires on
+ * every create/status-change in a venue's waitlist (a join, a cancel,
+ * a call, anything), and just recomputes 1..N by `joinedAt` order over
+ * whatever's `waiting` right now. Doing this server-side, instead of
+ * each client computing its own "how many ahead of me" count, is what
+ * makes two people joining at the same instant land on different
+ * numbers instead of racing onto the same one.
+ *
+ * Also the sole sender of the `waitlistCalled` notification, gated on
+ * the entry's status having JUST become `called` this write (not
+ * already having been) — this function's own `queuePosition`-only
+ * writes below don't touch `status`, so they can never re-trigger it.
+ */
+export const maintainWaitlistQueuePositions = onDocumentWritten(
+  "venues/{venueId}/waitlist/{entryId}",
+  async (event) => {
+    const venueId = event.params.venueId;
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+
+    if (after && before?.status !== "called" && after.status === "called") {
+      const venueSnap = await db.collection("venues").doc(venueId).get();
+      const venueName = (venueSnap.data()?.name as string | undefined) ?? "";
+      const userId = after.userId as string | undefined;
+      if (userId) {
+        await notifyUser({
+          uid: userId,
+          category: "venueUpdates",
+          type: "waitlistCalled",
+          title: "Sıra sizindir!",
+          body: venueName ? `${venueName} — 5 dəqiqəyə gəlin.` : "5 dəqiqəyə gəlin.",
+          params: { venueName },
+          targetId: venueId,
+          targetType: "venue",
+        });
+      }
+    }
+
+    const waitingSnap = await db
+      .collection("venues")
+      .doc(venueId)
+      .collection("waitlist")
+      .where("status", "==", "waiting")
+      .orderBy("joinedAt")
+      .get();
+
+    await Promise.all(
+      waitingSnap.docs.map((doc, index) => {
+        const position = index + 1;
+        if (doc.data().queuePosition === position) return Promise.resolve();
+        return doc.ref.update({ queuePosition: position });
+      })
+    );
+  }
+);
+
+/**
+ * A `called` entry the owner never followed up on (no "Gəldi"/"Gəlmədi")
+ * within [WAITLIST_NO_SHOW_TIMEOUT_MS] auto-becomes `no_show` — without
+ * this, a forgotten entry would sit "called" forever, silently blocking
+ * nothing but looking like an open loop in the owner's Növbə view.
+ */
+export const expireStaleWaitlistCalls = onSchedule(
+  { schedule: "every 5 minutes", region: "europe-west1" },
+  async () => {
+    const cutoff = Timestamp.fromMillis(Date.now() - WAITLIST_NO_SHOW_TIMEOUT_MS);
+    const staleSnap = await db
+      .collectionGroup("waitlist")
+      .where("status", "==", "called")
+      .where("calledAt", "<", cutoff)
+      .get();
+
+    await Promise.all(staleSnap.docs.map((doc) => doc.ref.update({ status: "no_show" })));
+  }
+);
+
 /**
  * A `birthday` offer's approval fanout — every uid in
  * `Offer.targetUserIds` (the matched birthday users from

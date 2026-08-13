@@ -11,6 +11,7 @@ import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../../settings/map_location/domain/entities/map_location_settings.dart';
 import '../../../settings/map_location/presentation/providers/map_location_providers.dart';
+import '../../../waitlist/presentation/widgets/waitlist_status_section.dart';
 import '../../domain/entities/venue.dart';
 import '../../domain/venue_open_status.dart';
 import '../providers/venue_providers.dart';
@@ -183,6 +184,10 @@ class _VenueProfileContent extends StatelessWidget {
                 const SizedBox(height: 18),
                 SeatAvailabilityCard(venue: venue),
                 if (venue.availableSeats != null) const SizedBox(height: 12),
+                if (!isOwner) ...[
+                  WaitlistStatusSection(venue: venue),
+                  const SizedBox(height: 12),
+                ],
                 if (isOwner) ...[
                   _LiveAudienceCard(venue: venue),
                   const SizedBox(height: 12),

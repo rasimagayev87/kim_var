@@ -442,6 +442,50 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Walk-in waitlist entry. Readable by the entry's own user AND the
+    // venue's owner (a `get()` on the fixed parent venue doc — not a
+    // per-document-varying lookup, so this doesn't hit the list-query
+    // cross-document caveat that ruled out an equivalent approach for
+    // story visibility). `queuePosition` is never client-writable in
+    // either create or update — only `maintainWaitlistQueuePositions`
+    // (Cloud Function, functions/src/index.ts) sets it, so two people
+    // joining at once can't race into the same number.
+    match /venues/{venueId}/waitlist/{entryId} {
+      function isVenueOwner() {
+        return get(/databases/$(database)/documents/venues/$(venueId)).data.ownerId == request.auth.uid;
+      }
+
+      allow read: if request.auth != null &&
+        (resource.data.userId == request.auth.uid || isVenueOwner());
+
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.userId &&
+        request.resource.data.status == 'waiting' &&
+        request.resource.data.partySize is int &&
+        request.resource.data.partySize >= 1 && request.resource.data.partySize <= 10 &&
+        !('queuePosition' in request.resource.data) &&
+        !('calledAt' in request.resource.data);
+
+      // Either the entry's own user cancelling their still-waiting
+      // spot, or the venue owner driving the rest of the lifecycle
+      // (call/seat/no-show/remove) — `partySize`/`userId`/`joinedAt`
+      // are immutable either way.
+      allow update: if request.auth != null &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.partySize == resource.data.partySize &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['queuePosition']) &&
+        (
+          (request.auth.uid == resource.data.userId &&
+            resource.data.status == 'waiting' &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+            request.resource.data.status == 'cancelled') ||
+          (isVenueOwner() &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'calledAt']))
+        );
+
+      allow delete: if false;
+    }
+
     // A user's active check-in at this venue — existence alone means
     // "here right now". The live "Hazırda N istifadəçi buradadır"
     // count is a plain client-side count of this collection (filtered

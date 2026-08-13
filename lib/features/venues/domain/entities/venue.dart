@@ -430,6 +430,13 @@ class Venue with _$Venue {
     /// [availableSeats] is null. Powers the "X dəq əvvəl yeniləndi"
     /// caption under the card.
     @NullableTimestampConverter() DateTime? seatsUpdatedAt,
+
+    /// Owner's "Növbəni aktivləşdir/söndür" toggle for the walk-in
+    /// waitlist feature (`venues/{id}/waitlist`) — false hides the
+    /// "Sıraya yaz" button on `VenueProfileScreen`, but never affects
+    /// entries already in the queue (they still see their own status
+    /// and can still be called/seated normally).
+    @Default(false) bool waitlistEnabled,
   }) = _Venue;
 
   factory Venue.fromJson(Map<String, dynamic> json) => _$VenueFromJson(json);

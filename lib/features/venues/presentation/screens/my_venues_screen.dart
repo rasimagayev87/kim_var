@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../../../waitlist/presentation/screens/venue_waitlist_screen.dart';
 import '../../domain/entities/venue.dart';
 import '../../domain/venue_open_status.dart';
 import '../providers/venue_providers.dart';
@@ -93,7 +94,7 @@ class MyVenuesScreen extends ConsumerWidget {
   }
 }
 
-enum _MyVenueCardAction { edit, seats, delete }
+enum _MyVenueCardAction { edit, seats, waitlist, delete }
 
 class _MyVenueCard extends ConsumerWidget {
   final Venue venue;
@@ -136,6 +137,14 @@ class _MyVenueCard extends ConsumerWidget {
               onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.seats),
             ),
             ListTile(
+              leading: const Icon(Icons.groups_outlined, color: ChatLightColors.ink),
+              title: Text(
+                loc.waitlistSectionTitle,
+                style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+              ),
+              onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.waitlist),
+            ),
+            ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,
                 color: AppColors.error,
@@ -165,6 +174,8 @@ class _MyVenueCard extends ConsumerWidget {
         );
       case _MyVenueCardAction.seats:
         showSeatCountEditorSheet(context, venue);
+      case _MyVenueCardAction.waitlist:
+        Navigator.push(context, MaterialPageRoute(builder: (_) => VenueWaitlistScreen(venue: venue)));
       case _MyVenueCardAction.delete:
         _confirmDelete(context, ref);
     }

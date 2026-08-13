@@ -52,6 +52,7 @@ _$VenueImpl _$$VenueImplFromJson(Map<String, dynamic> json) => _$VenueImpl(
   seatsUpdatedAt: const NullableTimestampConverter().fromJson(
     json['seatsUpdatedAt'],
   ),
+  waitlistEnabled: json['waitlistEnabled'] as bool? ?? false,
 );
 
 Map<String, dynamic> _$$VenueImplToJson(
@@ -93,4 +94,5 @@ Map<String, dynamic> _$$VenueImplToJson(
   'seatsUpdatedAt': const NullableTimestampConverter().toJson(
     instance.seatsUpdatedAt,
   ),
+  'waitlistEnabled': instance.waitlistEnabled,
 };

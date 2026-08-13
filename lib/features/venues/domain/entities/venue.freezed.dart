@@ -160,6 +160,13 @@ mixin _$Venue {
   @NullableTimestampConverter()
   DateTime? get seatsUpdatedAt => throw _privateConstructorUsedError;
 
+  /// Owner's "Növbəni aktivləşdir/söndür" toggle for the walk-in
+  /// waitlist feature (`venues/{id}/waitlist`) — false hides the
+  /// "Sıraya yaz" button on `VenueProfileScreen`, but never affects
+  /// entries already in the queue (they still see their own status
+  /// and can still be called/seated normally).
+  bool get waitlistEnabled => throw _privateConstructorUsedError;
+
   /// Serializes this Venue to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -205,6 +212,7 @@ abstract class $VenueCopyWith<$Res> {
     bool birthdayNotificationsEnabled,
     int? availableSeats,
     @NullableTimestampConverter() DateTime? seatsUpdatedAt,
+    bool waitlistEnabled,
   });
 }
 
@@ -253,6 +261,7 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? birthdayNotificationsEnabled = null,
     Object? availableSeats = freezed,
     Object? seatsUpdatedAt = freezed,
+    Object? waitlistEnabled = null,
   }) {
     return _then(
       _value.copyWith(
@@ -376,6 +385,10 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
                 ? _value.seatsUpdatedAt
                 : seatsUpdatedAt // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            waitlistEnabled: null == waitlistEnabled
+                ? _value.waitlistEnabled
+                : waitlistEnabled // ignore: cast_nullable_to_non_nullable
+                      as bool,
           )
           as $Val,
     );
@@ -421,6 +434,7 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     bool birthdayNotificationsEnabled,
     int? availableSeats,
     @NullableTimestampConverter() DateTime? seatsUpdatedAt,
+    bool waitlistEnabled,
   });
 }
 
@@ -468,6 +482,7 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? birthdayNotificationsEnabled = null,
     Object? availableSeats = freezed,
     Object? seatsUpdatedAt = freezed,
+    Object? waitlistEnabled = null,
   }) {
     return _then(
       _$VenueImpl(
@@ -591,6 +606,10 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.seatsUpdatedAt
             : seatsUpdatedAt // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        waitlistEnabled: null == waitlistEnabled
+            ? _value.waitlistEnabled
+            : waitlistEnabled // ignore: cast_nullable_to_non_nullable
+                  as bool,
       ),
     );
   }
@@ -630,6 +649,7 @@ class _$VenueImpl extends _Venue {
     this.birthdayNotificationsEnabled = false,
     this.availableSeats,
     @NullableTimestampConverter() this.seatsUpdatedAt,
+    this.waitlistEnabled = false,
   }) : _gallery = gallery,
        super._();
 
@@ -824,9 +844,18 @@ class _$VenueImpl extends _Venue {
   @NullableTimestampConverter()
   final DateTime? seatsUpdatedAt;
 
+  /// Owner's "Növbəni aktivləşdir/söndür" toggle for the walk-in
+  /// waitlist feature (`venues/{id}/waitlist`) — false hides the
+  /// "Sıraya yaz" button on `VenueProfileScreen`, but never affects
+  /// entries already in the queue (they still see their own status
+  /// and can still be called/seated normally).
+  @override
+  @JsonKey()
+  final bool waitlistEnabled;
+
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
   }
 
   @override
@@ -887,7 +916,9 @@ class _$VenueImpl extends _Venue {
             (identical(other.availableSeats, availableSeats) ||
                 other.availableSeats == availableSeats) &&
             (identical(other.seatsUpdatedAt, seatsUpdatedAt) ||
-                other.seatsUpdatedAt == seatsUpdatedAt));
+                other.seatsUpdatedAt == seatsUpdatedAt) &&
+            (identical(other.waitlistEnabled, waitlistEnabled) ||
+                other.waitlistEnabled == waitlistEnabled));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -924,6 +955,7 @@ class _$VenueImpl extends _Venue {
     birthdayNotificationsEnabled,
     availableSeats,
     seatsUpdatedAt,
+    waitlistEnabled,
   ]);
 
   /// Create a copy of Venue
@@ -972,6 +1004,7 @@ abstract class _Venue extends Venue {
     final bool birthdayNotificationsEnabled,
     final int? availableSeats,
     @NullableTimestampConverter() final DateTime? seatsUpdatedAt,
+    final bool waitlistEnabled,
   }) = _$VenueImpl;
   const _Venue._() : super._();
 
@@ -1145,6 +1178,14 @@ abstract class _Venue extends Venue {
   @override
   @NullableTimestampConverter()
   DateTime? get seatsUpdatedAt;
+
+  /// Owner's "Növbəni aktivləşdir/söndür" toggle for the walk-in
+  /// waitlist feature (`venues/{id}/waitlist`) — false hides the
+  /// "Sıraya yaz" button on `VenueProfileScreen`, but never affects
+  /// entries already in the queue (they still see their own status
+  /// and can still be called/seated normally).
+  @override
+  bool get waitlistEnabled;
 
   /// Create a copy of Venue
   /// with the given fields replaced by the non-null parameter values.

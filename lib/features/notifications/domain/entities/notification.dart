@@ -61,6 +61,12 @@ enum NotificationType {
   /// `OfferDetailsScreen` with no extra navigation case needed — this
   /// type only exists to give it its own icon/copy in the feed.
   birthdayOffer,
+
+  /// Owner just called this user forward in a venue's waitlist — see
+  /// `callWaitlistEntry` (Cloud Function). `targetType: 'venue'`, same
+  /// as any other venue notification, since the user's own live queue
+  /// position already renders on `VenueProfileScreen` itself.
+  waitlistCalled,
   system,
   security,
   promotion,

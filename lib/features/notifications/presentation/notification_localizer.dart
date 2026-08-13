@@ -155,6 +155,13 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: venueName.isEmpty ? loc.notifBirthdayOfferBodyGeneric : loc.notifBirthdayOfferBody(venueName),
       );
 
+    case NotificationType.waitlistCalled:
+      final venueName = str('venueName');
+      return LocalizedNotificationText(
+        title: loc.notifWaitlistCalledTitle,
+        body: venueName.isEmpty ? loc.notifWaitlistCalledBodyGeneric : loc.notifWaitlistCalledBody(venueName),
+      );
+
     case NotificationType.venueOffer:
       final venueName = str('venueName');
       return LocalizedNotificationText(
