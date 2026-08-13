@@ -1267,10 +1267,21 @@ export const onOfferUpdated = onDocumentUpdated("offers/{offerId}", async (event
   // approved transition after the owner fixes something is just as
   // much "this offer is now real and visible" from a browsing user's
   // perspective as a first-time approval is.
+  //
+  // A `happyHour` offer additionally only fires this if it's actually
+  // inside its window right at approval — otherwise a push saying "new
+  // offer nearby" would send someone straight to a discount that's
+  // hidden from every list until its window opens (see
+  // `computeHappyHourActive`/`Offer.happyHourActive`). Approving it
+  // outside the window simply means no approval-time push goes out;
+  // this deliberately does NOT add a second push for when the window
+  // later opens — that would fire once a day for as long as the offer
+  // runs, which is a bigger notification-strategy call than fixing
+  // this mismatch calls for.
   if (after.status === "approved") {
     if (after.offerType === "birthday") {
       await notifyBirthdayTargetUsers(event.params.offerId, after);
-    } else {
+    } else if (after.offerType !== "happyHour" || after.happyHourActive === true) {
       await notifyNearbyUsersOfNewOffer(event.params.offerId, after, ownerId);
     }
   }
