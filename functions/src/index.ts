@@ -106,15 +106,26 @@ export const deleteAccount = onCall({ region: "us-central1" }, async (request) =
     throw new HttpsError("failed-precondition", "requires-recent-login");
   }
 
+  // Read before anything else is deleted — the phone number is only
+  // available via the Auth record (deleted last, below), and this is
+  // also the one place `getUser` is cheap to call.
+  const authUser = await auth.getUser(uid);
+
   await replaceMessagesWithPlaceholder(uid);
   await archiveCreatedEvents(uid);
   await leaveJoinedEvents(uid);
   await deleteFollows(uid);
   await scrubFromOthersBlockLists(uid);
   await deleteStories(uid);
-  await deleteUserDocAndMedia(uid);
+  await deleteUserPosts(uid);
+  await deleteUserVenues(uid);
+  await deleteUserOffers(uid);
+  await releasePhoneNumberReservation(uid, authUser.phoneNumber);
+  await deleteUserDocAndSubcollections(uid);
   await deleteStoragePrefix(`profile_photos/${uid}/`);
   await deleteStoragePrefix(`stories/${uid}/`);
+  await deleteStoragePrefix(`posts/${uid}/`);
+  await db.collection("accountDeletions").add({ uid, deletedAt: FieldValue.serverTimestamp() });
   await auth.deleteUser(uid);
 
   return { success: true };
@@ -333,7 +344,8 @@ async function deleteFollows(uid: string): Promise<void> {
 }
 
 /** This uid, scrubbed out of every OTHER user's blockedUsers array —
- * their own array disappears with their doc in deleteUserDocAndMedia. */
+ * their own array disappears with their doc in
+ * deleteUserDocAndSubcollections. */
 async function scrubFromOthersBlockLists(uid: string): Promise<void> {
   const snap = await db.collection("users").where("blockedUsers", "array-contains", uid).get();
   await Promise.all(snap.docs.map((doc) => doc.ref.update({ blockedUsers: FieldValue.arrayRemove(uid) })));
@@ -351,13 +363,80 @@ async function deleteStories(uid: string): Promise<void> {
   );
 }
 
-/** The user's own doc, including the media gallery subcollection —
- * Firestore doesn't cascade-delete subcollections when a parent doc
- * is deleted. */
-async function deleteUserDocAndMedia(uid: string): Promise<void> {
-  const mediaSnap = await db.collection("users").doc(uid).collection("media").get();
-  await Promise.all(mediaSnap.docs.map((doc) => doc.ref.delete()));
-  await db.collection("users").doc(uid).delete();
+/** The user's own doc, including every owner-scoped subcollection under
+ * it — Firestore doesn't cascade-delete subcollections when a parent
+ * doc is deleted, so each has to be swept explicitly. `payments` is
+ * deliberately NOT included here: it's a financial/audit record of
+ * real venue/offer payments and refunds, kept for reconciliation the
+ * same way a receipt survives closing the account that made it. */
+async function deleteUserDocAndSubcollections(uid: string): Promise<void> {
+  const userRef = db.collection("users").doc(uid);
+  const subcollections = ["media", "notifications", "favoriteOffers", "notifiedVenues", "sessions", "profileViews"];
+  for (const name of subcollections) {
+    const snap = await userRef.collection(name).get();
+    await Promise.all(snap.docs.map((doc) => doc.ref.delete()));
+  }
+  await userRef.delete();
+}
+
+/** Posts this user authored — `onPostDeleted` (below) already cleans up
+ * each one's `likes`/`comments` subcollections as they're deleted here,
+ * so this only needs to remove the post docs themselves plus their
+ * Storage folder. */
+async function deleteUserPosts(uid: string): Promise<void> {
+  const snap = await db.collection("posts").where("userId", "==", uid).get();
+  await Promise.all(snap.docs.map((doc) => doc.ref.delete()));
+}
+
+/** Venues this user owns — deleted outright (not transferred), since
+ * venue ownership is tied to the personal account that got it approved
+ * (see `Venue.paymentId`'s VIP/premium note elsewhere in this file). */
+async function deleteUserVenues(uid: string): Promise<void> {
+  const snap = await db.collection("venues").where("ownerId", "==", uid).get();
+  for (const doc of snap.docs) {
+    const [likesSnap, checkinsSnap, historySnap] = await Promise.all([
+      doc.ref.collection("likes").get(),
+      doc.ref.collection("activeCheckins").get(),
+      doc.ref.collection("audienceHistory").get(),
+    ]);
+    await Promise.all([...likesSnap.docs, ...checkinsSnap.docs, ...historySnap.docs].map((d) => d.ref.delete()));
+    await doc.ref.delete();
+    await deleteStorageFile(`venue_photos/${doc.id}.jpg`);
+  }
+}
+
+/** Offers this user owns — same reasoning as [deleteUserVenues]. */
+async function deleteUserOffers(uid: string): Promise<void> {
+  const snap = await db.collection("offers").where("ownerId", "==", uid).get();
+  for (const doc of snap.docs) {
+    const redemptionsSnap = await doc.ref.collection("redemptions").get();
+    await Promise.all(redemptionsSnap.docs.map((d) => d.ref.delete()));
+    await doc.ref.delete();
+    await deleteStorageFile(`offer_photos/${doc.id}.jpg`);
+  }
+}
+
+/** `phoneNumbers/{phone}` only exists to let a signed-out client look
+ * up a uid by phone (password-reset-style flows) — left behind, it
+ * would dangle after the account is gone, or block the same number
+ * from registering again. Deleted only if it still points at THIS uid,
+ * since a prior number change already moves the reservation elsewhere
+ * (see `updateUsername`'s doc comment in the auth repository). */
+async function releasePhoneNumberReservation(uid: string, phoneNumber: string | undefined): Promise<void> {
+  if (!phoneNumber) return;
+  const ref = db.collection("phoneNumbers").doc(phoneNumber);
+  const snap = await ref.get();
+  if (snap.exists && snap.data()?.uid === uid) {
+    await ref.delete();
+  }
+}
+
+async function deleteStorageFile(path: string): Promise<void> {
+  try {
+    await storage.bucket().file(path).delete();
+  } catch {
+    // Best-effort — no file at this path (e.g. never uploaded) isn't a failure.
+  }
 }
 
 async function deleteStoragePrefix(prefix: string): Promise<void> {

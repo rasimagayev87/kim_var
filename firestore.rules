@@ -514,6 +514,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Audit trail of account deletions (uid + timestamp only, no other
+    // personal data) — written exclusively by the `deleteAccount`
+    // Cloud Function (Admin SDK bypasses these rules entirely). No
+    // client read or write path exists or should exist.
+    match /accountDeletions/{entryId} {
+      allow read, write: if false;
+    }
+
     // 24h-expiring stories. Expiry itself is enforced client-side (the
     // watchMyActiveStories query filters `expiresAt > now`) — these
     // rules only gate who can read/write a given doc, not whether it's
