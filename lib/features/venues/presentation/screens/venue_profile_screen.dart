@@ -11,6 +11,10 @@ import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../../settings/map_location/domain/entities/map_location_settings.dart';
 import '../../../settings/map_location/presentation/providers/map_location_providers.dart';
+import '../../../events/domain/entities/venue_event.dart';
+import '../../../events/presentation/providers/venue_event_providers.dart';
+import '../../../events/presentation/screens/category_label.dart';
+import '../../../events/presentation/screens/event_details_screen.dart';
 import '../../../waitlist/presentation/widgets/waitlist_status_section.dart';
 import '../../domain/entities/venue.dart';
 import '../../domain/venue_open_status.dart';
@@ -193,6 +197,7 @@ class _VenueProfileContent extends StatelessWidget {
                   const SizedBox(height: 12),
                 ],
                 _CheckinSection(venue: venue, isOwner: isOwner),
+                _VenueEventsSection(venueId: venue.id),
                 const SizedBox(height: 28),
                 Text(
                   loc.venueScheduleLabel,
@@ -247,6 +252,98 @@ class _VenueProfileContent extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// "Tədbirlər" — this venue's own upcoming/live events, separate from
+/// the merged Kəşf et → Təkliflər list (which is radius-scoped, not
+/// per-venue). Renders nothing when there are none, same "don't show
+/// an empty section" convention as `SeatAvailabilityCard`.
+class _VenueEventsSection extends ConsumerWidget {
+  final String venueId;
+
+  const _VenueEventsSection({required this.venueId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context);
+    final events = (ref.watch(venueEventsByVenueProvider(venueId)).valueOrNull ?? const [])
+        .where((e) => e.status == VenueEventStatus.upcoming || e.status == VenueEventStatus.live)
+        .toList();
+    if (events.isEmpty) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            loc.eventDetailsSectionTitle,
+            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          ),
+          const SizedBox(height: 10),
+          for (final event in events) ...[
+            _VenueEventRow(event: event),
+            if (event != events.last) const SizedBox(height: 10),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _VenueEventRow extends StatelessWidget {
+  final VenueEvent event;
+
+  const _VenueEventRow({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return Material(
+      color: ChatLightColors.cardSurface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailsScreen(eventId: event.id))),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Row(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 48,
+                  height: 48,
+                  child: event.coverImageUrl != null
+                      ? Image.network(event.coverImageUrl!, fit: BoxFit.cover)
+                      : Container(color: Colors.white, child: const Icon(Icons.celebration_outlined, color: ChatLightColors.inkSoft)),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      event.title,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      '${eventCategoryLabel(loc, event.category)} · ${event.status == VenueEventStatus.live ? loc.eventStatusLive : loc.eventStatusUpcoming}',
+                      style: const TextStyle(fontSize: 12, color: ChatLightColors.inkSoft),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

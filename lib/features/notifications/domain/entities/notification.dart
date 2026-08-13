@@ -67,6 +67,11 @@ enum NotificationType {
   /// as any other venue notification, since the user's own live queue
   /// position already renders on `VenueProfileScreen` itself.
   waitlistCalled,
+
+  /// A venue published a new event within this user's radius — see
+  /// `notifyNearbyUsersOfNewEvent` (Cloud Function). `targetType:
+  /// 'event'`, deep-links to `EventDetailsScreen(eventId: ...)`.
+  venueEvent,
   system,
   security,
   promotion,

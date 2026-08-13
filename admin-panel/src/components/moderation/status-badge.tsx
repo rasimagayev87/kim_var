@@ -13,6 +13,12 @@ const STATUS_LABELS: Record<string, string> = {
   revision_pending: "Düzəliş gözlənilir",
   refund_pending: "Geri qaytarılmalı",
   refunded: "Geri qaytarılıb",
+  open: "Açıq",
+  resolved: "Həll edilib",
+  cancelled: "Ləğv edilib",
+  upcoming: "Gələcək",
+  live: "Canlı",
+  ended: "Bitib",
 };
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -28,6 +34,12 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "des
   revision_pending: "outline",
   refund_pending: "destructive",
   refunded: "secondary",
+  open: "secondary",
+  resolved: "default",
+  cancelled: "destructive",
+  upcoming: "secondary",
+  live: "default",
+  ended: "outline",
 };
 
 export function StatusBadge({ status }: { status: string }) {

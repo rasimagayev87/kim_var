@@ -129,6 +129,13 @@ service cloud.firestore {
         allow read, write: if false;
       }
 
+      // Same "internal bookkeeping only" shape as notifiedVenues above,
+      // for `notifyNearbyUsersOfNewEvent`'s permanent (not 24h-rolling)
+      // per-event dedup — see that function's doc comment.
+      match /notifiedEvents/{eventId} {
+        allow read, write: if false;
+      }
+
       // Payment/subscription history — sensitive financial data, so
       // unlike media/stories this is owner-read-only, not "any signed-in
       // user". No client write at all: only the (not-yet-built) purchase
@@ -552,6 +559,37 @@ service cloud.firestore {
     match /offers/{offerId}/redemptions/{userId} {
       allow read: if request.auth != null;
       allow create: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Owner-published, auto-approved event — see `VenueEvent`'s doc
+    // comment for why there's no `pending` moderation gate the way
+    // venues/offers have one (the venue itself is already verified).
+    // `status` only ever moves TO 'cancelled' from the client (the
+    // owner, or nothing at all otherwise) — the upcoming→live→ended
+    // lifecycle is exclusively `advanceVenueEventStatuses` (scheduled
+    // Cloud Function, Admin SDK bypasses these rules).
+    match /venueEvents/{eventId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null &&
+        request.auth.uid == get(/databases/$(database)/documents/venues/$(request.resource.data.venueId)).data.ownerId &&
+        request.resource.data.status == 'upcoming';
+
+      allow update: if request.auth != null &&
+        request.auth.uid == get(/databases/$(database)/documents/venues/$(resource.data.venueId)).data.ownerId &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        request.resource.data.status == 'cancelled';
+
+      allow delete: if false;
+    }
+
+    // Same write-only-from-clients shape as `reports` above, for
+    // event-specific complaints — the admin panel's "Tədbir şikayətləri"
+    // section reads/resolves these via the Admin SDK, which bypasses
+    // these rules entirely.
+    match /eventReports/{reportId} {
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.reportedBy;
+      allow read, update, delete: if false;
     }
 
     // Written exclusively by `computeBirthdayMatches` (scheduled Cloud

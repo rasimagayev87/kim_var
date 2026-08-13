@@ -25,6 +25,8 @@ export type ModerationAction =
   | "post.deleted"
   | "comment.deleted"
   | "report.statusChanged"
+  | "event.cancelled"
+  | "eventReport.statusChanged"
   | "broadcast.sent"
   | "admin.added"
   | "admin.roleChanged"
@@ -37,6 +39,8 @@ export type ModerationTargetType =
   | "post"
   | "comment"
   | "report"
+  | "event"
+  | "eventReport"
   | "broadcast"
   | "admin"
   | "payment";

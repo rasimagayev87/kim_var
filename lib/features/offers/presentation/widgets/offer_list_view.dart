@@ -7,6 +7,9 @@ import '../../../../core/utils/distance_formatter.dart';
 import '../../../../core/utils/distance_unit.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../../../events/domain/repositories/venue_event_repository.dart';
+import '../../../events/presentation/providers/venue_event_providers.dart';
+import '../../../events/presentation/widgets/venue_event_card.dart';
 import '../../../settings/map_location/presentation/providers/map_location_providers.dart';
 import '../../../venues/domain/entities/venue.dart';
 import '../../../venues/presentation/screens/create_venue_screen.dart' show venueCategoryLabel;
@@ -14,6 +17,34 @@ import '../../domain/entities/offer.dart';
 import '../providers/offer_providers.dart';
 import '../screens/offer_details_screen.dart';
 import 'offer_filter_sheet.dart';
+
+/// Hamısı/Kompaniya/Tədbir filter chips at the top of Kəşf et →
+/// Təkliflər — "Kompaniya" covers every `Offer` (discount/gift/1+1/
+/// fixed-price/happy-hour/first-visit/birthday all fall under it, per
+/// the product decision that "Endirim" alone undersold what the tab
+/// actually contains), "Tədbir" is `VenueEvent`.
+enum ListingFilter { all, offers, events }
+
+final listingFilterProvider = StateProvider.autoDispose<ListingFilter>((ref) => ListingFilter.all);
+
+/// One row in the merged Hamısı list — either an offer or an event,
+/// never both; [distanceMeters] is what the merged list sorts by (the
+/// same proximity-first ordering every other Discover list already
+/// uses, extended here to cover both listing types at once).
+class _ListingItem {
+  final OfferWithDistance? offerItem;
+  final VenueEventWithDistance? eventItem;
+
+  _ListingItem.offer(OfferWithDistance item)
+      : offerItem = item,
+        eventItem = null;
+
+  _ListingItem.event(VenueEventWithDistance item)
+      : offerItem = null,
+        eventItem = item;
+
+  double get distanceMeters => offerItem?.distanceMeters ?? eventItem!.distanceMeters;
+}
 
 /// Collapses the Azerbaijani/Turkish İ/I/ı family down to plain ASCII
 /// 'i' — same fix, same reasoning as `chats_tab.dart`'s private
@@ -83,7 +114,7 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
     }
   }
 
-  List<OfferWithDistance> _visible(List<OfferWithDistance> all) {
+  List<OfferWithDistance> _visibleOffers(List<OfferWithDistance> all) {
     if (_query.isEmpty) return all;
     final loc = AppLocalizations.of(context);
     final q = _azSearchKey(_query);
@@ -96,12 +127,75 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
     }).toList();
   }
 
+  List<VenueEventWithDistance> _visibleEvents(List<VenueEventWithDistance> all) {
+    if (_query.isEmpty) return all;
+    final q = _azSearchKey(_query);
+    return all.where((item) {
+      final event = item.event;
+      return _azSearchKey(event.title).contains(q) || _azSearchKey(event.venueName).contains(q);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final offersAsync = ref.watch(nearbyOffersProvider);
+    final eventsAsync = ref.watch(nearbyEventsProvider);
     final distanceUnit = ref.watch(mapLocationSettingsProvider).valueOrNull?.distanceUnit ?? DistanceUnit.km;
     final selectedCategory = ref.watch(selectedOfferCategoryFilterProvider);
+    final listingFilter = ref.watch(listingFilterProvider);
+
+    Widget body;
+    if (offersAsync.isLoading || eventsAsync.isLoading) {
+      body = const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary));
+    } else if (offersAsync.hasError) {
+      body = _OfferStatusMessage(
+        icon: Icons.error_outline,
+        title: loc.errorTitle,
+        subtitle: '${offersAsync.error}',
+        actionLabel: loc.actionRetry,
+        onAction: () => ref.invalidate(nearbyOffersProvider),
+      );
+    } else if (eventsAsync.hasError) {
+      body = _OfferStatusMessage(
+        icon: Icons.error_outline,
+        title: loc.errorTitle,
+        subtitle: '${eventsAsync.error}',
+        actionLabel: loc.actionRetry,
+        onAction: () => ref.invalidate(nearbyEventsProvider),
+      );
+    } else {
+      final offers = _visibleOffers(offersAsync.valueOrNull ?? const []);
+      final events = _visibleEvents(eventsAsync.valueOrNull ?? const []);
+
+      final items = <_ListingItem>[
+        if (listingFilter != ListingFilter.events) ...offers.map(_ListingItem.offer),
+        if (listingFilter != ListingFilter.offers) ...events.map(_ListingItem.event),
+      ]..sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
+
+      if (items.isEmpty) {
+        body = _OfferStatusMessage(
+          icon: Icons.local_offer_outlined,
+          title: loc.offersEmptyTitle,
+          subtitle: loc.offersEmptySubtitle,
+        );
+      } else {
+        body = ListView.separated(
+          // Extra bottom padding so the last card doesn't sit under the
+          // persistent radius selector now pinned below this list (see
+          // discover_tab.dart).
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 90),
+          itemCount: items.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final item = items[index];
+            return item.offerItem != null
+                ? _OfferCard(item: item.offerItem!, loc: loc, distanceUnit: distanceUnit)
+                : VenueEventCard(item: item.eventItem!, distanceUnit: distanceUnit);
+          },
+        );
+      }
+    }
 
     return Stack(
       children: [
@@ -118,41 +212,69 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
                   filterActive: selectedCategory != null,
                 ),
               ),
-              Expanded(
-                child: offersAsync.when(
-                  loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-                  error: (error, _) => _OfferStatusMessage(
-                    icon: Icons.error_outline,
-                    title: loc.errorTitle,
-                    subtitle: '$error',
-                    actionLabel: loc.actionRetry,
-                    onAction: () => ref.invalidate(nearbyOffersProvider),
-                  ),
-                  data: (offers) {
-                    final visible = _visible(offers);
-                    if (visible.isEmpty) {
-                      return _OfferStatusMessage(
-                        icon: Icons.local_offer_outlined,
-                        title: loc.offersEmptyTitle,
-                        subtitle: loc.offersEmptySubtitle,
-                      );
-                    }
-                    return ListView.separated(
-                      // Extra bottom padding so the last card doesn't sit
-                      // under the persistent radius selector now pinned
-                      // below this list (see discover_tab.dart).
-                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 90),
-                      itemCount: visible.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) => _OfferCard(item: visible[index], loc: loc, distanceUnit: distanceUnit),
-                    );
-                  },
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                child: _ListingFilterChips(
+                  selected: listingFilter,
+                  onSelected: (f) => ref.read(listingFilterProvider.notifier).state = f,
                 ),
+              ),
+              Expanded(
+                child: body,
               ),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ListingFilterChips extends StatelessWidget {
+  final ListingFilter selected;
+  final ValueChanged<ListingFilter> onSelected;
+
+  const _ListingFilterChips({required this.selected, required this.onSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final entries = [
+      (ListingFilter.all, loc.eventFilterAll),
+      (ListingFilter.offers, loc.eventFilterOffers),
+      (ListingFilter.events, loc.eventFilterEvents),
+    ];
+
+    return SizedBox(
+      height: 32,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: entries.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final (value, label) = entries[index];
+          final isSelected = value == selected;
+          return GestureDetector(
+            onTap: () => onSelected(value),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+              decoration: BoxDecoration(
+                color: isSelected ? AppColors.primary : Colors.white,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: isSelected ? AppColors.onAccent : ChatLightColors.inkSoft,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }

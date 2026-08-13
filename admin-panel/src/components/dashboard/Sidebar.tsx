@@ -34,6 +34,7 @@ const EXISTING_NAV: { href: string; label: string; icon: typeof LayoutGrid; perm
   { href: "/venues", label: "Məkanlar", icon: Store, permission: "moderateVenues" },
   { href: "/offers", label: "Təkliflər", icon: Tag, permission: "moderateOffers" },
   { href: "/feedback", label: "Şikayətlər", icon: Flag, permission: "manageFeedback" },
+  { href: "/event-reports", label: "Tədbir şikayətləri", icon: Flag, permission: "moderateVenues" },
   { href: "/notifications", label: "Bildirişlər", icon: Bell, permission: "broadcastNotifications" },
   { href: "/logs", label: "Loglar", icon: ScrollText },
   { href: "/admins", label: "Admin idarəetməsi", icon: ShieldCheck, permission: "manageAdmins" },

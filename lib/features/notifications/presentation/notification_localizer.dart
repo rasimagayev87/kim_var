@@ -162,6 +162,16 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: venueName.isEmpty ? loc.notifWaitlistCalledBodyGeneric : loc.notifWaitlistCalledBody(venueName),
       );
 
+    case NotificationType.venueEvent:
+      final venueName = str('venueName');
+      return LocalizedNotificationText(
+        title: venueName.isEmpty ? loc.notifVenueEventTitleGeneric : loc.notifVenueEventTitle(venueName),
+        // The event's own title is raw owner content, never translated —
+        // only the surrounding "X-də bu axşam" shell above is (mirrors
+        // NotificationType.venueOffer's identical reasoning).
+        body: str('eventTitle'),
+      );
+
     case NotificationType.venueOffer:
       final venueName = str('venueName');
       return LocalizedNotificationText(

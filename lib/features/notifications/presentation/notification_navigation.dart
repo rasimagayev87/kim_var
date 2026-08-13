@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../events/presentation/screens/event_details_screen.dart';
 import '../../offers/presentation/providers/offer_providers.dart';
 import '../../offers/presentation/screens/create_offer_screen.dart';
 import '../../offers/presentation/screens/offer_details_screen.dart';
@@ -67,5 +68,8 @@ Future<void> openNotificationTarget(BuildContext context, WidgetRef ref, AppNoti
     // Create Offer form with the venue already selected.
     case 'venue_create_offer':
       Navigator.push(context, MaterialPageRoute(builder: (_) => CreateOfferScreen(preselectedVenueId: targetId)));
+    // A venue event's own radius-fanout push (`notifyNearbyUsersOfNewEvent`).
+    case 'event':
+      Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailsScreen(eventId: targetId)));
   }
 }

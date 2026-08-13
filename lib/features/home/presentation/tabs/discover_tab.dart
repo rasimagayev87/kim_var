@@ -21,6 +21,7 @@ import '../../../location/domain/nearby_user.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../../offers/presentation/screens/create_offer_screen.dart';
 import '../../../offers/presentation/screens/my_offers_screen.dart';
+import '../../../events/presentation/widgets/venue_event_banner.dart';
 import '../../../offers/presentation/widgets/offer_list_view.dart';
 import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
@@ -1473,6 +1474,7 @@ class _VenueCard extends ConsumerWidget {
                           ],
                         ),
                       ],
+                      VenueEventBanner(venueId: venue.id),
                     ],
                   ),
                 ),

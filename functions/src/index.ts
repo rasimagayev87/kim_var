@@ -1589,6 +1589,120 @@ async function notifyNearbyUsersOfNewOffer(
   );
 }
 
+// ── Venue events (auto-approved, no moderation gate) ─────────────────
+
+/** Same bound as `OFFER_NOTIFY_CANDIDATE_LIMIT` — how many `users` docs
+ * the radius/country/world scan considers before filtering. */
+const EVENT_NOTIFY_CANDIDATE_LIMIT = 1000;
+
+/**
+ * Fires the instant a `venueEvents/{eventId}` doc is created — unlike
+ * `notifyNearbyUsersOfNewOffer`, there's no `status` transition to wait
+ * for, since events are auto-approved and start `upcoming` immediately
+ * (see `VenueEvent`'s doc comment). Same radius/country/world dispatch
+ * and Haversine filtering as the offer version — GeoFlutterFire Plus
+ * itself is a Flutter/client package, so this server-side fanout uses
+ * the same manual-distance-filter approach this codebase already
+ * established for offers, not a literal GeoFlutterFire call.
+ *
+ * Dedup is permanent, not a rolling throttle like offers' 24h window —
+ * an event only ever gets ONE publish moment, so
+ * `users/{uid}/notifiedEvents/{eventId}` existing at all is enough to
+ * skip a user, covering a retried function invocation.
+ */
+export const notifyNearbyUsersOfNewEvent = onDocumentCreated("venueEvents/{eventId}", async (event) => {
+  const data = event.data?.data();
+  if (!data) return;
+
+  const venueId = data.venueId as string | undefined;
+  if (!venueId) return;
+  const venueSnap = await db.collection("venues").doc(venueId).get();
+  const venue = venueSnap.data();
+  if (!venue) return;
+
+  const ownerId = venue.ownerId as string | undefined;
+  const mode = (venue.audienceRadiusMode as string | undefined) ?? "distance";
+  let candidateDocs: FirebaseFirestore.QueryDocumentSnapshot[];
+
+  if (mode === "country") {
+    const country = venue.country as string | undefined;
+    if (!country) return;
+    candidateDocs = (
+      await db.collection("users").where("country", "==", country).limit(EVENT_NOTIFY_CANDIDATE_LIMIT).get()
+    ).docs;
+  } else if (mode === "world") {
+    candidateDocs = (await db.collection("users").limit(EVENT_NOTIFY_CANDIDATE_LIMIT).get()).docs;
+  } else {
+    const lat = venue.lat as number | undefined;
+    const lng = venue.lng as number | undefined;
+    const radiusKm = (venue.audienceRadiusKm as number | undefined) ?? 1;
+    if (lat === undefined || lng === undefined) return;
+    const allUsers = await db.collection("users").limit(EVENT_NOTIFY_CANDIDATE_LIMIT).get();
+    candidateDocs = allUsers.docs.filter((d) => {
+      const userLat = d.data().lat as number | undefined;
+      const userLng = d.data().lng as number | undefined;
+      if (userLat === undefined || userLng === undefined) return false;
+      return haversineMeters(lat, lng, userLat, userLng) <= radiusKm * 1000;
+    });
+  }
+
+  const venueName = (venue.name as string | undefined) ?? "";
+  const eventTitle = (data.title as string | undefined) ?? "";
+  const eventId = event.params.eventId;
+
+  await Promise.all(
+    candidateDocs.map(async (userDoc) => {
+      const uid = userDoc.id;
+      if (uid === ownerId) return;
+      if (userDoc.data().ghostModeEnabled) return;
+
+      const dedupRef = db.collection("users").doc(uid).collection("notifiedEvents").doc(eventId);
+      const dedupSnap = await dedupRef.get();
+      if (dedupSnap.exists) return;
+
+      await notifyUser({
+        uid,
+        category: "venueOffers",
+        type: "venueEvent",
+        title: venueName ? `🎤 ${venueName}-də bu axşam` : "🎤 Yaxınlığınızda tədbir",
+        body: eventTitle,
+        params: { venueName, eventTitle },
+        targetId: eventId,
+        targetType: "event",
+      });
+      await dedupRef.set({ sentAt: FieldValue.serverTimestamp() });
+    })
+  );
+});
+
+/**
+ * Drives `VenueEvent.status`'s fully automatic `upcoming` → `live` →
+ * `ended` lifecycle off [VenueEvent.startAt]/[endAt] — the owner never
+ * sets these directly (see the entity's doc comment). 15-minute
+ * cadence trades a little boundary precision for not running two
+ * collection scans every minute.
+ */
+export const advanceVenueEventStatuses = onSchedule(
+  { schedule: "every 15 minutes", region: "europe-west1" },
+  async () => {
+    const now = Timestamp.now();
+
+    const toLiveSnap = await db
+      .collection("venueEvents")
+      .where("status", "==", "upcoming")
+      .where("startAt", "<=", now)
+      .get();
+    await Promise.all(toLiveSnap.docs.map((doc) => doc.ref.update({ status: "live" })));
+
+    const toEndedSnap = await db
+      .collection("venueEvents")
+      .where("status", "==", "live")
+      .where("endAt", "<=", now)
+      .get();
+    await Promise.all(toEndedSnap.docs.map((doc) => doc.ref.update({ status: "ended" })));
+  }
+);
+
 /**
  * Shared copy for the venue/offer moderation-decision notification —
  * `kind`/`name` only change the wording, `status`/`reviewNote` decide
