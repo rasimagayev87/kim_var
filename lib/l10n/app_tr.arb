@@ -426,6 +426,8 @@
   "offerDeletedNotice": "Teklif silindi",
   "offerStatusActive": "Aktif",
   "offerStatusExpired": "Süresi doldu",
+  "offerHappyHourInactiveLabel": "Pasif",
+  "offerHappyHourNextActiveLabel": "Saat {time}'dan itibaren aktif olacak",
   "offerMyOffersTitle": "Tekliflerim",
   "offerMyOffersEmptyTitle": "Henüz hiç teklif eklemediniz",
   "offerMyOffersEmptySubtitle": "Eklediğiniz teklifler burada görünecek ve istediğiniz zaman düzenleyebilir veya silebilirsiniz.",

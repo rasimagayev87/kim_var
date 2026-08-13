@@ -149,7 +149,10 @@ class _MyOfferCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context);
     final needsRevision = offer.status == 'needs_revision';
+    final happyHourInactive =
+        offer.status == 'approved' && !offer.isExpired && offer.offerType == OfferType.happyHour && !offer.happyHourActive;
 
     return Material(
       color: Colors.white,
@@ -207,9 +210,16 @@ class _MyOfferCard extends ConsumerWidget {
                               if (offer.status == 'pending' || needsRevision)
                                 _ModerationStatusBadge(status: offer.status)
                               else
-                                _OfferStatusBadge(isExpired: offer.isExpired),
+                                _OfferStatusBadge(isExpired: offer.isExpired, happyHourInactive: happyHourInactive),
                             ],
                           ),
+                          if (happyHourInactive && offer.activeHours != null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              loc.offerHappyHourNextActiveLabel(offer.activeHours!.start),
+                              style: const TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -301,20 +311,27 @@ class _EmptyMyOffers extends StatelessWidget {
 class _OfferStatusBadge extends StatelessWidget {
   final bool isExpired;
 
-  const _OfferStatusBadge({required this.isExpired});
+  /// True for an approved, non-expired Happy Hour offer that's outside
+  /// its daily window right now — distinct from [isExpired] (the
+  /// listing itself is still live, just not "on" this minute).
+  final bool happyHourInactive;
+
+  const _OfferStatusBadge({required this.isExpired, this.happyHourInactive = false});
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final color = isExpired ? AppColors.textMuted : AppColors.primary;
+    final color = (isExpired || happyHourInactive) ? AppColors.textMuted : AppColors.primary;
+    final label = isExpired
+        ? loc.offerStatusExpired
+        : happyHourInactive
+            ? loc.offerHappyHourInactiveLabel
+            : loc.offerStatusActive;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
-      child: Text(
-        isExpired ? loc.offerStatusExpired : loc.offerStatusActive,
-        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color),
-      ),
+      child: Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
     );
   }
 }

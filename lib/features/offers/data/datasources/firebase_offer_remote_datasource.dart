@@ -57,7 +57,7 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
       field: kOfferGeoField,
       geopointFrom: (data) => data[kOfferGeoField]['geopoint'] as GeoPoint,
       queryBuilder: (query) {
-        var q = query.where('status', isEqualTo: 'approved');
+        var q = query.where('status', isEqualTo: 'approved').where('happyHourActive', isEqualTo: true);
         if (category != null) q = q.where('category', isEqualTo: category);
         return q;
       },
@@ -68,19 +68,26 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
 
   @override
   Future<QuerySnapshot<Map<String, dynamic>>> queryByVenue(String venueId) {
-    return _offers.where('venueId', isEqualTo: venueId).where('status', isEqualTo: 'approved').get();
+    return _offers
+        .where('venueId', isEqualTo: venueId)
+        .where('status', isEqualTo: 'approved')
+        .where('happyHourActive', isEqualTo: true)
+        .get();
   }
 
   @override
   Future<QuerySnapshot<Map<String, dynamic>>> queryByCountry(String country, {String? category}) {
-    var query = _offers.where('status', isEqualTo: 'approved').where('country', isEqualTo: country);
+    var query = _offers
+        .where('status', isEqualTo: 'approved')
+        .where('happyHourActive', isEqualTo: true)
+        .where('country', isEqualTo: country);
     if (category != null) query = query.where('category', isEqualTo: category);
     return query.limit(300).get();
   }
 
   @override
   Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({required int limit, String? category}) {
-    var query = _offers.where('status', isEqualTo: 'approved');
+    var query = _offers.where('status', isEqualTo: 'approved').where('happyHourActive', isEqualTo: true);
     if (category != null) query = query.where('category', isEqualTo: category);
     return query.limit(limit).get();
   }

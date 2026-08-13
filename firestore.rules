@@ -465,13 +465,19 @@ service cloud.firestore {
       allow read: if request.auth != null;
 
       // Same "must start pending, no forged review trail" rule as venues.
+      // `happyHourActive` is also blocked here — `maintainHappyHourActiveFlag`
+      // (Cloud Function) sets the real value right after create, so a
+      // client value here would just be overwritten anyway, but a raw
+      // API call shouldn't be able to make it start `true` and appear
+      // in Discover before that trigger runs.
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.ownerId &&
         isVerifiedUser(request.auth.uid) &&
         request.resource.data.status == 'pending' &&
         !('reviewNote' in request.resource.data) &&
         !('reviewedBy' in request.resource.data) &&
-        !('reviewedAt' in request.resource.data);
+        !('reviewedAt' in request.resource.data) &&
+        !('happyHourActive' in request.resource.data);
 
       // `ownerId` is immutable, same reasoning as venues. `status`/
       // `reviewNote`/`reviewedBy`/`reviewedAt` are admin-panel-only —
@@ -479,11 +485,15 @@ service cloud.firestore {
       // Function) is the only path back to 'pending'. `paymentId`/
       // `revisionDeadline` are the same grant-of-trust pairing as
       // `Venue.paymentId`/`revisionDeadline` — see that rule's comment.
+      // `happyHourActive` is server-computed only (see the create rule
+      // above and `maintainHappyHourActiveFlag`/`refreshHappyHourOfferStatus`
+      // in functions/src/index.ts) — a client write here could show a
+      // Happy Hour discount as active outside its real window.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'paymentId', 'revisionDeadline']);
+          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'paymentId', 'revisionDeadline', 'happyHourActive']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }

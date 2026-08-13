@@ -171,6 +171,19 @@ class Offer with _$Offer {
     /// this is only ever empty for a type other than [happyHour].
     @Default(<String>[]) List<String> activeDays,
 
+    /// Server-computed, never client-written (locked in firestore.rules
+    /// same as [status]) — true for every offer type except
+    /// [OfferType.happyHour], for which it tracks whether right now
+    /// falls inside [activeHours]/[activeDays] (Azerbaijan local time).
+    /// `maintainHappyHourActiveFlag`/`refreshHappyHourOfferStatus` in
+    /// `functions/src/index.ts` are the only writers — a client-side
+    /// device-clock check couldn't be trusted for this, since it'd let
+    /// someone just set their phone's clock to see a discount outside
+    /// its real window. Discovery queries filter on this field so an
+    /// inactive Happy Hour offer simply doesn't appear; the owner's own
+    /// "Təkliflərim" list ignores it and shows a status label instead.
+    @Default(true) bool happyHourActive,
+
     /// Only set for [OfferType.birthday] — the `birthdayMatches/{id}`
     /// doc this offer was created from. Null for every other type.
     String? birthdayMatchId,

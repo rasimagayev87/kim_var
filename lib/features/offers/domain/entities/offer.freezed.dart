@@ -107,6 +107,19 @@ mixin _$Offer {
   /// this is only ever empty for a type other than [happyHour].
   List<String> get activeDays => throw _privateConstructorUsedError;
 
+  /// Server-computed, never client-written (locked in firestore.rules
+  /// same as [status]) — true for every offer type except
+  /// [OfferType.happyHour], for which it tracks whether right now
+  /// falls inside [activeHours]/[activeDays] (Azerbaijan local time).
+  /// `maintainHappyHourActiveFlag`/`refreshHappyHourOfferStatus` in
+  /// `functions/src/index.ts` are the only writers — a client-side
+  /// device-clock check couldn't be trusted for this, since it'd let
+  /// someone just set their phone's clock to see a discount outside
+  /// its real window. Discovery queries filter on this field so an
+  /// inactive Happy Hour offer simply doesn't appear; the owner's own
+  /// "Təkliflərim" list ignores it and shows a status label instead.
+  bool get happyHourActive => throw _privateConstructorUsedError;
+
   /// Only set for [OfferType.birthday] — the `birthdayMatches/{id}`
   /// doc this offer was created from. Null for every other type.
   String? get birthdayMatchId => throw _privateConstructorUsedError;
@@ -169,6 +182,7 @@ abstract class $OfferCopyWith<$Res> {
     @NullableTimestampConverter() DateTime? boostedUntil,
     @ActiveHoursConverter() ActiveHours? activeHours,
     List<String> activeDays,
+    bool happyHourActive,
     String? birthdayMatchId,
     List<String> targetUserIds,
     String? personalMessage,
@@ -219,6 +233,7 @@ class _$OfferCopyWithImpl<$Res, $Val extends Offer>
     Object? boostedUntil = freezed,
     Object? activeHours = freezed,
     Object? activeDays = null,
+    Object? happyHourActive = null,
     Object? birthdayMatchId = freezed,
     Object? targetUserIds = null,
     Object? personalMessage = freezed,
@@ -341,6 +356,10 @@ class _$OfferCopyWithImpl<$Res, $Val extends Offer>
                 ? _value.activeDays
                 : activeDays // ignore: cast_nullable_to_non_nullable
                       as List<String>,
+            happyHourActive: null == happyHourActive
+                ? _value.happyHourActive
+                : happyHourActive // ignore: cast_nullable_to_non_nullable
+                      as bool,
             birthdayMatchId: freezed == birthdayMatchId
                 ? _value.birthdayMatchId
                 : birthdayMatchId // ignore: cast_nullable_to_non_nullable
@@ -397,6 +416,7 @@ abstract class _$$OfferImplCopyWith<$Res> implements $OfferCopyWith<$Res> {
     @NullableTimestampConverter() DateTime? boostedUntil,
     @ActiveHoursConverter() ActiveHours? activeHours,
     List<String> activeDays,
+    bool happyHourActive,
     String? birthdayMatchId,
     List<String> targetUserIds,
     String? personalMessage,
@@ -446,6 +466,7 @@ class __$$OfferImplCopyWithImpl<$Res>
     Object? boostedUntil = freezed,
     Object? activeHours = freezed,
     Object? activeDays = null,
+    Object? happyHourActive = null,
     Object? birthdayMatchId = freezed,
     Object? targetUserIds = null,
     Object? personalMessage = freezed,
@@ -568,6 +589,10 @@ class __$$OfferImplCopyWithImpl<$Res>
             ? _value._activeDays
             : activeDays // ignore: cast_nullable_to_non_nullable
                   as List<String>,
+        happyHourActive: null == happyHourActive
+            ? _value.happyHourActive
+            : happyHourActive // ignore: cast_nullable_to_non_nullable
+                  as bool,
         birthdayMatchId: freezed == birthdayMatchId
             ? _value.birthdayMatchId
             : birthdayMatchId // ignore: cast_nullable_to_non_nullable
@@ -618,6 +643,7 @@ class _$OfferImpl extends _Offer {
     @NullableTimestampConverter() this.boostedUntil,
     @ActiveHoursConverter() this.activeHours,
     final List<String> activeDays = const <String>[],
+    this.happyHourActive = true,
     this.birthdayMatchId,
     final List<String> targetUserIds = const <String>[],
     this.personalMessage,
@@ -754,6 +780,21 @@ class _$OfferImpl extends _Offer {
     return EqualUnmodifiableListView(_activeDays);
   }
 
+  /// Server-computed, never client-written (locked in firestore.rules
+  /// same as [status]) — true for every offer type except
+  /// [OfferType.happyHour], for which it tracks whether right now
+  /// falls inside [activeHours]/[activeDays] (Azerbaijan local time).
+  /// `maintainHappyHourActiveFlag`/`refreshHappyHourOfferStatus` in
+  /// `functions/src/index.ts` are the only writers — a client-side
+  /// device-clock check couldn't be trusted for this, since it'd let
+  /// someone just set their phone's clock to see a discount outside
+  /// its real window. Discovery queries filter on this field so an
+  /// inactive Happy Hour offer simply doesn't appear; the owner's own
+  /// "Təkliflərim" list ignores it and shows a status label instead.
+  @override
+  @JsonKey()
+  final bool happyHourActive;
+
   /// Only set for [OfferType.birthday] — the `birthdayMatches/{id}`
   /// doc this offer was created from. Null for every other type.
   @override
@@ -791,7 +832,7 @@ class _$OfferImpl extends _Offer {
 
   @override
   String toString() {
-    return 'Offer(id: $id, ownerId: $ownerId, venueId: $venueId, venueName: $venueName, venuePhotoUrl: $venuePhotoUrl, category: $category, title: $title, description: $description, offerType: $offerType, discountValue: $discountValue, lat: $lat, lng: $lng, address: $address, country: $country, startDate: $startDate, endDate: $endDate, imageUrl: $imageUrl, terms: $terms, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, revisionDeadline: $revisionDeadline, createdAt: $createdAt, updatedAt: $updatedAt, boostedUntil: $boostedUntil, activeHours: $activeHours, activeDays: $activeDays, birthdayMatchId: $birthdayMatchId, targetUserIds: $targetUserIds, personalMessage: $personalMessage)';
+    return 'Offer(id: $id, ownerId: $ownerId, venueId: $venueId, venueName: $venueName, venuePhotoUrl: $venuePhotoUrl, category: $category, title: $title, description: $description, offerType: $offerType, discountValue: $discountValue, lat: $lat, lng: $lng, address: $address, country: $country, startDate: $startDate, endDate: $endDate, imageUrl: $imageUrl, terms: $terms, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, revisionDeadline: $revisionDeadline, createdAt: $createdAt, updatedAt: $updatedAt, boostedUntil: $boostedUntil, activeHours: $activeHours, activeDays: $activeDays, happyHourActive: $happyHourActive, birthdayMatchId: $birthdayMatchId, targetUserIds: $targetUserIds, personalMessage: $personalMessage)';
   }
 
   @override
@@ -848,6 +889,8 @@ class _$OfferImpl extends _Offer {
               other._activeDays,
               _activeDays,
             ) &&
+            (identical(other.happyHourActive, happyHourActive) ||
+                other.happyHourActive == happyHourActive) &&
             (identical(other.birthdayMatchId, birthdayMatchId) ||
                 other.birthdayMatchId == birthdayMatchId) &&
             const DeepCollectionEquality().equals(
@@ -891,6 +934,7 @@ class _$OfferImpl extends _Offer {
     boostedUntil,
     activeHours,
     const DeepCollectionEquality().hash(_activeDays),
+    happyHourActive,
     birthdayMatchId,
     const DeepCollectionEquality().hash(_targetUserIds),
     personalMessage,
@@ -941,6 +985,7 @@ abstract class _Offer extends Offer {
     @NullableTimestampConverter() final DateTime? boostedUntil,
     @ActiveHoursConverter() final ActiveHours? activeHours,
     final List<String> activeDays,
+    final bool happyHourActive,
     final String? birthdayMatchId,
     final List<String> targetUserIds,
     final String? personalMessage,
@@ -1063,6 +1108,20 @@ abstract class _Offer extends Offer {
   /// this is only ever empty for a type other than [happyHour].
   @override
   List<String> get activeDays;
+
+  /// Server-computed, never client-written (locked in firestore.rules
+  /// same as [status]) — true for every offer type except
+  /// [OfferType.happyHour], for which it tracks whether right now
+  /// falls inside [activeHours]/[activeDays] (Azerbaijan local time).
+  /// `maintainHappyHourActiveFlag`/`refreshHappyHourOfferStatus` in
+  /// `functions/src/index.ts` are the only writers — a client-side
+  /// device-clock check couldn't be trusted for this, since it'd let
+  /// someone just set their phone's clock to see a discount outside
+  /// its real window. Discovery queries filter on this field so an
+  /// inactive Happy Hour offer simply doesn't appear; the owner's own
+  /// "Təkliflərim" list ignores it and shows a status label instead.
+  @override
+  bool get happyHourActive;
 
   /// Only set for [OfferType.birthday] — the `birthdayMatches/{id}`
   /// doc this offer was created from. Null for every other type.

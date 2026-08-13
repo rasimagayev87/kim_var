@@ -426,6 +426,8 @@
   "offerDeletedNotice": "Предложение удалено",
   "offerStatusActive": "Активно",
   "offerStatusExpired": "Истекло",
+  "offerHappyHourInactiveLabel": "Неактивно",
+  "offerHappyHourNextActiveLabel": "Активно с {time}",
   "offerMyOffersTitle": "Мои предложения",
   "offerMyOffersEmptyTitle": "Вы ещё не добавили ни одного предложения",
   "offerMyOffersEmptySubtitle": "Добавленные вами предложения появятся здесь, вы сможете редактировать или удалять их в любое время.",

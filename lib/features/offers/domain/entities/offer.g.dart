@@ -48,6 +48,7 @@ _$OfferImpl _$$OfferImplFromJson(Map<String, dynamic> json) => _$OfferImpl(
           ?.map((e) => e as String)
           .toList() ??
       const <String>[],
+  happyHourActive: json['happyHourActive'] as bool? ?? true,
   birthdayMatchId: json['birthdayMatchId'] as String?,
   targetUserIds:
       (json['targetUserIds'] as List<dynamic>?)
@@ -93,6 +94,7 @@ Map<String, dynamic> _$$OfferImplToJson(
   ),
   'activeHours': const ActiveHoursConverter().toJson(instance.activeHours),
   'activeDays': instance.activeDays,
+  'happyHourActive': instance.happyHourActive,
   'birthdayMatchId': instance.birthdayMatchId,
   'targetUserIds': instance.targetUserIds,
   'personalMessage': instance.personalMessage,

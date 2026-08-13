@@ -4,7 +4,7 @@ import { getAuth } from "firebase-admin/auth";
 import { getStorage } from "firebase-admin/storage";
 import { BatchResponse, getMessaging } from "firebase-admin/messaging";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
@@ -1275,6 +1275,105 @@ export const onOfferUpdated = onDocumentUpdated("offers/{offerId}", async (event
     }
   }
 });
+
+// ── Happy Hour real-time filtering ───────────────────────────────────
+
+/** Azerbaijan has used a fixed UTC+4 offset year-round since abolishing
+ * DST in 2016 — the venue/offer network is Azerbaijan-only, so this is
+ * a deliberate fixed constant, not a per-venue/user timezone lookup. */
+const AZERBAIJAN_UTC_OFFSET_MINUTES = 4 * 60;
+
+/** `Date.getUTCDay()` index order (0 = Sunday), matching `Offer.activeDays`'s
+ * lowercase 3-letter keys (see `kAllWeekdayKeys` in `create_offer_screen.dart`). */
+const WEEKDAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+
+/**
+ * Whether an `OfferType.happyHour` offer's daily window covers this
+ * exact instant, in Azerbaijan local time. Handles an overnight window
+ * (e.g. 22:00–02:00) by treating "start > end" as wrapping past
+ * midnight, same as a normal wall-clock reading would.
+ */
+function isHappyHourActiveNow(
+  activeHours: { start?: unknown; end?: unknown } | undefined,
+  activeDays: unknown
+): boolean {
+  const start = typeof activeHours?.start === "string" ? activeHours.start : undefined;
+  const end = typeof activeHours?.end === "string" ? activeHours.end : undefined;
+  const days = Array.isArray(activeDays) ? (activeDays as string[]) : [];
+  if (!start || !end || days.length === 0) return false;
+
+  const local = new Date(Date.now() + AZERBAIJAN_UTC_OFFSET_MINUTES * 60 * 1000);
+  if (!days.includes(WEEKDAY_KEYS[local.getUTCDay()])) return false;
+
+  const minutesNow = local.getUTCHours() * 60 + local.getUTCMinutes();
+  const [startH, startM] = start.split(":").map(Number);
+  const [endH, endM] = end.split(":").map(Number);
+  if ([startH, startM, endH, endM].some((n) => Number.isNaN(n))) return false;
+  const startMinutes = startH * 60 + startM;
+  const endMinutes = endH * 60 + endM;
+  if (startMinutes === endMinutes) return false;
+
+  return startMinutes < endMinutes
+    ? minutesNow >= startMinutes && minutesNow < endMinutes
+    : minutesNow >= startMinutes || minutesNow < endMinutes;
+}
+
+/** True for every offer type except `happyHour`, whose visibility
+ * actually depends on the clock — see [isHappyHourActiveNow]. */
+function computeHappyHourActive(offer: FirebaseFirestore.DocumentData): boolean {
+  if (offer.offerType !== "happyHour") return true;
+  return isHappyHourActiveNow(
+    offer.activeHours as { start?: unknown; end?: unknown } | undefined,
+    offer.activeDays
+  );
+}
+
+/**
+ * Keeps `Offer.happyHourActive` correct the moment an offer is created
+ * or its type/hours/days are edited — firestore.rules blocks the
+ * client from ever writing this field itself (same lock-field pattern
+ * as `status`), so this trigger and [refreshHappyHourOfferStatus]
+ * below (which re-checks on a timer, since nothing else "writes" an
+ * offer just because the clock crossed its window) are the only two
+ * places it's ever set. Guarded against re-triggering itself: this
+ * function's own `.update()` call is a write too, but by the time it
+ * fires again the stored value already matches, so the `!==` check
+ * below short-circuits.
+ */
+export const maintainHappyHourActiveFlag = onDocumentWritten("offers/{offerId}", async (event) => {
+  const after = event.data?.after;
+  if (!after?.exists) return;
+  const data = after.data();
+  if (!data) return;
+
+  const computed = computeHappyHourActive(data);
+  if (data.happyHourActive === computed) return;
+  await after.ref.update({ happyHourActive: computed });
+});
+
+/**
+ * Re-evaluates every approved Happy Hour offer's [computeHappyHourActive]
+ * on a timer — [maintainHappyHourActiveFlag] only fires on a write to
+ * the offer itself, so without this, an offer that nobody touches
+ * would stay stuck at whatever `happyHourActive` value it had when it
+ * was last written, even long after its daily window opened or closed.
+ * 5-minute granularity trades a little boundary precision for not
+ * running a query every minute.
+ */
+export const refreshHappyHourOfferStatus = onSchedule(
+  { schedule: "every 5 minutes", region: "europe-west1" },
+  async () => {
+    const snap = await db.collection("offers").where("offerType", "==", "happyHour").where("status", "==", "approved").get();
+    await Promise.all(
+      snap.docs.map(async (doc) => {
+        const computed = computeHappyHourActive(doc.data());
+        if (doc.data().happyHourActive !== computed) {
+          await doc.ref.update({ happyHourActive: computed });
+        }
+      })
+    );
+  }
+);
 
 /**
  * A `birthday` offer's approval fanout — every uid in

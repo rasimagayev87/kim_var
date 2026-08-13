@@ -491,6 +491,8 @@
   "offerDeletedNotice": "Offer deleted",
   "offerStatusActive": "Active",
   "offerStatusExpired": "Expired",
+  "offerHappyHourInactiveLabel": "Inactive",
+  "offerHappyHourNextActiveLabel": "Active from {time}",
   "offerMyOffersTitle": "My offers",
   "offerMyOffersEmptyTitle": "You haven't added any offers yet",
   "offerMyOffersEmptySubtitle": "Offers you add will show up here, and you can edit or delete them anytime.",
