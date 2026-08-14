@@ -2,33 +2,32 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/live_feed_item.dart';
+import 'live_feed_palette.dart';
 
-/// Per-type icon + accent color — see this widget's own doc comment
-/// for why [LiveFeedType.offer] uses green despite the rest of the app
-/// having deliberately moved off green in favor of the cyan brand
-/// accent: flag this to the user rather than silently picking
-/// something else, since it's their own explicit spec value.
-(IconData, Color) iconAndColorForLiveFeedType(LiveFeedType type) {
+/// Type still decides which GLYPH shows (so audience/event/offer/seat/
+/// birthday stay instantly tell-apart-able at a glance) — color no
+/// longer does, see [liveFeedGradientForKey].
+IconData iconForLiveFeedType(LiveFeedType type) {
   return switch (type) {
-    LiveFeedType.audience => (Icons.groups_rounded, const Color(0xFFF31260)),
-    LiveFeedType.event => (Icons.celebration_rounded, AppColors.primary),
-    LiveFeedType.offer => (Icons.local_offer_rounded, const Color(0xFF18C964)),
-    LiveFeedType.seatAvailable => (Icons.event_seat_rounded, AppColors.primary),
-    LiveFeedType.birthday => (Icons.cake_rounded, const Color(0xFFF5A524)),
+    LiveFeedType.audience => Icons.groups_rounded,
+    LiveFeedType.event => Icons.celebration_rounded,
+    LiveFeedType.offer => Icons.local_offer_rounded,
+    LiveFeedType.seatAvailable => Icons.event_seat_rounded,
+    LiveFeedType.birthday => Icons.cake_rounded,
   };
 }
 
-/// One row in the Canlı card list — exact shape from the spec: 34x34
-/// rounded-square icon container, title/subtitle, trailing chevron.
-/// Colors: card/background/text roles reuse the app's own [AppColors]
-/// (the closest existing named constants to the spec's literal hex
+/// One row in the Canlı card list — 34x34 rounded-square icon
+/// container, title/subtitle, trailing chevron. The icon container is
+/// a per-venue gradient (see `live_feed_palette.dart`) rather than a
+/// flat per-type color: two offer cards for two different venues get
+/// two different premium color pairs, while every card about the same
+/// venue (an offer, an event, a "boş yer" reading) shares one — colour
+/// now signals "which venue", the icon glyph signals "what kind of
+/// thing". Text/background roles reuse the app's own [AppColors] (the
+/// closest existing named constants to the design spec's literal hex
 /// values — e.g. `AppColors.background` is 0xFFEEF1F4 against the
-/// spec's 0xFFF4F6F8, a one-character difference); the icon container
-/// fill and per-type accent colors above are local literals (same
-/// "inline per-type Color, not a shared named constant" convention
-/// `offer_list_view.dart`'s own type-badge colors already use in this
-/// codebase), since no existing named constant matches them closely
-/// enough to reuse.
+/// spec's 0xFFF4F6F8, a one-character difference).
 class LiveFeedCard extends StatelessWidget {
   final LiveFeedItem item;
   final VoidCallback onTap;
@@ -37,7 +36,8 @@ class LiveFeedCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (icon, color) = iconAndColorForLiveFeedType(item.type);
+    final icon = iconForLiveFeedType(item.type);
+    final gradient = liveFeedGradientForKey(item.venueId);
 
     return Material(
       color: AppColors.card,
@@ -48,6 +48,7 @@ class LiveFeedCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
+            color: gradient.glow,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(color: Colors.black.withValues(alpha: 0.05), width: 0.5),
           ),
@@ -57,10 +58,17 @@ class LiveFeedCard extends StatelessWidget {
                 width: 34,
                 height: 34,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFEEF2F4),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [gradient.start, gradient.end],
+                  ),
                   borderRadius: BorderRadius.circular(11),
+                  boxShadow: [
+                    BoxShadow(color: gradient.start.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 3)),
+                  ],
                 ),
-                child: Icon(icon, size: 18, color: color),
+                child: Icon(icon, size: 18, color: Colors.white),
               ),
               const SizedBox(width: 12),
               Expanded(

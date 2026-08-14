@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../domain/entities/live_feed_item.dart';
-import 'live_feed_card.dart';
+import 'live_feed_palette.dart';
 
 /// Constantly-scrolling news-ticker bar pinned above the card list —
 /// generated from the last few real [LiveFeedItem]s (never static
@@ -103,7 +103,7 @@ class _TickerLine extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final item in items) ...[
-            _TickerDot(type: item.type),
+            _TickerDot(venueId: item.venueId),
             const SizedBox(width: 8),
             Text(
               '${item.title} — ${item.subtitle}',
@@ -118,17 +118,17 @@ class _TickerLine extends StatelessWidget {
 }
 
 class _TickerDot extends StatelessWidget {
-  final LiveFeedType type;
+  final String venueId;
 
-  const _TickerDot({required this.type});
+  const _TickerDot({required this.venueId});
 
   @override
   Widget build(BuildContext context) {
-    final (_, color) = iconAndColorForLiveFeedType(type);
+    final gradient = liveFeedGradientForKey(venueId);
     return Container(
       width: 6,
       height: 6,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      decoration: BoxDecoration(color: gradient.start, shape: BoxShape.circle),
     );
   }
 }
