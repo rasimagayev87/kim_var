@@ -741,6 +741,7 @@
   "postGalleryVideoOption": "Выбрать видео",
   "postShareButton": "Опубликовать",
   "postShareErrorMessage": "Не удалось опубликовать. Повторите попытку позже.",
+  "postSharePreparingMessage": "Подготовка...",
   "postFeedEmptyMessage": "Пока нет публикаций",
   "postCommentsSheetTitle": "Комментарии",
   "postCommentsEmptyMessage": "Пока нет комментариев",

@@ -1,12 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:gal/gal.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -18,6 +15,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
 import '../../../profile/presentation/screens/user_profile_screen.dart';
+import '../../data/post_media_cache.dart';
 import '../../domain/entities/post.dart';
 import '../providers/post_providers.dart';
 import 'comments_sheet.dart';
@@ -57,15 +55,22 @@ class _PostReelItemState extends ConsumerState<PostReelItem> {
   @override
   void initState() {
     super.initState();
-    if (widget.isCurrent && widget.post.mediaType == PostMediaType.video) {
-      _initVideo();
+    if (widget.isCurrent) {
+      if (widget.post.mediaType == PostMediaType.video) {
+        _initVideo();
+      } else {
+        _cacheMediaInBackground();
+      }
     }
   }
 
   @override
   void didUpdateWidget(covariant PostReelItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.post.mediaType != PostMediaType.video) return;
+    if (widget.post.mediaType != PostMediaType.video) {
+      if (widget.isCurrent && !oldWidget.isCurrent) _cacheMediaInBackground();
+      return;
+    }
     if (widget.isCurrent && !oldWidget.isCurrent) {
       _initVideo();
     } else if (!widget.isCurrent && oldWidget.isCurrent) {
@@ -73,6 +78,17 @@ class _PostReelItemState extends ConsumerState<PostReelItem> {
     } else if (widget.muted != oldWidget.muted) {
       _controller?.setVolume(widget.muted ? 0 : 1);
     }
+  }
+
+  /// Fire-and-forget — starts (or joins an already-running) download
+  /// into [PostMediaCache] the instant this post becomes the one on
+  /// screen, so by the time the user reaches "Paylaş" the file is
+  /// typically already local and the native share sheet opens with no
+  /// perceptible delay. Errors here are silent: `showPostShareOptions`
+  /// falls back to downloading on demand if this never finished.
+  void _cacheMediaInBackground() {
+    final extension = widget.post.mediaType == PostMediaType.video ? 'mp4' : 'jpg';
+    unawaited(PostMediaCache.getOrDownload(widget.post.mediaUrl, extension: extension));
   }
 
   Future<void> _initVideo() async {
@@ -96,6 +112,7 @@ class _PostReelItemState extends ConsumerState<PostReelItem> {
       // every other video app has.
       unawaited(WakelockPlus.enable());
       if (mounted) setState(() {});
+      _cacheMediaInBackground();
     } catch (_) {
       // Non-fatal — the page just shows a shimmer placeholder instead
       // of a frame; swiping away and back retries via didUpdateWidget.
@@ -656,7 +673,6 @@ class _VideoDownloadSheetState extends State<_VideoDownloadSheet> {
       _progress = 0;
     });
 
-    File? tempFile;
     try {
       final hasAccess = await Gal.hasAccess(toAlbum: true);
       if (!hasAccess) {
@@ -667,37 +683,27 @@ class _VideoDownloadSheetState extends State<_VideoDownloadSheet> {
         }
       }
 
-      final request = http.Request('GET', Uri.parse(widget.post.mediaUrl));
-      final response = await http.Client().send(request);
-      final total = response.contentLength ?? 0;
-
-      final dir = await getTemporaryDirectory();
-      tempFile = File(
-        '${dir.path}/peakpin_download_${DateTime.now().millisecondsSinceEpoch}.mp4',
+      // Same shared cache the media viewer/share-sheet use — if this
+      // post is already playing, [PostMediaCache] may well have
+      // already finished (or be mid-way through) downloading it, so
+      // this often resolves instantly instead of starting over.
+      final file = await PostMediaCache.getOrDownload(
+        widget.post.mediaUrl,
+        extension: 'mp4',
+        onProgress: (progress) {
+          if (mounted) setState(() => _progress = progress);
+        },
       );
-      final sink = tempFile.openWrite();
 
-      var received = 0;
-      await response.stream
-          .map((chunk) {
-            received += chunk.length;
-            if (total > 0 && mounted) {
-              setState(() => _progress = received / total);
-            }
-            return chunk;
-          })
-          .pipe(sink);
-      await sink.close();
-
-      await Gal.putVideo(tempFile.path, album: 'PeakPin');
+      // Copied into the gallery, not moved — the cache file stays put
+      // for `PostMediaCache`'s own callers (share sheet, background
+      // pre-cache) and follows normal cache eviction, never deleted
+      // here just because this one flow is done with it.
+      await Gal.putVideo(file.path, album: 'PeakPin');
       if (mounted) setState(() => _state = _DownloadState.completed);
     } catch (e, st) {
       logError('post_reel_item.downloadVideo', e, st);
       if (mounted) setState(() => _state = _DownloadState.error);
-    } finally {
-      if (tempFile != null && await tempFile.exists()) {
-        unawaited(tempFile.delete());
-      }
     }
   }
 

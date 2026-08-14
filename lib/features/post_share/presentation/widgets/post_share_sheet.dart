@@ -5,10 +5,12 @@ import 'package:share_plus/share_plus.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/app_logger.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/domain/entities/chat.dart';
 import '../../../chat/presentation/providers/chat_providers.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
+import '../../data/post_media_cache.dart';
 import '../../domain/entities/post.dart';
 
 /// Entry point for the feed's share action — a two-option sheet mirroring
@@ -48,9 +50,7 @@ void showPostShareOptions(BuildContext context, Post post) {
               title: Text(loc.postShareExternalOption, style: AppTextStyles.body.copyWith(fontSize: 15)),
               onTap: () {
                 Navigator.pop(sheetContext);
-                final link = 'https://peakpin.app/p/${post.id}';
-                final text = post.caption.isNotEmpty ? '${post.caption}\n$link' : link;
-                Share.share(text);
+                _shareExternally(context, post);
               },
             ),
             const SizedBox(height: 8),
@@ -59,6 +59,53 @@ void showPostShareOptions(BuildContext context, Post post) {
       );
     },
   );
+}
+
+/// Opens the native OS share sheet with the post's actual photo/video
+/// attached (not just a text link) — AirDrop/Mail/etc. all need a real
+/// local file, which [PostReelItem]'s background pre-cache has
+/// typically already produced by the time the user gets here (see
+/// `PostMediaCache`'s doc comment), so this is usually instant. The
+/// loading indicator below is the rare-case fallback, not the common
+/// path.
+Future<void> _shareExternally(BuildContext context, Post post) async {
+  final extension = post.mediaType == PostMediaType.video ? 'mp4' : 'jpg';
+  var file = await PostMediaCache.getIfCached(post.mediaUrl);
+
+  if (file == null) {
+    if (!context.mounted) return;
+    final loc = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final snackBarController = messenger.showSnackBar(
+      SnackBar(
+        duration: const Duration(minutes: 1),
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            Text(loc.postSharePreparingMessage),
+          ],
+        ),
+      ),
+    );
+    try {
+      file = await PostMediaCache.getOrDownload(post.mediaUrl, extension: extension);
+    } catch (e, st) {
+      logError('post_share_sheet.shareExternally', e, st);
+      snackBarController.close();
+      if (context.mounted) {
+        messenger.showSnackBar(SnackBar(content: Text(loc.postShareErrorMessage)));
+      }
+      return;
+    }
+    snackBarController.close();
+  }
+
+  await Share.shareXFiles([XFile(file.path)], text: post.caption.isNotEmpty ? post.caption : null);
 }
 
 void _showSendToSheet(BuildContext context, Post post) {

@@ -820,6 +820,7 @@
   "postGalleryVideoOption": "Choose a video",
   "postShareButton": "Share",
   "postShareErrorMessage": "The post couldn't be shared. Please try again shortly.",
+  "postSharePreparingMessage": "Preparing...",
   "postFeedEmptyMessage": "No posts yet",
   "postCommentsSheetTitle": "Comments",
   "postCommentsEmptyMessage": "No comments yet",

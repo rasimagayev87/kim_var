@@ -741,6 +741,7 @@
   "postGalleryVideoOption": "Video seç",
   "postShareButton": "Paylaş",
   "postShareErrorMessage": "Paylaşım edilə bilmədi. Bir az sonra yenidən cəhd edin.",
+  "postSharePreparingMessage": "Hazırlanır...",
   "postFeedEmptyMessage": "Hələ heç bir paylaşım yoxdur",
   "postCommentsSheetTitle": "Rəylər",
   "postCommentsEmptyMessage": "Hələ heç bir rəy yoxdur",
