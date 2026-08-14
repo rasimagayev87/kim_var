@@ -10,12 +10,17 @@ import '../../domain/repositories/waitlist_repository.dart';
 
 final waitlistRepositoryProvider = Provider<WaitlistRepository>((ref) => FirebaseWaitlistRepository());
 
-/// Which venue categories may turn on the waitlist feature at all —
-/// read from `config/waitlistCategories.enabledCategories` (see
-/// `admin-panel/scripts/set-waitlist-categories.ts`), same config-doc
-/// pattern as `eventCategoryConfigProvider` (NOT the hardcoded
-/// `kBirthdayEligibleVenueCategories` style). Fails closed: any read
-/// error or missing/malformed doc resolves to an empty set.
+/// Which venue categories may turn on the waitlist feature — and, per
+/// explicit product decision, the seat-availability counter too (see
+/// `SeatAvailabilityCard`/`showSeatCountEditorSheet`'s call sites in
+/// `my_venues_screen.dart`/`venue_profile_screen.dart`): the two
+/// operate on the same "live walk-in operations" logic, so they share
+/// this one list rather than each getting their own near-identical
+/// config doc. Read from `config/waitlistCategories.enabledCategories`
+/// (see `admin-panel/scripts/set-waitlist-categories.ts`), same
+/// config-doc pattern as `eventCategoryConfigProvider` (NOT the
+/// hardcoded `kBirthdayEligibleVenueCategories` style). Fails closed:
+/// any read error or missing/malformed doc resolves to an empty set.
 final waitlistCategoryConfigProvider = FutureProvider<Set<VenueCategory>>((ref) async {
   try {
     final snap = await FirebaseFirestore.instance.collection('config').doc('waitlistCategories').get();

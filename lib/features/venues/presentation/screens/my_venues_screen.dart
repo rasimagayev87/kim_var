@@ -127,6 +127,14 @@ class _MyVenueCard extends ConsumerWidget {
     if (!showWaitlistMenuItem) {
       showWaitlistMenuItem = await ref.read(waitlistRepositoryProvider).hasAnyEntry(venue.id);
     }
+
+    // Boş yer sayı shares the SAME eligibility list as the waitlist
+    // (explicit product decision — the two features are one "live
+    // walk-in operations" concept, see `waitlistCategoryConfigProvider`'s
+    // doc comment). Unlike Növbə/Tədbirlər above, there's deliberately
+    // no "existing history" carve-out here: an ineligible category
+    // hides this row outright, full stop.
+    final showSeatsMenuItem = eligibleWaitlistCategories.contains(venue.category);
     if (!context.mounted) return;
 
     final action = await showModalBottomSheet<_MyVenueCardAction>(
@@ -154,14 +162,15 @@ class _MyVenueCard extends ConsumerWidget {
               ),
               onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.edit),
             ),
-            ListTile(
-              leading: const Icon(Icons.event_seat_outlined, color: ChatLightColors.ink),
-              title: Text(
-                loc.seatsSheetTitle,
-                style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+            if (showSeatsMenuItem)
+              ListTile(
+                leading: const Icon(Icons.event_seat_outlined, color: ChatLightColors.ink),
+                title: Text(
+                  loc.seatsSheetTitle,
+                  style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+                ),
+                onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.seats),
               ),
-              onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.seats),
-            ),
             if (showWaitlistMenuItem)
               ListTile(
                 leading: const Icon(Icons.groups_outlined, color: ChatLightColors.ink),

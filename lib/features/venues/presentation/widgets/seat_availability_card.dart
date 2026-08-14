@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/relative_time_formatter.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../../../waitlist/presentation/providers/waitlist_providers.dart';
 import '../../domain/entities/venue.dart';
 
 /// Small live status card near the top of [VenueProfileScreen] —
@@ -14,21 +16,26 @@ import '../../domain/entities/venue.dart';
 /// when [Venue.availableSeats] is null (the owner has never turned
 /// this feature on) — a missing card reads correctly as "no seat info
 /// here," where a "0 seats" card would falsely imply the venue is full.
+/// Also hidden outright when the venue's category isn't eligible for
+/// this feature (see `waitlistCategoryConfigProvider`'s doc comment —
+/// shared with the waitlist, by explicit product decision), regardless
+/// of whether [Venue.availableSeats] happens to still be set from
+/// before that restriction existed.
 ///
 /// Reusable on purpose: takes a plain [Venue], not a provider — any
 /// screen already holding a live [Venue] (from `venueByIdProvider` or
 /// otherwise) can drop this in and it stays in sync for free, since
 /// the caller re-renders it whenever their own venue stream ticks.
-class SeatAvailabilityCard extends StatefulWidget {
+class SeatAvailabilityCard extends ConsumerStatefulWidget {
   final Venue venue;
 
   const SeatAvailabilityCard({super.key, required this.venue});
 
   @override
-  State<SeatAvailabilityCard> createState() => _SeatAvailabilityCardState();
+  ConsumerState<SeatAvailabilityCard> createState() => _SeatAvailabilityCardState();
 }
 
-class _SeatAvailabilityCardState extends State<SeatAvailabilityCard> {
+class _SeatAvailabilityCardState extends ConsumerState<SeatAvailabilityCard> {
   Timer? _ticker;
 
   @override
@@ -52,6 +59,9 @@ class _SeatAvailabilityCardState extends State<SeatAvailabilityCard> {
   Widget build(BuildContext context) {
     final level = widget.venue.seatAvailabilityLevel;
     if (level == null) return const SizedBox.shrink();
+
+    final eligibleCategories = ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
+    if (!eligibleCategories.contains(widget.venue.category)) return const SizedBox.shrink();
 
     final loc = AppLocalizations.of(context);
     final seats = widget.venue.availableSeats!;
