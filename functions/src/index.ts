@@ -1471,6 +1471,62 @@ export const expireStaleWaitlistCalls = onSchedule(
 );
 
 /**
+ * Force-disables `Venue.waitlistEnabled` the moment an owner edits a
+ * venue's `category` into one no longer allowed to run a waitlist (see
+ * `config/waitlistCategories.enabledCategories`, set via
+ * `admin-panel/scripts/set-waitlist-categories.ts`) — the client-side
+ * toggle in `VenueWaitlistScreen` already refuses to turn it back ON
+ * for an ineligible category, but a category CHANGE while it's already
+ * on needs this server-side sweep to turn it back off. Every currently
+ * `waiting` entry's user gets a `waitlistDisabled` notification
+ * recommending they contact the venue directly — their entry itself is
+ * left as `waiting` (not auto-cancelled), since the owner can still
+ * resolve it from their own Növbə screen, which stays reachable for a
+ * venue with waitlist history regardless of category eligibility.
+ */
+export const disableWaitlistOnIneligibleCategory = onDocumentUpdated("venues/{venueId}", async (event) => {
+  const before = event.data?.before.data();
+  const after = event.data?.after.data();
+  if (!before || !after) return;
+  if (before.category === after.category) return;
+  if (after.waitlistEnabled !== true) return;
+
+  const configSnap = await db.collection("config").doc("waitlistCategories").get();
+  const enabledCategories = (configSnap.data()?.enabledCategories as string[] | undefined) ?? [];
+  if (enabledCategories.includes(after.category as string)) return;
+
+  const venueId = event.params.venueId;
+  await db.collection("venues").doc(venueId).update({ waitlistEnabled: false });
+
+  const venueName = (after.name as string | undefined) ?? "";
+  const waitingSnap = await db
+    .collection("venues")
+    .doc(venueId)
+    .collection("waitlist")
+    .where("status", "==", "waiting")
+    .get();
+
+  await Promise.all(
+    waitingSnap.docs.map((doc) => {
+      const userId = doc.data().userId as string | undefined;
+      if (!userId) return Promise.resolve();
+      return notifyUser({
+        uid: userId,
+        category: "venueUpdates",
+        type: "waitlistDisabled",
+        title: "Növbə deaktiv edildi",
+        body: venueName
+          ? `${venueName} növbə funksiyasını söndürdü. Məkanla əlaqə saxlamağınızı tövsiyə edirik.`
+          : "Növbə funksiyası söndürüldü. Məkanla əlaqə saxlamağınızı tövsiyə edirik.",
+        params: { venueName },
+        targetId: venueId,
+        targetType: "venue",
+      });
+    })
+  );
+});
+
+/**
  * A `birthday` offer's approval fanout — every uid in
  * `Offer.targetUserIds` (the matched birthday users from
  * `computeBirthdayMatches`) gets its own push, NOT the radius-based

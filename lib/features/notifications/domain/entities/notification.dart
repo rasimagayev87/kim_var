@@ -68,6 +68,13 @@ enum NotificationType {
   /// position already renders on `VenueProfileScreen` itself.
   waitlistCalled,
 
+  /// The venue's waitlist got force-disabled while this user still had
+  /// a `waiting` entry — see `disableWaitlistOnIneligibleCategory`
+  /// (Cloud Function), which fires when an owner changes their venue's
+  /// category to one no longer allowed to run a waitlist. `targetType:
+  /// 'venue'`, same as `waitlistCalled`.
+  waitlistDisabled,
+
   /// A venue published a new event within this user's radius — see
   /// `notifyNearbyUsersOfNewEvent` (Cloud Function). `targetType:
   /// 'event'`, deep-links to `EventDetailsScreen(eventId: ...)`.

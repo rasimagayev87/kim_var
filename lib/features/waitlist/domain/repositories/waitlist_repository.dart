@@ -39,4 +39,11 @@ abstract class WaitlistRepository {
 
   /// Owner's "Növbəni aktivləşdir/söndür" toggle — see `Venue.waitlistEnabled`.
   Future<void> setWaitlistEnabled({required String venueId, required bool enabled});
+
+  /// One-shot existence check — whether this venue has EVER had any
+  /// waitlist entry, any status. Same reasoning as `VenueEventRepository
+  /// .hasAnyEvent`: keeps the "Növbə" menu entry reachable for a venue
+  /// whose category is no longer waitlist-eligible but still has
+  /// entries to resolve (see `waitlistCategoryConfigProvider`).
+  Future<bool> hasAnyEntry(String venueId);
 }

@@ -1,12 +1,31 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../data/repositories/firebase_waitlist_repository.dart';
 import '../../domain/entities/waitlist_entry.dart';
 import '../../domain/repositories/waitlist_repository.dart';
 
 final waitlistRepositoryProvider = Provider<WaitlistRepository>((ref) => FirebaseWaitlistRepository());
+
+/// Which venue categories may turn on the waitlist feature at all —
+/// read from `config/waitlistCategories.enabledCategories` (see
+/// `admin-panel/scripts/set-waitlist-categories.ts`), same config-doc
+/// pattern as `eventCategoryConfigProvider` (NOT the hardcoded
+/// `kBirthdayEligibleVenueCategories` style). Fails closed: any read
+/// error or missing/malformed doc resolves to an empty set.
+final waitlistCategoryConfigProvider = FutureProvider<Set<VenueCategory>>((ref) async {
+  try {
+    final snap = await FirebaseFirestore.instance.collection('config').doc('waitlistCategories').get();
+    final raw = (snap.data()?['enabledCategories'] as List?)?.cast<String>() ?? const [];
+    return raw.map((name) => VenueCategory.values.where((c) => c.name == name)).expand((it) => it).toSet();
+  } catch (e, st) {
+    logError('waitlist_providers.waitlistCategoryConfigProvider', e, st);
+    return const {};
+  }
+});
 
 /// The signed-in user's own active entry in [venueId]'s waitlist, if
 /// any — powers the live "sıra nömrəniz" display on `VenueProfileScreen`.

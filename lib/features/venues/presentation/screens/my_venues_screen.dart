@@ -7,6 +7,7 @@ import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../events/presentation/providers/venue_event_providers.dart';
 import '../../../events/presentation/screens/my_venue_events_screen.dart';
+import '../../../waitlist/presentation/providers/waitlist_providers.dart';
 import '../../../waitlist/presentation/screens/venue_waitlist_screen.dart';
 import '../../domain/entities/venue.dart';
 import '../../domain/venue_open_status.dart';
@@ -117,6 +118,15 @@ class _MyVenueCard extends ConsumerWidget {
     if (!showEventsMenuItem) {
       showEventsMenuItem = await ref.read(venueEventRepositoryProvider).hasAnyEvent(venue.id);
     }
+
+    // Same "eligible category OR existing history" rule as Tədbirlər
+    // above, for the waitlist feature — see
+    // `waitlistCategoryConfigProvider`'s doc comment.
+    final eligibleWaitlistCategories = await ref.read(waitlistCategoryConfigProvider.future);
+    var showWaitlistMenuItem = eligibleWaitlistCategories.contains(venue.category);
+    if (!showWaitlistMenuItem) {
+      showWaitlistMenuItem = await ref.read(waitlistRepositoryProvider).hasAnyEntry(venue.id);
+    }
     if (!context.mounted) return;
 
     final action = await showModalBottomSheet<_MyVenueCardAction>(
@@ -152,14 +162,15 @@ class _MyVenueCard extends ConsumerWidget {
               ),
               onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.seats),
             ),
-            ListTile(
-              leading: const Icon(Icons.groups_outlined, color: ChatLightColors.ink),
-              title: Text(
-                loc.waitlistSectionTitle,
-                style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+            if (showWaitlistMenuItem)
+              ListTile(
+                leading: const Icon(Icons.groups_outlined, color: ChatLightColors.ink),
+                title: Text(
+                  loc.waitlistSectionTitle,
+                  style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+                ),
+                onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.waitlist),
               ),
-              onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.waitlist),
-            ),
             if (showEventsMenuItem)
               ListTile(
                 leading: const Icon(Icons.celebration_outlined, color: ChatLightColors.ink),

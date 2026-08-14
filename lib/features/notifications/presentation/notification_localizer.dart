@@ -162,6 +162,13 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: venueName.isEmpty ? loc.notifWaitlistCalledBodyGeneric : loc.notifWaitlistCalledBody(venueName),
       );
 
+    case NotificationType.waitlistDisabled:
+      final venueName = str('venueName');
+      return LocalizedNotificationText(
+        title: loc.notifWaitlistDisabledTitle,
+        body: venueName.isEmpty ? loc.notifWaitlistDisabledBodyGeneric : loc.notifWaitlistDisabledBody(venueName),
+      );
+
     case NotificationType.venueEvent:
       final venueName = str('venueName');
       return LocalizedNotificationText(

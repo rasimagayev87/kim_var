@@ -87,6 +87,16 @@ class _EnabledToggleRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
+    final eligibleCategories = ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
+    // Reachable for a venue with existing entries even after its
+    // category stops being eligible (see MyVenuesScreen's menu-item
+    // gate) — but the toggle itself stays off and non-interactive in
+    // that case, since re-enabling would open the feature back up to
+    // an ineligible category. `disableVenueTooOldCategory` (Cloud
+    // Function) has already forced it false server-side by the time
+    // anyone could see this.
+    final canToggle = eligibleCategories.contains(venue.category);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
@@ -101,7 +111,7 @@ class _EnabledToggleRow extends ConsumerWidget {
           Switch(
             value: venue.waitlistEnabled,
             activeThumbColor: AppColors.primary,
-            onChanged: (value) => ref.read(waitlistControllerProvider).setEnabled(venueId: venue.id, enabled: value),
+            onChanged: canToggle ? (value) => ref.read(waitlistControllerProvider).setEnabled(venueId: venue.id, enabled: value) : null,
           ),
         ],
       ),

@@ -78,4 +78,10 @@ class FirebaseWaitlistRepository implements WaitlistRepository {
   Future<void> setWaitlistEnabled({required String venueId, required bool enabled}) {
     return _firestore.collection('venues').doc(venueId).update({'waitlistEnabled': enabled});
   }
+
+  @override
+  Future<bool> hasAnyEntry(String venueId) async {
+    final snap = await _waitlist(venueId).limit(1).get();
+    return snap.docs.isNotEmpty;
+  }
 }
