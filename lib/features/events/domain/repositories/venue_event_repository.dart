@@ -40,6 +40,14 @@ abstract class VenueEventRepository {
   /// published, any status, newest first.
   Stream<List<VenueEvent>> watchEventsByVenue(String venueId);
 
+  /// One-shot existence check — whether this venue has ever published
+  /// ANY event, regardless of status. Used only to decide whether the
+  /// "Tədbirlər" menu entry stays visible for a venue whose category
+  /// is no longer event-eligible (see `eventCategoryConfigProvider`'s
+  /// doc comment): a category change never hides EXISTING event
+  /// history, only blocks creating a new one.
+  Future<bool> hasAnyEvent(String venueId);
+
   /// One-shot (not realtime — a banner doesn't need millisecond-live
   /// updates, same reasoning as `fetchVenuesWithinRadius`) lookup of
   /// this venue's upcoming/live event happening today, if any — powers

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "bootstrap-admin": "tsx --env-file=.env.local scripts/bootstrap-admin.ts",
-    "set-legal-version": "tsx --env-file=.env.local scripts/set-legal-version.ts"
+    "set-legal-version": "tsx --env-file=.env.local scripts/set-legal-version.ts",
+    "set-event-categories": "tsx --env-file=.env.local scripts/set-event-categories.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

@@ -110,6 +110,12 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
   }
 
   @override
+  Future<bool> hasAnyEvent(String venueId) async {
+    final snap = await _events.where('venueId', isEqualTo: venueId).limit(1).get();
+    return snap.docs.isNotEmpty;
+  }
+
+  @override
   Future<VenueEvent?> fetchTodayEventForVenue(String venueId) async {
     final snap = await _events
         .where('venueId', isEqualTo: venueId)

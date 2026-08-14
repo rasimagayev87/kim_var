@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../../../events/presentation/providers/venue_event_providers.dart';
 import '../../../events/presentation/screens/my_venue_events_screen.dart';
 import '../../../waitlist/presentation/screens/venue_waitlist_screen.dart';
 import '../../domain/entities/venue.dart';
@@ -104,6 +105,20 @@ class _MyVenueCard extends ConsumerWidget {
 
   Future<void> _openMenu(BuildContext context, WidgetRef ref) async {
     final loc = AppLocalizations.of(context);
+
+    // "Tədbirlər" stays in the menu if either the venue's CURRENT
+    // category is event-eligible, or it already has event history to
+    // manage from a time when it was — a category change never hides
+    // past events, only closes off publishing new ones (see
+    // `eventCategoryConfigProvider`'s doc comment). Checked once here,
+    // on demand, rather than as an always-on listener per card.
+    final eligibleCategories = await ref.read(eventCategoryConfigProvider.future);
+    var showEventsMenuItem = eligibleCategories.contains(venue.category);
+    if (!showEventsMenuItem) {
+      showEventsMenuItem = await ref.read(venueEventRepositoryProvider).hasAnyEvent(venue.id);
+    }
+    if (!context.mounted) return;
+
     final action = await showModalBottomSheet<_MyVenueCardAction>(
       context: context,
       backgroundColor: Colors.white,
@@ -145,14 +160,15 @@ class _MyVenueCard extends ConsumerWidget {
               ),
               onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.waitlist),
             ),
-            ListTile(
-              leading: const Icon(Icons.celebration_outlined, color: ChatLightColors.ink),
-              title: Text(
-                loc.eventMyEventsTitle,
-                style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+            if (showEventsMenuItem)
+              ListTile(
+                leading: const Icon(Icons.celebration_outlined, color: ChatLightColors.ink),
+                title: Text(
+                  loc.eventMyEventsTitle,
+                  style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+                ),
+                onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.events),
               ),
-              onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.events),
-            ),
             ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,

@@ -1,15 +1,37 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../location/presentation/providers/location_providers.dart';
+import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../data/repositories/firebase_venue_event_repository.dart';
 import '../../domain/entities/venue_event.dart';
 import '../../domain/repositories/venue_event_repository.dart';
 
 final venueEventRepositoryProvider = Provider<VenueEventRepository>((ref) => FirebaseVenueEventRepository());
+
+/// Which venue categories may publish events at all — read from
+/// `config/eventCategories.enabledCategories` (see
+/// `admin-panel/scripts/set-event-categories.ts`), NOT a hardcoded Dart
+/// constant, so it can change without a client release (deliberately
+/// different from `kBirthdayEligibleVenueCategories`, which IS
+/// hardcoded — that one predates this config-doc pattern). Fails
+/// closed: any read error or a missing/malformed doc resolves to an
+/// empty set, so a config problem hides the create-event entry point
+/// rather than opening it to every category.
+final eventCategoryConfigProvider = FutureProvider<Set<VenueCategory>>((ref) async {
+  try {
+    final snap = await FirebaseFirestore.instance.collection('config').doc('eventCategories').get();
+    final raw = (snap.data()?['enabledCategories'] as List?)?.cast<String>() ?? const [];
+    return raw.map((name) => VenueCategory.values.where((c) => c.name == name)).expand((it) => it).toSet();
+  } catch (e, st) {
+    logError('venue_event_providers.eventCategoryConfigProvider', e, st);
+    return const {};
+  }
+});
 
 /// Realtime single-event lookup — backs `EventDetailsScreen`.
 final venueEventByIdProvider = StreamProvider.autoDispose.family<VenueEvent?, String>((ref, eventId) {
