@@ -1527,6 +1527,41 @@ export const disableWaitlistOnIneligibleCategory = onDocumentUpdated("venues/{ve
 });
 
 /**
+ * Links the waitlist and the seat counter: the moment an owner marks
+ * an entry "Gəldi" (`status` → `seated`), this decrements
+ * `Venue.availableSeats` by that entry's `partySize` — the owner
+ * otherwise has no way to keep the count honest without doing the
+ * subtraction themselves for every party seated from the queue. Only
+ * ever fires on the exact `called`→`seated` transition (guarded
+ * explicitly, on top of `onUpdate`'s own "only real changes" behavior,
+ * per the spec's own defense-in-depth ask), and no-ops entirely when
+ * `availableSeats` is null — a venue that never turned the counter on
+ * has nothing for this to touch. Clamped at 0, never negative, same
+ * "can't go below empty" reasoning as the manual stepper's own 0 floor.
+ * The count only ever goes back UP by the owner's own "+" tap — this
+ * function can't know when a physical table actually frees up.
+ */
+export const decrementSeatsOnWaitlistSeated = onDocumentUpdated(
+  "venues/{venueId}/waitlist/{entryId}",
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+    if (before.status === "seated" || after.status !== "seated") return;
+
+    const venueId = event.params.venueId;
+    const venueRef = db.collection("venues").doc(venueId);
+    const venueSnap = await venueRef.get();
+    const currentSeats = venueSnap.data()?.availableSeats as number | undefined;
+    if (currentSeats === undefined || currentSeats === null) return;
+
+    const partySize = (after.partySize as number | undefined) ?? 0;
+    const newSeats = Math.max(0, currentSeats - partySize);
+    await venueRef.update({ availableSeats: newSeats, seatsUpdatedAt: FieldValue.serverTimestamp() });
+  }
+);
+
+/**
  * A `birthday` offer's approval fanout — every uid in
  * `Offer.targetUserIds` (the matched birthday users from
  * `computeBirthdayMatches`) gets its own push, NOT the radius-based
