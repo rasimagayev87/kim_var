@@ -1,0 +1,171 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/utils/app_logger.dart';
+import '../../../location/presentation/providers/location_providers.dart';
+import '../../data/live_feed_service.dart';
+import '../../domain/entities/live_feed_item.dart';
+
+/// "Canlı" — a presentation-only aggregation of documents that already
+/// live in `venues`, `offers`, `venueEvents`, and a venue's own
+/// `activeCheckins` subcollection. No new Firestore collection exists
+/// for this feature, and [LiveFeedService] never writes anything —
+/// this whole module (`lib/features/live_feed/`) reads the exact same
+/// data Məkanlar/Təkliflər/Tədbirlər/Növbə already show elsewhere,
+/// just re-grouped by "what's happening right now nearby" instead of
+/// by module. Deleting this directory removes the entire feature with
+/// zero changes required anywhere else in the app.
+///
+/// Deliberately POLLING, not a set of realtime listeners: this tab
+/// would otherwise need five-plus concurrent `.snapshots()` streams
+/// per user (venues, offers, events, and one `activeCheckins` listener
+/// PER nearby venue) just to stay open — polling on a timer while the
+/// tab is actually visible, and stopping entirely once it isn't (see
+/// [LiveFeedController.stop], called from the screen's lifecycle
+/// hooks in the Faza 2 UI), keeps the steady-state read cost bounded
+/// regardless of how long someone leaves the tab open.
+final liveFeedServiceProvider = Provider<LiveFeedService>((ref) => LiveFeedService());
+
+/// Refresh cadence for everything except the audience section (Tədbir/
+/// Təklif/Boş yer/Doğum günü) — cheap, one geo-query each.
+const liveFeedPollInterval = Duration(seconds: 60);
+
+/// "Ətrafınızda" refreshes on its OWN, slower cadence — computing it
+/// costs up to 30 extra reads (one `activeCheckins` count per nearby
+/// venue, see `LiveFeedService.fetchAudienceItems`), by far the most
+/// expensive part of a poll cycle, while also being the section where
+/// a couple of minutes' staleness matters least (how many people are
+/// somewhere right now is a much softer number than "a new offer just
+/// went up"). Explicit product decision, not a default.
+const liveFeedAudiencePollInterval = Duration(seconds: 120);
+
+/// How far back an offer/upcoming-event still counts as "fresh" enough
+/// to show — audience/seat-availability cards aren't time-windowed
+/// this way (they reflect current state, not recent creation), see
+/// `LiveFeedService`'s per-section doc comments.
+const liveFeedFreshWindow = Duration(hours: 24);
+
+final liveFeedControllerProvider = StateNotifierProvider<LiveFeedController, AsyncValue<List<LiveFeedItem>>>((ref) {
+  return LiveFeedController(ref);
+});
+
+class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
+  LiveFeedController(this._ref) : super(const AsyncValue.loading());
+
+  final Ref _ref;
+  Timer? _fastTimer;
+  Timer? _audienceTimer;
+
+  List<LiveFeedVenueSnapshot> _lastVenues = [];
+  List<LiveFeedItem> _fastItems = [];
+  List<LiveFeedItem> _audienceItems = [];
+
+  /// Starts both poll cycles — call from the Canlı screen's
+  /// `initState`/`didChangeAppLifecycleState` (resumed), never from a
+  /// plain widget `build()`, so it doesn't restart the timers on every
+  /// rebuild. The very first audience fetch piggybacks on the first
+  /// fast-cycle fetch (reusing the venue list it just fetched) instead
+  /// of waiting up to [liveFeedAudiencePollInterval] for its own timer
+  /// to fire, so the tab doesn't open with "Ətrafınızda" empty for two
+  /// minutes.
+  void start() {
+    _fastTimer?.cancel();
+    _audienceTimer?.cancel();
+
+    unawaited(_runFastCycle(alsoRefreshAudience: true));
+    _fastTimer = Timer.periodic(liveFeedPollInterval, (_) => unawaited(_runFastCycle(alsoRefreshAudience: false)));
+    _audienceTimer = Timer.periodic(liveFeedAudiencePollInterval, (_) => unawaited(_runAudienceCycle()));
+  }
+
+  /// Cancels both poll timers — call this when the Canlı screen is
+  /// backgrounded/disposed. Doesn't clear [state]: the last-fetched
+  /// list stays visible (stale-but-present beats a blank screen) until
+  /// [start] is called again and a fresh fetch resolves.
+  void stop() {
+    _fastTimer?.cancel();
+    _audienceTimer?.cancel();
+    _fastTimer = null;
+    _audienceTimer = null;
+  }
+
+  ({double lat, double lng, double radiusKm})? _readLocationParams() {
+    final position = _ref.read(locationControllerProvider).valueOrNull;
+    if (position == null) return null;
+    final selection = _ref.read(selectedDiscoverModeProvider);
+    // Same "distance mode only" reasoning as `nearbyEventsProvider` —
+    // Canlı is inherently a "what's near me right this minute" tab, so
+    // Ölkə/Dünya radius modes (which have no real "nearby" concept)
+    // simply show nothing rather than something misleading.
+    if (selection.mode != DiscoverRadiusMode.distance || selection.km == null) return null;
+    return (lat: position.latitude, lng: position.longitude, radiusKm: selection.km!);
+  }
+
+  Future<void> _runFastCycle({required bool alsoRefreshAudience}) async {
+    final params = _readLocationParams();
+    if (params == null) {
+      _fastItems = [];
+      _emit();
+      return;
+    }
+
+    try {
+      final service = _ref.read(liveFeedServiceProvider);
+      final venues = await service.fetchVenueSnapshots(lat: params.lat, lng: params.lng, radiusKm: params.radiusKm);
+      _lastVenues = venues;
+      final categoryByVenueId = {for (final v in venues) v.id: v.category};
+
+      final seatItems = service.seatAvailableItemsFrom(venues);
+      final eventItems = await service.fetchEventItems(
+        lat: params.lat,
+        lng: params.lng,
+        radiusKm: params.radiusKm,
+        categoryByVenueId: categoryByVenueId,
+      );
+      final offerItems = await service.fetchOfferAndBirthdayItems(
+        lat: params.lat,
+        lng: params.lng,
+        radiusKm: params.radiusKm,
+        myUid: fb.FirebaseAuth.instance.currentUser?.uid,
+        freshWindow: liveFeedFreshWindow,
+      );
+
+      _fastItems = [...seatItems, ...eventItems, ...offerItems];
+      _emit();
+
+      if (alsoRefreshAudience) unawaited(_runAudienceCycle(venues: venues));
+    } catch (e, st) {
+      logError('live_feed_providers.runFastCycle', e, st);
+      if (mounted) state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> _runAudienceCycle({List<LiveFeedVenueSnapshot>? venues}) async {
+    final rows = venues ?? _lastVenues;
+    if (rows.isEmpty) return;
+
+    try {
+      _audienceItems = await _ref.read(liveFeedServiceProvider).fetchAudienceItems(rows);
+      _emit();
+    } catch (e, st) {
+      logError('live_feed_providers.runAudienceCycle', e, st);
+      // Non-fatal — the rest of the tab (events/offers/seats) still
+      // works, so this only skips updating "Ətrafınızda" this round
+      // rather than surfacing an error state for the whole screen.
+    }
+  }
+
+  void _emit() {
+    if (!mounted) return;
+    final merged = [..._fastItems, ..._audienceItems]..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    state = AsyncValue.data(merged);
+  }
+
+  @override
+  void dispose() {
+    _fastTimer?.cancel();
+    _audienceTimer?.cancel();
+    super.dispose();
+  }
+}

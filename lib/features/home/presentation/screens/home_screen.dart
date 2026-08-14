@@ -19,9 +19,9 @@ import '../../../settings/map_location/presentation/providers/map_location_provi
 import '../../../settings/notifications/presentation/providers/notification_providers.dart';
 import '../../../notifications/presentation/providers/notification_providers.dart' show notificationListControllerProvider;
 import '../../../notifications/presentation/screens/notifications_feed_screen.dart';
+import '../../../live_feed/presentation/screens/live_feed_screen.dart';
 import '../tabs/chats_tab.dart';
 import '../tabs/discover_tab.dart';
-import '../tabs/feed_tab.dart';
 import '../tabs/profile_tab.dart';
 
 /// Total height of the nav row (icon + label-height spacer + vertical
@@ -118,7 +118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
         children: [
           const DiscoverTab(),
           const ChatsTab(),
-          FeedTab(active: _index == 2),
+          LiveFeedScreen(active: _index == 2),
           const NotificationsFeedScreen(),
           const ProfileTab(),
         ],
@@ -166,7 +166,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
               items: [
                 _NavItemData(icon: Icons.explore_outlined, label: loc.navDiscoverLabel),
                 _NavItemData(icon: Icons.chat_bubble_outline, label: loc.navChatsLabel, badgeCount: unreadChatCount),
-                _NavItemData(icon: Icons.play_circle_outline, label: loc.navFeedLabel),
+                _NavItemData(icon: Icons.bolt_outlined, label: loc.navLiveLabel),
                 _NavItemData(
                   icon: Icons.notifications_outlined,
                   label: loc.navNotificationsLabel,
