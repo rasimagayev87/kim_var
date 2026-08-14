@@ -10,12 +10,20 @@ import '../providers/waitlist_providers.dart';
 import 'waitlist_join_sheet.dart';
 
 /// Non-owner "Sıraya yaz" section on `VenueProfileScreen` — a join
-/// button when [Venue.waitlistEnabled] and the viewer has no active
-/// entry yet, or their own live status (queue position / "called"
-/// banner / leave button) once they've joined. An existing entry
-/// always keeps showing even if the owner later disables new joins
-/// (`waitlistEnabled: false` only hides the join button, never affects
-/// people already in line — see `Venue.waitlistEnabled`'s doc comment).
+/// button when [Venue.waitlistEnabled], the venue's category is
+/// waitlist-eligible (see `waitlistCategoryConfigProvider`), and the
+/// viewer has no active entry yet, or their own live status (queue
+/// position / "called" banner / leave button) once they've joined. An
+/// existing entry always keeps showing regardless of either check —
+/// leaving mid-queue is the user's own call, not something a later
+/// category/config change should silently do for them.
+///
+/// The category check here is deliberate belt-and-suspenders on top of
+/// `disableWaitlistOnIneligibleCategory` (Cloud Function, which only
+/// forces `waitlistEnabled` off on a category CHANGE): a venue whose
+/// category was never eligible to begin with, or whose `waitlistEnabled`
+/// predates the category-restriction feature entirely, would otherwise
+/// still show this button since nothing ever touched that field for it.
 class WaitlistStatusSection extends ConsumerWidget {
   final Venue venue;
 
@@ -26,7 +34,8 @@ class WaitlistStatusSection extends ConsumerWidget {
     final entry = ref.watch(myWaitlistEntryProvider(venue.id)).valueOrNull;
 
     if (entry == null) {
-      if (!venue.waitlistEnabled) return const SizedBox.shrink();
+      final eligibleCategories = ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
+      if (!venue.waitlistEnabled || !eligibleCategories.contains(venue.category)) return const SizedBox.shrink();
       return _JoinButton(venueId: venue.id);
     }
 
