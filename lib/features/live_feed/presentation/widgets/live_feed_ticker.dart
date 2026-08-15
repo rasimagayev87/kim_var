@@ -10,10 +10,16 @@ import 'live_feed_palette.dart';
 /// the spec. Dependency-free: a plain [Ticker] nudging a
 /// [ScrollController] every frame, wrapping the content twice so the
 /// loop point isn't visible.
+///
+/// Mixed tappability: [LiveFeedType.audience] lines are read-only (no
+/// gesture, dimmer text, no chevron hint); every other type is
+/// tappable — tapping pauses the scroll, awaits [onOpenItem]'s
+/// navigation, then resumes once the pushed screen is popped.
 class LiveFeedTicker extends StatefulWidget {
   final List<LiveFeedItem> items;
+  final Future<void> Function(LiveFeedItem item) onOpenItem;
 
-  const LiveFeedTicker({super.key, required this.items});
+  const LiveFeedTicker({super.key, required this.items, required this.onOpenItem});
 
   @override
   State<LiveFeedTicker> createState() => _LiveFeedTickerState();
@@ -32,6 +38,13 @@ class _LiveFeedTickerState extends State<LiveFeedTicker> with SingleTickerProvid
   void initState() {
     super.initState();
     _ticker = createTicker(_onTick)..start();
+  }
+
+  Future<void> _handleItemTap(LiveFeedItem item) async {
+    if (item.type == LiveFeedType.audience) return;
+    _ticker.stop();
+    await widget.onOpenItem(item);
+    if (mounted) _ticker.start();
   }
 
   void _onTick(Duration elapsed) {
@@ -81,8 +94,8 @@ class _LiveFeedTickerState extends State<LiveFeedTicker> with SingleTickerProvid
         physics: const NeverScrollableScrollPhysics(),
         child: Row(
           children: [
-            _TickerLine(items: recent),
-            _TickerLine(items: recent),
+            _TickerLine(items: recent, onTapItem: _handleItemTap),
+            _TickerLine(items: recent, onTapItem: _handleItemTap),
           ],
         ),
       ),
@@ -92,8 +105,9 @@ class _LiveFeedTickerState extends State<LiveFeedTicker> with SingleTickerProvid
 
 class _TickerLine extends StatelessWidget {
   final List<LiveFeedItem> items;
+  final ValueChanged<LiveFeedItem> onTapItem;
 
-  const _TickerLine({required this.items});
+  const _TickerLine({required this.items, required this.onTapItem});
 
   @override
   Widget build(BuildContext context) {
@@ -105,13 +119,68 @@ class _TickerLine extends StatelessWidget {
           for (final item in items) ...[
             _TickerDot(venueId: item.venueId),
             const SizedBox(width: 8),
-            Text(
-              '${item.title} — ${item.subtitle}',
-              style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w500),
-            ),
+            _TickerItemContent(item: item, onTap: onTapItem),
             const SizedBox(width: 28),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// One "[title] — [subtitle]" segment. Audience items render as plain,
+/// dimmer, gesture-less text; every other type gets a small trailing
+/// chevron hint plus a light scale/opacity press feedback — the same
+/// visual cue [LiveFeedCard] uses, so a card and its ticker echo read
+/// as tappable or not for the same reason.
+class _TickerItemContent extends StatefulWidget {
+  final LiveFeedItem item;
+  final ValueChanged<LiveFeedItem> onTap;
+
+  const _TickerItemContent({required this.item, required this.onTap});
+
+  @override
+  State<_TickerItemContent> createState() => _TickerItemContentState();
+}
+
+class _TickerItemContentState extends State<_TickerItemContent> {
+  bool _pressed = false;
+
+  bool get _tappable => widget.item.type != LiveFeedType.audience;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      '${widget.item.title} — ${widget.item.subtitle}',
+      style: TextStyle(
+        color: _tappable ? Colors.white : Colors.white60,
+        fontSize: 12.5,
+        fontWeight: FontWeight.w500,
+      ),
+    );
+
+    if (!_tappable) return text;
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTap: () => widget.onTap(widget.item),
+      child: AnimatedScale(
+        scale: _pressed ? 0.96 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: AnimatedOpacity(
+          opacity: _pressed ? 0.6 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              text,
+              const SizedBox(width: 3),
+              const Icon(Icons.chevron_right_rounded, size: 13, color: Colors.white54),
+            ],
+          ),
+        ),
       ),
     );
   }

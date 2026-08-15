@@ -65,14 +65,18 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
     super.dispose();
   }
 
-  void _openItem(LiveFeedItem item) {
+  /// Awaitable so [LiveFeedTicker] can pause its scroll for the
+  /// duration of the pushed screen and resume once it's popped.
+  /// [LiveFeedType.audience] items never reach here — both
+  /// [LiveFeedCard] and the ticker refuse to wire a tap for them.
+  Future<void> _openItem(LiveFeedItem item) async {
     switch (item.targetType) {
       case 'venue':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => VenueProfileScreen(venueId: item.targetId)));
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => VenueProfileScreen(venueId: item.targetId)));
       case 'offer':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => OfferDetailsScreen(offerId: item.targetId)));
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => OfferDetailsScreen(offerId: item.targetId)));
       case 'event':
-        Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailsScreen(eventId: item.targetId)));
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailsScreen(eventId: item.targetId)));
     }
   }
 
@@ -101,7 +105,7 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
               ),
             ),
             itemsAsync.when(
-              data: (items) => LiveFeedTicker(items: items),
+              data: (items) => LiveFeedTicker(items: items, onOpenItem: _openItem),
               loading: () => const SizedBox.shrink(),
               error: (_, _) => const SizedBox.shrink(),
             ),

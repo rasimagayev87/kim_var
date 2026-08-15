@@ -28,11 +28,18 @@ IconData iconForLiveFeedType(LiveFeedType type) {
 /// closest existing named constants to the design spec's literal hex
 /// values — e.g. `AppColors.background` is 0xFFEEF1F4 against the
 /// spec's 0xFFF4F6F8, a one-character difference).
+///
+/// [LiveFeedType.audience] is purely informational — it isn't about
+/// any one venue's own page, so it has no tap target: no ripple, no
+/// trailing chevron. Every other type navigates to its underlying
+/// venue/offer/event, per the "Canlı" tab tap-behavior spec.
 class LiveFeedCard extends StatelessWidget {
   final LiveFeedItem item;
   final VoidCallback onTap;
 
   const LiveFeedCard({super.key, required this.item, required this.onTap});
+
+  bool get _isTappable => item.type != LiveFeedType.audience;
 
   @override
   Widget build(BuildContext context) {
@@ -44,7 +51,7 @@ class LiveFeedCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(22),
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
+        onTap: _isTappable ? onTap : null,
         child: Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
@@ -92,8 +99,10 @@ class LiveFeedCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary),
+              if (_isTappable) ...[
+                const SizedBox(width: 8),
+                const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary),
+              ],
             ],
           ),
         ),
