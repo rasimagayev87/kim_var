@@ -30,7 +30,18 @@ class FirebaseVenueRepository implements VenueRepository {
   /// LEOpay) is wired yet, so this is never actually charged. Real
   /// pricing arrives with that integration; until then this just gives
   /// the `payments/{paymentId}` doc a plausible `amount` to carry.
-  static const double _venueListingFeeAzn = 5.0;
+  ///
+  /// Flat 5 AZN for every category except the 3 added alongside "Fərdi
+  /// Prodakşn/Sənətçi" (37-39) — a deliberate, narrow exception, not
+  /// the start of a general per-category pricing system.
+  static double _venueListingFeeFor(VenueCategory category) {
+    return switch (category) {
+      VenueCategory.wineBar => 30.0,
+      VenueCategory.cleaningServices => 20.0,
+      VenueCategory.independentArtist => 30.0,
+      _ => 5.0,
+    };
+  }
 
   @override
   Future<String> createVenue({
@@ -63,7 +74,7 @@ class FirebaseVenueRepository implements VenueRepository {
       listingType: 'venue',
       listingId: venueId,
       type: 'venue_listing',
-      amount: _venueListingFeeAzn,
+      amount: _venueListingFeeFor(category),
     );
 
     await _datasource.setVenue(venueId, {
