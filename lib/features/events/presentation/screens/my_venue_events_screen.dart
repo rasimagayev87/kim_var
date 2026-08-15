@@ -84,9 +84,12 @@ class _MyVenueEventsScreenState extends ConsumerState<MyVenueEventsScreen> with 
           data: (events) => TabBarView(
             controller: _tabController,
             children: [
-              _EventList(events: events.where((e) => e.status == VenueEventStatus.upcoming).toList()),
-              _EventList(events: events.where((e) => e.status == VenueEventStatus.live).toList()),
-              _EventList(events: events.where((e) => e.status == VenueEventStatus.ended || e.status == VenueEventStatus.cancelled).toList()),
+              _EventList(venue: widget.venue, events: events.where((e) => e.status == VenueEventStatus.upcoming).toList()),
+              _EventList(venue: widget.venue, events: events.where((e) => e.status == VenueEventStatus.live).toList()),
+              _EventList(
+                venue: widget.venue,
+                events: events.where((e) => e.status == VenueEventStatus.ended || e.status == VenueEventStatus.cancelled).toList(),
+              ),
             ],
           ),
         ),
@@ -96,9 +99,10 @@ class _MyVenueEventsScreenState extends ConsumerState<MyVenueEventsScreen> with 
 }
 
 class _EventList extends StatelessWidget {
+  final Venue venue;
   final List<VenueEvent> events;
 
-  const _EventList({required this.events});
+  const _EventList({required this.venue, required this.events});
 
   @override
   Widget build(BuildContext context) {
@@ -110,15 +114,16 @@ class _EventList extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       itemCount: events.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) => _EventCard(event: events[index]),
+      itemBuilder: (context, index) => _EventCard(venue: venue, event: events[index]),
     );
   }
 }
 
 class _EventCard extends ConsumerWidget {
+  final Venue venue;
   final VenueEvent event;
 
-  const _EventCard({required this.event});
+  const _EventCard({required this.venue, required this.event});
 
   Future<void> _confirmCancel(BuildContext context, WidgetRef ref) async {
     final loc = AppLocalizations.of(context);
@@ -141,10 +146,16 @@ class _EventCard extends ConsumerWidget {
     await ref.read(venueEventControllerProvider).cancelEvent(event.id);
   }
 
+  void _openEdit(BuildContext context) {
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CreateEventScreen(venue: venue, existingEvent: event)));
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final canCancel = event.status == VenueEventStatus.upcoming || event.status == VenueEventStatus.live;
+    // Editing and cancelling share the same eligibility window — an
+    // ended/cancelled event is history, not something to change.
+    final canEdit = event.status == VenueEventStatus.upcoming || event.status == VenueEventStatus.live;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -173,11 +184,20 @@ class _EventCard extends ConsumerWidget {
                   '${event.startAt.day.toString().padLeft(2, '0')}.${event.startAt.month.toString().padLeft(2, '0')} · ${event.startAt.hour.toString().padLeft(2, '0')}:${event.startAt.minute.toString().padLeft(2, '0')}',
                   style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
                 ),
-                if (canCancel) ...[
+                if (canEdit) ...[
                   const SizedBox(height: 6),
-                  GestureDetector(
-                    onTap: () => _confirmCancel(context, ref),
-                    child: Text(loc.eventCancelButton, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.error)),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => _openEdit(context),
+                        child: Text(loc.eventEditButton, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                      ),
+                      const SizedBox(width: 16),
+                      GestureDetector(
+                        onTap: () => _confirmCancel(context, ref),
+                        child: Text(loc.eventCancelButton, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.error)),
+                      ),
+                    ],
                   ),
                 ],
               ],

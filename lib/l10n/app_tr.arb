@@ -342,6 +342,8 @@
   "eventEmptyListMessage": "Henüz etkinlik yok",
   "eventCancelButton": "İptal et",
   "eventCancelConfirmMessage": "Bu etkinliği iptal etmek istediğinizden emin misiniz?",
+  "eventEditButton": "Düzenle",
+  "eventEditTitle": "Etkinliği düzenle",
   "eventTodayBannerLabel": "Bu akşam: {title}",
   "eventBadgeLabel": "Etkinlik",
   "eventFilterAll": "Hepsi",

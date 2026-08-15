@@ -112,6 +112,38 @@ class VenueEventController {
     }
   }
 
+  /// Returns true on success (logged internally on failure) — matches
+  /// [cancelEvent]'s own contract.
+  Future<bool> updateEvent({
+    required String eventId,
+    required String title,
+    required String description,
+    File? coverImage,
+    required DateTime startAt,
+    required DateTime endAt,
+    required VenueEventCategory category,
+    ValueChanged<double>? onUploadProgress,
+    ValueChanged<VoidCallback>? onUploadTaskReady,
+  }) async {
+    try {
+      await _ref.read(venueEventRepositoryProvider).updateEvent(
+            eventId: eventId,
+            title: title,
+            description: description,
+            coverImage: coverImage,
+            startAt: startAt,
+            endAt: endAt,
+            category: category,
+            onUploadProgress: onUploadProgress,
+            onUploadTaskReady: onUploadTaskReady,
+          );
+      return true;
+    } catch (e, st) {
+      logError('venue_event_providers.updateEvent', e, st);
+      return false;
+    }
+  }
+
   Future<bool> reportEvent({required String eventId, required String reportedBy, required String reason}) async {
     try {
       await _ref.read(venueEventRepositoryProvider).reportEvent(eventId: eventId, reportedBy: reportedBy, reason: reason);

@@ -342,6 +342,8 @@
   "eventEmptyListMessage": "Hələ tədbir yoxdur",
   "eventCancelButton": "Ləğv et",
   "eventCancelConfirmMessage": "Tədbiri ləğv etmək istədiyinizə əminsiniz?",
+  "eventEditButton": "Düzəliş et",
+  "eventEditTitle": "Tədbiri redaktə et",
   "eventTodayBannerLabel": "Bu axşam: {title}",
   "eventBadgeLabel": "Tədbir",
   "eventFilterAll": "Hamısı",

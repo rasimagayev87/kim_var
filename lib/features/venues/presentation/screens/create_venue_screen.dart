@@ -36,7 +36,7 @@ class CreateVenueScreen extends ConsumerStatefulWidget {
   ConsumerState<CreateVenueScreen> createState() => _CreateVenueScreenState();
 }
 
-class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
+class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with WidgetsBindingObserver {
   late final _nameController = TextEditingController(
     text: widget.existingVenue?.name ?? '',
   );
@@ -88,12 +88,39 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
   VoidCallback? _cancelUpload;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _nameController.dispose();
     _whatsappController.dispose();
     _instagramController.dispose();
     _tiktokController.dispose();
     super.dispose();
+  }
+
+  // A known iOS gap (see image_picker's own docs: "This check should
+  // always be run ... to detect and handle this case"): the native
+  // camera UI is memory-heavy enough that the OS can reclaim the
+  // Flutter engine's state while it's on screen, silently losing the
+  // in-flight `pickImage()` call's result — the exact "tapped Use
+  // Photo, nothing happens" symptom. `retrieveLostData()` recovers
+  // whatever was captured once the app resumes; checked on resume
+  // (not just at cold start) since this screen usually stays mounted
+  // across that memory reclaim, it just loses the pending Future.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkLostPhoto();
+  }
+
+  Future<void> _checkLostPhoto() async {
+    final response = await ImagePicker().retrieveLostData();
+    if (response.isEmpty || response.file == null || !mounted) return;
+    await _cropAndSetPhoto(response.file!);
   }
 
   /// Trims each field and treats a blank result as "not provided" —
@@ -241,7 +268,11 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
       imageQuality: 85,
     );
     if (picked == null || !mounted) return;
+    await _cropAndSetPhoto(picked);
+  }
 
+  Future<void> _cropAndSetPhoto(XFile picked) async {
+    final loc = AppLocalizations.of(context);
     final cropped = await ImageCropper().cropImage(
       sourcePath: picked.path,
       maxWidth: 1600,
@@ -266,7 +297,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
     // A null result means the user cancelled the crop step — keep
     // whatever photo was already selected (or none) rather than
     // silently discarding a prior pick.
-    if (cropped != null) setState(() => _photo = File(cropped.path));
+    if (cropped != null && mounted) setState(() => _photo = File(cropped.path));
   }
 
   Future<void> _submit() async {

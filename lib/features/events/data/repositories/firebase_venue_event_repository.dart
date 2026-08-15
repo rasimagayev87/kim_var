@@ -82,6 +82,45 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
   }
 
   @override
+  Future<void> updateEvent({
+    required String eventId,
+    required String title,
+    required String description,
+    File? coverImage,
+    required DateTime startAt,
+    required DateTime endAt,
+    required VenueEventCategory category,
+    ValueChanged<double>? onUploadProgress,
+    ValueChanged<VoidCallback>? onUploadTaskReady,
+  }) async {
+    String? coverImageUrl;
+    if (coverImage != null) {
+      // Same path convention as create — reusing the event's own id
+      // means a re-upload just overwrites the old file, no separate
+      // delete step needed.
+      final storageRef = _storage.ref('event_covers/$eventId.jpg');
+      final task = storageRef.putFile(coverImage, SettableMetadata(contentType: 'image/jpeg'));
+      onUploadTaskReady?.call(task.cancel);
+      if (onUploadProgress != null) {
+        task.snapshotEvents.listen((snapshot) {
+          if (snapshot.totalBytes > 0) onUploadProgress(snapshot.bytesTransferred / snapshot.totalBytes);
+        });
+      }
+      await task;
+      coverImageUrl = await storageRef.getDownloadURL();
+    }
+
+    await _events.doc(eventId).update({
+      'title': title,
+      'description': description,
+      if (coverImageUrl != null) 'coverImageUrl': coverImageUrl,
+      'startAt': Timestamp.fromDate(startAt),
+      'endAt': Timestamp.fromDate(endAt),
+      'category': category.name,
+    });
+  }
+
+  @override
   Future<void> reportEvent({required String eventId, required String reportedBy, required String reason}) {
     return _firestore.collection('eventReports').add({
       'eventId': eventId,

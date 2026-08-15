@@ -22,30 +22,62 @@ const _kDescriptionMaxLength = 300;
 /// `notifyNearbyUsersOfNewEvent` Cloud Function fires immediately (see
 /// `VenueEvent`'s doc comment for why events skip the venue/offer
 /// moderation gate entirely).
+///
+/// When [existingEvent] is set, this is the SAME form reused for
+/// "Düzəliş et" (edit) instead — same fields, same validation, only
+/// [venue] identity/geo fields aren't editable (an event can't move to
+/// a different venue) and the submit path calls
+/// [VenueEventController.updateEvent] instead of `createEvent`. Only
+/// ever reachable for an `upcoming`/`live` event — see `_EventCard`'s
+/// own `canEdit` gate.
 class CreateEventScreen extends ConsumerStatefulWidget {
   final Venue venue;
+  final VenueEvent? existingEvent;
 
-  const CreateEventScreen({super.key, required this.venue});
+  const CreateEventScreen({super.key, required this.venue, this.existingEvent});
+
+  bool get _isEditing => existingEvent != null;
 
   @override
   ConsumerState<CreateEventScreen> createState() => _CreateEventScreenState();
 }
 
-class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
+class _CreateEventScreenState extends ConsumerState<CreateEventScreen> with WidgetsBindingObserver {
+  late final _titleController = TextEditingController(text: widget.existingEvent?.title ?? '');
+  late final _descriptionController = TextEditingController(text: widget.existingEvent?.description ?? '');
   File? _coverImage;
-  VenueEventCategory _category = VenueEventCategory.music;
-  DateTime? _startAt;
-  DateTime? _endAt;
+  late VenueEventCategory _category = widget.existingEvent?.category ?? VenueEventCategory.music;
+  late DateTime? _startAt = widget.existingEvent?.startAt;
+  late DateTime? _endAt = widget.existingEvent?.endAt;
   bool _submitting = false;
   double? _uploadProgress;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _titleController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  // See the identical comment in create_venue_screen.dart's own
+  // `didChangeAppLifecycleState` — same iOS camera-memory-reclaim gap,
+  // same recovery via image_picker's documented `retrieveLostData()`.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkLostCoverImage();
+  }
+
+  Future<void> _checkLostCoverImage() async {
+    final response = await ImagePicker().retrieveLostData();
+    if (response.isEmpty || response.file == null || !mounted) return;
+    await _cropAndSetCover(response.file!);
   }
 
   Future<void> _pickCoverImage() async {
@@ -79,7 +111,10 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
 
     final picked = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 85);
     if (picked == null || !mounted) return;
+    await _cropAndSetCover(picked);
+  }
 
+  Future<void> _cropAndSetCover(XFile picked) async {
     final cropped = await ImageCropper().cropImage(
       sourcePath: picked.path,
       maxWidth: 1600,
@@ -143,23 +178,38 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
     setState(() => _submitting = true);
     final loc = AppLocalizations.of(context);
 
-    final id = await ref.read(venueEventControllerProvider).createEvent(
-          venueId: widget.venue.id,
-          venueName: widget.venue.name,
-          venuePhotoUrl: widget.venue.photoUrl,
-          lat: widget.venue.lat,
-          lng: widget.venue.lng,
-          title: _titleController.text.trim(),
-          description: _descriptionController.text.trim(),
-          coverImage: _coverImage,
-          startAt: _startAt!,
-          endAt: _endAt!,
-          category: _category,
-          onUploadProgress: (p) => setState(() => _uploadProgress = p),
-        );
+    final bool ok;
+    if (widget._isEditing) {
+      ok = await ref.read(venueEventControllerProvider).updateEvent(
+            eventId: widget.existingEvent!.id,
+            title: _titleController.text.trim(),
+            description: _descriptionController.text.trim(),
+            coverImage: _coverImage,
+            startAt: _startAt!,
+            endAt: _endAt!,
+            category: _category,
+            onUploadProgress: (p) => setState(() => _uploadProgress = p),
+          );
+    } else {
+      final id = await ref.read(venueEventControllerProvider).createEvent(
+            venueId: widget.venue.id,
+            venueName: widget.venue.name,
+            venuePhotoUrl: widget.venue.photoUrl,
+            lat: widget.venue.lat,
+            lng: widget.venue.lng,
+            title: _titleController.text.trim(),
+            description: _descriptionController.text.trim(),
+            coverImage: _coverImage,
+            startAt: _startAt!,
+            endAt: _endAt!,
+            category: _category,
+            onUploadProgress: (p) => setState(() => _uploadProgress = p),
+          );
+      ok = id != null;
+    }
 
     if (!mounted) return;
-    if (id != null) {
+    if (ok) {
       Navigator.pop(context);
     } else {
       setState(() {
@@ -189,7 +239,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
           icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
         ),
         title: Text(
-          loc.eventCreateTitle,
+          widget._isEditing ? loc.eventEditTitle : loc.eventCreateTitle,
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
         ),
       ),
@@ -210,6 +260,8 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
                 clipBehavior: Clip.antiAlias,
                 child: _coverImage != null
                     ? Image.file(_coverImage!, fit: BoxFit.cover)
+                    : widget.existingEvent?.coverImageUrl != null
+                    ? Image.network(widget.existingEvent!.coverImageUrl!, fit: BoxFit.cover)
                     : Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -265,7 +317,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> {
               onPressed: (_canSubmit && !_submitting) ? _submit : null,
               child: _submitting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent))
-                  : Text(loc.eventPublishButton),
+                  : Text(widget._isEditing ? loc.venueSaveButton : loc.eventPublishButton),
             ),
           ],
         ),

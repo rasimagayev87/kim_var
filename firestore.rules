@@ -617,10 +617,19 @@ service cloud.firestore {
         request.auth.uid == get(/databases/$(database)/documents/venues/$(request.resource.data.venueId)).data.ownerId &&
         request.resource.data.status == 'upcoming';
 
+      // Two disjoint shapes: cancelling (status only, -> 'cancelled'),
+      // or editing content (title/description/cover/time/category)
+      // while the event hasn't ended/been cancelled yet — status
+      // itself is never touched by an edit, only `cancelEvent` sets it.
       allow update: if request.auth != null &&
         request.auth.uid == get(/databases/$(database)/documents/venues/$(resource.data.venueId)).data.ownerId &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
-        request.resource.data.status == 'cancelled';
+        (
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+            request.resource.data.status == 'cancelled') ||
+          (resource.data.status in ['upcoming', 'live'] &&
+            request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['title', 'description', 'coverImageUrl', 'startAt', 'endAt', 'category']))
+        );
 
       allow delete: if false;
     }

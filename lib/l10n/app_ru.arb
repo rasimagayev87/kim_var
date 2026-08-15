@@ -342,6 +342,8 @@
   "eventEmptyListMessage": "Пока нет мероприятий",
   "eventCancelButton": "Отменить",
   "eventCancelConfirmMessage": "Вы уверены, что хотите отменить это мероприятие?",
+  "eventEditButton": "Изменить",
+  "eventEditTitle": "Редактировать мероприятие",
   "eventTodayBannerLabel": "Сегодня вечером: {title}",
   "eventBadgeLabel": "Мероприятие",
   "eventFilterAll": "Все",

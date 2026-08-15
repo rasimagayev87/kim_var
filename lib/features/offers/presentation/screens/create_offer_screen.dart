@@ -77,7 +77,7 @@ class CreateOfferScreen extends ConsumerStatefulWidget {
   ConsumerState<CreateOfferScreen> createState() => _CreateOfferScreenState();
 }
 
-class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
+class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with WidgetsBindingObserver {
   late final _titleController = TextEditingController(text: widget.existingOffer?.title ?? '');
   late final _descriptionController = TextEditingController(text: widget.existingOffer?.description ?? '');
   late final _termsController = TextEditingController(text: widget.existingOffer?.terms ?? '');
@@ -144,6 +144,7 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final venueId = widget.preselectedVenueId;
     if (venueId != null) {
       ref.read(venueRepositoryProvider).watchVenue(venueId).first.then((venue) {
@@ -152,8 +153,23 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
     }
   }
 
+  // See the identical comment in create_venue_screen.dart's own
+  // `didChangeAppLifecycleState` — same iOS camera-memory-reclaim gap,
+  // same recovery via image_picker's documented `retrieveLostData()`.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkLostPhoto();
+  }
+
+  Future<void> _checkLostPhoto() async {
+    final response = await ImagePicker().retrieveLostData();
+    if (response.isEmpty || response.file == null || !mounted) return;
+    await _cropAndSetPhoto(response.file!);
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _titleController.dispose();
     _descriptionController.dispose();
     _termsController.dispose();
@@ -272,7 +288,11 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: source, maxWidth: 1600, imageQuality: 85);
     if (picked == null || !mounted) return;
+    await _cropAndSetPhoto(picked);
+  }
 
+  Future<void> _cropAndSetPhoto(XFile picked) async {
+    final loc = AppLocalizations.of(context);
     final cropped = await ImageCropper().cropImage(
       sourcePath: picked.path,
       maxWidth: 1600,
@@ -291,7 +311,7 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> {
         IOSUiSettings(title: loc.venuePhotoCropTitle, aspectRatioLockEnabled: false),
       ],
     );
-    if (cropped != null) setState(() => _photo = File(cropped.path));
+    if (cropped != null && mounted) setState(() => _photo = File(cropped.path));
   }
 
   double? get _resolvedDiscountValue {

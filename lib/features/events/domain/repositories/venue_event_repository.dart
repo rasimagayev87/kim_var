@@ -32,6 +32,24 @@ abstract class VenueEventRepository {
 
   Future<void> cancelEvent(String eventId);
 
+  /// Owner edit — only ever called while [VenueEvent.status] is
+  /// `upcoming` or `live` (enforced both in the UI and in
+  /// `firestore.rules`); [coverImage] null means "keep the existing
+  /// cover", never "clear it" — there's no way to remove a cover once
+  /// set, matching the create form's own "cover is optional but
+  /// sticky" behavior.
+  Future<void> updateEvent({
+    required String eventId,
+    required String title,
+    required String description,
+    File? coverImage,
+    required DateTime startAt,
+    required DateTime endAt,
+    required VenueEventCategory category,
+    ValueChanged<double>? onUploadProgress,
+    ValueChanged<VoidCallback>? onUploadTaskReady,
+  });
+
   /// Realtime single-event lookup — backs `EventDetailsScreen`, same
   /// reasoning as `venueByIdProvider`/`offerByIdProvider`.
   Stream<VenueEvent?> watchEvent(String eventId);

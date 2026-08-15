@@ -1836,12 +1836,19 @@ export const notifyNearbyUsersOfNewEvent = onDocumentCreated("venueEvents/{event
 /**
  * Drives `VenueEvent.status`'s fully automatic `upcoming` → `live` →
  * `ended` lifecycle off [VenueEvent.startAt]/[endAt] — the owner never
- * sets these directly (see the entity's doc comment). 15-minute
- * cadence trades a little boundary precision for not running two
- * collection scans every minute.
+ * sets these directly (see the entity's doc comment).
+ *
+ * Was "every 15 minutes" — too coarse: a short event (its own
+ * `endAt` less than 15 minutes after `startAt`) could satisfy BOTH
+ * the upcoming->live and live->ended queries in the SAME run (the
+ * second query runs right after the first commits), skipping
+ * straight from `upcoming` to `ended` with no client ever observing
+ * `live` in between. 1-minute cadence keeps the two scans small (this
+ * app's event volume is nowhere near a scale where that matters) and
+ * bounds the skip-through window to events shorter than a minute.
  */
 export const advanceVenueEventStatuses = onSchedule(
-  { schedule: "every 15 minutes", region: "europe-west1" },
+  { schedule: "every 1 minutes", region: "europe-west1" },
   async () => {
     const now = Timestamp.now();
 
