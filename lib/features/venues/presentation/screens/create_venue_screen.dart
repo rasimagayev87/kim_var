@@ -162,14 +162,6 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
         if (!_isEditing) {
           _birthdayNotificationsEnabled = kBirthdayEligibleVenueCategories.contains(selected);
         }
-        // Same "reset on category change, only while creating" rule as
-        // birthday notifications above — a category that just lost
-        // eligibility shouldn't silently keep a country/world choice
-        // made under a different category.
-        if (!kExpandedVisibilityRadiusCategories.contains(selected) &&
-            _audienceRadius.mode != DiscoverRadiusMode.distance) {
-          _audienceRadius = const DiscoverRadiusSelection.distance(1.0);
-        }
       });
     }
   }
@@ -515,33 +507,30 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> {
                   controller: _tiktokController,
                   hint: loc.venueTiktokHint,
                 ),
-                if (_category != null &&
-                    kExpandedVisibilityRadiusCategories.contains(_category)) ...[
-                  const SizedBox(height: AppSpacing.xxl),
-                  Text(
-                    loc.venueAudienceRadiusSectionLabel,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: ChatLightColors.ink,
-                    ),
+                const SizedBox(height: AppSpacing.xxl),
+                Text(
+                  loc.venueAudienceRadiusSectionLabel,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: ChatLightColors.ink,
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    loc.venueAudienceRadiusHint,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: ChatLightColors.inkSoft,
-                    ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  loc.venueAudienceRadiusHint,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: ChatLightColors.inkSoft,
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  _AudienceRadiusSelector(
-                    value: _audienceRadius,
-                    country: _country,
-                    onChanged: (selection) =>
-                        setState(() => _audienceRadius = selection),
-                  ),
-                ],
+                ),
+                const SizedBox(height: AppSpacing.md),
+                _AudienceRadiusSelector(
+                  value: _audienceRadius,
+                  country: _country,
+                  onChanged: (selection) =>
+                      setState(() => _audienceRadius = selection),
+                ),
                 if (_category != null &&
                     kBirthdayEligibleVenueCategories.contains(_category)) ...[
                   const SizedBox(height: AppSpacing.xxl),

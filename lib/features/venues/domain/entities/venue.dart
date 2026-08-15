@@ -56,33 +56,14 @@ enum VenueCategory {
   applianceRepair,
   tutoringCenter,
   // 37-39, same "appended as its own block" convention as the 25-36
-  // batch above. [independentArtist] is the odd one out — see its own
-  // doc comment on [kExpandedVisibilityRadiusCategories] below for why
-  // it's the one category with a broadcast-radius/venue-follow feature
-  // no other category has.
+  // batch above. [independentArtist] is the odd one out — the one
+  // category with its own venue-level "İzlə" (follow) feature, see
+  // `_VenueFollowButton` in venue_profile_screen.dart.
   wineBar,
   cleaningServices,
   independentArtist,
   other,
 }
-
-/// Categories allowed to configure [Venue.audienceRadiusMode] beyond
-/// its `distance` default — i.e. broadcast themselves at country/world
-/// scope in Discover/Canlı, not just to nearby users. Today that's
-/// [VenueCategory.independentArtist] alone ("Fərdi Prodakşn/Sənətçi":
-/// stand-up comedians, solo performers, touring acts — audiences that
-/// are geographically scattered by nature, unlike a fixed-address
-/// venue). Reuses the existing `audienceRadiusMode`/`audienceRadiusKm`
-/// fields (already on every venue, already driving notification
-/// fan-out radius — see `notifyNearbyUsersOfNewOffer`/`...Event` in
-/// functions/src/index.ts) rather than adding a second, parallel
-/// radius field; this set is what restricts editing it to just this
-/// one category in `CreateVenueScreen`, and what the Discover/Canlı
-/// AND-formula checks before applying the stricter viewer-radius rule
-/// (see `nearbyVenuesProvider`'s own doc comment).
-const kExpandedVisibilityRadiusCategories = <VenueCategory>{
-  VenueCategory.independentArtist,
-};
 
 /// Categories the birthday-offer matching Cloud Function
 /// (`computeBirthdayMatches` in `functions/src/index.ts`) considers by
