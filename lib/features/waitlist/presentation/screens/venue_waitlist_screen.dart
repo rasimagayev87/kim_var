@@ -159,6 +159,23 @@ class _WaitlistEntryCard extends ConsumerWidget {
                       '${loc.waitlistPartySizeLabel(entry.partySize)} · ${isCalled ? loc.waitlistCalledStatusLabel : loc.waitlistWaitingSinceLabel(waitedMinutes)}',
                       style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
                     ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(Icons.phone_outlined, size: 13, color: ChatLightColors.inkSoft),
+                        const SizedBox(width: 4),
+                        Text(entry.phoneNumber, style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft)),
+                      ],
+                    ),
+                    if ((entry.note ?? '').isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        entry.note!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft, fontStyle: FontStyle.italic),
+                      ),
+                    ],
                   ],
                 ),
               ),

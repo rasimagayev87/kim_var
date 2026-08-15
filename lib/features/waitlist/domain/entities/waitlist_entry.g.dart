@@ -12,6 +12,8 @@ _$WaitlistEntryImpl _$$WaitlistEntryImplFromJson(Map<String, dynamic> json) =>
       venueId: json['venueId'] as String,
       userId: json['userId'] as String,
       partySize: (json['partySize'] as num).toInt(),
+      phoneNumber: json['phoneNumber'] as String,
+      note: json['note'] as String?,
       status: json['status'] == null
           ? WaitlistEntryStatus.waiting
           : const WaitlistEntryStatusConverter().fromJson(
@@ -28,6 +30,8 @@ Map<String, dynamic> _$$WaitlistEntryImplToJson(_$WaitlistEntryImpl instance) =>
       'venueId': instance.venueId,
       'userId': instance.userId,
       'partySize': instance.partySize,
+      'phoneNumber': instance.phoneNumber,
+      'note': instance.note,
       'status': const WaitlistEntryStatusConverter().toJson(instance.status),
       'joinedAt': const TimestampConverter().toJson(instance.joinedAt),
       'calledAt': const NullableTimestampConverter().toJson(instance.calledAt),

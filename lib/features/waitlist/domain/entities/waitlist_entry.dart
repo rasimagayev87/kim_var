@@ -36,6 +36,17 @@ class WaitlistEntry with _$WaitlistEntry {
     required String venueId,
     required String userId,
     required int partySize,
+
+    /// E.164 (e.g. `+994501234567`) — collected so the venue can call
+    /// about the queue; never shown to anyone but the venue's own
+    /// owner and the entry's own creator (see `firestore.rules`, same
+    /// read gate every other field on this doc already has).
+    required String phoneNumber,
+
+    /// Free-text, optional — absent (not empty string) when not
+    /// provided, same "omit rather than store blank" convention as
+    /// `Venue.country`/`VenueSocialLinks` fields elsewhere.
+    String? note,
     @WaitlistEntryStatusConverter() @Default(WaitlistEntryStatus.waiting) WaitlistEntryStatus status,
     @TimestampConverter() required DateTime joinedAt,
     @NullableTimestampConverter() DateTime? calledAt,

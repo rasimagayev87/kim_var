@@ -50,11 +50,22 @@ class WaitlistController {
 
   final Ref _ref;
 
-  Future<bool> join({required String venueId, required int partySize}) async {
+  Future<bool> join({
+    required String venueId,
+    required int partySize,
+    required String phoneNumber,
+    String? note,
+  }) async {
     final uid = fb.FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return false;
     try {
-      await _ref.read(waitlistRepositoryProvider).joinWaitlist(venueId: venueId, userId: uid, partySize: partySize);
+      await _ref.read(waitlistRepositoryProvider).joinWaitlist(
+            venueId: venueId,
+            userId: uid,
+            partySize: partySize,
+            phoneNumber: phoneNumber,
+            note: note,
+          );
       return true;
     } catch (e, st) {
       logError('waitlist_providers.join', e, st);

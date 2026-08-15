@@ -8,6 +8,8 @@ abstract class WaitlistRepository {
     required String venueId,
     required String userId,
     required int partySize,
+    required String phoneNumber,
+    String? note,
   });
 
   /// The signed-in user's own still-active (waiting or called) entry

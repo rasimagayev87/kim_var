@@ -25,6 +25,17 @@ mixin _$WaitlistEntry {
   String get venueId => throw _privateConstructorUsedError;
   String get userId => throw _privateConstructorUsedError;
   int get partySize => throw _privateConstructorUsedError;
+
+  /// E.164 (e.g. `+994501234567`) — collected so the venue can call
+  /// about the queue; never shown to anyone but the venue's own
+  /// owner and the entry's own creator (see `firestore.rules`, same
+  /// read gate every other field on this doc already has).
+  String get phoneNumber => throw _privateConstructorUsedError;
+
+  /// Free-text, optional — absent (not empty string) when not
+  /// provided, same "omit rather than store blank" convention as
+  /// `Venue.country`/`VenueSocialLinks` fields elsewhere.
+  String? get note => throw _privateConstructorUsedError;
   @WaitlistEntryStatusConverter()
   WaitlistEntryStatus get status => throw _privateConstructorUsedError;
   @TimestampConverter()
@@ -59,6 +70,8 @@ abstract class $WaitlistEntryCopyWith<$Res> {
     String venueId,
     String userId,
     int partySize,
+    String phoneNumber,
+    String? note,
     @WaitlistEntryStatusConverter() WaitlistEntryStatus status,
     @TimestampConverter() DateTime joinedAt,
     @NullableTimestampConverter() DateTime? calledAt,
@@ -85,6 +98,8 @@ class _$WaitlistEntryCopyWithImpl<$Res, $Val extends WaitlistEntry>
     Object? venueId = null,
     Object? userId = null,
     Object? partySize = null,
+    Object? phoneNumber = null,
+    Object? note = freezed,
     Object? status = null,
     Object? joinedAt = null,
     Object? calledAt = freezed,
@@ -108,6 +123,14 @@ class _$WaitlistEntryCopyWithImpl<$Res, $Val extends WaitlistEntry>
                 ? _value.partySize
                 : partySize // ignore: cast_nullable_to_non_nullable
                       as int,
+            phoneNumber: null == phoneNumber
+                ? _value.phoneNumber
+                : phoneNumber // ignore: cast_nullable_to_non_nullable
+                      as String,
+            note: freezed == note
+                ? _value.note
+                : note // ignore: cast_nullable_to_non_nullable
+                      as String?,
             status: null == status
                 ? _value.status
                 : status // ignore: cast_nullable_to_non_nullable
@@ -144,6 +167,8 @@ abstract class _$$WaitlistEntryImplCopyWith<$Res>
     String venueId,
     String userId,
     int partySize,
+    String phoneNumber,
+    String? note,
     @WaitlistEntryStatusConverter() WaitlistEntryStatus status,
     @TimestampConverter() DateTime joinedAt,
     @NullableTimestampConverter() DateTime? calledAt,
@@ -169,6 +194,8 @@ class __$$WaitlistEntryImplCopyWithImpl<$Res>
     Object? venueId = null,
     Object? userId = null,
     Object? partySize = null,
+    Object? phoneNumber = null,
+    Object? note = freezed,
     Object? status = null,
     Object? joinedAt = null,
     Object? calledAt = freezed,
@@ -192,6 +219,14 @@ class __$$WaitlistEntryImplCopyWithImpl<$Res>
             ? _value.partySize
             : partySize // ignore: cast_nullable_to_non_nullable
                   as int,
+        phoneNumber: null == phoneNumber
+            ? _value.phoneNumber
+            : phoneNumber // ignore: cast_nullable_to_non_nullable
+                  as String,
+        note: freezed == note
+            ? _value.note
+            : note // ignore: cast_nullable_to_non_nullable
+                  as String?,
         status: null == status
             ? _value.status
             : status // ignore: cast_nullable_to_non_nullable
@@ -221,6 +256,8 @@ class _$WaitlistEntryImpl extends _WaitlistEntry {
     required this.venueId,
     required this.userId,
     required this.partySize,
+    required this.phoneNumber,
+    this.note,
     @WaitlistEntryStatusConverter() this.status = WaitlistEntryStatus.waiting,
     @TimestampConverter() required this.joinedAt,
     @NullableTimestampConverter() this.calledAt,
@@ -238,6 +275,19 @@ class _$WaitlistEntryImpl extends _WaitlistEntry {
   final String userId;
   @override
   final int partySize;
+
+  /// E.164 (e.g. `+994501234567`) — collected so the venue can call
+  /// about the queue; never shown to anyone but the venue's own
+  /// owner and the entry's own creator (see `firestore.rules`, same
+  /// read gate every other field on this doc already has).
+  @override
+  final String phoneNumber;
+
+  /// Free-text, optional — absent (not empty string) when not
+  /// provided, same "omit rather than store blank" convention as
+  /// `Venue.country`/`VenueSocialLinks` fields elsewhere.
+  @override
+  final String? note;
   @override
   @JsonKey()
   @WaitlistEntryStatusConverter()
@@ -257,7 +307,7 @@ class _$WaitlistEntryImpl extends _WaitlistEntry {
 
   @override
   String toString() {
-    return 'WaitlistEntry(id: $id, venueId: $venueId, userId: $userId, partySize: $partySize, status: $status, joinedAt: $joinedAt, calledAt: $calledAt, queuePosition: $queuePosition)';
+    return 'WaitlistEntry(id: $id, venueId: $venueId, userId: $userId, partySize: $partySize, phoneNumber: $phoneNumber, note: $note, status: $status, joinedAt: $joinedAt, calledAt: $calledAt, queuePosition: $queuePosition)';
   }
 
   @override
@@ -270,6 +320,9 @@ class _$WaitlistEntryImpl extends _WaitlistEntry {
             (identical(other.userId, userId) || other.userId == userId) &&
             (identical(other.partySize, partySize) ||
                 other.partySize == partySize) &&
+            (identical(other.phoneNumber, phoneNumber) ||
+                other.phoneNumber == phoneNumber) &&
+            (identical(other.note, note) || other.note == note) &&
             (identical(other.status, status) || other.status == status) &&
             (identical(other.joinedAt, joinedAt) ||
                 other.joinedAt == joinedAt) &&
@@ -287,6 +340,8 @@ class _$WaitlistEntryImpl extends _WaitlistEntry {
     venueId,
     userId,
     partySize,
+    phoneNumber,
+    note,
     status,
     joinedAt,
     calledAt,
@@ -313,6 +368,8 @@ abstract class _WaitlistEntry extends WaitlistEntry {
     required final String venueId,
     required final String userId,
     required final int partySize,
+    required final String phoneNumber,
+    final String? note,
     @WaitlistEntryStatusConverter() final WaitlistEntryStatus status,
     @TimestampConverter() required final DateTime joinedAt,
     @NullableTimestampConverter() final DateTime? calledAt,
@@ -331,6 +388,19 @@ abstract class _WaitlistEntry extends WaitlistEntry {
   String get userId;
   @override
   int get partySize;
+
+  /// E.164 (e.g. `+994501234567`) — collected so the venue can call
+  /// about the queue; never shown to anyone but the venue's own
+  /// owner and the entry's own creator (see `firestore.rules`, same
+  /// read gate every other field on this doc already has).
+  @override
+  String get phoneNumber;
+
+  /// Free-text, optional — absent (not empty string) when not
+  /// provided, same "omit rather than store blank" convention as
+  /// `Venue.country`/`VenueSocialLinks` fields elsewhere.
+  @override
+  String? get note;
   @override
   @WaitlistEntryStatusConverter()
   WaitlistEntryStatus get status;

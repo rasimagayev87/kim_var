@@ -512,6 +512,9 @@ service cloud.firestore {
         request.resource.data.status == 'waiting' &&
         request.resource.data.partySize is int &&
         request.resource.data.partySize >= 1 && request.resource.data.partySize <= 10 &&
+        request.resource.data.phoneNumber is string &&
+        request.resource.data.phoneNumber.size() > 0 &&
+        (!('note' in request.resource.data) || request.resource.data.note is string) &&
         !('queuePosition' in request.resource.data) &&
         !('calledAt' in request.resource.data);
 

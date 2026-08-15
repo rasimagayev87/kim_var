@@ -13,10 +13,18 @@ class FirebaseWaitlistRepository implements WaitlistRepository {
   }
 
   @override
-  Future<String> joinWaitlist({required String venueId, required String userId, required int partySize}) async {
+  Future<String> joinWaitlist({
+    required String venueId,
+    required String userId,
+    required int partySize,
+    required String phoneNumber,
+    String? note,
+  }) async {
     final ref = await _waitlist(venueId).add({
       'userId': userId,
       'partySize': partySize,
+      'phoneNumber': phoneNumber,
+      if (note != null) 'note': note,
       'status': WaitlistEntryStatus.waiting.name,
       'joinedAt': FieldValue.serverTimestamp(),
     });
