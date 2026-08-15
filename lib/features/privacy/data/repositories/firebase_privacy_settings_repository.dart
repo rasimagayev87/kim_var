@@ -32,6 +32,7 @@ class FirebasePrivacySettingsRepository implements PrivacySettingsRepository {
     final radiusMode = _radiusModeFrom(data['visibilityRadiusMode'] as String?);
     return PrivacySettings(
       profileVisibility: _visibilityFrom(data['profileVisibility'] as String?),
+      accountPrivacy: _accountPrivacyFrom(data['accountPrivacy'] as String?),
       visibilityRadiusMode: radiusMode,
       visibilityRadiusKm:
           radiusMode == VisibilityRadiusMode.distance ? (data['visibilityRadiusKm'] as num?)?.toDouble() ?? 1.0 : null,
@@ -46,6 +47,10 @@ class FirebasePrivacySettingsRepository implements PrivacySettingsRepository {
 
   ProfileVisibility _visibilityFrom(String? value) {
     return ProfileVisibility.values.firstWhere((v) => v.name == value, orElse: () => ProfileVisibility.everyone);
+  }
+
+  AccountPrivacy _accountPrivacyFrom(String? value) {
+    return AccountPrivacy.values.firstWhere((v) => v.name == value, orElse: () => AccountPrivacy.public);
   }
 
   VisibilityRadiusMode _radiusModeFrom(String? value) {

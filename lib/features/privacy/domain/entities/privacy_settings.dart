@@ -9,6 +9,12 @@
 /// `follow_providers.dart`) — either direction counts (the viewer
 /// follows the owner, or the owner follows the viewer), not just
 /// "owner's followers" in the strict one-way sense.
+///
+/// Superseded by [AccountPrivacy] — the "Media görünürlüyü" settings
+/// row that wrote this field is gone as of that feature's FAZA 2, and
+/// its FAZA 3 rewires `UserProfileScreen`'s media gate to
+/// [AccountPrivacy] instead. This field/enum stays only so existing
+/// Firestore data isn't orphaned; nothing new reads or writes it.
 enum ProfileVisibility { everyone, followersOnly, noOne }
 
 /// `followersOnly` is enforced the same way as [ProfileVisibility]'s own
@@ -18,6 +24,17 @@ enum ProfileVisibility { everyone, followersOnly, noOne }
 /// (see `_sendMessage`'s `!chatExistsAlready` branch — an already-
 /// accepted conversation is never retroactively blocked).
 enum WhoCanMessageMe { everyone, followersOnly }
+
+/// Account-level privacy — replaces [ProfileVisibility] as the single
+/// gate for "can another user see this account's media, follow/
+/// follower lists, and avatar tap actions" (see `UserProfileScreen`'s
+/// FAZA 3 gating). `private` also switches the follow flow from an
+/// instant follow to a request/approve one (see the follow feature's
+/// own FAZA 4 doc comments) and becomes the default visibility for new
+/// stories (FAZA 5) — this single field now covers what
+/// [ProfileVisibility]'s `followersOnly`/`noOne` and each story's own
+/// `visibility` field used to handle separately.
+enum AccountPrivacy { public, private }
 
 /// Which of the 3 "Görünmə radiusu" modes is active — mirrors
 /// `DiscoverRadiusMode` in `location_providers.dart` (distance ring,
@@ -32,6 +49,12 @@ enum VisibilityRadiusMode { distance, country, world }
 /// fields already written there), not a separate collection.
 class PrivacySettings {
   final ProfileVisibility profileVisibility;
+
+  /// See [AccountPrivacy]'s own doc comment. Defaults `public` for
+  /// every existing account (migration decision — nobody switches to
+  /// `private` behavior without explicitly opting in from the new
+  /// "Hesab gizliliyi" row).
+  final AccountPrivacy accountPrivacy;
 
   /// Which radius mode other users can see this user from — reuses the
   /// same breakpoints/gating as Discover's own search radius
@@ -73,6 +96,7 @@ class PrivacySettings {
 
   const PrivacySettings({
     this.profileVisibility = ProfileVisibility.everyone,
+    this.accountPrivacy = AccountPrivacy.public,
     this.visibilityRadiusMode = VisibilityRadiusMode.distance,
     this.visibilityRadiusKm = 1.0,
     this.showOnlineStatus = true,
@@ -85,6 +109,7 @@ class PrivacySettings {
 
   PrivacySettings copyWith({
     ProfileVisibility? profileVisibility,
+    AccountPrivacy? accountPrivacy,
     VisibilityRadiusMode? visibilityRadiusMode,
     double? visibilityRadiusKm,
     bool clearRadiusKm = false,
@@ -97,6 +122,7 @@ class PrivacySettings {
   }) {
     return PrivacySettings(
       profileVisibility: profileVisibility ?? this.profileVisibility,
+      accountPrivacy: accountPrivacy ?? this.accountPrivacy,
       visibilityRadiusMode: visibilityRadiusMode ?? this.visibilityRadiusMode,
       visibilityRadiusKm: clearRadiusKm ? null : (visibilityRadiusKm ?? this.visibilityRadiusKm),
       showOnlineStatus: showOnlineStatus ?? this.showOnlineStatus,

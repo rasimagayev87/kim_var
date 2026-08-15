@@ -12,6 +12,7 @@ import '../../domain/repositories/device_session_repository.dart';
 import '../../domain/repositories/privacy_settings_repository.dart';
 import '../../domain/usecases/delete_account_usecase.dart';
 import '../../domain/usecases/export_user_data_usecase.dart';
+import '../../domain/usecases/update_account_privacy_usecase.dart';
 import '../../domain/usecases/update_birthday_offers_opt_in_usecase.dart';
 import '../../domain/usecases/update_ghost_mode_usecase.dart';
 import '../../domain/usecases/update_profile_visibility_usecase.dart';
@@ -27,6 +28,10 @@ final privacySettingsRepositoryProvider = Provider<PrivacySettingsRepository>((r
 
 final updateProfileVisibilityUseCaseProvider = Provider<UpdateProfileVisibilityUseCase>((ref) {
   return UpdateProfileVisibilityUseCase(ref.watch(privacySettingsRepositoryProvider));
+});
+
+final updateAccountPrivacyUseCaseProvider = Provider<UpdateAccountPrivacyUseCase>((ref) {
+  return UpdateAccountPrivacyUseCase(ref.watch(privacySettingsRepositoryProvider));
 });
 
 final updateVisibilityRadiusUseCaseProvider = Provider<UpdateVisibilityRadiusUseCase>((ref) {
@@ -92,6 +97,10 @@ class PrivacySettingsController {
 
   Future<bool> updateProfileVisibility(ProfileVisibility visibility) {
     return _run((uid) => _ref.read(updateProfileVisibilityUseCaseProvider).call(uid: uid, visibility: visibility));
+  }
+
+  Future<bool> updateAccountPrivacy(AccountPrivacy privacy) {
+    return _run((uid) => _ref.read(updateAccountPrivacyUseCaseProvider).call(uid: uid, privacy: privacy));
   }
 
   Future<bool> updateVisibilityRadius(VisibilityRadiusMode mode, {double? radiusKm}) {
