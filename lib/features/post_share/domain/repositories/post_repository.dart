@@ -27,12 +27,6 @@ abstract class PostRepository {
 
   Stream<List<Post>> watchUserPosts(String userId);
 
-  /// Every user's posts, newest first — backs the vertical "Lent" feed.
-  /// Chronological-only for now; kept as its own method (one query, one
-  /// place) so swapping in a radius/interest-based ranking later doesn't
-  /// touch anything above the repository layer.
-  Stream<List<Post>> watchFeedPosts({int limit});
-
   Stream<Post?> watchPost(String postId);
 
   /// The only field a post can be edited after sharing.

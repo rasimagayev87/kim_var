@@ -118,7 +118,6 @@
   "liveFeedEmptyMessage": "Hələ radiusunuzda canlı bir şey yoxdur",
   "liveFeedIncreaseRadiusButton": "Radiusu artır",
   "navChatsLabel": "Söhbət",
-  "navFeedLabel": "Lent",
   "navNotificationsLabel": "Bildirişlər",
   "navProfileLabel": "Profil",
   "notificationsFeedTitle": "Bildirişlər",
@@ -758,8 +757,6 @@
   "postCommentSendButton": "Göndər",
   "postCommentErrorMessage": "Rəy göndərilmədi. Bir az sonra yenidən cəhd edin.",
   "postLikeErrorMessage": "Bəyənmə saxlanılmadı. Bir az sonra yenidən cəhd edin.",
-  "feedSearchHint": "Axtar...",
-  "feedSearchNoResultsMessage": "Nəticə tapılmadı",
   "feedDownloadVideoOption": "Videonu endir",
   "feedDownloadInProgressMessage": "Yüklənir... {percent}%",
   "@feedDownloadInProgressMessage": {

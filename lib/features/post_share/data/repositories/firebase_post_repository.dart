@@ -71,15 +71,6 @@ class FirebasePostRepository implements PostRepository {
   }
 
   @override
-  Stream<List<Post>> watchFeedPosts({int limit = 50}) {
-    return _posts
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .snapshots()
-        .map((snap) => snap.docs.map((d) => _fromDoc(d.id, d.data())).toList());
-  }
-
-  @override
   Stream<Post?> watchPost(String postId) {
     return _posts.doc(postId).snapshots().map((snap) {
       final data = snap.data();

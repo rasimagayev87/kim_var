@@ -118,7 +118,6 @@
   "liveFeedEmptyMessage": "В вашем радиусе пока ничего нет",
   "liveFeedIncreaseRadiusButton": "Увеличить радиус",
   "navChatsLabel": "Чат",
-  "navFeedLabel": "Лента",
   "navNotificationsLabel": "Уведомления",
   "navProfileLabel": "Профиль",
   "notificationsFeedTitle": "Уведомления",
@@ -758,8 +757,6 @@
   "postCommentSendButton": "Отправить",
   "postCommentErrorMessage": "Комментарий не отправлен. Повторите попытку позже.",
   "postLikeErrorMessage": "Лайк не сохранён. Повторите попытку позже.",
-  "feedSearchHint": "Поиск...",
-  "feedSearchNoResultsMessage": "Результатов не найдено",
   "feedDownloadVideoOption": "Скачать видео",
   "feedDownloadInProgressMessage": "Загрузка... {percent}%",
   "@feedDownloadInProgressMessage": {

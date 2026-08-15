@@ -118,7 +118,6 @@
   "liveFeedEmptyMessage": "Çevrenizde henüz canlı bir şey yok",
   "liveFeedIncreaseRadiusButton": "Yarıçapı artır",
   "navChatsLabel": "Sohbet",
-  "navFeedLabel": "Akış",
   "navNotificationsLabel": "Bildirimler",
   "navProfileLabel": "Profil",
   "notificationsFeedTitle": "Bildirimler",
@@ -758,8 +757,6 @@
   "postCommentSendButton": "Gönder",
   "postCommentErrorMessage": "Yorum gönderilmedi. Lütfen daha sonra tekrar deneyin.",
   "postLikeErrorMessage": "Beğeni kaydedilmedi. Lütfen daha sonra tekrar deneyin.",
-  "feedSearchHint": "Ara...",
-  "feedSearchNoResultsMessage": "Sonuç bulunamadı",
   "feedDownloadVideoOption": "Videoyu indir",
   "feedDownloadInProgressMessage": "İndiriliyor... %{percent}",
   "@feedDownloadInProgressMessage": {

@@ -148,7 +148,6 @@
   "liveFeedEmptyMessage": "Nothing live in your radius yet",
   "liveFeedIncreaseRadiusButton": "Increase radius",
   "navChatsLabel": "Chat",
-  "navFeedLabel": "Feed",
   "navNotificationsLabel": "Notifications",
   "navProfileLabel": "Profile",
   "notificationsFeedTitle": "Notifications",
@@ -837,8 +836,6 @@
   "postCommentSendButton": "Send",
   "postCommentErrorMessage": "The comment wasn't sent. Please try again shortly.",
   "postLikeErrorMessage": "The like wasn't saved. Please try again shortly.",
-  "feedSearchHint": "Search...",
-  "feedSearchNoResultsMessage": "No results found",
   "feedDownloadVideoOption": "Download video",
   "feedDownloadInProgressMessage": "Downloading... {percent}%",
   "@feedDownloadInProgressMessage": {

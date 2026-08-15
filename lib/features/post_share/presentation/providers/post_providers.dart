@@ -27,11 +27,6 @@ final userTotalPostLikesProvider = Provider.autoDispose.family<int, String>((ref
   return posts.fold<int>(0, (sum, p) => sum + p.likesCount);
 });
 
-/// Backs the vertical "Lent" feed tab — every user's posts, newest first.
-final feedPostsProvider = StreamProvider.autoDispose<List<Post>>((ref) {
-  return ref.watch(postRepositoryProvider).watchFeedPosts();
-});
-
 final isPostLikedByMeProvider = StreamProvider.autoDispose.family<bool, String>((ref, postId) {
   final uid = _currentUid();
   if (uid == null) return Stream.value(false);

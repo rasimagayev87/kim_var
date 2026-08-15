@@ -92,8 +92,8 @@ class PostOwnerMenuButton extends ConsumerWidget {
     if (confirmed != true || !context.mounted) return;
 
     // Captured before the delete's await gap: deleting the Firestore doc
-    // makes postByIdProvider/feedPostsProvider emit without this post
-    // immediately, which can unmount this very button (and its context)
+    // makes postByIdProvider emit without this post immediately, which
+    // can unmount this very button (and its context)
     // while the storage cleanup below is still in flight. Navigator.of
     // (context)/ScaffoldMessenger.of(context) called *after* the await
     // would then silently no-op, leaving the caller stuck.
