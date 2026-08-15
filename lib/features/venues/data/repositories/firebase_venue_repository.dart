@@ -31,15 +31,54 @@ class FirebaseVenueRepository implements VenueRepository {
   /// pricing arrives with that integration; until then this just gives
   /// the `payments/{paymentId}` doc a plausible `amount` to carry.
   ///
-  /// Flat 5 AZN for every category except the 3 added alongside "Fərdi
-  /// Prodakşn/Sənətçi" (37-39) — a deliberate, narrow exception, not
-  /// the start of a general per-category pricing system.
+  /// Official per-category tariff — "Məkanlar üzrə aylıq abunəlik
+  /// tarifləri", signed by the company director (R. G. Ağayev),
+  /// PeakPin_Mekan_Abunelik_Tarifleri.pdf. Exhaustive (no `_` catch-all
+  /// on purpose) so adding a 40th category is a compile error here
+  /// until it's given a real tier, not a silent 5 AZN default.
   static double _venueListingFeeFor(VenueCategory category) {
     return switch (category) {
+      VenueCategory.restaurant => 30.0,
+      VenueCategory.pub => 30.0,
+      VenueCategory.coffeeShop => 25.0,
+      VenueCategory.fastFood => 25.0,
+      VenueCategory.teaHouse => 15.0,
+      VenueCategory.sweetsShop => 20.0,
+      VenueCategory.hotel => 30.0,
+      VenueCategory.motel => 20.0,
+      VenueCategory.cinema => 30.0,
+      VenueCategory.karaoke => 30.0,
+      VenueCategory.gameHall => 30.0,
+      VenueCategory.nightClub => 30.0,
+      VenueCategory.fitness => 30.0,
+      VenueCategory.gym => 30.0,
+      VenueCategory.spa => 30.0,
+      VenueCategory.footballField => 25.0,
+      VenueCategory.clinic => 30.0,
+      VenueCategory.beautySalon => 30.0,
+      VenueCategory.barbershop => 20.0,
+      VenueCategory.cosmetology => 30.0,
+      VenueCategory.tattoo => 20.0,
+      VenueCategory.photoStudio => 20.0,
+      VenueCategory.kidsEntertainment => 30.0,
+      VenueCategory.tailor => 15.0,
+      VenueCategory.dryCleaning => 25.0,
+      VenueCategory.pharmacyOptics => 30.0,
+      VenueCategory.supermarket => 30.0,
+      VenueCategory.carWash => 20.0,
+      VenueCategory.carRepair => 20.0,
+      VenueCategory.applianceRepair => 20.0,
+      VenueCategory.tutoringCenter => 25.0,
+      VenueCategory.bookstoreStationery => 20.0,
+      VenueCategory.dentalClinic => 30.0,
+      VenueCategory.petStore => 20.0,
+      VenueCategory.perfumeryCosmetics => 25.0,
+      VenueCategory.other => 25.0,
+      // Added after the tariff PDF — not on it, priced per the task
+      // that introduced them (session-approved, not director-signed).
       VenueCategory.wineBar => 30.0,
       VenueCategory.cleaningServices => 20.0,
       VenueCategory.independentArtist => 30.0,
-      _ => 5.0,
     };
   }
 
