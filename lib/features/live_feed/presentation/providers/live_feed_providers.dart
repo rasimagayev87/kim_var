@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../location/presentation/providers/location_providers.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
+import '../../../venue_follow/presentation/providers/venue_follow_providers.dart';
 import '../../data/live_feed_service.dart';
 import '../../domain/entities/live_feed_item.dart';
 
@@ -61,6 +63,15 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
   List<LiveFeedVenueSnapshot> _lastVenues = [];
   List<LiveFeedItem> _fastItems = [];
 
+  /// Offers/events from "İzlə"-followed `independentArtist` venues —
+  /// refreshed on the same cadence as [_fastItems] but via a
+  /// completely different query path (see
+  /// `LiveFeedService.fetchFollowedVenueItems`'s own doc comment: this
+  /// bypasses the viewer's own selected radius on purpose, so it must
+  /// run even when [_readLocationParams] returns null for country/
+  /// world mode).
+  List<LiveFeedItem> _followedVenueItems = [];
+
   /// Audience ("Ətrafınızda") entries are upserted by
   /// [LiveFeedItem.id] (stable per venue — `audience_<venueId>`, see
   /// `LiveFeedService.fetchAudienceItems`) instead of being replaced
@@ -116,39 +127,64 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
     return (lat: position.latitude, lng: position.longitude, radiusKm: selection.km!);
   }
 
+  /// Just the viewer's raw current position, independent of
+  /// [selectedDiscoverModeProvider]'s mode — [_readLocationParams]
+  /// returns null outside distance mode on purpose (see its own doc
+  /// comment), but followed-venue items must still run then, since
+  /// bypassing exactly that selection is their entire point.
+  ({double lat, double lng})? _readViewerPosition() {
+    final position = _ref.read(locationControllerProvider).valueOrNull;
+    if (position == null) return null;
+    return (lat: position.latitude, lng: position.longitude);
+  }
+
   Future<void> _runFastCycle({required bool alsoRefreshAudience}) async {
     final params = _readLocationParams();
-    if (params == null) {
-      _fastItems = [];
-      _emit();
-      return;
-    }
+    final viewerPosition = _readViewerPosition();
 
     try {
       final service = _ref.read(liveFeedServiceProvider);
-      final venues = await service.fetchVenueSnapshots(lat: params.lat, lng: params.lng, radiusKm: params.radiusKm);
-      _lastVenues = venues;
-      final categoryByVenueId = {for (final v in venues) v.id: v.category};
 
-      final seatItems = service.seatAvailableItemsFrom(venues);
-      final eventItems = await service.fetchEventItems(
-        lat: params.lat,
-        lng: params.lng,
-        radiusKm: params.radiusKm,
-        categoryByVenueId: categoryByVenueId,
-      );
-      final offerItems = await service.fetchOfferAndBirthdayItems(
-        lat: params.lat,
-        lng: params.lng,
-        radiusKm: params.radiusKm,
-        myUid: fb.FirebaseAuth.instance.currentUser?.uid,
-        freshWindow: liveFeedFreshWindow,
-      );
+      var geoItems = <LiveFeedItem>[];
+      List<LiveFeedVenueSnapshot>? venues;
+      if (params != null) {
+        venues = await service.fetchVenueSnapshots(lat: params.lat, lng: params.lng, radiusKm: params.radiusKm);
+        _lastVenues = venues;
+        final categoryByVenueId = {for (final v in venues) v.id: v.category};
 
-      _fastItems = [...seatItems, ...eventItems, ...offerItems];
+        final seatItems = service.seatAvailableItemsFrom(venues);
+        final eventItems = await service.fetchEventItems(
+          lat: params.lat,
+          lng: params.lng,
+          radiusKm: params.radiusKm,
+          categoryByVenueId: categoryByVenueId,
+        );
+        final offerItems = await service.fetchOfferAndBirthdayItems(
+          lat: params.lat,
+          lng: params.lng,
+          radiusKm: params.radiusKm,
+          myUid: fb.FirebaseAuth.instance.currentUser?.uid,
+          freshWindow: liveFeedFreshWindow,
+        );
+        geoItems = [...seatItems, ...eventItems, ...offerItems];
+      }
+
+      var followedItems = <LiveFeedItem>[];
+      final followedVenueIds = _ref.read(myFollowedVenueIdsProvider).valueOrNull ?? const [];
+      if (viewerPosition != null && followedVenueIds.isNotEmpty) {
+        followedItems = await service.fetchFollowedVenueItems(
+          followedVenueIds: followedVenueIds,
+          viewerLat: viewerPosition.lat,
+          viewerLng: viewerPosition.lng,
+          viewerCountry: _ref.read(profileControllerProvider).country,
+        );
+      }
+
+      _fastItems = geoItems;
+      _followedVenueItems = followedItems;
       _emit();
 
-      if (alsoRefreshAudience) unawaited(_runAudienceCycle(venues: venues));
+      if (alsoRefreshAudience && venues != null) unawaited(_runAudienceCycle(venues: venues));
     } catch (e, st) {
       logError('live_feed_providers.runFastCycle', e, st);
       if (mounted) state = AsyncValue.error(e, st);
@@ -202,7 +238,16 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
 
   void _emit() {
     if (!mounted) return;
-    final merged = [..._fastItems, ..._audienceById.values]..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    // A followed venue that ALSO happens to fall within the viewer's
+    // own normal geo radius would otherwise produce the same offer/
+    // event id twice (once from each source) — de-dup by id via a Map
+    // before sorting, rather than trying to keep the two sources from
+    // ever overlapping in the first place.
+    final byId = <String, LiveFeedItem>{};
+    for (final item in [..._fastItems, ..._followedVenueItems, ..._audienceById.values]) {
+      byId[item.id] = item;
+    }
+    final merged = byId.values.toList()..sort((a, b) => b.timestamp.compareTo(a.timestamp));
     state = AsyncValue.data(merged);
   }
 

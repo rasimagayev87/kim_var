@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
@@ -279,6 +281,136 @@ class LiveFeedService {
     }
     return items;
   }
+
+  /// Offers/events from venues the signed-in user follows via "İzlə"
+  /// (`venue_follow` module — deliberately never imported here, same
+  /// isolation rule as everything else in this class; [followedVenueIds]
+  /// arrives from the caller already resolved). Unlike every other
+  /// fetch method above, this ignores the VIEWER's own selected Kəşf/
+  /// Canlı radius entirely — that's the whole point of following. The
+  /// only ceiling left is each venue's OWN `audienceRadiusMode`/
+  /// `audienceRadiusKm`/`country` (see [_withinVenueRadius]) — the
+  /// exact same rule `resolveNotifyCandidates` enforces server-side in
+  /// functions/src/index.ts for push notifications, mirrored here so
+  /// Canlı and notifications never disagree about who a followed venue
+  /// reaches.
+  Future<List<LiveFeedItem>> fetchFollowedVenueItems({
+    required List<String> followedVenueIds,
+    required double viewerLat,
+    required double viewerLng,
+    String? viewerCountry,
+  }) async {
+    if (followedVenueIds.isEmpty) return [];
+
+    final items = <LiveFeedItem>[];
+    // Firestore's whereIn caps at 30 — chunk defensively even though a
+    // single user following more than 30 independent artists is an
+    // edge case far beyond this feature's expected scale today.
+    for (var i = 0; i < followedVenueIds.length; i += 30) {
+      final chunk = followedVenueIds.sublist(i, (i + 30 < followedVenueIds.length) ? i + 30 : followedVenueIds.length);
+
+      final venueSnaps = await _firestore.collection('venues').where(FieldPath.documentId, whereIn: chunk).get();
+      final eligibleIds = <String>[];
+      final venueNameById = <String, String>{};
+      final venueDistanceById = <String, double>{};
+      for (final doc in venueSnaps.docs) {
+        final data = doc.data();
+        venueNameById[doc.id] = (data['name'] as String?) ?? '';
+        final lat = (data['lat'] as num?)?.toDouble();
+        final lng = (data['lng'] as num?)?.toDouble();
+        if (lat != null && lng != null) {
+          venueDistanceById[doc.id] = _haversineMeters(lat, lng, viewerLat, viewerLng);
+        }
+        if (_withinVenueRadius(data, viewerLat, viewerLng, viewerCountry)) {
+          eligibleIds.add(doc.id);
+        }
+      }
+      if (eligibleIds.isEmpty) continue;
+
+      final offersSnap = await _firestore
+          .collection('offers')
+          .where('venueId', whereIn: eligibleIds)
+          .where('status', isEqualTo: 'approved')
+          .where('happyHourActive', isEqualTo: true)
+          .get();
+      for (final doc in offersSnap.docs) {
+        final data = doc.data();
+        // Birthday offers stay privacy-scoped to their own
+        // targetUserIds regardless of follow status — following an
+        // artist never unlocks someone else's birthday match.
+        if (data['offerType'] == 'birthday') continue;
+        final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
+        if (createdAt == null) continue;
+        final venueId = data['venueId'] as String? ?? '';
+        items.add(LiveFeedItem(
+          id: 'offer_${doc.id}',
+          type: LiveFeedType.offer,
+          venueId: venueId,
+          targetId: doc.id,
+          targetType: 'offer',
+          title: (data['title'] as String?) ?? '',
+          subtitle: (data['venueName'] as String?) ?? venueNameById[venueId] ?? '',
+          distanceMeters: venueDistanceById[venueId] ?? 0,
+          timestamp: createdAt,
+        ));
+      }
+
+      // A second `whereIn` here (on `status`) would be an invalid
+      // query — Firestore allows only one 'in' clause per query — so
+      // `status` is filtered client-side below instead.
+      final eventsSnap = await _firestore.collection('venueEvents').where('venueId', whereIn: eligibleIds).get();
+      for (final doc in eventsSnap.docs) {
+        final data = doc.data();
+        final status = data['status'] as String?;
+        if (status != 'upcoming' && status != 'live') continue;
+        final startAt = (data['startAt'] as Timestamp?)?.toDate();
+        if (startAt == null) continue;
+        final venueId = data['venueId'] as String? ?? '';
+        items.add(LiveFeedItem(
+          id: 'event_${doc.id}',
+          type: LiveFeedType.event,
+          venueId: venueId,
+          targetId: doc.id,
+          targetType: 'event',
+          title: (data['title'] as String?) ?? '',
+          subtitle: (data['venueName'] as String?) ?? venueNameById[venueId] ?? '',
+          distanceMeters: venueDistanceById[venueId] ?? 0,
+          timestamp: startAt,
+        ));
+      }
+    }
+    return items;
+  }
+
+  /// Mirrors `resolveNotifyCandidates`'s ceiling check in
+  /// functions/src/index.ts exactly (mode default, country match,
+  /// haversine-vs-radiusKm) — independently declared, not shared code,
+  /// per this module's own isolation rule.
+  bool _withinVenueRadius(Map<String, dynamic> venueData, double viewerLat, double viewerLng, String? viewerCountry) {
+    final mode = (venueData['audienceRadiusMode'] as String?) ?? 'distance';
+    if (mode == 'world') return true;
+    if (mode == 'country') {
+      final venueCountry = venueData['country'] as String?;
+      return venueCountry != null && viewerCountry != null && venueCountry == viewerCountry;
+    }
+    final lat = (venueData['lat'] as num?)?.toDouble();
+    final lng = (venueData['lng'] as num?)?.toDouble();
+    final radiusKm = (venueData['audienceRadiusKm'] as num?)?.toDouble() ?? 1.0;
+    if (lat == null || lng == null) return false;
+    return _haversineMeters(lat, lng, viewerLat, viewerLng) <= radiusKm * 1000;
+  }
+
+  double _haversineMeters(double lat1, double lng1, double lat2, double lng2) {
+    const earthRadiusMeters = 6371000.0;
+    final dLat = _degToRad(lat2 - lat1);
+    final dLng = _degToRad(lng2 - lng1);
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_degToRad(lat1)) * math.cos(_degToRad(lat2)) * math.sin(dLng / 2) * math.sin(dLng / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return earthRadiusMeters * c;
+  }
+
+  double _degToRad(double deg) => deg * (math.pi / 180);
 
   Future<Set<String>> _configCategories(String docId) async {
     final snap = await _firestore.collection('config').doc(docId).get();

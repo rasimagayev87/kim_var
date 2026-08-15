@@ -15,6 +15,7 @@ import '../../../events/domain/entities/venue_event.dart';
 import '../../../events/presentation/providers/venue_event_providers.dart';
 import '../../../events/presentation/screens/category_label.dart';
 import '../../../events/presentation/screens/event_details_screen.dart';
+import '../../../venue_follow/presentation/providers/venue_follow_providers.dart';
 import '../../../waitlist/presentation/widgets/waitlist_status_section.dart';
 import '../../domain/entities/venue.dart';
 import '../../domain/venue_open_status.dart';
@@ -381,20 +382,90 @@ class _HeroImage extends StatelessWidget {
         Positioned(
           top: MediaQuery.paddingOf(context).top + 12,
           right: 16,
-          child: AnimatedScale(
-            scale: isLiked ? 1.15 : 1.0,
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOutBack,
-            child: _OverlayCircleButton(
-              icon: isLiked ? Icons.favorite : Icons.favorite_border,
-              iconSize: 18,
-              iconColor: isLiked ? AppColors.primary : Colors.white,
-              onTap: onToggleLiked,
-            ),
+          child: Row(
+            children: [
+              if (venue.category == VenueCategory.independentArtist) ...[
+                _VenueFollowButton(venueId: venue.id),
+                const SizedBox(width: 8),
+              ],
+              AnimatedScale(
+                scale: isLiked ? 1.15 : 1.0,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutBack,
+                child: _OverlayCircleButton(
+                  icon: isLiked ? Icons.favorite : Icons.favorite_border,
+                  iconSize: 18,
+                  iconColor: isLiked ? AppColors.primary : Colors.white,
+                  onTap: onToggleLiked,
+                ),
+              ),
+            ],
           ),
         ),
       ],
     );
+  }
+}
+
+/// "İzlə" — venue-level follow, only ever shown for
+/// [VenueCategory.independentArtist] (see `_HeroImage`'s own gate).
+/// Tapping while not following opens a confirm dialog explaining what
+/// following actually changes (radius-independent notifications +
+/// Canlı visibility, still capped by the venue's OWN
+/// `audienceRadiusMode` — see `VenueFollowRepository`'s doc comment);
+/// tapping while already following unfollows immediately, no confirm
+/// needed (mirrors every other unfollow-style action in this app).
+class _VenueFollowButton extends ConsumerWidget {
+  final String venueId;
+
+  const _VenueFollowButton({required this.venueId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isFollowing = ref.watch(isVenueFollowedByMeProvider(venueId)).valueOrNull ?? false;
+
+    return _OverlayCircleButton(
+      icon: isFollowing ? Icons.notifications_active : Icons.notifications_none_outlined,
+      iconSize: 18,
+      iconColor: isFollowing ? AppColors.primary : Colors.white,
+      onTap: () => isFollowing ? _unfollow(context, ref) : _confirmAndFollow(context, ref),
+    );
+  }
+
+  Future<void> _unfollow(BuildContext context, WidgetRef ref) async {
+    final loc = AppLocalizations.of(context);
+    final ok = await ref.read(venueFollowControllerProvider).toggle(venueId: venueId, isCurrentlyFollowing: true);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.venueGenericErrorMessage)));
+    }
+  }
+
+  Future<void> _confirmAndFollow(BuildContext context, WidgetRef ref) async {
+    final loc = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(loc.venueFollowConfirmTitle, style: const TextStyle(color: ChatLightColors.ink, fontWeight: FontWeight.w700, fontSize: 17)),
+        content: Text(loc.venueFollowConfirmMessage, style: const TextStyle(color: ChatLightColors.inkSoft, fontSize: 14.5)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: Text(loc.venueFollowConfirmButton),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final ok = await ref.read(venueFollowControllerProvider).toggle(venueId: venueId, isCurrentlyFollowing: false);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.venueGenericErrorMessage)));
+    }
   }
 }
 

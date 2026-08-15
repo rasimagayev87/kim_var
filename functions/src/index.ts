@@ -1663,13 +1663,65 @@ const OFFER_NOTIFY_THROTTLE_MS = 24 * 60 * 60 * 1000;
 const OFFER_NOTIFY_CANDIDATE_LIMIT = 1000;
 
 /**
- * Push + in-app notification to every user within the venue's own
- * audience radius/mode (`Venue.audienceRadiusMode`/`audienceRadiusKm`
- * — same 3 modes `computeVenueAudienceHistory` uses) when one of its
- * offers goes live. Deliberately does NOT filter by recent activity
- * the way the audience counter does — reaching someone who isn't
- * currently in the app is the entire point of a push notification.
- * Throttled per (user, venue) at 24h via
+ * Candidate `users` docs to notify about a new offer/event from
+ * [venueId] — shared by `notifyNearbyUsersOfNewOffer` and
+ * `...NewEvent`. The venue's own `audienceRadiusMode`/`audienceRadiusKm`/
+ * `country` is ALWAYS the final filter (the ceiling), but the SOURCE
+ * pool differs by category, per "Fərdi Prodakşn/Sənətçi"'s own
+ * venue-level follow feature ("İzlə"): an `independentArtist` venue
+ * notifies ONLY its followers (`venues/{venueId}/followers`) — never
+ * the app-wide `users` scan every other category still uses. Either
+ * way, a candidate outside the venue's radius/country/mode gets
+ * nothing — an `independentArtist` follower who lives outside the
+ * radius the owner chose is excluded exactly like a random stranger
+ * would be.
+ */
+async function resolveNotifyCandidates(
+  venueId: string,
+  venue: FirebaseFirestore.DocumentData,
+  limit: number,
+): Promise<FirebaseFirestore.DocumentSnapshot[]> {
+  const mode = (venue.audienceRadiusMode as string | undefined) ?? "distance";
+
+  let sourceDocs: FirebaseFirestore.DocumentSnapshot[];
+  if (venue.category === "independentArtist") {
+    const followerSnaps = await db.collection("venues").doc(venueId).collection("followers").limit(limit).get();
+    sourceDocs = await Promise.all(followerSnaps.docs.map((d) => db.collection("users").doc(d.id).get()));
+    sourceDocs = sourceDocs.filter((d) => d.exists);
+  } else {
+    sourceDocs = (await db.collection("users").limit(limit).get()).docs;
+  }
+
+  if (mode === "country") {
+    const country = venue.country as string | undefined;
+    if (!country) return [];
+    return sourceDocs.filter((d) => d.data()?.country === country);
+  }
+  if (mode === "world") {
+    return sourceDocs;
+  }
+
+  const lat = venue.lat as number | undefined;
+  const lng = venue.lng as number | undefined;
+  const radiusKm = (venue.audienceRadiusKm as number | undefined) ?? 1;
+  if (lat === undefined || lng === undefined) return [];
+  return sourceDocs.filter((d) => {
+    const userLat = d.data()?.lat as number | undefined;
+    const userLng = d.data()?.lng as number | undefined;
+    if (userLat === undefined || userLng === undefined) return false;
+    return haversineMeters(lat, lng, userLat, userLng) <= radiusKm * 1000;
+  });
+}
+
+/**
+ * Push + in-app notification when one of the venue's offers goes
+ * live — see `resolveNotifyCandidates` for exactly who that reaches
+ * (everyone within the venue's own audience radius/mode for most
+ * categories, only `independentArtist` followers within that same
+ * radius for that one category). Deliberately does NOT filter by
+ * recent activity the way the audience counter does — reaching
+ * someone who isn't currently in the app is the entire point of a
+ * push notification. Throttled per (user, venue) at 24h via
  * `users/{uid}/notifiedVenues/{venueId}`.
  */
 async function notifyNearbyUsersOfNewOffer(
@@ -1683,30 +1735,7 @@ async function notifyNearbyUsersOfNewOffer(
   const venue = venueSnap.data();
   if (!venue) return;
 
-  const mode = (venue.audienceRadiusMode as string | undefined) ?? "distance";
-  let candidateDocs: FirebaseFirestore.QueryDocumentSnapshot[];
-
-  if (mode === "country") {
-    const country = venue.country as string | undefined;
-    if (!country) return;
-    candidateDocs = (
-      await db.collection("users").where("country", "==", country).limit(OFFER_NOTIFY_CANDIDATE_LIMIT).get()
-    ).docs;
-  } else if (mode === "world") {
-    candidateDocs = (await db.collection("users").limit(OFFER_NOTIFY_CANDIDATE_LIMIT).get()).docs;
-  } else {
-    const lat = venue.lat as number | undefined;
-    const lng = venue.lng as number | undefined;
-    const radiusKm = (venue.audienceRadiusKm as number | undefined) ?? 1;
-    if (lat === undefined || lng === undefined) return;
-    const allUsers = await db.collection("users").limit(OFFER_NOTIFY_CANDIDATE_LIMIT).get();
-    candidateDocs = allUsers.docs.filter((d) => {
-      const userLat = d.data().lat as number | undefined;
-      const userLng = d.data().lng as number | undefined;
-      if (userLat === undefined || userLng === undefined) return false;
-      return haversineMeters(lat, lng, userLat, userLng) <= radiusKm * 1000;
-    });
-  }
+  const candidateDocs = await resolveNotifyCandidates(venueId, venue, OFFER_NOTIFY_CANDIDATE_LIMIT);
 
   const venueName = (venue.name as string | undefined) ?? "";
   const offerTitle = (offer.title as string | undefined) ?? "";
@@ -1714,8 +1743,10 @@ async function notifyNearbyUsersOfNewOffer(
   await Promise.all(
     candidateDocs.map(async (userDoc) => {
       const uid = userDoc.id;
+      const userData = userDoc.data();
+      if (!userData) return;
       if (uid === ownerId) return;
-      if (userDoc.data().ghostModeEnabled) return;
+      if (userData.ghostModeEnabled) return;
 
       const throttleRef = db.collection("users").doc(uid).collection("notifiedVenues").doc(venueId);
       const throttleSnap = await throttleRef.get();
@@ -1769,30 +1800,7 @@ export const notifyNearbyUsersOfNewEvent = onDocumentCreated("venueEvents/{event
   if (!venue) return;
 
   const ownerId = venue.ownerId as string | undefined;
-  const mode = (venue.audienceRadiusMode as string | undefined) ?? "distance";
-  let candidateDocs: FirebaseFirestore.QueryDocumentSnapshot[];
-
-  if (mode === "country") {
-    const country = venue.country as string | undefined;
-    if (!country) return;
-    candidateDocs = (
-      await db.collection("users").where("country", "==", country).limit(EVENT_NOTIFY_CANDIDATE_LIMIT).get()
-    ).docs;
-  } else if (mode === "world") {
-    candidateDocs = (await db.collection("users").limit(EVENT_NOTIFY_CANDIDATE_LIMIT).get()).docs;
-  } else {
-    const lat = venue.lat as number | undefined;
-    const lng = venue.lng as number | undefined;
-    const radiusKm = (venue.audienceRadiusKm as number | undefined) ?? 1;
-    if (lat === undefined || lng === undefined) return;
-    const allUsers = await db.collection("users").limit(EVENT_NOTIFY_CANDIDATE_LIMIT).get();
-    candidateDocs = allUsers.docs.filter((d) => {
-      const userLat = d.data().lat as number | undefined;
-      const userLng = d.data().lng as number | undefined;
-      if (userLat === undefined || userLng === undefined) return false;
-      return haversineMeters(lat, lng, userLat, userLng) <= radiusKm * 1000;
-    });
-  }
+  const candidateDocs = await resolveNotifyCandidates(venueId, venue, EVENT_NOTIFY_CANDIDATE_LIMIT);
 
   const venueName = (venue.name as string | undefined) ?? "";
   const eventTitle = (data.title as string | undefined) ?? "";
@@ -1801,8 +1809,10 @@ export const notifyNearbyUsersOfNewEvent = onDocumentCreated("venueEvents/{event
   await Promise.all(
     candidateDocs.map(async (userDoc) => {
       const uid = userDoc.id;
+      const userData = userDoc.data();
+      if (!userData) return;
       if (uid === ownerId) return;
-      if (userDoc.data().ghostModeEnabled) return;
+      if (userData.ghostModeEnabled) return;
 
       const dedupRef = db.collection("users").doc(uid).collection("notifiedEvents").doc(eventId);
       const dedupSnap = await dedupRef.get();

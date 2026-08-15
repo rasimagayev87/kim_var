@@ -457,6 +457,27 @@ service cloud.firestore {
       allow create, delete: if request.auth != null && request.auth.uid == userId;
     }
 
+    // "İzlə" — venue-level follow (deliberately separate from the
+    // user-to-user `follows` collection; see
+    // `VenueFollowRepository`'s own doc comment). `userId` is
+    // denormalized onto the doc so the app's `collectionGroup
+    // ('followers').where('userId', '==', uid)` reverse lookup ("which
+    // venues do I follow") can be evaluated per-doc against this same
+    // rule. Only the venue owner may additionally read the full list
+    // (a follower count use case, not built yet but harmless to allow
+    // now); never updated once created.
+    match /venues/{venueId}/followers/{userId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        request.auth.uid == get(/databases/$(database)/documents/venues/$(venueId)).data.ownerId
+      );
+      allow create: if request.auth != null &&
+        request.auth.uid == userId &&
+        request.resource.data.userId == userId;
+      allow update: if false;
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+
     // Written exclusively by `computeVenueAudienceHistory` (scheduled
     // Cloud Function, Admin SDK — bypasses these rules entirely) every
     // 15 minutes; no client write path exists or should exist, since
