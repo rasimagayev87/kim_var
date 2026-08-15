@@ -428,7 +428,11 @@ class FirebaseChatRepository implements ChatRepository {
       follows.doc('${senderId}_$otherUid').get(),
       follows.doc('${otherUid}_$senderId').get(),
     ]);
-    return results[0].exists || results[1].exists;
+    // A still-pending follow request doesn't count — same "absent
+    // status = accepted" default as FirebaseFollowRepository, since
+    // every edge created before "Hesab gizliliyi" has no status field.
+    bool accepted(DocumentSnapshot<Map<String, dynamic>> doc) => doc.exists && doc.data()?['status'] != 'pending';
+    return accepted(results[0]) || accepted(results[1]);
   }
 
   /// True if either [uidA] has blocked [uidB], or vice versa — reads both

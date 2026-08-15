@@ -3,14 +3,17 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Either-direction follow check — used below to gate `stories`
-    // visibility for the "Təqib və Təqibçilər" tier. Mirrors the app's
-    // own either-direction rule for profile media visibility (see
-    // `isFollowedByProvider`'s doc comment): the viewer following the
-    // creator, or the creator following the viewer, either counts.
-    function isFollowingOrFollowedBy(uidA, uidB) {
-      return exists(/databases/$(database)/documents/follows/$(uidA + '_' + uidB)) ||
-        exists(/databases/$(database)/documents/follows/$(uidB + '_' + uidA));
+    // Whether [viewerId] holds an ACCEPTED follow edge pointing AT
+    // [ownerId] — single direction, not either-way: "Hesab gizliliyi"
+    // gates a `private` account's stories (and, client-side, its media
+    // grid — see `_MediaVisibilityGate`) on a real request/approve
+    // relationship, so only the viewer's OWN follow of the owner
+    // counts, not the reverse. A doc with no `status` field (every
+    // edge created before "Hesab gizliliyi") is treated as accepted,
+    // matching `FirebaseFollowRepository`'s own read-side default.
+    function isAcceptedFollower(viewerId, ownerId) {
+      return exists(/databases/$(database)/documents/follows/$(viewerId + '_' + ownerId)) &&
+        get(/databases/$(database)/documents/follows/$(viewerId + '_' + ownerId)).data.get('status', 'accepted') != 'pending';
     }
 
     // Server-side backstop for the client's requireVerified() gate
@@ -220,20 +223,38 @@ service cloud.firestore {
     // were removed). Doc id is `{followerId}_{followeeId}` (NOT
     // sorted — direction matters), so a user following and being
     // followed back by the same person are two independent docs.
+    //
+    // `status` ("Hesab gizliliyi" / FAZA 4): `accepted` for an instant
+    // follow of a `public` account, `pending` for a request against a
+    // `private` one — every edge created before this feature has no
+    // `status` field at all and is treated as `accepted` everywhere
+    // that reads it (client and rules alike).
     match /follows/{followId} {
       allow read: if request.auth != null;
 
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.followerId &&
         request.resource.data.followeeId != request.resource.data.followerId &&
-        followId == request.resource.data.followerId + '_' + request.resource.data.followeeId;
+        followId == request.resource.data.followerId + '_' + request.resource.data.followeeId &&
+        request.resource.data.status in ['accepted', 'pending'];
 
-      allow update: if false;
+      // Only the followee may accept — flips a `pending` request to
+      // `accepted`, nothing else about the doc may change.
+      allow update: if request.auth != null &&
+        request.auth.uid == resource.data.followeeId &&
+        resource.data.status == 'pending' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        request.resource.data.status == 'accepted';
 
-      // Only the follower can unfollow — the followee has no say in
-      // removing someone else's follow edge, same as they have no say
-      // in creating it.
-      allow delete: if request.auth != null && request.auth.uid == resource.data.followerId;
+      // The follower can always remove the edge (unfollow an accepted
+      // one, or cancel their own still-pending request). The followee
+      // may ALSO delete it, but only while it's still pending
+      // (declining the request) — once accepted, only the follower may
+      // remove it, same as before.
+      allow delete: if request.auth != null && (
+        request.auth.uid == resource.data.followerId ||
+        (request.auth.uid == resource.data.followeeId && resource.data.status == 'pending')
+      );
     }
 
     // 1:1 chats — id is the two participant uids sorted and joined
@@ -620,16 +641,19 @@ service cloud.firestore {
     // "expired": an expired doc is still technically readable by
     // anyone its visibility already allowed, it just never surfaces in
     // the app's own queries. Only the creator can write/delete.
+    //
+    // Visibility is entirely the creator's `AccountPrivacy` now
+    // ("Hesab gizliliyi") — a story doc no longer carries its own
+    // `visibility` field. A pre-migration doc may still have one from
+    // before this feature; it's simply never read.
     match /stories/{storyId} {
       allow read: if request.auth != null && (
         request.auth.uid == resource.data.creatorId ||
-        resource.data.visibility == 'everyone' ||
-        (resource.data.visibility == 'followers' && isFollowingOrFollowedBy(request.auth.uid, resource.data.creatorId))
+        get(/databases/$(database)/documents/users/$(resource.data.creatorId)).data.get('accountPrivacy', 'public') != 'private' ||
+        isAcceptedFollower(request.auth.uid, resource.data.creatorId)
       );
 
-      allow create: if request.auth != null &&
-        request.auth.uid == request.resource.data.creatorId &&
-        request.resource.data.visibility in ['followers', 'everyone'];
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.creatorId;
 
       allow update: if false;
       allow delete: if request.auth != null && request.auth.uid == resource.data.creatorId;

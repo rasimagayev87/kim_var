@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../follow/presentation/providers/follow_providers.dart';
+import '../../../privacy/domain/entities/privacy_settings.dart';
+import '../../../privacy/presentation/providers/privacy_providers.dart';
 import '../../data/repositories/firebase_story_repository.dart';
 import '../../domain/entities/story.dart';
 import '../../domain/entities/story_view.dart';
@@ -26,19 +28,17 @@ final myActiveStoriesProvider = StreamProvider.autoDispose<List<Story>>((ref) {
 });
 
 /// Same query as [myActiveStoriesProvider] but for any [uid] — drives
-/// the story ring on someone ELSE's profile screen. `firestore.rules`'
-/// own `stories/{storyId}` read rule (creator, or followers/everyone
-/// per `visibility`, either-direction follow counting via
-/// `isFollowingOrFollowedBy`) is the real access gate — verified
-/// directly against a live authenticated client, not just read from
-/// the rules file. This adds a second, client-side check of the exact
-/// same condition on top of that: defense in depth per the reported
-/// bug, and it also means a permission-denied on the underlying query
-/// (which Firestore can return for a query it can't prove safe ahead
-/// of time, independent of whether every individual doc would've
-/// passed) degrades to "no stories shown" instead of an error state
-/// that could look like something's wrong or, worse, leak an error's
-/// stack/message into the UI.
+/// the story ring on someone ELSE's profile screen. Gated entirely by
+/// [uid]'s `AccountPrivacy` now (see "Hesab gizliliyi"), not a
+/// per-story choice: `public` shows to everyone, `private` only to an
+/// ACCEPTED follower (`isAcceptedFollowerOf`, one direction — the
+/// viewer must follow [uid], not just have any follow edge with them).
+/// `firestore.rules`' own `stories/{storyId}` read rule mirrors this
+/// exactly and is the real access gate — verified directly against a
+/// live authenticated client, not just read from the rules file. This
+/// adds a second, client-side check on top of that: defense in depth,
+/// and it also means a permission-denied on the underlying query
+/// degrades to "no stories shown" instead of an error state.
 final activeStoriesForUserProvider = StreamProvider.autoDispose.family<List<Story>, String>((ref, uid) {
   final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
   final followRepo = ref.watch(followRepositoryProvider);
@@ -47,25 +47,13 @@ final activeStoriesForUserProvider = StreamProvider.autoDispose.family<List<Stor
       .watch(storyRepositoryProvider)
       .watchMyActiveStories(uid)
       .asyncMap((stories) async {
-        if (myUid == null || myUid == uid) return stories;
+        if (myUid == null || myUid == uid || stories.isEmpty) return stories;
 
-        final allowed = <Story>[];
-        for (final story in stories) {
-          if (story.visibility == StoryVisibility.everyone) {
-            allowed.add(story);
-            continue;
-          }
-          if (await followRepo.isFollowingOrFollowedBy(myUid, uid)) {
-            allowed.add(story);
-          } else {
-            // Every story in this stream shares the same creatorId, so
-            // once the follow relationship is known to be missing, the
-            // rest of this batch is decided too — no need to repeat
-            // the check per story.
-            break;
-          }
-        }
-        return allowed;
+        final privacy = await ref.read(otherUserPrivacySettingsProvider(uid).future);
+        if (privacy.accountPrivacy == AccountPrivacy.public) return stories;
+
+        final allowed = await followRepo.isAcceptedFollowerOf(viewerId: myUid, ownerId: uid);
+        return allowed ? stories : const <Story>[];
       })
       .handleError((Object _, StackTrace _) => const <Story>[]);
 });
@@ -79,29 +67,21 @@ class StoryController {
 
   final Ref _ref;
 
-  /// Returns the new story's id on success, null on failure —
-  /// [onValidationError] fires specifically when no visibility was
-  /// chosen, [onError] for anything else (logged internally).
+  /// Returns the new story's id on success, null on failure (logged
+  /// internally). No visibility choice to make anymore — a story's
+  /// audience is whatever the poster's own `AccountPrivacy` says at
+  /// view time (see `activeStoriesForUserProvider`), not a per-post
+  /// pick.
   Future<String?> createStory({
     required File media,
     required StoryMediaType mediaType,
-    required StoryVisibility? visibility,
-    required void Function() onValidationError,
     required void Function() onError,
   }) async {
     final uid = fb.FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return null;
 
     try {
-      return await _ref.read(createStoryUseCaseProvider).call(
-            creatorId: uid,
-            media: media,
-            mediaType: mediaType,
-            visibility: visibility,
-          );
-    } on StoryValidationException {
-      onValidationError();
-      return null;
+      return await _ref.read(createStoryUseCaseProvider).call(creatorId: uid, media: media, mediaType: mediaType);
     } catch (e, st) {
       logError('story_providers.createStory', e, st);
       onError();

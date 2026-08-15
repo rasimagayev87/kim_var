@@ -11,15 +11,20 @@
 enum NotificationType {
   follow,
 
-  /// The server's actual type string for an instant follow (see
-  /// `onFollowCreated` in functions/src/index.ts) — [follow] above was
-  /// never produced by anything and doesn't match, so a follow
-  /// notification silently fell through to [other] until this was
-  /// added. Kept both names rather than renaming [follow]: something
-  /// may eventually want a request-based `follow` type once
-  /// [followRequest]/[followAccepted] get a real producer.
+  /// The server's actual type string for an instant follow of a
+  /// `public` account (see `onFollowCreated` in functions/src/index.ts)
+  /// — [follow] above was never produced by anything and doesn't
+  /// match, so a follow notification silently fell through to [other]
+  /// until this was added. [follow] is kept only as the forward-compat
+  /// name, unused by any current producer.
   newFollower,
+
+  /// A follow REQUEST against a `private` account — see "Hesab
+  /// gizliliyi", `onFollowCreated`'s `pending`-status branch.
   followRequest,
+
+  /// The followee approved a pending [followRequest] — see
+  /// `onFollowUpdated`.
   followAccepted,
   likePost,
   commentPost,

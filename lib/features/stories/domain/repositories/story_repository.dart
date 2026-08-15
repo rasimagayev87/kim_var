@@ -7,12 +7,7 @@ abstract class StoryRepository {
   /// Uploads [media] to Storage then creates the story doc; returns the
   /// new story's id. `expiresAt` is always `createdAt + 24h`, set
   /// server-side by the implementation — callers don't specify it.
-  Future<String> createStory({
-    required String creatorId,
-    required File media,
-    required StoryMediaType mediaType,
-    required StoryVisibility visibility,
-  });
+  Future<String> createStory({required String creatorId, required File media, required StoryMediaType mediaType});
 
   /// The signed-in user's own non-expired stories, soonest-to-expire
   /// first — may be more than one (see the "+" add-another-story

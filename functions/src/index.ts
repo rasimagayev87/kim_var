@@ -618,10 +618,17 @@ async function pruneStaleTokensAndLogFailures(uid: string, tokens: string[], res
 }
 
 /**
- * A real, instant follow (no request/accept step) — see
- * `FirebaseFollowRepository.follow`. `follows/{followerId}_{followeeId}`
- * has direction baked into the doc id itself, so `followeeId` on the
- * created doc is always who to notify.
+ * `follows/{followerId}_{followeeId}` has direction baked into the doc
+ * id itself, so `followeeId` on the created doc is always who to
+ * notify. `status` ("Hesab gizliliyi") decides which of two very
+ * different notifications this is: a `pending` doc is a follow
+ * REQUEST against a `private` account (needs the followee's
+ * approval — see `onFollowUpdated` for what happens once they grant
+ * it); anything else (`accepted`, or absent on a pre-migration doc) is
+ * a real, already-in-effect follow, same as before this feature.
+ * Either way `targetType: 'profile'` deep-links to the follower's own
+ * profile — for a pending request, that's also where
+ * `UserProfileScreen` shows Accept/Decline instead of Follow.
  */
 export const onFollowCreated = onDocumentCreated("follows/{followId}", async (event) => {
   const data = event.data?.data();
@@ -631,6 +638,24 @@ export const onFollowCreated = onDocumentCreated("follows/{followId}", async (ev
   if (!followerId || !followeeId) return;
 
   const follower = await getUserDisplayInfo(followerId);
+
+  if (data.status === "pending") {
+    await notifyUser({
+      uid: followeeId,
+      category: "followers",
+      type: "followRequest",
+      title: follower.name,
+      body: "Sizi izləmək istəyir",
+      params: {},
+      senderId: followerId,
+      senderName: follower.name,
+      senderPhoto: follower.photoUrl,
+      targetId: followerId,
+      targetType: "profile",
+    });
+    return;
+  }
+
   await notifyUser({
     uid: followeeId,
     category: "followers",
@@ -642,6 +667,38 @@ export const onFollowCreated = onDocumentCreated("follows/{followId}", async (ev
     senderName: follower.name,
     senderPhoto: follower.photoUrl,
     targetId: followerId,
+    targetType: "profile",
+  });
+});
+
+/**
+ * The followee just approved a pending follow request — notify the
+ * original requester (`followerId`) it went through. Only fires on
+ * the `pending` -> `accepted` transition; any other update to this doc
+ * (there currently are no others) is ignored.
+ */
+export const onFollowUpdated = onDocumentUpdated("follows/{followId}", async (event) => {
+  const before = event.data?.before?.data();
+  const after = event.data?.after?.data();
+  if (!before || !after) return;
+  if (before.status !== "pending" || after.status !== "accepted") return;
+
+  const followerId = after.followerId as string | undefined;
+  const followeeId = after.followeeId as string | undefined;
+  if (!followerId || !followeeId) return;
+
+  const followee = await getUserDisplayInfo(followeeId);
+  await notifyUser({
+    uid: followerId,
+    category: "followers",
+    type: "followAccepted",
+    title: followee.name,
+    body: "İzləmə istəyinizi qəbul etdi",
+    params: {},
+    senderId: followeeId,
+    senderName: followee.name,
+    senderPhoto: followee.photoUrl,
+    targetId: followeeId,
     targetType: "profile",
   });
 });

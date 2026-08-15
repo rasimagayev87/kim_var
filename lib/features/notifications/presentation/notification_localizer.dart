@@ -48,6 +48,15 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       // params.
       return LocalizedNotificationText(title: notification.senderName ?? '', body: loc.notifNewFollowerBody);
 
+    // "Hesab gizliliyi" — a follow request against a `private`
+    // account (see `onFollowCreated`), and its own approval (see
+    // `onFollowUpdated`). Same senderName-as-title shape as
+    // [newFollower].
+    case NotificationType.followRequest:
+      return LocalizedNotificationText(title: notification.senderName ?? '', body: loc.notifFollowRequestBody);
+    case NotificationType.followAccepted:
+      return LocalizedNotificationText(title: notification.senderName ?? '', body: loc.notifFollowAcceptedBody);
+
     case NotificationType.likePost:
       return LocalizedNotificationText(title: notification.senderName ?? '', body: loc.notifLikePostBody);
 
@@ -188,13 +197,11 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: str('offerTitle'),
       );
 
-    // Every other type either has no server producer yet (followRequest,
-    // followAccepted, mention, system, security, promotion, warning,
-    // announcement) or is the forward-compat fallback (other/follow) —
-    // none of these carry a params contract to render from.
+    // Every other type either has no server producer at all (mention,
+    // system, security, promotion, warning, announcement) or is the
+    // forward-compat fallback (other/follow) — none of these carry a
+    // params contract to render from.
     case NotificationType.follow:
-    case NotificationType.followRequest:
-    case NotificationType.followAccepted:
     case NotificationType.mention:
     case NotificationType.system:
     case NotificationType.security:

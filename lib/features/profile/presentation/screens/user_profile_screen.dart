@@ -19,6 +19,7 @@ import '../../../privacy/domain/entities/privacy_settings.dart';
 import '../../../privacy/presentation/providers/privacy_providers.dart';
 import '../../../safety/presentation/providers/safety_providers.dart';
 import '../../../safety/presentation/widgets/report_user_sheet.dart';
+import '../../../stories/domain/entities/story.dart';
 import '../../../stories/presentation/providers/story_providers.dart';
 import '../../../stories/presentation/screens/story_viewer_screen.dart';
 import '../providers/profile_visitors_providers.dart';
@@ -106,7 +107,13 @@ class UserProfileScreen extends ConsumerWidget {
                         ],
                       ),
                       Center(
-                        child: _OtherAvatarWithRing(uid: uid, photoUrl: photoUrl),
+                        child: _OtherAvatarWithRing(
+                          uid: uid,
+                          photoUrl: photoUrl,
+                          isPrivate: (ref.watch(otherUserPrivacySettingsProvider(uid)).valueOrNull ?? const PrivacySettings())
+                                  .accountPrivacy ==
+                              AccountPrivacy.private,
+                        ),
                       ),
                       const SizedBox(height: 14),
                       Center(
@@ -157,31 +164,10 @@ class UserProfileScreen extends ConsumerWidget {
                         loc: loc,
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(child: _FollowButton(otherUid: uid)),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _ProfileActionButton(
-                              label: loc.sendMessageButton,
-                              tonal: true,
-                              onPressed: () async {
-                                if (!await requireVerified(context, ref)) return;
-                                if (!context.mounted) return;
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) => ChatConversationScreen(
-                                      otherUid: uid,
-                                      otherName: displayName,
-                                      otherPhotoUrl: photoUrl,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                        ],
+                      _ProfileActionRow(
+                        otherUid: uid,
+                        displayName: displayName,
+                        photoUrl: photoUrl,
                       ),
                       if ((profile?.bio ?? '').isNotEmpty) ...[
                         const SizedBox(height: 24),
@@ -236,28 +222,60 @@ class _OwnProfileRoute extends StatelessWidget {
 /// Same ring treatment as `ProfileTab`'s own avatar, minus the "+"
 /// badge and create-story affordance — viewing someone else's profile
 /// only ever lets you WATCH their active story, never start one.
+///
+/// Tap/long-press behavior depends entirely on [isPrivate] ("Hesab
+/// gizliliyi"): a `public` account's avatar is always interactive
+/// (single tap opens the active story if there is one, otherwise
+/// zooms the photo; long-press always offers both options, "Statusuna
+/// bax" grayed out when there's no story to watch) — a `private`
+/// account's avatar does nothing at all on either gesture, for anyone
+/// but the owner, regardless of follow status. This is a literal
+/// reading of the "Hesab gizliliyi" spec, which enumerates the avatar
+/// as fully inert for a private account without carving out an
+/// accepted-follower exception the way it does for the media grid.
 class _OtherAvatarWithRing extends ConsumerWidget {
   final String uid;
   final String? photoUrl;
+  final bool isPrivate;
 
-  const _OtherAvatarWithRing({required this.uid, required this.photoUrl});
+  const _OtherAvatarWithRing({required this.uid, required this.photoUrl, required this.isPrivate});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final activeStories = ref.watch(activeStoriesForUserProvider(uid)).valueOrNull ?? const [];
+    final List<Story> activeStories =
+        isPrivate ? const [] : ref.watch(activeStoriesForUserProvider(uid)).valueOrNull ?? const [];
     final hasActiveStory = activeStories.isNotEmpty;
+    final heroTag = 'user-profile-avatar-$uid';
 
     return GestureDetector(
-      onTap: hasActiveStory
-          ? () async {
-              if (!await requireVerified(context, ref)) return;
-              if (!context.mounted) return;
-              Navigator.push(
+      onTap: isPrivate
+          ? null
+          : () async {
+              if (hasActiveStory) {
+                if (!await requireVerified(context, ref)) return;
+                if (!context.mounted) return;
+                Navigator.push(context, MaterialPageRoute(builder: (_) => StoryViewerScreen(stories: activeStories)));
+              } else {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => _ZoomedAvatarScreen(photoUrl: photoUrl, heroTag: heroTag),
+                    fullscreenDialog: true,
+                  ),
+                );
+              }
+            },
+      onLongPress: isPrivate
+          ? null
+          : () => _showAvatarMenu(
                 context,
-                MaterialPageRoute(builder: (_) => StoryViewerScreen(stories: activeStories)),
-              );
-            }
-          : null,
+                ref,
+                uid: uid,
+                photoUrl: photoUrl,
+                heroTag: heroTag,
+                hasActiveStory: hasActiveStory,
+                activeStories: activeStories,
+              ),
       child: Container(
         width: 128,
         height: 128,
@@ -278,8 +296,107 @@ class _OtherAvatarWithRing extends ConsumerWidget {
           decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
           child: ClipOval(
             child: Hero(
-              tag: 'user-profile-avatar-$uid',
+              tag: heroTag,
               child: photoUrl != null ? Image.network(photoUrl!, fit: BoxFit.cover) : const PhotoPlaceholderPattern(),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAvatarMenu(
+    BuildContext context,
+    WidgetRef ref, {
+    required String uid,
+    required String? photoUrl,
+    required String heroTag,
+    required bool hasActiveStory,
+    required List<Story> activeStories,
+  }) {
+    final loc = AppLocalizations.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) {
+        return SafeArea(
+          top: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 8),
+              ListTile(
+                leading: const Icon(Icons.person_outline, color: ChatLightColors.ink),
+                title: Text(loc.avatarMenuViewPhoto, style: const TextStyle(color: ChatLightColors.ink, fontSize: 15)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => _ZoomedAvatarScreen(photoUrl: photoUrl, heroTag: heroTag),
+                      fullscreenDialog: true,
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                enabled: hasActiveStory,
+                leading: Icon(
+                  Icons.auto_awesome_outlined,
+                  color: hasActiveStory ? ChatLightColors.ink : ChatLightColors.inkFaint,
+                ),
+                title: Text(
+                  loc.avatarMenuViewStatus,
+                  style: TextStyle(color: hasActiveStory ? ChatLightColors.ink : ChatLightColors.inkFaint, fontSize: 15),
+                ),
+                onTap: hasActiveStory
+                    ? () async {
+                        Navigator.pop(sheetContext);
+                        if (!await requireVerified(context, ref)) return;
+                        if (!context.mounted) return;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => StoryViewerScreen(stories: activeStories)),
+                        );
+                      }
+                    : null,
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Full-screen, tap-to-dismiss circular zoom of a profile photo —
+/// shares [heroTag] with the small ring avatar it was opened from so
+/// the transition is a smooth expand/collapse rather than a hard cut.
+class _ZoomedAvatarScreen extends StatelessWidget {
+  final String? photoUrl;
+  final String heroTag;
+
+  const _ZoomedAvatarScreen({required this.photoUrl, required this.heroTag});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pop(context),
+      child: Scaffold(
+        backgroundColor: Colors.black87,
+        body: Center(
+          child: Hero(
+            tag: heroTag,
+            child: ClipOval(
+              child: SizedBox(
+                width: 280,
+                height: 280,
+                child: photoUrl != null
+                    ? Image.network(photoUrl!, fit: BoxFit.cover)
+                    : const ColoredBox(color: Colors.white, child: PhotoPlaceholderPattern()),
+              ),
             ),
           ),
         ),
@@ -289,11 +406,14 @@ class _OtherAvatarWithRing extends ConsumerWidget {
 }
 
 /// Decides whether the signed-in user is allowed to see [uid]'s media
-/// grid, per [ProfileVisibility]: `everyone` always shows it, `noOne`
-/// never does, `followersOnly` requires an either-direction follow
-/// relationship (see `isFollowedByProvider`'s doc comment). Ghost Mode
-/// is deliberately NOT consulted here — it only ever hides [uid] from
-/// the map/Discover, never their profile or media.
+/// grid, per [AccountPrivacy]: `public` always shows it; `private`
+/// requires the SIGNED-IN user to hold an ACCEPTED follow edge
+/// pointing AT [uid] specifically (one direction only — [uid] having
+/// followed the viewer back doesn't count, matching a real request/
+/// approve relationship rather than the old either-direction
+/// heuristic). Ghost Mode is deliberately NOT consulted here — it only
+/// ever hides [uid] from the map/Discover, never their profile or
+/// media.
 class _MediaVisibilityGate extends ConsumerWidget {
   final String uid;
 
@@ -304,13 +424,8 @@ class _MediaVisibilityGate extends ConsumerWidget {
     final loc = AppLocalizations.of(context);
     final privacy = ref.watch(otherUserPrivacySettingsProvider(uid)).valueOrNull ?? const PrivacySettings();
     final isFollowing = ref.watch(isFollowingProvider(uid)).valueOrNull ?? false;
-    final isFollowedBy = ref.watch(isFollowedByProvider(uid)).valueOrNull ?? false;
 
-    final canView = switch (privacy.profileVisibility) {
-      ProfileVisibility.everyone => true,
-      ProfileVisibility.followersOnly => isFollowing || isFollowedBy,
-      ProfileVisibility.noOne => false,
-    };
+    final canView = privacy.accountPrivacy == AccountPrivacy.public || isFollowing;
 
     if (!canView) {
       return Padding(
@@ -337,10 +452,91 @@ class _MediaVisibilityGate extends ConsumerWidget {
   }
 }
 
-/// One-directional follow — needs no acceptance from [otherUid],
-/// toggles instantly on tap. Filled app-accent while not following;
-/// once followed, fades to the same pale tonal look as the "Mesaj yaz"
-/// button next to it (see [_ProfileActionButton]).
+/// The Follow/Message action row — becomes Accept/Decline (plus
+/// Message, still always present per spec) instead of Follow whenever
+/// [otherUid] has sent the SIGNED-IN user a still-pending request:
+/// this is exactly the profile a `followRequest` notification's tap
+/// deep-links to, so approving/declining happens right here rather
+/// than on some separate, unbuilt "requests" screen.
+class _ProfileActionRow extends ConsumerWidget {
+  final String otherUid;
+  final String displayName;
+  final String? photoUrl;
+
+  const _ProfileActionRow({required this.otherUid, required this.displayName, required this.photoUrl});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context);
+    final incomingRequest = ref.watch(incomingFollowRequestProvider(otherUid)).valueOrNull ?? false;
+
+    final messageButton = Expanded(
+      child: _ProfileActionButton(
+        label: loc.sendMessageButton,
+        tonal: true,
+        onPressed: () async {
+          if (!await requireVerified(context, ref)) return;
+          if (!context.mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChatConversationScreen(otherUid: otherUid, otherName: displayName, otherPhotoUrl: photoUrl),
+            ),
+          );
+        },
+      ),
+    );
+
+    if (incomingRequest) {
+      return Row(
+        children: [
+          Expanded(
+            child: _ProfileActionButton(
+              label: loc.followRequestAcceptButton,
+              tonal: false,
+              onPressed: () async {
+                final ok = await ref.read(followControllerProvider).acceptFollowRequest(otherUid);
+                if (!ok && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.followErrorMessage)));
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _ProfileActionButton(
+              label: loc.followRequestDeclineButton,
+              tonal: true,
+              onPressed: () async {
+                final ok = await ref.read(followControllerProvider).declineFollowRequest(otherUid);
+                if (!ok && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.followErrorMessage)));
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          messageButton,
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Expanded(child: _FollowButton(otherUid: otherUid)),
+        const SizedBox(width: 10),
+        messageButton,
+      ],
+    );
+  }
+}
+
+/// Follow button with 3 states: not following ("Takip et"), a
+/// still-pending request the SIGNED-IN user themselves sent
+/// ("İstək göndərildi" — disabled, tapping again does nothing until
+/// the followee decides), and following ("Takipdə"). Which of the
+/// first two a fresh tap produces depends on [otherUid]'s own
+/// `AccountPrivacy` — see [FollowController.toggleFollow].
 class _FollowButton extends ConsumerWidget {
   final String otherUid;
 
@@ -353,20 +549,33 @@ class _FollowButton extends ConsumerWidget {
     if (myUid == null) return const SizedBox.shrink();
 
     final isFollowing = ref.watch(isFollowingProvider(otherUid)).valueOrNull ?? false;
+    final isPending = ref.watch(isPendingFollowRequestProvider(otherUid)).valueOrNull ?? false;
+    final privacy = ref.watch(otherUserPrivacySettingsProvider(otherUid)).valueOrNull ?? const PrivacySettings();
+
+    final label = isFollowing
+        ? loc.followingButton
+        : isPending
+            ? loc.followRequestSentLabel
+            : loc.followButton;
 
     return _ProfileActionButton(
-      label: isFollowing ? loc.followingButton : loc.followButton,
-      tonal: isFollowing,
-      onPressed: () async {
-        if (!await requireVerified(context, ref)) return;
-        if (!context.mounted) return;
-        final success = await ref
-            .read(followControllerProvider)
-            .toggleFollow(otherUid: otherUid, isCurrentlyFollowing: isFollowing);
-        if (!success && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.followErrorMessage)));
-        }
-      },
+      label: label,
+      tonal: isFollowing || isPending,
+      onPressed: isPending
+          ? null
+          : () async {
+              if (!await requireVerified(context, ref)) return;
+              if (!context.mounted) return;
+              final success = await ref.read(followControllerProvider).toggleFollow(
+                    otherUid: otherUid,
+                    isCurrentlyFollowing: isFollowing,
+                    isCurrentlyPending: isPending,
+                    otherAccountIsPrivate: privacy.accountPrivacy == AccountPrivacy.private,
+                  );
+              if (!success && context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.followErrorMessage)));
+              }
+            },
     );
   }
 }

@@ -13,41 +13,70 @@ class FirebaseFollowRepository implements FollowRepository {
   /// following B and B following A are two independent docs.
   String _docId(String followerId, String followeeId) => '${followerId}_$followeeId';
 
+  /// A doc with no `status` field predates "Hesab gizliliyi" — every
+  /// edge created back then was a real, instant, accepted follow, so
+  /// absence reads as accepted rather than pending. Only an explicit
+  /// `'pending'` value means "not yet accepted".
+  bool _isAccepted(Map<String, dynamic>? data) => data != null && data['status'] != 'pending';
+  bool _isPendingData(Map<String, dynamic>? data) => data != null && data['status'] == 'pending';
+
   @override
   Stream<int> watchFollowersCount(String uid) {
-    return _follows.where('followeeId', isEqualTo: uid).snapshots().map((snap) => snap.docs.length);
+    return _follows
+        .where('followeeId', isEqualTo: uid)
+        .snapshots()
+        .map((snap) => snap.docs.where((d) => _isAccepted(d.data())).length);
   }
 
   @override
   Stream<int> watchFollowingCount(String uid) {
-    return _follows.where('followerId', isEqualTo: uid).snapshots().map((snap) => snap.docs.length);
+    return _follows
+        .where('followerId', isEqualTo: uid)
+        .snapshots()
+        .map((snap) => snap.docs.where((d) => _isAccepted(d.data())).length);
   }
 
   @override
   Stream<bool> watchIsFollowing({required String followerId, required String followeeId}) {
-    return _follows.doc(_docId(followerId, followeeId)).snapshots().map((doc) => doc.exists);
+    return _follows.doc(_docId(followerId, followeeId)).snapshots().map((doc) => doc.exists && _isAccepted(doc.data()));
   }
 
   @override
-  Future<bool> isFollowingOrFollowedBy(String uidA, String uidB) async {
-    final results = await Future.wait([
-      _follows.doc(_docId(uidA, uidB)).get(),
-      _follows.doc(_docId(uidB, uidA)).get(),
-    ]);
-    return results[0].exists || results[1].exists;
+  Stream<bool> watchIsPending({required String followerId, required String followeeId}) {
+    return _follows
+        .doc(_docId(followerId, followeeId))
+        .snapshots()
+        .map((doc) => doc.exists && _isPendingData(doc.data()));
   }
 
   @override
-  Future<void> follow({required String followerId, required String followeeId}) {
+  Future<bool> isAcceptedFollowerOf({required String viewerId, required String ownerId}) async {
+    final doc = await _follows.doc(_docId(viewerId, ownerId)).get();
+    return doc.exists && _isAccepted(doc.data());
+  }
+
+  @override
+  Future<void> follow({required String followerId, required String followeeId, required bool requiresApproval}) {
     return _follows.doc(_docId(followerId, followeeId)).set({
       'followerId': followerId,
       'followeeId': followeeId,
+      'status': requiresApproval ? 'pending' : 'accepted',
       'createdAt': FieldValue.serverTimestamp(),
     });
   }
 
   @override
   Future<void> unfollow({required String followerId, required String followeeId}) {
+    return _follows.doc(_docId(followerId, followeeId)).delete();
+  }
+
+  @override
+  Future<void> acceptFollowRequest({required String followerId, required String followeeId}) {
+    return _follows.doc(_docId(followerId, followeeId)).update({'status': 'accepted'});
+  }
+
+  @override
+  Future<void> declineFollowRequest({required String followerId, required String followeeId}) {
     return _follows.doc(_docId(followerId, followeeId)).delete();
   }
 }

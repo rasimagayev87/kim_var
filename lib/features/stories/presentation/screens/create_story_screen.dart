@@ -91,8 +91,10 @@ Future<bool> _isVideoTooLong(File file) async {
   }
 }
 
-/// Preview + "Kim görə bilər" visibility choice + Paylaş — the second
-/// half of [startCreateStoryFlow].
+/// Preview + Paylaş — the second half of [startCreateStoryFlow]. No
+/// visibility choice anymore ("Hesab gizliliyi" — see `Story`'s own
+/// doc comment); who sees this story is decided entirely by the
+/// poster's account-level privacy setting.
 class CreateStoryScreen extends ConsumerStatefulWidget {
   final File file;
   final StoryMediaType mediaType;
@@ -104,7 +106,6 @@ class CreateStoryScreen extends ConsumerStatefulWidget {
 }
 
 class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
-  StoryVisibility? _visibility;
   bool _submitting = false;
   VideoPlayerController? _videoController;
 
@@ -129,67 +130,14 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
     super.dispose();
   }
 
-  void _pickVisibility() {
-    final loc = AppLocalizations.of(context);
-    showModalBottomSheet<StoryVisibility>(
-      context: context,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (sheetContext) {
-        return SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(8, 20, 8, 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(loc.storyVisibilitySheetTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ListTile(
-                  leading: Icon(
-                    _visibility == StoryVisibility.followers ? Icons.radio_button_checked : Icons.radio_button_off,
-                    color: _visibility == StoryVisibility.followers ? AppColors.primary : AppColors.textMuted,
-                  ),
-                  title: Text(loc.storyVisibilityFollowers, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
-                  onTap: () => Navigator.pop(sheetContext, StoryVisibility.followers),
-                ),
-                ListTile(
-                  leading: Icon(
-                    _visibility == StoryVisibility.everyone ? Icons.radio_button_checked : Icons.radio_button_off,
-                    color: _visibility == StoryVisibility.everyone ? AppColors.primary : AppColors.textMuted,
-                  ),
-                  title: Text(loc.storyVisibilityEveryone, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
-                  onTap: () => Navigator.pop(sheetContext, StoryVisibility.everyone),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    ).then((value) {
-      if (value != null && mounted) setState(() => _visibility = value);
-    });
-  }
-
   Future<void> _submit() async {
-    if (_submitting || _visibility == null) return;
+    if (_submitting) return;
     setState(() => _submitting = true);
     final loc = AppLocalizations.of(context);
 
     final storyId = await ref.read(storyControllerProvider).createStory(
           media: widget.file,
           mediaType: widget.mediaType,
-          visibility: _visibility,
-          onValidationError: () {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.storyVisibilityPickPrompt)));
-          },
           onError: () {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.storyShareErrorMessage)));
@@ -207,11 +155,6 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final visibilityLabel = switch (_visibility) {
-      StoryVisibility.followers => loc.storyVisibilityFollowers,
-      StoryVisibility.everyone => loc.storyVisibilityEveryone,
-      null => loc.storyVisibilityPickPrompt,
-    };
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -247,31 +190,8 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    GestureDetector(
-                      onTap: _pickVisibility,
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        decoration: BoxDecoration(
-                          color: Colors.black54,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: AppColors.divider),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.visibility_outlined, size: 18, color: AppColors.textSecondary),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(visibilityLabel, style: AppTextStyles.body.copyWith(fontSize: 14.5, color: Colors.white)),
-                            ),
-                            const Icon(Icons.chevron_right_outlined, color: AppColors.textMuted, size: 20),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
                     ElevatedButton(
-                      onPressed: (_visibility != null && !_submitting) ? _submit : null,
+                      onPressed: _submitting ? null : _submit,
                       child: _submitting
                           ? const SizedBox(
                               width: 22,

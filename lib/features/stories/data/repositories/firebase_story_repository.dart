@@ -20,12 +20,7 @@ class FirebaseStoryRepository implements StoryRepository {
   CollectionReference<Map<String, dynamic>> get _stories => _firestore.collection('stories');
 
   @override
-  Future<String> createStory({
-    required String creatorId,
-    required File media,
-    required StoryMediaType mediaType,
-    required StoryVisibility visibility,
-  }) async {
+  Future<String> createStory({required String creatorId, required File media, required StoryMediaType mediaType}) async {
     final ref = _stories.doc();
     final extension = mediaType == StoryMediaType.video ? 'mp4' : 'jpg';
     final contentType = mediaType == StoryMediaType.video ? 'video/mp4' : 'image/jpeg';
@@ -39,7 +34,6 @@ class FirebaseStoryRepository implements StoryRepository {
       'creatorId': creatorId,
       'mediaUrl': mediaUrl,
       'mediaType': mediaType.name,
-      'visibility': visibility.name,
       'createdAt': Timestamp.fromDate(now),
       'expiresAt': Timestamp.fromDate(now.add(_storyLifetime)),
     });
@@ -86,7 +80,6 @@ class FirebaseStoryRepository implements StoryRepository {
       creatorId: data['creatorId'] as String? ?? '',
       mediaUrl: data['mediaUrl'] as String? ?? '',
       mediaType: (data['mediaType'] as String?) == 'video' ? StoryMediaType.video : StoryMediaType.image,
-      visibility: (data['visibility'] as String?) == 'everyone' ? StoryVisibility.everyone : StoryVisibility.followers,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       expiresAt: (data['expiresAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );
