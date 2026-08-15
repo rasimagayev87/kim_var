@@ -60,7 +60,21 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
 
   List<LiveFeedVenueSnapshot> _lastVenues = [];
   List<LiveFeedItem> _fastItems = [];
-  List<LiveFeedItem> _audienceItems = [];
+
+  /// Audience ("Ətrafınızda") entries are upserted by
+  /// [LiveFeedItem.id] (stable per venue — `audience_<venueId>`, see
+  /// `LiveFeedService.fetchAudienceItems`) instead of being replaced
+  /// wholesale every 120s cycle. A `Map` preserves insertion order in
+  /// Dart, and reassigning an existing key's value doesn't move it —
+  /// so a venue's count can update in place (new subtitle, ORIGINAL
+  /// timestamp kept, see [_upsertAudienceItems]) without jumping to
+  /// the top of `_emit`'s timestamp sort every refresh, which is what
+  /// made it look like a fresh "324 nəfər" / "318 nəfər" / "331 nəfər"
+  /// card kept getting added on top of the last one. Other item types
+  /// don't need this: each carries a real Firestore document id and a
+  /// real data timestamp (an offer's `createdAt`, an event's
+  /// `startAt`) that's already stable across polls.
+  final Map<String, LiveFeedItem> _audienceById = {};
 
   /// Starts both poll cycles — call from the Canlı screen's
   /// `initState`/`didChangeAppLifecycleState` (resumed), never from a
@@ -146,7 +160,8 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
     if (rows.isEmpty) return;
 
     try {
-      _audienceItems = await _ref.read(liveFeedServiceProvider).fetchAudienceItems(rows);
+      final fresh = await _ref.read(liveFeedServiceProvider).fetchAudienceItems(rows);
+      _upsertAudienceItems(fresh);
       _emit();
     } catch (e, st) {
       logError('live_feed_providers.runAudienceCycle', e, st);
@@ -156,9 +171,38 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
     }
   }
 
+  /// A venue no longer in [fresh] (checkins dropped to 0, or it fell
+  /// out of the nearest-30 cutoff) is dropped rather than left stale.
+  /// A venue already tracked keeps its original [LiveFeedItem.timestamp]
+  /// — only title/subtitle/distance are refreshed — so its position in
+  /// `_emit`'s sort doesn't change. A venue seen for the first time is
+  /// genuinely new, so it keeps the fresh "now" timestamp and sorts to
+  /// the top like any other new item.
+  void _upsertAudienceItems(List<LiveFeedItem> fresh) {
+    final freshIds = fresh.map((item) => item.id).toSet();
+    _audienceById.removeWhere((id, _) => !freshIds.contains(id));
+
+    for (final item in fresh) {
+      final existing = _audienceById[item.id];
+      _audienceById[item.id] = existing == null
+          ? item
+          : LiveFeedItem(
+              id: item.id,
+              type: item.type,
+              venueId: item.venueId,
+              targetId: item.targetId,
+              targetType: item.targetType,
+              title: item.title,
+              subtitle: item.subtitle,
+              distanceMeters: item.distanceMeters,
+              timestamp: existing.timestamp,
+            );
+    }
+  }
+
   void _emit() {
     if (!mounted) return;
-    final merged = [..._fastItems, ..._audienceItems]..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final merged = [..._fastItems, ..._audienceById.values]..sort((a, b) => b.timestamp.compareTo(a.timestamp));
     state = AsyncValue.data(merged);
   }
 
