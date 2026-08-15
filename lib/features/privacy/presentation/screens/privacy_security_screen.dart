@@ -35,6 +35,12 @@ class PrivacySecurityScreen extends ConsumerWidget {
       );
     }
 
+    void showAccountPrivacyUpdated() {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.privacyAccountPrivacyUpdatedMessage)),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -52,17 +58,22 @@ class PrivacySecurityScreen extends ConsumerWidget {
             SettingsGroup(
               children: [
                 SettingsMenuRow(
-                  icon: Icons.visibility_outlined,
-                  title: loc.privacyProfileVisibilityTitle,
-                  subtitle: loc.privacyProfileVisibilitySubtitle,
-                  trailing: SettingsPill(label: _visibilityLabel(loc, settings.profileVisibility)),
-                  onTap: () => _showVisibilitySheet(
+                  icon: Icons.lock_outline,
+                  title: loc.privacyAccountPrivacyTitle,
+                  subtitle: loc.privacyAccountPrivacySubtitle,
+                  trailing: SettingsPill(label: _accountPrivacyLabel(loc, settings.accountPrivacy)),
+                  onTap: () => _showAccountPrivacySheet(
                     context: context,
                     loc: loc,
-                    current: settings.profileVisibility,
+                    current: settings.accountPrivacy,
                     onSelected: (v) async {
-                      final ok = await controller.updateProfileVisibility(v);
-                      if (!ok && context.mounted) showError();
+                      final ok = await controller.updateAccountPrivacy(v);
+                      if (!context.mounted) return;
+                      if (ok) {
+                        showAccountPrivacyUpdated();
+                      } else {
+                        showError();
+                      }
                     },
                   ),
                 ),
@@ -217,14 +228,12 @@ class PrivacySecurityScreen extends ConsumerWidget {
     }
   }
 
-  String _visibilityLabel(AppLocalizations loc, ProfileVisibility v) {
+  String _accountPrivacyLabel(AppLocalizations loc, AccountPrivacy v) {
     switch (v) {
-      case ProfileVisibility.everyone:
-        return loc.privacyVisibilityEveryone;
-      case ProfileVisibility.followersOnly:
-        return loc.privacyVisibilityFollowersOnly;
-      case ProfileVisibility.noOne:
-        return loc.privacyVisibilityNoOne;
+      case AccountPrivacy.public:
+        return loc.privacyAccountPrivacyPublic;
+      case AccountPrivacy.private:
+        return loc.privacyAccountPrivacyPrivate;
     }
   }
 
@@ -237,24 +246,19 @@ class PrivacySecurityScreen extends ConsumerWidget {
     }
   }
 
-  // Ghost Mode is fully decoupled from this setting now — it only ever
-  // hides the user from the map/Discover (its own dedicated toggle
-  // above). This sheet governs media visibility only, and offers all 3
-  // levels directly since none of them are VIP-gated.
-  void _showVisibilitySheet({
+  void _showAccountPrivacySheet({
     required BuildContext context,
     required AppLocalizations loc,
-    required ProfileVisibility current,
-    required ValueChanged<ProfileVisibility> onSelected,
+    required AccountPrivacy current,
+    required ValueChanged<AccountPrivacy> onSelected,
   }) {
-    _showOptionsSheet<ProfileVisibility>(
+    _showOptionsSheet<AccountPrivacy>(
       context: context,
-      title: loc.privacyProfileVisibilityTitle,
+      title: loc.privacyAccountPrivacyTitle,
       current: current,
       options: [
-        _Option(ProfileVisibility.everyone, loc.privacyVisibilityEveryone),
-        _Option(ProfileVisibility.followersOnly, loc.privacyVisibilityFollowersOnly),
-        _Option(ProfileVisibility.noOne, loc.privacyVisibilityNoOne),
+        _Option(AccountPrivacy.public, loc.privacyAccountPrivacyPublic),
+        _Option(AccountPrivacy.private, loc.privacyAccountPrivacyPrivate),
       ],
       onSelected: (value, locked) => onSelected(value),
     );
