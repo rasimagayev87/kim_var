@@ -268,6 +268,16 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
       imageQuality: 85,
     );
     if (picked == null || !mounted) return;
+    // The camera's own native view controller is still mid-dismissal
+    // when `pickImage` resolves on iOS — presenting the cropper's own
+    // native UI immediately after can silently fail (a UIKit
+    // constraint: can't present while a presentation/dismissal is
+    // still in flight). Gallery dismisses fast enough this race never
+    // shows; camera (heavier, post-capture processing) reliably hits
+    // it. A short delay only for the camera path lets that dismissal
+    // finish first.
+    if (source == ImageSource.camera) await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
     await _cropAndSetPhoto(picked);
   }
 

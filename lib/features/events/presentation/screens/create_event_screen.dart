@@ -111,6 +111,11 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> with Widg
 
     final picked = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 85);
     if (picked == null || !mounted) return;
+    // See the identical comment in create_venue_screen.dart's own
+    // `_pickPhoto` — camera's native dismissal race with the cropper's
+    // own presentation, gallery doesn't hit it.
+    if (source == ImageSource.camera) await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
     await _cropAndSetCover(picked);
   }
 

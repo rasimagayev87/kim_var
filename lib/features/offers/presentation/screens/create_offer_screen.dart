@@ -288,6 +288,11 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: source, maxWidth: 1600, imageQuality: 85);
     if (picked == null || !mounted) return;
+    // See the identical comment in create_venue_screen.dart's own
+    // `_pickPhoto` — camera's native dismissal race with the cropper's
+    // own presentation, gallery doesn't hit it.
+    if (source == ImageSource.camera) await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
     await _cropAndSetPhoto(picked);
   }
 
