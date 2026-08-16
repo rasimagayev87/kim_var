@@ -397,10 +397,9 @@ void _showOptionsSheet<T>({
 
 /// "Görünmə radiusu" sheet content — mirrors Discover's own radius
 /// selector structure (3-option default row + "Daha çox" reveal for
-/// 5/10/30 km + Ölkə üzrə + Dünya üzrə, same VIP gate via
-/// `isPremiumRadiusKm`/[isPremium]), but drives this user's own
-/// independent visibility setting rather than what they're currently
-/// browsing the map at.
+/// 5/10/30 km, free, + Ölkə üzrə + Dünya üzrə, VIP-gated via
+/// [isPremium]), but drives this user's own independent visibility
+/// setting rather than what they're currently browsing the map at.
 class _RadiusSheetContent extends ConsumerStatefulWidget {
   final PrivacySettings settings;
   final bool isPremium;
@@ -452,15 +451,8 @@ class _RadiusSheetContentState extends ConsumerState<_RadiusSheetContent> {
                     child: _RadiusPill(
                       km: kDefaultRadiusOptionsKm[i],
                       selected: _isSelectedKm(kDefaultRadiusOptionsKm[i]),
-                      locked: isPremiumRadiusKm(kDefaultRadiusOptionsKm[i]) && !widget.isPremium,
-                      onTap: () {
-                        final km = kDefaultRadiusOptionsKm[i];
-                        if (isPremiumRadiusKm(km) && !widget.isPremium) {
-                          _handleLockedTap();
-                          return;
-                        }
-                        _pick(VisibilityRadiusMode.distance, km: km);
-                      },
+                      locked: false,
+                      onTap: () => _pick(VisibilityRadiusMode.distance, km: kDefaultRadiusOptionsKm[i]),
                     ),
                   ),
                 ],
@@ -478,14 +470,8 @@ class _RadiusSheetContentState extends ConsumerState<_RadiusSheetContent> {
                       child: _RadiusPill(
                         km: kExtraRadiusOptionsKm[i],
                         selected: _isSelectedKm(kExtraRadiusOptionsKm[i]),
-                        locked: !widget.isPremium,
-                        onTap: () {
-                          if (!widget.isPremium) {
-                            _handleLockedTap();
-                            return;
-                          }
-                          _pick(VisibilityRadiusMode.distance, km: kExtraRadiusOptionsKm[i]);
-                        },
+                        locked: false,
+                        onTap: () => _pick(VisibilityRadiusMode.distance, km: kExtraRadiusOptionsKm[i]),
                       ),
                     ),
                   ],

@@ -57,9 +57,9 @@ class PrivacySettings {
   final AccountPrivacy accountPrivacy;
 
   /// Which radius mode other users can see this user from — reuses the
-  /// same breakpoints/gating as Discover's own search radius
-  /// (`kRadiusOptionsKm`/`isPremiumRadiusKm` in `location_providers.dart`):
-  /// 0.1/0.5/1 km free, 5/10/30 km + Ölkə üzrə + Dünya üzrə Premium.
+  /// same options as Discover's own search radius (`kRadiusOptionsKm`
+  /// in `location_providers.dart`): all km values are free, only
+  /// Ölkə üzrə/Dünya üzrə require Premium.
   final VisibilityRadiusMode visibilityRadiusMode;
 
   /// Only meaningful when [visibilityRadiusMode] is `distance` — null
@@ -78,8 +78,8 @@ class PrivacySettings {
 
   final bool twoFactorEnabled;
 
-  /// Premium-gated (UI-level check, same pattern as the locked 5/10km
-  /// Discover radius options — see `isPremiumRadiusKm`). Its ONLY job
+  /// Premium-gated (UI-level check, same pattern as the locked Ölkə/
+  /// Dünya Discover radius options). Its ONLY job
   /// is hiding this user from Discover/the nearby map; independent of
   /// [profileVisibility], which governs media instead. A ghost-mode
   /// user's profile page is still fully reachable (and its media still

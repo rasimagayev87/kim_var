@@ -666,9 +666,7 @@ class _RadiusOptionsRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final loc = AppLocalizations.of(context);
     final selection = ref.watch(selectedDiscoverModeProvider);
-    final isPremium = ref.watch(isPremiumProvider);
     final counts = ref.watch(radiusUserCountsProvider);
 
     return Container(
@@ -686,20 +684,9 @@ class _RadiusOptionsRow extends ConsumerWidget {
               child: _RadiusOption(
                 km: kDefaultRadiusOptionsKm[i],
                 selected: selection.mode == DiscoverRadiusMode.distance && selection.km == kDefaultRadiusOptionsKm[i],
-                locked: isPremiumRadiusKm(kDefaultRadiusOptionsKm[i]) && !isPremium,
+                locked: false,
                 count: counts[kDefaultRadiusOptionsKm[i]] ?? 0,
-                onTap: () {
-                  final km = kDefaultRadiusOptionsKm[i];
-                  if (isPremiumRadiusKm(km) && !isPremium) {
-                    showPremiumUpsellSheet(
-                      context,
-                      title: loc.premiumUpsellRadiusTitle,
-                      message: loc.premiumUpsellRadiusMessage,
-                    );
-                    return;
-                  }
-                  onSelected(DiscoverRadiusSelection.distance(km));
-                },
+                onTap: () => onSelected(DiscoverRadiusSelection.distance(kDefaultRadiusOptionsKm[i])),
               ),
             ),
           ],
@@ -768,11 +755,11 @@ class _MoreRadiusButton extends StatelessWidget {
   }
 }
 
-/// The VIP-only tier: 5/10/30 km (same distance-filter logic as the
-/// free row, just a bigger radius) plus two non-distance modes, Ölkə
-/// üzrə and Dünya üzrə (real Firestore queries — see
-/// `nearbyUsersProvider` — plus a matching map camera move once
-/// selected).
+/// The "Daha çox" panel: 5/10/30 km (free, same distance-filter logic
+/// as the row above, just a bigger radius) plus the two VIP-only
+/// non-distance modes, Ölkə üzrə and Dünya üzrə (real Firestore
+/// queries — see `nearbyUsersProvider` — plus a matching map camera
+/// move once selected).
 class _MoreRadiusPanel extends ConsumerWidget {
   final ValueChanged<DiscoverRadiusSelection> onSelected;
 
@@ -822,13 +809,9 @@ class _MoreRadiusPanel extends ConsumerWidget {
                       km: kExtraRadiusOptionsKm[i],
                       selected: selection.mode == DiscoverRadiusMode.distance &&
                           selection.km == kExtraRadiusOptionsKm[i],
-                      locked: !isPremium,
+                      locked: false,
                       count: counts[kExtraRadiusOptionsKm[i]] ?? 0,
                       onTap: () {
-                        if (!isPremium) {
-                          handleLockedTap();
-                          return;
-                        }
                         onSelected(DiscoverRadiusSelection.distance(kExtraRadiusOptionsKm[i]));
                         Navigator.pop(context);
                       },

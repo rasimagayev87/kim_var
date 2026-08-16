@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/utils/age_calculator.dart';
+import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/presence_utils.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
@@ -119,26 +121,19 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
   }
 }
 
-/// Radius options matching the product spec (in kilometres): 100 m, 500 m
-/// and 1 km are free; 5/10/30 km require Premium (see [isPremiumRadiusKm]).
+/// All 6 distance options are free for every user — only the two
+/// non-distance modes, Ölkə üzrə/Dünya üzrə (see [DiscoverRadiusMode]),
+/// remain VIP-only. That lock is hardcoded at each call site (not
+/// derived from this list), since it isn't a km value.
 const kRadiusOptionsKm = <double>[0.1, 0.5, 1, 5, 10, 30];
 
-/// The 3 VIP-only distance options shown in the "Daha çox" panel
-/// (Ölkə üzrə/Dünya üzrə live alongside these but aren't km values,
-/// so they're not part of this list).
+/// The 3 options shown in the "Daha çox" panel alongside Ölkə üzrə/
+/// Dünya üzrə — free, same as [kDefaultRadiusOptionsKm].
 const kExtraRadiusOptionsKm = <double>[5, 10, 30];
 
-/// The 3 free options shown in the always-visible row — everything
-/// else (5/10 km here, plus 30 km/Ölkə/Dünya added in the "Daha çox"
-/// panel) lives behind that trigger.
+/// The 3 options shown in the always-visible row — everything else
+/// (5/10/30 km, plus Ölkə/Dünya) lives behind the "Daha çox" trigger.
 const kDefaultRadiusOptionsKm = <double>[0.1, 0.5, 1];
-
-/// Radius options at or above this value require an active Premium
-/// subscription. Kept as a single constant so the free/paid line only
-/// needs to change in one place.
-const kPremiumRadiusThresholdKm = 5.0;
-
-bool isPremiumRadiusKm(double km) => km >= kPremiumRadiusThresholdKm;
 
 /// Which of the 8 "Kəşf et" view modes is active: a distance ring
 /// ([km] set), Ölkə üzrə, or Dünya üzrə. Only one at a time — country
@@ -204,41 +199,91 @@ final _nearbyCandidatesProvider = StreamProvider<List<Map<String, dynamic>>>((
       );
 });
 
-/// Everyone online in [country] — backs "Ölkə üzrə". Deliberately no
-/// `lastSeen` recency cutoff (unlike [_nearbyCandidatesProvider]) —
-/// country-wide is meant to surface anyone currently online, not just
-/// the last 15 minutes. The `.limit` is defensive only (a populous
-/// country could have many online users); real pagination/clustering
-/// is a follow-up if this becomes a real bottleneck.
+/// How often [_pollDiscoverCandidates] re-fetches while Ölkə/Dünya
+/// mode is active — these two modes lost their realtime `.snapshots()`
+/// listener when the VIP check moved server-side (see
+/// `getDiscoverCandidates` in `functions/src/index.ts`; a Cloud
+/// Function callable is one-shot, not a stream), so this polling loop
+/// is what keeps them from going stale for as long as the sheet/map
+/// stays on that mode.
+const _discoverCandidatesPollInterval = Duration(seconds: 30);
+
+/// Calls the `getDiscoverCandidates` Cloud Function on a timer and
+/// normalizes its response back into the exact shape a raw Firestore
+/// snapshot used to produce (`{...doc.data(), 'uid': doc.id}`), so
+/// [nearbyUsersProvider]/[radiusUserCountsProvider] don't need to know
+/// their Ölkə/Dünya candidates now come from a server call instead of
+/// a direct query — only [_countryCandidatesProvider]/
+/// [_worldCandidatesProvider] below know that. A transient failure
+/// (network blip, cold start) logs and keeps polling rather than
+/// killing the stream; a persistent `permission-denied` (caller isn't
+/// actually Premium — the UI shouldn't let this happen, but the
+/// function is the real gate) just yields empty lists forever, same
+/// as "no results" would look before.
+Stream<List<Map<String, dynamic>>> _pollDiscoverCandidates({
+  required String mode,
+  String? country,
+}) async* {
+  final callable = FirebaseFunctions.instance.httpsCallable(
+    'getDiscoverCandidates',
+  );
+  while (true) {
+    try {
+      final result = await callable.call<Map<String, dynamic>>({
+        'mode': mode,
+        if (country != null) 'country': country,
+      });
+      final raw = (result.data['candidates'] as List).cast<dynamic>();
+      yield raw
+          .map(
+            (e) => _normalizeDiscoverCandidate(
+              Map<String, dynamic>.from(e as Map),
+            ),
+          )
+          .toList();
+    } catch (e, st) {
+      logError('location_providers._pollDiscoverCandidates', e, st);
+      yield const [];
+    }
+    await Future.delayed(_discoverCandidatesPollInterval);
+  }
+}
+
+/// `getDiscoverCandidates` sends `lastSeen`/`birthDate` as epoch-millis
+/// (a callable's wire format can't round-trip a Firestore `Timestamp`)
+/// — reconstructs them so every other field on this map still behaves
+/// exactly like it did when it came straight from a snapshot.
+Map<String, dynamic> _normalizeDiscoverCandidate(Map<String, dynamic> raw) {
+  final normalized = Map<String, dynamic>.from(raw);
+  final lastSeenMs = raw['lastSeen'] as num?;
+  if (lastSeenMs != null) {
+    normalized['lastSeen'] = Timestamp.fromMillisecondsSinceEpoch(
+      lastSeenMs.toInt(),
+    );
+  }
+  final birthDateMs = raw['birthDate'] as num?;
+  if (birthDateMs != null) {
+    normalized['birthDate'] = Timestamp.fromMillisecondsSinceEpoch(
+      birthDateMs.toInt(),
+    );
+  }
+  return normalized;
+}
+
+/// Everyone online in [country] — backs "Ölkə üzrə". VIP-only: see
+/// [_pollDiscoverCandidates]'s doc comment for why this is a poll
+/// against a Cloud Function rather than a direct Firestore stream.
 final _countryCandidatesProvider =
     StreamProvider.family<List<Map<String, dynamic>>, String>((ref, country) {
-      return FirebaseFirestore.instance
-          .collection('users')
-          .where('country', isEqualTo: country)
-          .where('online', isEqualTo: true)
-          .limit(300)
-          .snapshots()
-          .map(
-            (snapshot) =>
-                snapshot.docs.map((d) => {...d.data(), 'uid': d.id}).toList(),
-          );
+      return _pollDiscoverCandidates(mode: 'country', country: country);
     });
 
-/// Everyone online worldwide — backs "Dünya üzrə". Same defensive-cap
-/// reasoning as [_countryCandidatesProvider], just a larger bound
-/// since it's the broadest possible view.
+/// Everyone online worldwide — backs "Dünya üzrə". Same VIP-gated,
+/// polled-Cloud-Function story as [_countryCandidatesProvider].
 final _worldCandidatesProvider = StreamProvider<List<Map<String, dynamic>>>((
   ref,
 ) {
-  return FirebaseFirestore.instance
-      .collection('users')
-      .where('online', isEqualTo: true)
-      .limit(500)
-      .snapshots()
-      .map(
-        (snapshot) =>
-            snapshot.docs.map((d) => {...d.data(), 'uid': d.id}).toList(),
-      );
+  return _pollDiscoverCandidates(mode: 'world');
 });
 
 /// True when either side of the pair has blocked the other — [myBlockedIds]

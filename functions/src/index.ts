@@ -169,6 +169,67 @@ export const markPhoneVerified = onCall({ region: "us-central1" }, async (reques
   return { phoneNumber };
 });
 
+// Mirrors the client's own `_countryCandidatesProvider`/
+// `_worldCandidatesProvider` queries — kept in exact sync with
+// `lib/features/location/presentation/providers/location_providers.dart`.
+const DISCOVER_COUNTRY_CANDIDATES_LIMIT = 300;
+const DISCOVER_WORLD_CANDIDATES_LIMIT = 500;
+
+/**
+ * Returns Ölkə üzrə/Dünya üzrə Discover candidates for the CALLING
+ * user — the one place that mode's "VIP-only" rule is actually
+ * enforced. The Flutter client used to run these two queries directly
+ * against Firestore (`_countryCandidatesProvider`/
+ * `_worldCandidatesProvider`); `firestore.rules` has no way to express
+ * "only if requester.premium == true" for a `list` query shaped like
+ * this without also blocking the always-free nearby/profile reads that
+ * share the same `users/{uid}` read rule, so the check has to live
+ * here instead, reading `premium` from the requester's OWN doc (never
+ * client-supplied, so it can't be spoofed).
+ *
+ * `lastSeen`/`birthDate` are sent back as epoch-millis, not Firestore
+ * `Timestamp`s — the callable wire format doesn't round-trip those —
+ * the client reconstructs `Timestamp`s from them so the rest of
+ * `nearbyUsersProvider`'s parsing stays unchanged.
+ */
+export const getDiscoverCandidates = onCall({ region: "us-central1" }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  }
+
+  const mode = request.data?.mode as string | undefined;
+  if (mode !== "country" && mode !== "world") {
+    throw new HttpsError("invalid-argument", "invalid-mode");
+  }
+
+  const callerSnap = await db.collection("users").doc(uid).get();
+  if (callerSnap.data()?.premium !== true) {
+    throw new HttpsError("permission-denied", "premium-required");
+  }
+
+  let query: FirebaseFirestore.Query = db.collection("users").where("online", "==", true);
+  if (mode === "country") {
+    const country = request.data?.country as string | undefined;
+    if (!country) {
+      throw new HttpsError("invalid-argument", "missing-country");
+    }
+    query = query.where("country", "==", country).limit(DISCOVER_COUNTRY_CANDIDATES_LIMIT);
+  } else {
+    query = query.limit(DISCOVER_WORLD_CANDIDATES_LIMIT);
+  }
+
+  const snap = await query.get();
+  const candidates = snap.docs.map((doc) => {
+    const data = doc.data();
+    const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toMillis() : null;
+    const birthDate = data.birthDate instanceof Timestamp ? data.birthDate.toMillis() : null;
+    return { ...data, uid: doc.id, lastSeen, birthDate };
+  });
+
+  return { candidates };
+});
+
 /**
  * Checks and records one OTP-send attempt for `phoneNumber` against the
  * rate limits above, inside a transaction so concurrent calls (e.g. a
