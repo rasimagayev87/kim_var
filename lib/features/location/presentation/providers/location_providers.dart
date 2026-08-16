@@ -169,6 +169,14 @@ final selectedDiscoverModeProvider = StateProvider<DiscoverRadiusSelection>(
 /// Gender filter for the discover map/cards. Matches the free-text
 /// `gender` values ('Kişi' / 'Qadın') already written to Firestore
 /// by the profile edit screen.
+///
+/// [all] is free for everyone; picking [male]/[female] is VIP-only —
+/// gated client-side in `discover_tab.dart`'s `_showGenderFilterSheet`
+/// (same `isPremiumProvider`/`showPremiumUpsellSheet` pattern as the
+/// Ölkə/Dünya radius lock). UI-only, like every other Premium gate in
+/// this file predating it (Ghost Mode, the old 5/10/30 km tier) — this
+/// state is a plain client `StateProvider`, so a modified client could
+/// still set it to male/female directly.
 enum GenderFilter { all, male, female }
 
 final selectedGenderFilterProvider = StateProvider<GenderFilter>(

@@ -504,6 +504,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
   void _showGenderFilterSheet(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final current = ref.read(selectedGenderFilterProvider);
+    final isPremium = ref.read(isPremiumProvider);
 
     showModalBottomSheet<void>(
       context: context,
@@ -525,18 +526,37 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                   ),
                 ),
                 const SizedBox(height: 8),
+                // "Hamı" stays free — only picking a specific gender is
+                // VIP-only (see [selectedGenderFilterProvider]'s doc
+                // comment), so the unfiltered default is never locked.
                 for (final option in [
-                  (GenderFilter.all, loc.genderFilterAll),
-                  (GenderFilter.male, loc.genderFilterMale),
-                  (GenderFilter.female, loc.genderFilterFemale),
+                  (GenderFilter.all, loc.genderFilterAll, false),
+                  (GenderFilter.male, loc.genderFilterMale, true),
+                  (GenderFilter.female, loc.genderFilterFemale, true),
                 ])
                   ListTile(
-                    title: Text(option.$2, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
+                    title: Row(
+                      children: [
+                        Text(option.$2, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
+                        if (option.$3 && !isPremium) ...[
+                          const SizedBox(width: 6),
+                          const Icon(Icons.workspace_premium_outlined, size: 14, color: AppColors.gold),
+                        ],
+                      ],
+                    ),
                     leading: Icon(
                       option.$1 == current ? Icons.radio_button_checked : Icons.radio_button_off,
                       color: option.$1 == current ? AppColors.primary : AppColors.textMuted,
                     ),
                     onTap: () {
+                      if (option.$3 && !isPremium) {
+                        showPremiumUpsellSheet(
+                          sheetContext,
+                          title: loc.premiumUpsellGenderTitle,
+                          message: loc.premiumUpsellGenderMessage,
+                        );
+                        return;
+                      }
                       ref.read(selectedGenderFilterProvider.notifier).state = option.$1;
                       Navigator.pop(sheetContext);
                     },
