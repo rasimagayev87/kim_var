@@ -57,6 +57,13 @@
 			</array>
 		</dict>
 	</array>
+	<!-- google_sign_in_ios does NOT read CLIENT_ID from
+	     GoogleService-Info.plist automatically — without this key it
+	     crashes at sign-in time with "No active configuration. Make
+	     sure GIDClientID is set in Info.plist." Same CLIENT_ID (not
+	     REVERSED) as GoogleService-Info.plist. -->
+	<key>GIDClientID</key>
+	<string>148607007767-dkrl4dagoo9isvpgtjg3rmguhd715nqa.apps.googleusercontent.com</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
