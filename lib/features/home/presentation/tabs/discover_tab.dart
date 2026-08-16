@@ -666,8 +666,24 @@ class _RadiusOptionsRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context);
     final selection = ref.watch(selectedDiscoverModeProvider);
     final counts = ref.watch(radiusUserCountsProvider);
+
+    // Whichever of Ölkə/Dünya/5/10/30 km is active lives behind "Daha
+    // çox", so none of the 3 always-visible pills can show it as
+    // selected — without this, picking one of those left the whole row
+    // looking unselected, which read as "the tap did nothing" even
+    // though the radius had actually changed underneath.
+    final isDefaultSelection =
+        selection.mode == DiscoverRadiusMode.distance && kDefaultRadiusOptionsKm.contains(selection.km);
+    final moreButtonLabel = isDefaultSelection
+        ? null
+        : switch (selection.mode) {
+            DiscoverRadiusMode.distance => _formatRadius(selection.km!),
+            DiscoverRadiusMode.country => loc.privacyRadiusCountryLabel,
+            DiscoverRadiusMode.world => loc.privacyRadiusWorldLabel,
+          };
 
     return Container(
       width: double.infinity,
@@ -692,7 +708,11 @@ class _RadiusOptionsRow extends ConsumerWidget {
           ],
           const SizedBox(width: 8),
           Expanded(
-            child: _MoreRadiusButton(onTap: () => _showMoreRadiusSheet(context, onSelected)),
+            child: _MoreRadiusButton(
+              selected: !isDefaultSelection,
+              label: moreButtonLabel,
+              onTap: () => _showMoreRadiusSheet(context, onSelected),
+            ),
           ),
         ],
       ),
@@ -712,27 +732,36 @@ void _showMoreRadiusSheet(BuildContext context, ValueChanged<DiscoverRadiusSelec
   );
 }
 
-/// Same pill envelope as [_RadiusOption], styled as a neutral trigger
-/// (never "selected") rather than a radius value.
+/// Same pill envelope as [_RadiusOption] — turns "selected" (teal fill,
+/// [label] replacing the generic "Daha çox" text) whenever the active
+/// radius is one of the options living inside the sheet this opens
+/// (5/10/30 km, Ölkə, Dünya), so there's always a persistent, visible
+/// answer to "what's selected right now" even though none of the 3
+/// always-visible pills can show it themselves.
 class _MoreRadiusButton extends StatelessWidget {
+  final bool selected;
+  final String? label;
   final VoidCallback onTap;
 
-  const _MoreRadiusButton({required this.onTap});
+  const _MoreRadiusButton({required this.selected, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
+    final textColor = selected ? AppColors.onAccent : AppColors.textSecondary;
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
         width: double.infinity,
         height: _kRadiusOptionHeight,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
         decoration: BoxDecoration(
-          color: AppColors.card,
+          color: selected ? AppColors.primary : AppColors.card,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.divider),
+          border: Border.all(color: selected ? Colors.transparent : AppColors.divider),
         ),
         child: Center(
           child: FittedBox(
@@ -741,11 +770,11 @@ class _MoreRadiusButton extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  loc.radiusMoreButtonLabel,
-                  style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+                  label ?? loc.radiusMoreButtonLabel,
+                  style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700, color: textColor),
                 ),
                 const SizedBox(width: 2),
-                const Icon(Icons.keyboard_arrow_down_outlined, size: 16, color: AppColors.textSecondary),
+                Icon(Icons.keyboard_arrow_down_outlined, size: 16, color: textColor),
               ],
             ),
           ),
