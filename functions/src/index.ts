@@ -228,8 +228,22 @@ export const sendOtp = onCall(
     );
 
     if (!resp.ok) {
+      // Twilio's error body (code/message/more_info) is the only way to
+      // tell a bad phone format (21211) apart from a blocked region
+      // (21408), a wrong Verify Service SID (20404/60200), a still-Trial
+      // account silently not sending to unverified numbers, etc. — none
+      // of that was visible before this log line existed.
+      const body = await resp.text();
+      logger.error("sendOtp: Twilio Verify send failed", { status: resp.status, body });
       throw new HttpsError("internal", `Twilio Verify send failed: ${resp.status}`);
     }
+
+    // A 2xx here doesn't guarantee the SMS actually arrives — a still-
+    // Trial Twilio account returns `status: "pending"` same as a real
+    // send, then silently never delivers to an unverified number. This
+    // is the only place that distinction is visible at all right now.
+    const okBody = (await resp.json()) as { status?: string; sid?: string };
+    logger.info("sendOtp: Twilio Verify send accepted", { status: okBody.status, sid: okBody.sid });
 
     return { success: true };
   }
@@ -276,6 +290,8 @@ export const verifyOtp = onCall(
     );
 
     if (!resp.ok) {
+      const body = await resp.text();
+      logger.error("verifyOtp: Twilio Verify check failed", { status: resp.status, body });
       throw new HttpsError("internal", `Twilio Verify check failed: ${resp.status}`);
     }
     const result = (await resp.json()) as { status?: string };
