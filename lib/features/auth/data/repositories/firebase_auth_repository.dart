@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 
 import '../../domain/entities/app_user.dart';
@@ -11,15 +10,12 @@ import '../../domain/repositories/auth_repository.dart';
 class FirebaseAuthRepository implements AuthRepository {
   final fb.FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
-  final FirebaseFunctions _functions;
 
   FirebaseAuthRepository({
     fb.FirebaseAuth? auth,
     FirebaseFirestore? firestore,
-    FirebaseFunctions? functions,
   })  : _auth = auth ?? fb.FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance,
-        _functions = functions ?? FirebaseFunctions.instance;
+        _firestore = firestore ?? FirebaseFirestore.instance;
 
   final _controller = StreamController<AppUser?>.broadcast();
   bool _needsOnboarding = false;
@@ -297,9 +293,10 @@ class FirebaseAuthRepository implements AuthRepository {
       // from ever writing (even to their own default `false`), so the
       // account doc simply starts without them. Every read site already
       // treats an absent field as `false` (see UserProfile/premium_
-      // providers), and `isVerified` only ever flips to `true` via the
-      // server-side markPhoneVerified Cloud Function once phone-linking
-      // ("Hesabı təsdiq et") actually succeeds.
+      // providers). `isVerified` is a leftover from the removed
+      // phone-OTP verification step (Faza 1 of the auth rewrite) —
+      // nothing writes it `true` anymore; every gate that used to read
+      // it was neutralized in the same change (see [requireVerified]).
       'online': true,
       'friendCount': 0,
       'eventCount': 0,
@@ -347,110 +344,14 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> startPhoneLinkVerification({
-    required String phoneNumber,
-    required void Function(String verificationId) onCodeSent,
-    required void Function() onAutoVerified,
-    required void Function(String? errorCode) onFailed,
-  }) async {
-    // On some devices/networks, none of verificationCompleted,
-    // verificationFailed, or codeSent ever fire (a stuck Play
-    // Integrity/reCAPTCHA challenge, a blocked Google API endpoint,
-    // etc.) — without this guard, the caller's loading spinner would
-    // spin forever with no feedback at all. codeAutoRetrievalTimeout
-    // fires unconditionally ~60s later regardless of outcome, so it
-    // only treats that as a failure when nothing else already settled.
-    var settled = false;
-    await _auth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
-      verificationCompleted: (credential) async {
-        settled = true;
-        try {
-          await _linkAndMarkVerified(credential, phoneNumber);
-          onAutoVerified();
-        } on fb.FirebaseAuthException catch (e) {
-          onFailed(e.code);
-        } catch (_) {
-          onFailed(null);
-        }
-      },
-      verificationFailed: (e) {
-        settled = true;
-        onFailed(e.code);
-      },
-      codeSent: (verificationId, resendToken) {
-        settled = true;
-        onCodeSent(verificationId);
-      },
-      codeAutoRetrievalTimeout: (_) {
-        if (!settled) onFailed(null);
-      },
-      timeout: const Duration(seconds: 60),
-    );
-  }
-
-  @override
-  Future<void> confirmPhoneLink({
-    required String verificationId,
-    required String smsCode,
-    required String phoneNumber,
-  }) async {
-    final credential = fb.PhoneAuthProvider.credential(
-      verificationId: verificationId,
-      smsCode: smsCode,
-    );
-    await _linkAndMarkVerified(credential, phoneNumber);
-  }
-
-  Future<void> _linkAndMarkVerified(fb.PhoneAuthCredential credential, String phoneNumber) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw StateError('Təsdiqləmə üçün əvvəlcə giriş edilməlidir.');
-    }
-    await user.linkWithCredential(credential);
-    // `isVerified`/`phoneNumber` on users/{uid} (and the phoneNumbers/
-    // reservation doc) are written server-side by this callable, not
-    // by a direct Firestore write — firestore.rules blocks the client
-    // from setting isVerified itself, specifically so a raw Firestore
-    // write can't self-grant verification. The function trusts Firebase
-    // Auth's OWN phoneNumber claim (just set by linkWithCredential
-    // above via a real SMS OTP), never anything the client passes in.
-    await _functions.httpsCallable('markPhoneVerified').call<Map<String, dynamic>>();
-  }
-
-  @override
-  Future<void> sendTwilioOtp(String phoneNumber) async {
-    await _functions.httpsCallable('sendOtp').call<Map<String, dynamic>>({'phoneNumber': phoneNumber});
-  }
-
-  @override
-  Future<void> verifyTwilioOtp({required String phoneNumber, required String code}) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw StateError('Təsdiqləmə üçün əvvəlcə giriş edilməlidir.');
-    }
-    final result = await _functions.httpsCallable('verifyOtp').call<Map<String, dynamic>>({
-      'phoneNumber': phoneNumber,
-      'code': code,
-      'tempUserId': user.uid,
-    });
-    final customToken = result.data['customToken'] as String;
-    // The account is already signed in — this just refreshes the
-    // session with the `phoneNumber` claim verifyOtp's Admin SDK call
-    // just set, exactly like `linkWithCredential` used to inline.
-    await _auth.signInWithCustomToken(customToken);
-  }
-
-  @override
   Future<void> startPhoneRecoveryVerification({
     required String phoneNumber,
     required void Function(String verificationId) onCodeSent,
     required void Function() onAutoVerified,
     required void Function(String? errorCode) onFailed,
   }) async {
-    // See the identical guard in [startPhoneLinkVerification] — some
-    // devices/networks never invoke any of the other three callbacks,
-    // which would otherwise leave the caller's loading spinner stuck
+    // Some devices/networks never invoke any of the other three
+    // callbacks, which would otherwise leave the caller's loading spinner stuck
     // forever with no feedback.
     var settled = false;
     await _auth.verifyPhoneNumber(

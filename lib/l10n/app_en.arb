@@ -74,15 +74,6 @@
       }
     }
   },
-  "verificationRequiredTitle": "Verify your account",
-  "verificationRequiredMessage": "You need to verify your account before using this feature.",
-  "verificationRequiredButton": "Verify account",
-  "accountVerificationTitle": "Verify your account",
-  "accountVerificationSubtitle": "Verify your phone number to unlock every feature.",
-  "accountVerificationPhoneTakenError": "This phone number is already used by another account.",
-  "accountVerificationSuccessMessage": "Your account is verified.",
-  "settingsAccountVerificationRowTitle": "Verify account",
-  "settingsAccountVerifiedRowSubtitle": "Your account is verified",
   "settingsIdentityVerificationRowTitle": "Identity verification",
   "swipeMatchedMessage": "You matched with this user!",
   "swipeErrorMessage": "Something went wrong. Please try again shortly.",
@@ -958,7 +949,6 @@
   "settingsPrivacyRowSubtitle": "Visibility, blocks, active devices and more",
   "settingsNotificationsRowSubtitle": "Messages, push notifications",
   "settingsLanguageRowSubtitle": "App language",
-  "settingsIdentityRowSubtitle": "Verify your identity, earn a trusted badge",
   "settingsVipRowTitle": "PeakPin VIP",
   "settingsVipRowSubtitle": "Go VIP, manage your plan",
   "settingsVipActiveLabel": "Active",

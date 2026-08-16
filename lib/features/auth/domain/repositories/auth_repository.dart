@@ -9,8 +9,10 @@ import '../entities/app_user.dart';
 /// chosen username via the `usernames` Firestore collection, which is
 /// also what lets [updateUsername] rename the handle without ever
 /// touching the sign-in credential. Phone number is not a sign-in
-/// method at all; it's a per-account verification/recovery factor
-/// (account verification, forgot password).
+/// method at all — the only thing it's still used for is the "Parolu
+/// unutdum" recovery path (see [startPhoneRecoveryVerification]);
+/// the separate phone-OTP account-verification step this used to also
+/// back was removed (Faza 1 of the auth rewrite).
 abstract class AuthRepository {
   Stream<AppUser?> authStateChanges();
 
@@ -74,47 +76,9 @@ abstract class AuthRepository {
   Future<void> signOut();
 
   /// True if [phoneNumber] (E.164) is already linked to a DIFFERENT
-  /// account. A friendly pre-check before spending an SMS — the real,
-  /// race-safe guarantee is still whatever [confirmPhoneLink] throws
-  /// (Firebase Auth's own `credential-already-in-use`).
+  /// account — a friendly pre-check before spending an SMS on
+  /// [startPhoneRecoveryVerification].
   Future<bool> isPhoneNumberTaken(String phoneNumber);
-
-  /// Sends an SMS code for linking [phoneNumber] to the CURRENTLY
-  /// signed-in account (never a sign-in by itself). Exactly one of
-  /// [onCodeSent] or [onAutoVerified] fires per call — the latter only
-  /// on Android's instant SMS auto-retrieval, in which case the link
-  /// (and the Firestore `isVerified`/`phoneNumber` write) has already
-  /// completed by the time it's called.
-  Future<void> startPhoneLinkVerification({
-    required String phoneNumber,
-    required void Function(String verificationId) onCodeSent,
-    required void Function() onAutoVerified,
-    required void Function(String? errorCode) onFailed,
-  });
-
-  /// Confirms the SMS code, links it to the current account, and
-  /// writes `isVerified: true` + `phoneNumber` to Firestore.
-  Future<void> confirmPhoneLink({
-    required String verificationId,
-    required String smsCode,
-    required String phoneNumber,
-  });
-
-  /// Twilio Verify equivalent of [startPhoneLinkVerification] — sends
-  /// the SMS via the `sendOtp` Cloud Function instead of Firebase's own
-  /// phone auth. Gated behind `kUseTwilioOtp`; see
-  /// [AccountVerificationScreen].
-  Future<void> sendTwilioOtp(String phoneNumber);
-
-  /// Twilio Verify equivalent of [confirmPhoneLink] — confirms via the
-  /// `verifyOtp` Cloud Function, which writes `isVerified`/`phoneNumber`
-  /// server-side and returns a custom token this then signs in with, so
-  /// the CURRENTLY signed-in account ends up verified exactly like
-  /// [confirmPhoneLink] leaves it.
-  Future<void> verifyTwilioOtp({
-    required String phoneNumber,
-    required String code,
-  });
 
   /// Sends an SMS code for the "Parolu unutdum" recovery path — never
   /// creates a new account. [phoneNumber] should already be known (via

@@ -5,9 +5,7 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/widgets/settings_group.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../auth/presentation/providers/auth_providers.dart';
-import '../../../../auth/presentation/screens/account_verification_screen.dart';
 import '../../../../auth/presentation/widgets/verification_guard.dart';
-import '../../../../profile/presentation/providers/profile_providers.dart';
 import '../../../../profile/presentation/screens/edit_profile_screen.dart';
 import '../widgets/change_email_sheet.dart';
 import '../widgets/delete_account_row.dart';
@@ -23,7 +21,6 @@ class AccountScreen extends ConsumerWidget {
 
     final phone = authUser?.phone;
     final email = authUser?.email;
-    final isVerified = ref.watch(profileControllerProvider).isVerified;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -40,18 +37,6 @@ class AccountScreen extends ConsumerWidget {
           children: [
             SettingsGroup(
               children: [
-                SettingsMenuRow(
-                  icon: isVerified ? Icons.verified_outlined : Icons.verified_user_outlined,
-                  iconColor: isVerified ? AppColors.primary : null,
-                  title: loc.settingsAccountVerificationRowTitle,
-                  subtitle: isVerified ? loc.settingsAccountVerifiedRowSubtitle : loc.settingsIdentityRowSubtitle,
-                  onTap: isVerified
-                      ? null
-                      : () => Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const AccountVerificationScreen()),
-                          ),
-                ),
                 SettingsMenuRow(
                   icon: Icons.person_outline,
                   title: loc.accountPersonalInfoTitle,

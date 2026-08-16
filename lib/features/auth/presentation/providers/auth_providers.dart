@@ -99,43 +99,6 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     return _repository.isPhoneNumberTaken(phoneNumber);
   }
 
-  Future<void> startPhoneLinkVerification({
-    required String phoneNumber,
-    required void Function(String verificationId) onCodeSent,
-    required void Function() onAutoVerified,
-    required void Function(String? errorCode) onFailed,
-  }) {
-    return _repository.startPhoneLinkVerification(
-      phoneNumber: phoneNumber,
-      onCodeSent: onCodeSent,
-      onAutoVerified: onAutoVerified,
-      onFailed: onFailed,
-    );
-  }
-
-  Future<void> confirmPhoneLink({
-    required String verificationId,
-    required String smsCode,
-    required String phoneNumber,
-  }) {
-    return _repository.confirmPhoneLink(
-      verificationId: verificationId,
-      smsCode: smsCode,
-      phoneNumber: phoneNumber,
-    );
-  }
-
-  Future<void> sendTwilioOtp(String phoneNumber) {
-    return _repository.sendTwilioOtp(phoneNumber);
-  }
-
-  Future<void> verifyTwilioOtp({
-    required String phoneNumber,
-    required String code,
-  }) {
-    return _repository.verifyTwilioOtp(phoneNumber: phoneNumber, code: code);
-  }
-
   Future<void> startPhoneRecoveryVerification({
     required String phoneNumber,
     required void Function(String verificationId) onCodeSent,
