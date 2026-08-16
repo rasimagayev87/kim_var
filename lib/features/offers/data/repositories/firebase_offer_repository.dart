@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
 import '../../../../core/data/listing_payment.dart';
+import '../../../../core/utils/firestore_retry.dart';
 import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../domain/entities/offer.dart';
 import '../../domain/repositories/offer_repository.dart';
@@ -182,12 +183,12 @@ class FirebaseOfferRepository implements OfferRepository {
     required double radiusKm,
     VenueCategory? category,
   }) async {
-    final results = await _datasource.queryWithinRadius(
-      lat: lat,
-      lng: lng,
-      radiusKm: radiusKm,
-      category: category?.name,
-    );
+    final results = await withPermissionRetry(() => _datasource.queryWithinRadius(
+          lat: lat,
+          lng: lng,
+          radiusKm: radiusKm,
+          category: category?.name,
+        ));
 
     final now = DateTime.now();
     return results
@@ -198,7 +199,7 @@ class FirebaseOfferRepository implements OfferRepository {
 
   @override
   Future<List<Offer>> fetchOffersByCountry(String country, {VenueCategory? category}) async {
-    final snap = await _datasource.queryByCountry(country, category: category?.name);
+    final snap = await withPermissionRetry(() => _datasource.queryByCountry(country, category: category?.name));
     final now = DateTime.now();
     return snap.docs
         .map((d) => Offer.fromFirestore(d.id, d.data()))
@@ -208,7 +209,7 @@ class FirebaseOfferRepository implements OfferRepository {
 
   @override
   Future<List<Offer>> fetchAllActiveOffers({int limit = 300, VenueCategory? category}) async {
-    final snap = await _datasource.queryAllActive(limit: limit, category: category?.name);
+    final snap = await withPermissionRetry(() => _datasource.queryAllActive(limit: limit, category: category?.name));
     final now = DateTime.now();
     return snap.docs
         .map((d) => Offer.fromFirestore(d.id, d.data()))
