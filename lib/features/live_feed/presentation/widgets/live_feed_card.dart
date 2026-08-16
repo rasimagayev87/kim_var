@@ -41,6 +41,15 @@ class LiveFeedCard extends StatelessWidget {
 
   bool get _isTappable => item.type != LiveFeedType.audience;
 
+  /// Whether to show the venue's own profile photo instead of the
+  /// generic per-type glyph — never for [LiveFeedType.audience] (a
+  /// system announcement, not venue content — [item.photoUrl] is never
+  /// populated for that type to begin with, but this stays explicit
+  /// rather than relying on that alone), and only when the venue
+  /// actually has one set. Same `photoUrl != null` fallback rule every
+  /// other venue-photo call site in the app already uses.
+  bool get _showVenuePhoto => _isTappable && item.photoUrl != null;
+
   @override
   Widget build(BuildContext context) {
     final icon = iconForLiveFeedType(item.type);
@@ -61,22 +70,32 @@ class LiveFeedCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [gradient.start, gradient.end],
-                  ),
-                  borderRadius: BorderRadius.circular(11),
-                  boxShadow: [
-                    BoxShadow(color: gradient.start.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 3)),
-                  ],
-                ),
-                child: Icon(icon, size: 18, color: Colors.white),
-              ),
+              _showVenuePhoto
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(11),
+                      child: Image.network(
+                        item.photoUrl!,
+                        width: 34,
+                        height: 34,
+                        fit: BoxFit.cover,
+                      ),
+                    )
+                  : Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [gradient.start, gradient.end],
+                        ),
+                        borderRadius: BorderRadius.circular(11),
+                        boxShadow: [
+                          BoxShadow(color: gradient.start.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 3)),
+                        ],
+                      ),
+                      child: Icon(icon, size: 18, color: Colors.white),
+                    ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(

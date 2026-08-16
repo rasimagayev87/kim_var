@@ -33,6 +33,13 @@ class LiveFeedItem {
   final String subtitle;
   final double distanceMeters;
 
+  /// The hosting venue's own profile photo — `null` if it hasn't set
+  /// one, or for [LiveFeedType.audience] (a system announcement, not
+  /// venue content; never populated for that type on purpose). The
+  /// card falls back to the generic per-type icon whenever this is
+  /// null, exactly like every other `venue.photoUrl` call site.
+  final String? photoUrl;
+
   /// What "freshness" means depends on [type] — an event's own
   /// `startAt`, an offer's `createdAt`, a seat count's `seatsUpdatedAt`,
   /// or simply "now" for a live audience/birthday-match read. See
@@ -49,5 +56,6 @@ class LiveFeedItem {
     required this.subtitle,
     required this.distanceMeters,
     required this.timestamp,
+    this.photoUrl,
   });
 }

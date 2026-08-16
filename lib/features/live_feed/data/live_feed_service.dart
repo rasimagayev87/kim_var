@@ -20,6 +20,7 @@ class LiveFeedVenueSnapshot {
   final double distanceMeters;
   final int? availableSeats;
   final DateTime? seatsUpdatedAt;
+  final String? photoUrl;
 
   const LiveFeedVenueSnapshot({
     required this.id,
@@ -28,6 +29,7 @@ class LiveFeedVenueSnapshot {
     required this.distanceMeters,
     required this.availableSeats,
     required this.seatsUpdatedAt,
+    required this.photoUrl,
   });
 }
 
@@ -93,6 +95,7 @@ class LiveFeedService {
         distanceMeters: r.distanceFromCenterInKm * 1000,
         availableSeats: data['availableSeats'] as int?,
         seatsUpdatedAt: (data['seatsUpdatedAt'] as Timestamp?)?.toDate(),
+        photoUrl: data['photoUrl'] as String?,
       );
     }).toList();
   }
@@ -150,6 +153,7 @@ class LiveFeedService {
         subtitle: '${venue.availableSeats} boş yer var',
         distanceMeters: venue.distanceMeters,
         timestamp: venue.seatsUpdatedAt ?? DateTime.now(),
+        photoUrl: venue.photoUrl,
       );
     }).toList();
   }
@@ -169,6 +173,7 @@ class LiveFeedService {
     required double lng,
     required double radiusKm,
     required Map<String, String> categoryByVenueId,
+    required Map<String, String?> photoUrlByVenueId,
   }) async {
     final eventCategories = await _configCategories('eventCategories');
     final now = DateTime.now();
@@ -209,6 +214,7 @@ class LiveFeedService {
         subtitle: (data['venueName'] as String?) ?? '',
         distanceMeters: r.distanceFromCenterInKm * 1000,
         timestamp: startAt,
+        photoUrl: photoUrlByVenueId[venueId],
       ));
     }
     return items;
@@ -225,6 +231,7 @@ class LiveFeedService {
     required double radiusKm,
     required String? myUid,
     required Duration freshWindow,
+    required Map<String, String?> photoUrlByVenueId,
   }) async {
     final freshCutoff = DateTime.now().subtract(freshWindow);
 
@@ -262,6 +269,7 @@ class LiveFeedService {
           subtitle: venueName,
           distanceMeters: distanceMeters,
           timestamp: createdAt,
+          photoUrl: photoUrlByVenueId[venueId],
         ));
         continue;
       }
@@ -277,6 +285,7 @@ class LiveFeedService {
         subtitle: venueName,
         distanceMeters: distanceMeters,
         timestamp: createdAt,
+        photoUrl: photoUrlByVenueId[venueId],
       ));
     }
     return items;
@@ -312,10 +321,12 @@ class LiveFeedService {
       final venueSnaps = await _firestore.collection('venues').where(FieldPath.documentId, whereIn: chunk).get();
       final eligibleIds = <String>[];
       final venueNameById = <String, String>{};
+      final venuePhotoById = <String, String?>{};
       final venueDistanceById = <String, double>{};
       for (final doc in venueSnaps.docs) {
         final data = doc.data();
         venueNameById[doc.id] = (data['name'] as String?) ?? '';
+        venuePhotoById[doc.id] = data['photoUrl'] as String?;
         final lat = (data['lat'] as num?)?.toDouble();
         final lng = (data['lng'] as num?)?.toDouble();
         if (lat != null && lng != null) {
@@ -352,6 +363,7 @@ class LiveFeedService {
           subtitle: (data['venueName'] as String?) ?? venueNameById[venueId] ?? '',
           distanceMeters: venueDistanceById[venueId] ?? 0,
           timestamp: createdAt,
+          photoUrl: venuePhotoById[venueId],
         ));
       }
 
@@ -376,6 +388,7 @@ class LiveFeedService {
           subtitle: (data['venueName'] as String?) ?? venueNameById[venueId] ?? '',
           distanceMeters: venueDistanceById[venueId] ?? 0,
           timestamp: startAt,
+          photoUrl: venuePhotoById[venueId],
         ));
       }
     }

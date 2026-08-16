@@ -151,6 +151,7 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
         venues = await service.fetchVenueSnapshots(lat: params.lat, lng: params.lng, radiusKm: params.radiusKm);
         _lastVenues = venues;
         final categoryByVenueId = {for (final v in venues) v.id: v.category};
+        final photoUrlByVenueId = {for (final v in venues) v.id: v.photoUrl};
 
         final seatItems = service.seatAvailableItemsFrom(venues);
         final eventItems = await service.fetchEventItems(
@@ -158,6 +159,7 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
           lng: params.lng,
           radiusKm: params.radiusKm,
           categoryByVenueId: categoryByVenueId,
+          photoUrlByVenueId: photoUrlByVenueId,
         );
         final offerItems = await service.fetchOfferAndBirthdayItems(
           lat: params.lat,
@@ -165,6 +167,7 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
           radiusKm: params.radiusKm,
           myUid: fb.FirebaseAuth.instance.currentUser?.uid,
           freshWindow: liveFeedFreshWindow,
+          photoUrlByVenueId: photoUrlByVenueId,
         );
         geoItems = [...seatItems, ...eventItems, ...offerItems];
       }
