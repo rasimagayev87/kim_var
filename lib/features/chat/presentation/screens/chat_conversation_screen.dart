@@ -54,6 +54,7 @@ class _Spacing {
 /// behind it. A bigger avatar and bolder name than before, per spec.
 class _ChatHeader extends StatelessWidget {
   final String peerName;
+  final String? peerUsername;
   final String? peerPhoto;
   final String statusText;
   final bool statusIsLive;
@@ -75,6 +76,7 @@ class _ChatHeader extends StatelessWidget {
 
   const _ChatHeader({
     required this.peerName,
+    required this.peerUsername,
     required this.peerPhoto,
     required this.statusText,
     required this.statusIsLive,
@@ -151,7 +153,9 @@ class _ChatHeader extends StatelessWidget {
                                 ],
                                 Flexible(
                                   child: Text(
-                                    statusText,
+                                    peerUsername != null && peerUsername!.isNotEmpty
+                                        ? '@$peerUsername · $statusText'
+                                        : statusText,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 12.5,
@@ -600,6 +604,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
               children: [
                 _ChatHeader(
                   peerName: peerName,
+                  peerUsername: peer?.username,
                   peerPhoto: peerPhoto,
                   statusText: statusText,
                   statusIsLive: statusIsLive,

@@ -281,6 +281,17 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
+                              if (profile?.username != null && profile!.username!.isNotEmpty) ...[
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    '@${profile.username}',
+                                    style: AppTextStyles.caption.copyWith(color: Colors.white70, fontSize: 12.5),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
                               const SizedBox(width: 8),
                               Text(
                                 formatRelativeTime(story.createdAt, loc),
@@ -472,7 +483,15 @@ class _ViewerRow extends ConsumerWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(name, style: AppTextStyles.body.copyWith(fontSize: 14.5, fontWeight: FontWeight.w500)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(name, style: AppTextStyles.body.copyWith(fontSize: 14.5, fontWeight: FontWeight.w500)),
+                  if (profile?.username != null && profile!.username!.isNotEmpty)
+                    Text('@${profile.username}', style: AppTextStyles.caption.copyWith(fontSize: 12)),
+                ],
+              ),
             ),
             Text(DateFormat('HH:mm').format(view.viewedAt), style: AppTextStyles.caption.copyWith(fontSize: 12)),
           ],

@@ -552,6 +552,7 @@ final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
         // fallback ("İstifadəçi"/"User"/...) at display time, since this
         // provider has no BuildContext to translate with.
         name: fullName,
+        username: data['username'] as String?,
         lat: lat,
         lng: lng,
         bio: data['bio'] as String? ?? '',

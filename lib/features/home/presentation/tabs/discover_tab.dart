@@ -455,6 +455,10 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                                 ],
                               ],
                             ),
+                            if (user.username != null && user.username!.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text('@${user.username}', style: AppTextStyles.caption),
+                            ],
                             const SizedBox(height: 5),
                             Text(
                               formatDistance(loc, distanceMeters, distanceUnit),

@@ -332,6 +332,16 @@ class _CommentRow extends ConsumerWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (profile?.username != null && profile!.username!.isNotEmpty) ...[
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            '@${profile.username}',
+                            style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                       const SizedBox(width: 6),
                       Text(formatRelativeTime(comment.createdAt, loc), style: AppTextStyles.caption.copyWith(fontSize: 11)),
                     ],

@@ -3,6 +3,7 @@ import '../../../core/utils/presence_utils.dart';
 class NearbyUser {
   final String id;
   final String name;
+  final String? username;
   final double lat;
   final double lng;
   final String bio;
@@ -22,6 +23,7 @@ class NearbyUser {
     required this.lat,
     required this.lng,
     required this.distanceMeters,
+    this.username,
     this.bio = '',
     this.photoUrl,
     this.online = false,
