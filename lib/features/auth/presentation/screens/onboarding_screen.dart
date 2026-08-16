@@ -19,6 +19,7 @@ import '../../../profile/domain/entities/user_profile.dart' show kBusinessStatus
 import '../../../profile/presentation/providers/photo_upload_provider.dart';
 import '../../../profile/presentation/storage_failure_messages.dart';
 import '../providers/auth_providers.dart';
+import '../widgets/country_dial_code.dart';
 
 /// Shown exactly once, right after a user's very first successful
 /// sign-in (any provider), to collect the data needed to create
@@ -34,6 +35,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _bioController = TextEditingController();
 
   DateTime? _birthDate;
@@ -43,6 +46,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _businessStatus;
   File? _pickedPhoto;
   bool _saving = false;
+
+  static final _usernamePattern = RegExp(r'^[a-zA-Z0-9._]{3,20}$');
+
+  Timer? _usernameCheckDebounce;
+  bool? _usernameAvailable;
+  bool _checkingUsername = false;
+
+  // Tracks the dial-code prefix this screen itself last wrote into
+  // [_phoneController] (see [_applyDialCodeForCountry]) — lets a
+  // country change re-prefix the field without clobbering digits the
+  // user already typed after it.
+  String? _autoDialCode;
 
   @override
   void initState() {
@@ -58,8 +73,56 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _usernameController.dispose();
+    _phoneController.dispose();
     _bioController.dispose();
+    _usernameCheckDebounce?.cancel();
     super.dispose();
+  }
+
+  void _onUsernameChanged(String value) {
+    _usernameCheckDebounce?.cancel();
+    setState(() {
+      _usernameAvailable = null;
+      _checkingUsername = false;
+    });
+
+    final trimmed = value.trim();
+    if (!_usernamePattern.hasMatch(trimmed)) return;
+
+    _usernameCheckDebounce = Timer(const Duration(milliseconds: 500), () async {
+      setState(() => _checkingUsername = true);
+      final available = await ref.read(authControllerProvider.notifier).isUsernameAvailable(trimmed);
+      if (!mounted || _usernameController.text.trim() != trimmed) return;
+      setState(() {
+        _usernameAvailable = available;
+        _checkingUsername = false;
+      });
+    });
+  }
+
+  /// Auto-fills [_phoneController] with the new country's dial code —
+  /// per product decision, this ALWAYS runs a country change (even
+  /// after the user has typed digits): it only ever replaces the
+  /// prefix this screen itself wrote in ([_autoDialCode]), so an
+  /// already-typed local number is preserved, re-prefixed under the
+  /// new code.
+  void _applyDialCodeForCountry(String? country) {
+    final dialCode = _dialCodeFor(country);
+    final current = _phoneController.text;
+    final rest = _autoDialCode != null && current.startsWith(_autoDialCode!)
+        ? current.substring(_autoDialCode!.length)
+        : (_autoDialCode == null ? current : '');
+    _autoDialCode = dialCode;
+    _phoneController.text = '$dialCode $rest'.trimRight();
+    _phoneController.selection = TextSelection.collapsed(offset: _phoneController.text.length);
+  }
+
+  String _dialCodeFor(String? country) {
+    for (final entry in kCountryDialCodes) {
+      if (entry.name == country) return entry.dialCode;
+    }
+    return kCountryDialCodes.first.dialCode;
   }
 
   Future<void> _pickBirthDate() async {
@@ -95,6 +158,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _finish() async {
     final loc = AppLocalizations.of(context);
     if (!_formKey.currentState!.validate()) return;
+    final username = _usernameController.text.trim();
+    if (_usernameAvailable != true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.onboardingUsernameUnavailableError)),
+      );
+      return;
+    }
+    final phone = _phoneController.text.trim();
+    if (_autoDialCode == null || phone == _autoDialCode || phone.length <= _autoDialCode!.length) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.onboardingPhoneRequiredError)),
+      );
+      return;
+    }
     if (_birthDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(loc.onboardingSelectBirthDateError)),
@@ -124,12 +201,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     try {
       await ref.read(authControllerProvider.notifier).completeOnboarding(
+            username: username,
             firstName: _firstNameController.text.trim(),
             lastName: _lastNameController.text.trim(),
             birthDate: _birthDate!,
             gender: _gender!,
             country: _country!,
             city: _city!,
+            phoneNumber: phone.replaceAll(' ', ''),
             businessStatus: _businessStatus!,
             bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
           );
@@ -251,6 +330,54 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 ],
               ),
               const SizedBox(height: 16),
+              PremiumTextField(
+                controller: _usernameController,
+                label: loc.fieldUsernameLabel,
+                hint: loc.fieldUsernameHint,
+                icon: Icons.alternate_email,
+                onChanged: _onUsernameChanged,
+                validator: (v) {
+                  final trimmed = v?.trim() ?? '';
+                  if (trimmed.isEmpty) return loc.fieldUsernameRequiredError;
+                  if (!_usernamePattern.hasMatch(trimmed)) return loc.fieldUsernameInvalidError;
+                  return null;
+                },
+                suffixIcon: _checkingUsername
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textSecondary),
+                        ),
+                      )
+                    : _usernameAvailable == null
+                        ? null
+                        : Icon(
+                            _usernameAvailable! ? Icons.check_circle_outline : Icons.error_outline,
+                            color: _usernameAvailable! ? AppColors.primary : AppColors.error,
+                          ),
+              ),
+              if (_usernameAvailable == false) ...[
+                const SizedBox(height: 6),
+                Text(loc.onboardingUsernameUnavailableError, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+              ],
+              const SizedBox(height: 16),
+              PremiumTextField(
+                controller: _phoneController,
+                label: loc.fieldPhoneLabel,
+                hint: loc.fieldPhoneHint,
+                icon: Icons.phone_outlined,
+                keyboardType: TextInputType.phone,
+                validator: (v) {
+                  final trimmed = v?.trim() ?? '';
+                  if (_autoDialCode == null || trimmed.length <= _autoDialCode!.length) {
+                    return loc.onboardingPhoneRequiredError;
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 16),
               GestureDetector(
                 onTap: _pickBirthDate,
                 child: AbsorbPointer(
@@ -284,7 +411,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               CountryCityPicker(
                 initialCountry: _country,
                 initialCity: _city,
-                onCountryChanged: (value) => setState(() => _country = value),
+                onCountryChanged: (value) => setState(() {
+                  _country = value;
+                  _applyDialCodeForCountry(value);
+                }),
                 onCityChanged: (value) => setState(() => _city = value),
               ),
               const SizedBox(height: 24),

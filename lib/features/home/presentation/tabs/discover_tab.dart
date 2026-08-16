@@ -12,7 +12,6 @@ import '../../../../core/widgets/premium_upsell_sheet.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../widgets/avatar_pin_marker.dart';
 import '../../../auth/presentation/widgets/country_dial_code.dart';
-import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/screens/chat_conversation_screen.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../location/domain/country_bounds.dart';
@@ -121,7 +120,6 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                   IconButton(
                     tooltip: loc.venueAddButtonTooltip,
                     onPressed: () async {
-                      if (!await requireVerified(context, ref)) return;
                       if (!context.mounted) return;
                       Navigator.push(
                         context,
@@ -143,7 +141,6 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                   IconButton(
                     tooltip: loc.offerAddButtonTooltip,
                     onPressed: () async {
-                      if (!await requireVerified(context, ref)) return;
                       if (!context.mounted) return;
                       Navigator.push(
                         context,
@@ -192,7 +189,6 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                           top: false,
                           child: _RadiusOptionsRow(
                             onSelected: (newSelection) async {
-                              if (!await requireVerified(context, ref)) return;
                               if (!context.mounted) return;
                               ref.read(selectedDiscoverModeProvider.notifier).state = newSelection;
                             },
@@ -337,7 +333,6 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                 ),
                 _RadiusOptionsRow(
                   onSelected: (newSelection) async {
-                    if (!await requireVerified(context, ref)) return;
                     if (!context.mounted) return;
                     _applySelection(newSelection, center);
                   },
@@ -477,7 +472,6 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                     Expanded(
                       child: ElevatedButton.icon(
                         onPressed: () async {
-                          if (!await requireVerified(context, ref)) return;
                           if (!context.mounted) return;
                           Navigator.pop(sheetContext);
                           Navigator.push(

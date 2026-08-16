@@ -1,4 +1,10 @@
-enum LoginProvider { password, google, apple }
+/// Which of the 3 sign-in methods created/last-authenticated this
+/// account (Apple/Google/E-mail Link — see `AuthRepository`'s own doc
+/// comment). Firebase Auth's `providerData` reports Email Link sign-in
+/// under the same `password` providerId as the old username+password
+/// scheme did, which is why this stays named [email] here rather than
+/// literally mirroring that providerId.
+enum LoginProvider { email, google, apple }
 
 class AppUser {
   final String id;

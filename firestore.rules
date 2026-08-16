@@ -16,18 +16,6 @@ service cloud.firestore {
         get(/databases/$(database)/documents/follows/$(viewerId + '_' + ownerId)).data.get('status', 'accepted') != 'pending';
     }
 
-    // Server-side backstop for the client's requireVerified() gate
-    // ("Hesabı təsdiq et") — the Flutter app already blocks unverified
-    // users from reaching venue/offer creation in the UI, but that's
-    // just UX; without this, any call site the client happened to miss
-    // (or a direct API call) could still write the doc. `isVerified`
-    // here is the phone-verification flag, not the identity-document
-    // badge — same field the app gate itself reads.
-    function isVerifiedUser(uid) {
-      return exists(/databases/$(database)/documents/users/$(uid)) &&
-        get(/databases/$(database)/documents/users/$(uid)).data.isVerified == true;
-    }
-
     // Server-side backstop for "Biznes fəaliyyəti" — the Flutter app
     // already hides every venue/offer-creation entry point in the UI
     // for `businessStatus == 'none'` (see `hasBusinessAccess` on
@@ -58,25 +46,25 @@ service cloud.firestore {
       // nearby users on the map / discover list).
       allow read: if request.auth != null;
 
-      // isVerified / phoneNumber / premium / identityVerified are
-      // grant-of-privilege fields (phone verification, VIP, identity
-      // badge) — a client write can NEVER touch them, not even to set
-      // their own default `false`, so a raw Firestore call can't
-      // self-grant verification or premium. Only Cloud Functions
-      // (Admin SDK, which bypasses these rules) ever write them — see
-      // `markPhoneVerified` in functions/src/index.ts for the phone
-      // case. FirebaseAuthRepository.completeOnboarding deliberately
-      // omits these fields from the initial doc for the same reason;
-      // every read site already treats "absent" as `false`.
+      // premium / identityVerified are grant-of-privilege fields (VIP,
+      // identity badge) — a client write can NEVER touch them, not
+      // even to set their own default `false`, so a raw Firestore call
+      // can't self-grant either. Only Cloud Functions (Admin SDK,
+      // which bypasses these rules) ever write them; every read site
+      // already treats "absent" as `false`. `isVerified`/`phoneNumber`
+      // used to be locked the same way (the old phone-OTP account-
+      // verification step this app no longer has) — `phoneNumber` is
+      // now a plain, self-reported, unverified profile field set once
+      // at onboarding (see `completeOnboarding`), so it's free like any
+      // other profile field; `isVerified` is unused dead data wherever
+      // it still exists on old accounts.
       function touchesLockedUserFields() {
         return request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['isVerified', 'phoneNumber', 'premium', 'identityVerified']);
+          .hasAny(['premium', 'identityVerified']);
       }
 
       // A user can only create or delete their OWN document.
       allow create: if request.auth != null && request.auth.uid == userId &&
-        !('isVerified' in request.resource.data) &&
-        !('phoneNumber' in request.resource.data) &&
         !('premium' in request.resource.data) &&
         !('identityVerified' in request.resource.data);
       allow delete: if request.auth != null && request.auth.uid == userId;
@@ -207,28 +195,20 @@ service cloud.firestore {
     // registration time (see `FirebaseAuthRepository.registerWithUsername`'s
     // doc comment); `completeOnboarding` reads it back from here and
     // copies it onto `users/{uid}.consent` once that doc is created.
+    // Public @handle reservation — no longer a sign-in credential
+    // lookup (that was the pre-rewrite username+password scheme; see
+    // AuthRepository's own doc comment), just enforces uniqueness:
+    // `create` fails outright if a doc already exists at this id,
+    // which is the actual race-safe guarantee `isUsernameAvailable`'s
+    // client-side check only approximates.
     match /usernames/{usernameId} {
       allow get: if true;
       allow create: if request.auth != null &&
         resource == null &&
         request.auth.uid == request.resource.data.uid &&
-        request.resource.data.keys().hasOnly(['uid', 'authEmail', 'createdAt', 'consent']);
+        request.resource.data.keys().hasOnly(['uid', 'createdAt']);
       allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
       allow update: if false;
-    }
-
-    // Phone → uid reservation, doc id is the E.164 phone number.
-    // Public get on purpose (`allow get: if true`) — "Parolu unutdum"
-    // needs to look up whether a phone belongs to an account BEFORE
-    // the caller is signed in, same reasoning as `usernames` above.
-    // Written server-side only, by the markPhoneVerified Cloud Function
-    // right after it confirms Firebase Auth's own phoneNumber claim —
-    // same reasoning as the locked fields on `users/{userId}` above,
-    // so a client can't reserve a phone number it never actually
-    // verified via SMS OTP.
-    match /phoneNumbers/{phoneNumberId} {
-      allow get: if true;
-      allow create, update, delete: if false;
     }
 
     // One-directional follow graph — the app's only "connection"
@@ -399,7 +379,6 @@ service cloud.firestore {
       // or forge a fake review trail.
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.ownerId &&
-        isVerifiedUser(request.auth.uid) &&
         isBusinessUser(request.auth.uid) &&
         request.resource.data.status == 'pending' &&
         !('reviewNote' in request.resource.data) &&
@@ -409,7 +388,7 @@ service cloud.firestore {
       // `ownerId` is immutable — an update can't reassign a venue to a
       // different owner, even the current owner's own write. `likeCount`/
       // `rating` are grant-of-trust denormalized fields (same reasoning
-      // as `isVerified` on `users/{userId}`) — blocked here even for the
+      // as `premium` on `users/{userId}`) — blocked here even for the
       // owner's own write, since only the `onVenueLikeCreated`/
       // `onVenueLikeDeleted` Cloud Function triggers (functions/src/
       // index.ts) may set them, deriving `rating` from `likeCount` so
@@ -582,7 +561,6 @@ service cloud.firestore {
       // in Discover before that trigger runs.
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.ownerId &&
-        isVerifiedUser(request.auth.uid) &&
         isBusinessUser(request.auth.uid) &&
         request.resource.data.status == 'pending' &&
         !('reviewNote' in request.resource.data) &&

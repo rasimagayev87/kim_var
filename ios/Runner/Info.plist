@@ -43,6 +43,20 @@
 	     entry — see the comment there. -->
 	<key>branch_key</key>
 	<string>key_live_gvCTsTZgmBWo3ILjha8wuacaqFfXTcrJ</string>
+	<!-- google_sign_in's iOS redirect URL scheme — REVERSED_CLIENT_ID
+	     from GoogleService-Info.plist, already provisioned by Firebase
+	     when the project was created (no new Google Cloud Console setup
+	     needed). Must match that file's value exactly if it's ever
+	     regenerated. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.148607007767-dkrl4dagoo9isvpgtjg3rmguhd715nqa</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

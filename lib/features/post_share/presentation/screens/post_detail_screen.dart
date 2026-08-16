@@ -7,7 +7,6 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/relative_time_formatter.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../domain/entities/post.dart';
 import '../providers/post_providers.dart';
 import '../widgets/comments_sheet.dart';
@@ -32,7 +31,6 @@ class PostDetailScreen extends ConsumerWidget {
     final isLiked = ref.watch(isPostLikedByMeProvider(postId)).valueOrNull ?? false;
 
     Future<void> onLikeTap() async {
-      if (!await requireVerified(context, ref)) return;
       if (!context.mounted) return;
       final ok = await ref.read(postControllerProvider).toggleLike(postId, !isLiked);
       if (!ok && context.mounted) {

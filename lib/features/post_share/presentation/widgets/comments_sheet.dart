@@ -6,7 +6,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/relative_time_formatter.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
 import '../../domain/entities/post_comment.dart';
 import '../providers/post_providers.dart';
@@ -76,7 +75,6 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     final editing = _editingComment;
     // Only gate NEW comments/replies — editing your own existing
     // comment isn't a new interaction and stays available regardless.
-    if (editing == null && !await requireVerified(context, ref)) return;
     if (!mounted) return;
     setState(() => _sending = true);
 
@@ -298,7 +296,6 @@ class _CommentRow extends ConsumerWidget {
     final canDelete = myUid != null && (myUid == comment.userId || myUid == postOwnerId);
 
     Future<void> onLikeTap() async {
-      if (!await requireVerified(context, ref)) return;
       if (!context.mounted) return;
       final ok = await ref.read(postControllerProvider).toggleCommentLike(postId, comment.id, !isLiked);
       if (!ok && context.mounted) {

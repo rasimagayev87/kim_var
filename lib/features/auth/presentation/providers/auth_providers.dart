@@ -34,29 +34,10 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     return _repository.isUsernameAvailable(username);
   }
 
-  Future<void> registerWithUsername({
-    required String username,
-    required String password,
-    required bool termsAccepted,
-    required String termsVersion,
-    required String privacyVersion,
-  }) {
-    return _repository.registerWithUsername(
-      username: username,
-      password: password,
-      termsAccepted: termsAccepted,
-      termsVersion: termsVersion,
-      privacyVersion: privacyVersion,
-    );
-  }
-
-  Future<(AppUser, bool)> loginWithUsername({
-    required String username,
-    required String password,
-  }) async {
+  Future<(AppUser, bool)> _runSignIn(Future<(AppUser, bool)> Function() signIn) async {
     state = const AsyncValue.loading();
     try {
-      final result = await _repository.loginWithUsername(username: username, password: password);
+      final result = await signIn();
       state = result.$2 ? const AsyncValue.data(null) : AsyncValue.data(result.$1);
       return result;
     } catch (e, st) {
@@ -65,25 +46,43 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     }
   }
 
+  Future<(AppUser, bool)> signInWithApple() => _runSignIn(_repository.signInWithApple);
+
+  Future<(AppUser, bool)> signInWithGoogle() => _runSignIn(_repository.signInWithGoogle);
+
+  Future<void> sendEmailSignInLink(String email) {
+    return _repository.sendEmailSignInLink(email);
+  }
+
+  bool isEmailSignInLink(String link) => _repository.isEmailSignInLink(link);
+
+  Future<(AppUser, bool)> signInWithEmailLink({required String email, required String link}) {
+    return _runSignIn(() => _repository.signInWithEmailLink(email: email, link: link));
+  }
+
   Future<void> completeOnboarding({
+    required String username,
     required String firstName,
     required String lastName,
     required DateTime birthDate,
     required String gender,
     required String country,
     required String city,
+    required String phoneNumber,
     required String businessStatus,
     String? bio,
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
       () => _repository.completeOnboarding(
+        username: username,
         firstName: firstName,
         lastName: lastName,
         birthDate: birthDate,
         gender: gender,
         country: country,
         city: city,
+        phoneNumber: phoneNumber,
         businessStatus: businessStatus,
         bio: bio,
       ),
@@ -93,42 +92,6 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
   Future<void> signOut() async {
     await _repository.signOut();
     state = const AsyncValue.data(null);
-  }
-
-  Future<bool> isPhoneNumberTaken(String phoneNumber) {
-    return _repository.isPhoneNumberTaken(phoneNumber);
-  }
-
-  Future<void> startPhoneRecoveryVerification({
-    required String phoneNumber,
-    required void Function(String verificationId) onCodeSent,
-    required void Function() onAutoVerified,
-    required void Function(String? errorCode) onFailed,
-  }) {
-    return _repository.startPhoneRecoveryVerification(
-      phoneNumber: phoneNumber,
-      onCodeSent: onCodeSent,
-      onAutoVerified: onAutoVerified,
-      onFailed: onFailed,
-    );
-  }
-
-  Future<void> confirmPhoneRecovery({
-    required String verificationId,
-    required String smsCode,
-  }) {
-    return _repository.confirmPhoneRecovery(verificationId: verificationId, smsCode: smsCode);
-  }
-
-  Future<void> updatePassword(String newPassword) {
-    return _repository.updatePassword(newPassword);
-  }
-
-  Future<void> changePassword({
-    required String currentPassword,
-    required String newPassword,
-  }) {
-    return _repository.changePassword(currentPassword: currentPassword, newPassword: newPassword);
   }
 
   Future<void> updateUsername({

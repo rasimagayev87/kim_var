@@ -12,7 +12,6 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
 import '../../../profile/presentation/screens/user_profile_screen.dart';
 import '../../data/post_media_cache.dart';
@@ -514,7 +513,6 @@ class _RightActionRail extends ConsumerWidget {
           children: [
             GestureDetector(
               onTap: () async {
-                if (!await requireVerified(context, ref)) return;
                 if (!context.mounted) return;
                 Navigator.push(
                   context,
@@ -578,7 +576,6 @@ class _LikeAction extends ConsumerWidget {
       count: post.likesCount,
       iconColor: isLiked ? Colors.redAccent : Colors.white,
       onTap: () async {
-        if (!await requireVerified(context, ref)) return;
         if (!context.mounted) return;
         final ok = await ref
             .read(postControllerProvider)

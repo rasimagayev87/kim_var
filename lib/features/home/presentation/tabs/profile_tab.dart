@@ -9,7 +9,6 @@ import '../../../../core/widgets/coming_soon_screen.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../follow/presentation/providers/follow_providers.dart';
 import '../../../post_share/domain/entities/post.dart';
@@ -62,7 +61,6 @@ class ProfileTab extends ConsumerWidget {
                         children: [
                           IconButton(
                             onPressed: () async {
-                              if (!await requireVerified(context, ref)) return;
                               if (!context.mounted) return;
                               startCreatePostFlow(context);
                             },
@@ -236,7 +234,6 @@ class _AvatarWithRing extends ConsumerWidget {
               );
               return;
             }
-            if (!await requireVerified(context, ref)) return;
             if (!context.mounted) return;
             startCreateStoryFlow(context);
           },
@@ -282,7 +279,6 @@ class _AvatarWithRing extends ConsumerWidget {
           right: 2,
           child: GestureDetector(
             onTap: () async {
-              if (!await requireVerified(context, ref)) return;
               if (!context.mounted) return;
               startCreateStoryFlow(context);
             },

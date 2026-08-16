@@ -26,7 +26,6 @@ import '../../../calls/presentation/screens/call_screen.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
 import '../../../profile/presentation/screens/user_profile_screen.dart';
-import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../post_share/presentation/screens/post_detail_screen.dart';
 import '../../../privacy/presentation/providers/privacy_providers.dart';
 import '../../domain/chat_failure.dart';
@@ -444,7 +443,6 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
   Future<void> _send(Chat? chat) async {
     final text = _textController.text;
     if (text.trim().isEmpty || _sending) return;
-    if (!await requireVerified(context, ref)) return;
     if (!mounted) return;
 
     final loc = AppLocalizations.of(context);
@@ -514,7 +512,6 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
   }
 
   Future<void> _startCall({required bool video}) async {
-    if (!await requireVerified(context, ref)) return;
     if (!mounted) return;
 
     final loc = AppLocalizations.of(context);
@@ -608,7 +605,6 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                   statusIsLive: statusIsLive,
                   onBack: () => Navigator.pop(context),
                   onTapProfile: () async {
-                    if (!await requireVerified(context, ref)) return;
                     if (!context.mounted) return;
                     Navigator.push(
                       context,
@@ -1515,7 +1511,6 @@ class _ComposerState extends ConsumerState<_Composer> {
   }
 
   Future<void> _pickAttachment() async {
-    if (!await requireVerified(context, ref)) return;
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
     final choice = await showModalBottomSheet<MessageType>(
@@ -1577,7 +1572,6 @@ class _ComposerState extends ConsumerState<_Composer> {
   }
 
   Future<void> _takePhoto() async {
-    if (!await requireVerified(context, ref)) return;
     if (!mounted) return;
     final picker = ImagePicker();
     XFile? picked;
@@ -1608,7 +1602,6 @@ class _ComposerState extends ConsumerState<_Composer> {
   }
 
   Future<void> _startRecording() async {
-    if (!await requireVerified(context, ref)) return;
     if (!mounted) return;
     final hasPermission = await _recorder.hasPermission();
     if (!hasPermission) {

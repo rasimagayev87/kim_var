@@ -2,40 +2,36 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import '../../../legal/legal_versions.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
+
+/// Where [sendEmailSignInLink] parks the address it was sent to, so
+/// [signInWithEmailLink] has it once the user reopens the app from
+/// the link (Firebase's email-link itself never carries the address —
+/// this is Firebase's own documented pattern, not a workaround).
+const _kPendingEmailLinkAddressKey = 'pendingEmailLinkAddress';
 
 /// Production Firebase implementation of [AuthRepository].
 class FirebaseAuthRepository implements AuthRepository {
   final fb.FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
+  final GoogleSignIn _googleSignIn;
 
   FirebaseAuthRepository({
     fb.FirebaseAuth? auth,
     FirebaseFirestore? firestore,
+    GoogleSignIn? googleSignIn,
   })  : _auth = auth ?? fb.FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance;
+        _firestore = firestore ?? FirebaseFirestore.instance,
+        _googleSignIn = googleSignIn ?? GoogleSignIn();
 
   final _controller = StreamController<AppUser?>.broadcast();
   bool _needsOnboarding = false;
-
-  /// Firebase Auth's email/password provider is reused as the backing
-  /// credential store for username sign-in — there's no native
-  /// "username" provider. Deliberately NOT derived from the username
-  /// (a client-generated random id instead, via Firestore's local
-  /// auto-id generator — no network call) so a later username rename
-  /// never touches the actual sign-in credential; login instead
-  /// resolves username → this address via the `usernames` doc. Never
-  /// shown to the user and never written to their profile's real
-  /// `email` field.
-  String _randomAuthEmail() {
-    // Firestore's auto-id is mixed-case; Firebase Auth normalizes emails
-    // to lowercase on creation regardless, so the `usernames` doc must
-    // store the same lowercase form it will actually be matched against.
-    final randomId = _firestore.collection('_').doc().id.toLowerCase();
-    return '$randomId@users.peakpin.app';
-  }
 
   CollectionReference<Map<String, dynamic>> get _usernames => _firestore.collection('usernames');
 
@@ -76,8 +72,7 @@ class FirebaseAuthRepository implements AuthRepository {
       id: user.uid,
       firstName: '',
       lastName: '',
-      username: user.displayName,
-      phone: user.phoneNumber,
+      email: user.email,
       loginProvider: _providerFrom(user),
     );
   }
@@ -87,7 +82,7 @@ class FirebaseAuthRepository implements AuthRepository {
       if (info.providerId == 'google.com') return LoginProvider.google;
       if (info.providerId == 'apple.com') return LoginProvider.apple;
     }
-    return LoginProvider.password;
+    return LoginProvider.email;
   }
 
   Future<AppUser?> _hydrateFromFirestore(fb.User user) async {
@@ -100,12 +95,9 @@ class FirebaseAuthRepository implements AuthRepository {
       id: user.uid,
       firstName: data['firstName'] as String? ?? '',
       lastName: data['lastName'] as String? ?? '',
-      username: data['username'] as String? ?? user.displayName,
-      // The real, user-set contact email lives only in this Firestore
-      // field (written via Settings → Account → Email) — never falls
-      // back to `user.email`, which is the synthetic sign-in address.
-      email: data['email'] as String?,
-      phone: data['phoneNumber'] as String? ?? user.phoneNumber,
+      username: data['username'] as String?,
+      email: data['email'] as String? ?? user.email,
+      phone: data['phoneNumber'] as String?,
       birthDate: (data['birthDate'] as Timestamp?)?.toDate(),
       gender: data['gender'] as String?,
       loginProvider: _providerFrom(user),
@@ -134,72 +126,74 @@ class FirebaseAuthRepository implements AuthRepository {
     return !doc.exists;
   }
 
-  @override
-  Future<void> registerWithUsername({
-    required String username,
-    required String password,
-    required bool termsAccepted,
-    required String termsVersion,
-    required String privacyVersion,
-  }) async {
-    final normalized = username.trim();
-    final authEmail = _randomAuthEmail();
-    final credential = await _auth.createUserWithEmailAndPassword(
-      email: authEmail,
-      password: password,
-    );
-    final user = credential.user!;
-    await user.updateDisplayName(normalized);
-    try {
-      await _writeUsernameReservationWithRetry(
-        normalized.toLowerCase(),
-        {
-          'uid': user.uid,
-          'authEmail': authEmail,
-          'createdAt': FieldValue.serverTimestamp(),
-          // Parked here, not on `users/{uid}` directly — that doc
-          // doesn't exist yet (see `completeOnboarding`, a genuinely
-          // separate later session after the forced sign-out below).
-          // `completeOnboarding` reads this back and copies it onto
-          // `users/{uid}.consent` once that doc is actually created.
-          'consent': {
-            'termsAccepted': termsAccepted,
-            'acceptedAt': FieldValue.serverTimestamp(),
-            'termsVersion': termsVersion,
-            'privacyVersion': privacyVersion,
-          },
-        },
-      );
-    } finally {
-      // Registration never leaves the caller signed in — the UI
-      // always routes to Login next, regardless of whether the
-      // best-effort username-reservation write above succeeded.
-      await _auth.signOut();
-    }
-  }
-
-  @override
-  Future<(AppUser, bool)> loginWithUsername({
-    required String username,
-    required String password,
-  }) async {
-    final usernameDoc = await _usernames.doc(username.trim().toLowerCase()).get();
-    final authEmail = usernameDoc.data()?['authEmail'] as String?;
-    if (authEmail == null) {
-      throw StateError('username-not-found');
-    }
-
-    final credential = await _auth.signInWithEmailAndPassword(
-      email: authEmail,
-      password: password,
-    );
-    final user = credential.user!;
-
+  /// Shared by every sign-in method below — resolves whichever
+  /// Firebase user the credential produced into an [AppUser], and
+  /// flags [needsOnboarding] the same way for all 3 providers.
+  Future<(AppUser, bool)> _afterSignIn(fb.User user) async {
     final existing = await _hydrateFromFirestore(user);
     _needsOnboarding = existing == null;
     if (existing != null) _controller.add(existing);
-
     return (existing ?? _minimalAppUser(user), existing == null);
+  }
+
+  @override
+  Future<(AppUser, bool)> signInWithApple() async {
+    final appleCredential = await SignInWithApple.getAppleIDCredential(
+      scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+    );
+    final oauthCredential = fb.OAuthProvider('apple.com').credential(
+      idToken: appleCredential.identityToken,
+      accessToken: appleCredential.authorizationCode,
+    );
+    final result = await _auth.signInWithCredential(oauthCredential);
+    return _afterSignIn(result.user!);
+  }
+
+  @override
+  Future<(AppUser, bool)> signInWithGoogle() async {
+    final googleAccount = await _googleSignIn.signIn();
+    if (googleAccount == null) {
+      throw StateError('google-sign-in-cancelled');
+    }
+    final googleAuth = await googleAccount.authentication;
+    final credential = fb.GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+    final result = await _auth.signInWithCredential(credential);
+    return _afterSignIn(result.user!);
+  }
+
+  @override
+  Future<void> sendEmailSignInLink(String email) async {
+    final normalized = email.trim();
+    await _auth.sendSignInLinkToEmail(
+      email: normalized,
+      actionCodeSettings: fb.ActionCodeSettings(
+        // Already a Universal Link this app intercepts — see
+        // `deep_link_handler.dart`. No separate Dynamic Links / new
+        // domain setup needed.
+        url: 'https://peakpin.app/auth-email-link',
+        handleCodeInApp: true,
+        iOSBundleId: 'com.peakpin.app',
+        androidPackageName: 'com.peakpin.app',
+        androidInstallApp: true,
+        androidMinimumVersion: '1',
+      ),
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_kPendingEmailLinkAddressKey, normalized);
+  }
+
+  @override
+  bool isEmailSignInLink(String link) => _auth.isSignInWithEmailLink(link);
+
+  @override
+  Future<(AppUser, bool)> signInWithEmailLink({required String email, required String link}) async {
+    final result = await _auth.signInWithEmailLink(email: email, emailLink: link);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kPendingEmailLinkAddressKey);
+    return _afterSignIn(result.user!);
   }
 
   @override
@@ -217,19 +211,11 @@ class FirebaseAuthRepository implements AuthRepository {
     final newLower = normalizedNew.toLowerCase();
     if (oldLower == newLower) return;
 
-    final oldDoc = await _usernames.doc(oldLower).get();
-    final authEmail = oldDoc.data()?['authEmail'] as String?;
-    if (authEmail == null) {
-      throw StateError('Cari username tapılmadı.');
-    }
-
     await _writeUsernameReservationWithRetry(newLower, {
       'uid': user.uid,
-      'authEmail': authEmail,
       'createdAt': FieldValue.serverTimestamp(),
     });
 
-    await user.updateDisplayName(normalizedNew);
     await _firestore.collection('users').doc(user.uid).update({
       'username': normalizedNew,
       'updatedAt': FieldValue.serverTimestamp(),
@@ -240,18 +226,20 @@ class FirebaseAuthRepository implements AuthRepository {
     } catch (_) {
       // Best-effort — an orphaned old reservation just permanently
       // holds that username, it doesn't break this account (its new
-      // reservation is already live and Auth/Firestore are updated).
+      // reservation is already live and Firestore is updated).
     }
   }
 
   @override
   Future<AppUser> completeOnboarding({
+    required String username,
     required String firstName,
     required String lastName,
     required DateTime birthDate,
     required String gender,
     required String country,
     required String city,
+    required String phoneNumber,
     required String businessStatus,
     String? bio,
   }) async {
@@ -260,26 +248,18 @@ class FirebaseAuthRepository implements AuthRepository {
       throw StateError('Onboarding tamamlanmazdan əvvəl giriş edilməlidir.');
     }
 
-    // The consent record was written to `usernames/{username}` at
-    // registration time (a separate, earlier session — see
-    // `registerWithUsername`'s doc comment) since `users/{uid}` didn't
-    // exist yet to hold it directly. Read it back now and fold it into
-    // the doc actually being created below. Absent only for an account
-    // that somehow reaches onboarding without having gone through this
-    // app's own registration screen — no known path does that today,
-    // but this degrades to "no consent recorded" rather than throwing.
-    Map<String, dynamic>? consent;
-    final displayName = user.displayName;
-    if (displayName != null) {
-      final usernameDoc = await _usernames.doc(displayName.toLowerCase()).get();
-      consent = (usernameDoc.data()?['consent'] as Map?)?.cast<String, dynamic>();
-    }
+    final normalizedUsername = username.trim();
+    await _writeUsernameReservationWithRetry(normalizedUsername.toLowerCase(), {
+      'uid': user.uid,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
 
     await _firestore.collection('users').doc(user.uid).set({
       'uid': user.uid,
-      'username': user.displayName,
+      'username': normalizedUsername,
       'loginProvider': _providerFrom(user).name,
-      if (consent != null) 'consent': consent,
+      if (user.email != null) 'email': user.email,
+      'phoneNumber': phoneNumber,
       'firstName': firstName,
       'lastName': lastName,
       'birthDate': Timestamp.fromDate(birthDate),
@@ -288,15 +268,21 @@ class FirebaseAuthRepository implements AuthRepository {
       'country': country,
       'city': city,
       'businessStatus': businessStatus,
-      // `premium`/`isVerified` are deliberately NOT set here — both are
-      // grant-of-privilege fields firestore.rules forbids the client
-      // from ever writing (even to their own default `false`), so the
-      // account doc simply starts without them. Every read site already
-      // treats an absent field as `false` (see UserProfile/premium_
-      // providers). `isVerified` is a leftover from the removed
-      // phone-OTP verification step (Faza 1 of the auth rewrite) —
-      // nothing writes it `true` anymore; every gate that used to read
-      // it was neutralized in the same change (see [requireVerified]).
+      // The consent checkbox that gates the sign-in screen's 3
+      // provider buttons (AuthScreen) already confirmed acceptance of
+      // the CURRENT legal doc versions before this session's sign-in
+      // even started — nothing else could have reached this point.
+      'consent': {
+        'termsAccepted': true,
+        'acceptedAt': FieldValue.serverTimestamp(),
+        'termsVersion': kCurrentTermsVersion,
+        'privacyVersion': kCurrentPrivacyVersion,
+      },
+      // `premium` is deliberately NOT set here — a grant-of-privilege
+      // field firestore.rules forbids the client from ever writing
+      // (even to its own default `false`), so the account doc simply
+      // starts without it. Every read site already treats an absent
+      // field as `false` (see UserProfile/premium_providers).
       'online': true,
       'friendCount': 0,
       'eventCount': 0,
@@ -314,7 +300,9 @@ class FirebaseAuthRepository implements AuthRepository {
       id: user.uid,
       firstName: firstName,
       lastName: lastName,
-      username: user.displayName,
+      username: normalizedUsername,
+      email: user.email,
+      phone: phoneNumber,
       birthDate: birthDate,
       gender: gender,
       loginProvider: _providerFrom(user),
@@ -326,111 +314,8 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<void> signOut() async {
     await _auth.signOut();
+    await _googleSignIn.signOut();
     _needsOnboarding = false;
     _controller.add(null);
-  }
-
-  /// Public, get-only phone → uid reservation (mirrors [_usernames]) —
-  /// deliberately NOT a query against `users.phoneNumber`, because
-  /// that field is only readable by signed-in users (see
-  /// firestore.rules), and [isPhoneNumberTaken] must work for the
-  /// "Parolu unutdum" flow BEFORE the caller is signed in.
-  CollectionReference<Map<String, dynamic>> get _phoneNumbers => _firestore.collection('phoneNumbers');
-
-  @override
-  Future<bool> isPhoneNumberTaken(String phoneNumber) async {
-    final doc = await _phoneNumbers.doc(phoneNumber).get();
-    return doc.exists;
-  }
-
-  @override
-  Future<void> startPhoneRecoveryVerification({
-    required String phoneNumber,
-    required void Function(String verificationId) onCodeSent,
-    required void Function() onAutoVerified,
-    required void Function(String? errorCode) onFailed,
-  }) async {
-    // Some devices/networks never invoke any of the other three
-    // callbacks, which would otherwise leave the caller's loading spinner stuck
-    // forever with no feedback.
-    var settled = false;
-    await _auth.verifyPhoneNumber(
-      phoneNumber: phoneNumber,
-      verificationCompleted: (credential) async {
-        settled = true;
-        try {
-          await _signInForRecovery(credential);
-          onAutoVerified();
-        } on fb.FirebaseAuthException catch (e) {
-          onFailed(e.code);
-        } catch (_) {
-          onFailed(null);
-        }
-      },
-      verificationFailed: (e) {
-        settled = true;
-        onFailed(e.code);
-      },
-      codeSent: (verificationId, resendToken) {
-        settled = true;
-        onCodeSent(verificationId);
-      },
-      codeAutoRetrievalTimeout: (_) {
-        if (!settled) onFailed(null);
-      },
-      timeout: const Duration(seconds: 60),
-    );
-  }
-
-  @override
-  Future<void> confirmPhoneRecovery({
-    required String verificationId,
-    required String smsCode,
-  }) async {
-    final credential = fb.PhoneAuthProvider.credential(
-      verificationId: verificationId,
-      smsCode: smsCode,
-    );
-    await _signInForRecovery(credential);
-  }
-
-  /// Signing in with a phone credential that ISN'T already linked to
-  /// any account doesn't fail — Firebase Auth just creates a brand
-  /// new one for it. That would be silently wrong here (the caller
-  /// asked to recover a specific existing account, having already
-  /// confirmed via [isPhoneNumberTaken] that one exists), so this
-  /// checks the resulting uid actually has a matching Firestore
-  /// profile and undoes the sign-in otherwise.
-  Future<void> _signInForRecovery(fb.PhoneAuthCredential credential) async {
-    final result = await _auth.signInWithCredential(credential);
-    final user = result.user!;
-    final existing = await _hydrateFromFirestore(user);
-    if (existing == null) {
-      await _auth.signOut();
-      throw StateError('phone-not-registered');
-    }
-  }
-
-  @override
-  Future<void> updatePassword(String newPassword) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw StateError('Parolu yeniləmək üçün əvvəlcə giriş edilməlidir.');
-    }
-    await user.updatePassword(newPassword);
-  }
-
-  @override
-  Future<void> changePassword({
-    required String currentPassword,
-    required String newPassword,
-  }) async {
-    final user = _auth.currentUser;
-    if (user == null || user.email == null) {
-      throw StateError('Parolu dəyişmək üçün əvvəlcə giriş edilməlidir.');
-    }
-    final credential = fb.EmailAuthProvider.credential(email: user.email!, password: currentPassword);
-    await user.reauthenticateWithCredential(credential);
-    await user.updatePassword(newPassword);
   }
 }

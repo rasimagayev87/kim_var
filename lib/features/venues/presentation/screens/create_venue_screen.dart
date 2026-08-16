@@ -10,7 +10,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/widgets/country_dial_code.dart';
-import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../domain/entities/venue.dart';
@@ -311,7 +310,6 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
   }
 
   Future<void> _submit() async {
-    if (!await requireVerified(context, ref)) return;
     if (!mounted) return;
     if (_isEditing) {
       await _submitEdit();

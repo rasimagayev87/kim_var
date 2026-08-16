@@ -9,7 +9,6 @@ import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
 import '../../../venues/presentation/providers/venue_providers.dart';
@@ -341,7 +340,6 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
   }
 
   Future<void> _submit() async {
-    if (!await requireVerified(context, ref)) return;
     if (!mounted) return;
     if (_isEditing) {
       await _submitEdit();

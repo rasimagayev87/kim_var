@@ -6,7 +6,7 @@ import '../../../../core/animations/glow_logo.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../auth/presentation/screens/login_screen.dart';
+import '../../../auth/presentation/screens/auth_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
@@ -45,7 +45,7 @@ class WelcomeScreen extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      MaterialPageRoute(builder: (_) => const AuthScreen()),
                     ),
                     child: Text(loc.welcomeStartButton),
                   ).animate().fadeIn(delay: 450.ms, duration: 450.ms).slideY(

@@ -2,17 +2,13 @@ import '../entities/app_user.dart';
 
 /// Abstraction over the authentication backend (Firebase Auth).
 ///
-/// Sign-in is username + password. There's no native "username"
-/// provider in Firebase Auth, so under the hood each account signs in
-/// with a random, never-shown synthetic email — see
-/// `FirebaseAuthRepository._randomAuthEmail` — resolved from the
-/// chosen username via the `usernames` Firestore collection, which is
-/// also what lets [updateUsername] rename the handle without ever
-/// touching the sign-in credential. Phone number is not a sign-in
-/// method at all — the only thing it's still used for is the "Parolu
-/// unutdum" recovery path (see [startPhoneRecoveryVerification]);
-/// the separate phone-OTP account-verification step this used to also
-/// back was removed (Faza 1 of the auth rewrite).
+/// Sign-in is exactly 3 methods — Apple, Google, or a passwordless
+/// E-mail Link — never a password of any kind. Each returns whether
+/// the account is brand new (caller should route to
+/// [AuthRepository.completeOnboarding]) or already exists. A separate
+/// public `@username` handle is still collected during onboarding
+/// (see [isUsernameAvailable]/[updateUsername]) — purely a display
+/// name, never a sign-in credential.
 abstract class AuthRepository {
   Stream<AppUser?> authStateChanges();
 
@@ -27,99 +23,67 @@ abstract class AuthRepository {
   /// document has been created yet (onboarding was never completed).
   bool get needsOnboarding;
 
-  /// True if [username] isn't yet reserved. Backs the register
-  /// screen's debounced availability check — not a hard guarantee
-  /// against a same-instant race, [registerWithUsername] is the
-  /// actual source of truth (Firebase Auth's own email uniqueness).
+  /// True if [username] isn't yet reserved. Backs the onboarding
+  /// form's debounced availability check — not a hard guarantee
+  /// against a same-instant race, [completeOnboarding] itself (via
+  /// the `usernames/{username}` create-fails-if-exists rule) is the
+  /// actual source of truth.
   Future<bool> isUsernameAvailable(String username);
 
-  /// Creates the Firebase Auth user and reserves [username]. Signs
-  /// the caller out immediately after — registration never leaves you
-  /// signed in, the UI always routes to Login next.
-  ///
-  /// [termsAccepted]/[termsVersion]/[privacyVersion] record the legal
-  /// consent the registration screen's checkbox gates on — written
-  /// onto the `usernames/{username}` reservation doc (the only thing
-  /// created at this point; `users/{uid}` itself doesn't exist until
-  /// `completeOnboarding`, which is a genuinely separate session after
-  /// the forced sign-out above) and copied onto `users/{uid}.consent`
-  /// once that doc is created.
-  Future<void> registerWithUsername({
-    required String username,
-    required String password,
-    required bool termsAccepted,
-    required String termsVersion,
-    required String privacyVersion,
+  /// Signs in with "Sign in with Apple". Apple only ever supplies a
+  /// real name on the FIRST authorization for a given app+account
+  /// pair — never relied on here, the onboarding form always asks for
+  /// first/last name itself regardless of provider.
+  Future<(AppUser user, bool isNewUser)> signInWithApple();
+
+  /// Signs in with Google (native `GoogleSignIn` account picker).
+  Future<(AppUser user, bool isNewUser)> signInWithGoogle();
+
+  /// Sends a passwordless sign-in link to [email] (Firebase's Email
+  /// Link Sign-In — `sendSignInLinkToEmail`). The link opens
+  /// `https://peakpin.app/auth-email-link`, which this app already
+  /// intercepts as a Universal Link (see `deep_link_handler.dart`) —
+  /// no new domain/entitlement setup needed.
+  Future<void> sendEmailSignInLink(String email);
+
+  /// True if [link] is a Firebase email sign-in link — the deep-link
+  /// handler uses this to tell an email-link open apart from any
+  /// other Universal Link this app handles.
+  bool isEmailSignInLink(String link);
+
+  /// Completes email-link sign-in. [email] must be the SAME address
+  /// [sendEmailSignInLink] was called with — Firebase itself doesn't
+  /// carry it inside the link, so the caller re-supplies it (see
+  /// where it's persisted for this purpose in the implementation).
+  Future<(AppUser user, bool isNewUser)> signInWithEmailLink({
+    required String email,
+    required String link,
   });
 
-  /// Returns the signed-in user and whether this is their first time
-  /// (no Firestore doc yet → caller should route to onboarding instead
-  /// of straight into the app).
-  Future<(AppUser user, bool isNewUser)> loginWithUsername({
-    required String username,
-    required String password,
-  });
-
-  /// Called once, right after first sign-in, to create the
-  /// Firestore user document with the onboarding data.
+  /// Called once, right after first sign-in, to create the Firestore
+  /// user document with the onboarding data — including reserving
+  /// [username], the first time this account gets one (no earlier
+  /// registration step sets it the way the old username+password flow
+  /// did, since Apple/Google/E-mail sign-in has no concept of it).
   Future<AppUser> completeOnboarding({
+    required String username,
     required String firstName,
     required String lastName,
     required DateTime birthDate,
     required String gender,
     required String country,
     required String city,
+    required String phoneNumber,
     required String businessStatus,
     String? bio,
   });
 
   Future<void> signOut();
 
-  /// True if [phoneNumber] (E.164) is already linked to a DIFFERENT
-  /// account — a friendly pre-check before spending an SMS on
-  /// [startPhoneRecoveryVerification].
-  Future<bool> isPhoneNumberTaken(String phoneNumber);
-
-  /// Sends an SMS code for the "Parolu unutdum" recovery path — never
-  /// creates a new account. [phoneNumber] should already be known (via
-  /// [isPhoneNumberTaken]) to belong to an existing account before
-  /// calling this.
-  Future<void> startPhoneRecoveryVerification({
-    required String phoneNumber,
-    required void Function(String verificationId) onCodeSent,
-    required void Function() onAutoVerified,
-    required void Function(String? errorCode) onFailed,
-  });
-
-  /// Confirms the code and signs in as whichever account [phoneNumber]
-  /// is linked to (not the account that was signed in before, if any).
-  /// Throws if the phone turns out not to be linked to any real
-  /// account — see the implementation for why that matters.
-  Future<void> confirmPhoneRecovery({
-    required String verificationId,
-    required String smsCode,
-  });
-
-  /// Changes the CURRENTLY signed-in user's password directly, no
-  /// reauthentication — used right after [confirmPhoneRecovery]
-  /// succeeds, where signing in via a fresh OTP already counts as
-  /// strong recent authentication.
-  Future<void> updatePassword(String newPassword);
-
-  /// Re-authenticates with [currentPassword] before changing to
-  /// [newPassword] — the normal in-session "Parolu dəyiş" path.
-  Future<void> changePassword({
-    required String currentPassword,
-    required String newPassword,
-  });
-
-  /// Renames the display username — a pure handle change. The
-  /// sign-in credential (a random, never-shown synthetic email) is
-  /// never derived from the username, so this never risks locking the
-  /// account out: it copies that same credential pointer onto a new
-  /// `usernames/{newUsername}` reservation and releases the old one.
-  /// [oldUsername] stops being a valid login the instant this
-  /// succeeds; only [newUsername] does from then on.
+  /// Renames the display username — a pure handle change with no
+  /// effect on sign-in (there's no credential to touch — see this
+  /// class's own doc comment). [oldUsername] stops resolving the
+  /// instant this succeeds; only [newUsername] does from then on.
   Future<void> updateUsername({
     required String oldUsername,
     required String newUsername,

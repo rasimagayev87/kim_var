@@ -5,11 +5,9 @@ import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/widgets/settings_group.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../auth/presentation/providers/auth_providers.dart';
-import '../../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../../profile/presentation/screens/edit_profile_screen.dart';
 import '../widgets/change_email_sheet.dart';
 import '../widgets/delete_account_row.dart';
-import 'change_password_screen.dart';
 
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
@@ -55,18 +53,6 @@ class AccountScreen extends ConsumerWidget {
                   title: loc.accountEmailRowTitle,
                   subtitle: (email == null || email.isEmpty) ? loc.accountEmailEmptyValue : email,
                   onTap: () => _openChangeEmail(context, email),
-                ),
-                SettingsMenuRow(
-                  icon: Icons.lock_outline,
-                  title: loc.accountPasswordRowTitle,
-                  onTap: () async {
-                    if (!await requireVerified(context, ref)) return;
-                    if (!context.mounted) return;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
-                    );
-                  },
                 ),
               ],
             ),

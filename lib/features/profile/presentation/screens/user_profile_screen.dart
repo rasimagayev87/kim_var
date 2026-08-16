@@ -8,7 +8,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/providers/chat_providers.dart';
 import '../../../chat/presentation/screens/chat_conversation_screen.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
@@ -252,7 +251,6 @@ class _OtherAvatarWithRing extends ConsumerWidget {
           ? null
           : () async {
               if (hasActiveStory) {
-                if (!await requireVerified(context, ref)) return;
                 if (!context.mounted) return;
                 Navigator.push(context, MaterialPageRoute(builder: (_) => StoryViewerScreen(stories: activeStories)));
               } else {
@@ -353,7 +351,6 @@ class _OtherAvatarWithRing extends ConsumerWidget {
                 onTap: hasActiveStory
                     ? () async {
                         Navigator.pop(sheetContext);
-                        if (!await requireVerified(context, ref)) return;
                         if (!context.mounted) return;
                         Navigator.push(
                           context,
@@ -475,7 +472,6 @@ class _ProfileActionRow extends ConsumerWidget {
         label: loc.sendMessageButton,
         tonal: true,
         onPressed: () async {
-          if (!await requireVerified(context, ref)) return;
           if (!context.mounted) return;
           Navigator.push(
             context,
@@ -564,7 +560,6 @@ class _FollowButton extends ConsumerWidget {
       onPressed: isPending
           ? null
           : () async {
-              if (!await requireVerified(context, ref)) return;
               if (!context.mounted) return;
               final success = await ref.read(followControllerProvider).toggleFollow(
                     otherUid: otherUid,

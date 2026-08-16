@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../venues/domain/entities/venue.dart' show venueCategoryIcon;
@@ -293,7 +292,6 @@ class _EmptyMyOffers extends StatelessWidget {
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: () async {
-                  if (!await requireVerified(context, ref)) return;
                   if (!context.mounted) return;
                   Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateOfferScreen()));
                 },
