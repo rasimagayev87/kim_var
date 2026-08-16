@@ -127,6 +127,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       loc.authEmailLinkSentMessage(_emailController.text.trim()),
                       style: AppTextStyles.body,
                     ),
+                    const SizedBox(height: 8),
+                    Text(
+                      loc.authEmailLinkSpamHint,
+                      style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                    ),
                   ] else ...[
                     _ProviderButton(
                       icon: Icons.apple,

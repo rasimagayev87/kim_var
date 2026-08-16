@@ -16,6 +16,7 @@
   "authEmailHint": "email@example.com",
   "authSendLinkButton": "Send link",
   "authEmailLinkSentMessage": "A sign-in link was sent to {email}. Check your email and tap the link.",
+  "authEmailLinkSpamHint": "Don't see it? Check your Spam/Junk folder too.",
   "authConsentRequiredError": "Accept the Privacy Policy and Terms of Service to continue",
   "authSignInFailedError": "Sign-in failed. Please try again.",
   "authInvalidEmailError": "Enter a valid email address",

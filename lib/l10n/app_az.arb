@@ -10,6 +10,7 @@
   "authEmailHint": "email@nümunə.com",
   "authSendLinkButton": "Link göndər",
   "authEmailLinkSentMessage": "{email} ünvanına giriş linki göndərildi. E-poçtunuzu yoxlayın və linkə klikləyin.",
+  "authEmailLinkSpamHint": "Məktub görünmürsə, Spam/Junk qovluğunu da yoxlayın.",
   "authConsentRequiredError": "Davam etmək üçün Məxfilik Siyasəti və İstifadə Şərtlərini qəbul edin",
   "authSignInFailedError": "Giriş uğursuz oldu. Yenidən cəhd edin.",
   "authInvalidEmailError": "Düzgün e-poçt ünvanı daxil edin",

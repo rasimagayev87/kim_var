@@ -10,6 +10,7 @@
   "authEmailHint": "eposta@ornek.com",
   "authSendLinkButton": "Bağlantı gönder",
   "authEmailLinkSentMessage": "{email} adresine giriş bağlantısı gönderildi. E-postanızı kontrol edip bağlantıya tıklayın.",
+  "authEmailLinkSpamHint": "Görünmüyorsa Spam/Gereksiz klasörünü de kontrol edin.",
   "authConsentRequiredError": "Devam etmek için Gizlilik Politikası ve Kullanım Şartlarını kabul edin",
   "authSignInFailedError": "Giriş başarısız oldu. Tekrar deneyin.",
   "authInvalidEmailError": "Geçerli bir e-posta adresi girin",

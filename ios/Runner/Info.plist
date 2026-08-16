@@ -56,6 +56,18 @@
 				<string>com.googleusercontent.apps.148607007767-dkrl4dagoo9isvpgtjg3rmguhd715nqa</string>
 			</array>
 		</dict>
+		<!-- Custom scheme fallback for Firebase Email Link sign-in —
+		     see deep_link_handler.dart and peakpin-landing's
+		     /auth-email-link page. Doesn't need Associated Domains /
+		     apple-app-site-association (which needs a paid Apple
+		     Developer Team ID we don't have yet), unlike the https
+		     Universal Link this rides alongside. -->
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>peakpin</string>
+			</array>
+		</dict>
 	</array>
 	<!-- google_sign_in_ios does NOT read CLIENT_ID from
 	     GoogleService-Info.plist automatically — without this key it

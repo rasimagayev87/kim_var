@@ -62,6 +62,19 @@
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="https" android:host="peakpin.app" android:pathPrefix="/p"/>
             </intent-filter>
+            <!-- Custom URL scheme fallback for Firebase Email Link
+                 sign-in — see deep_link_handler.dart and
+                 peakpin-landing's /auth-email-link page. Used instead
+                 of relying solely on the https App Link above because
+                 the final hop in that flow (peakpin.app/auth-email-link)
+                 needs a way back into the app that doesn't depend on
+                 domain-verification timing. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="peakpin"/>
+            </intent-filter>
         </activity>
         <!-- Required by image_cropper (venue photo crop step) — the
              plugin doesn't declare this itself, the consuming app

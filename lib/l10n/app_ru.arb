@@ -10,6 +10,7 @@
   "authEmailHint": "email@example.com",
   "authSendLinkButton": "Отправить ссылку",
   "authEmailLinkSentMessage": "Ссылка для входа отправлена на {email}. Проверьте почту и перейдите по ссылке.",
+  "authEmailLinkSpamHint": "Не видите письмо? Проверьте папку Спам.",
   "authConsentRequiredError": "Примите Политику конфиденциальности и Условия использования, чтобы продолжить",
   "authSignInFailedError": "Не удалось войти. Попробуйте снова.",
   "authInvalidEmailError": "Введите действительный адрес эл. почты",
