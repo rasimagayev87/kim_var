@@ -28,6 +28,19 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(uid)).data.isVerified == true;
     }
 
+    // Server-side backstop for "Biznes fəaliyyəti" — the Flutter app
+    // already hides every venue/offer-creation entry point in the UI
+    // for `businessStatus == 'none'` (see `hasBusinessAccess` on
+    // `UserProfile`), but that's UX only; this is what actually stops
+    // a direct API call. Absent field (pre-migration accounts, or the
+    // brief window before the backfill reaches a doc) defaults to
+    // `'active'`, matching `hasBusinessAccess`'s own default — nobody
+    // loses access because this field simply isn't set yet.
+    function isBusinessUser(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)) &&
+        get(/databases/$(database)/documents/users/$(uid)).data.get('businessStatus', 'active') != 'none';
+    }
+
     // App-wide config, read-only from the client — currently just
     // `config/legal` (currentTermsVersion/currentPrivacyVersion, see
     // `lib/features/legal/legal_versions.dart` and
@@ -387,6 +400,7 @@ service cloud.firestore {
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.ownerId &&
         isVerifiedUser(request.auth.uid) &&
+        isBusinessUser(request.auth.uid) &&
         request.resource.data.status == 'pending' &&
         !('reviewNote' in request.resource.data) &&
         !('reviewedBy' in request.resource.data) &&
@@ -569,6 +583,7 @@ service cloud.firestore {
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.ownerId &&
         isVerifiedUser(request.auth.uid) &&
+        isBusinessUser(request.auth.uid) &&
         request.resource.data.status == 'pending' &&
         !('reviewNote' in request.resource.data) &&
         !('reviewedBy' in request.resource.data) &&

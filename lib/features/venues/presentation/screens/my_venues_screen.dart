@@ -7,6 +7,7 @@ import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../events/presentation/providers/venue_event_providers.dart';
 import '../../../events/presentation/screens/my_venue_events_screen.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../waitlist/presentation/providers/waitlist_providers.dart';
 import '../../../waitlist/presentation/screens/venue_waitlist_screen.dart';
 import '../../domain/entities/venue.dart';
@@ -617,20 +618,22 @@ class _EmptyMyVenues extends StatelessWidget {
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () async {
-                if (!await requireVerified(context, ref)) return;
-                if (!context.mounted) return;
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CreateVenueScreen()),
-                );
-              },
-              icon: const Icon(Icons.add, color: AppColors.onAccent),
-              label: Text(loc.venueCreateTitle),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(200, 50)),
-            ),
+            if (ref.read(profileControllerProvider).hasBusinessAccess) ...[
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  if (!await requireVerified(context, ref)) return;
+                  if (!context.mounted) return;
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const CreateVenueScreen()),
+                  );
+                },
+                icon: const Icon(Icons.add, color: AppColors.onAccent),
+                label: Text(loc.venueCreateTitle),
+                style: ElevatedButton.styleFrom(minimumSize: const Size(200, 50)),
+              ),
+            ],
           ],
         ),
       ),

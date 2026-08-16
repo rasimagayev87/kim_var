@@ -28,6 +28,14 @@ class UserProfile {
   /// actions, but the badge is reserved for real identity verification.
   final bool identityVerified;
 
+  /// Whether this user may create venues/offers — `kBusinessStatusActive`
+  /// or `kBusinessStatusNone`, chosen once at onboarding and freely
+  /// changeable afterward from Settings. Null only for accounts that
+  /// predate this field (pre-migration); read sites should treat that
+  /// the same as `kBusinessStatusActive` (see the migration's own
+  /// doc comment for why existing users keep their access).
+  final String? businessStatus;
+
   const UserProfile({
     this.username,
     this.firstName = '',
@@ -44,6 +52,7 @@ class UserProfile {
     this.heartCount = 0,
     this.isVerified = false,
     this.identityVerified = false,
+    this.businessStatus,
   });
 
   /// Always derived from [birthDate] (set once at onboarding) — there is
@@ -67,6 +76,7 @@ class UserProfile {
     DateTime? lastSeen,
     int? heartCount,
     bool? isVerified,
+    String? businessStatus,
   }) {
     return UserProfile(
       username: username ?? this.username,
@@ -83,6 +93,7 @@ class UserProfile {
       lastSeen: lastSeen ?? this.lastSeen,
       heartCount: heartCount ?? this.heartCount,
       isVerified: isVerified ?? this.isVerified,
+      businessStatus: businessStatus ?? this.businessStatus,
     );
   }
 
@@ -90,6 +101,16 @@ class UserProfile {
   /// trusted (a force-quit/crash can leave it stuck `true`), so this
   /// also checks how fresh [lastSeen] is.
   bool get isRecentlyActive => isRecentlyOnline(online: online, lastSeen: lastSeen);
+
+  /// Whether venue/offer creation UI should be shown — true for
+  /// `kBusinessStatusActive` AND for a null/absent field (accounts
+  /// that predate this field, or the brief window before the
+  /// migration backfill reaches them), false only for an explicit
+  /// `kBusinessStatusNone`.
+  bool get hasBusinessAccess => businessStatus != kBusinessStatusNone;
 }
 
 const kGenderOptions = <String>['Kişi', 'Qadın', 'Bildirmək istəmirəm'];
+
+const kBusinessStatusActive = 'active';
+const kBusinessStatusNone = 'none';

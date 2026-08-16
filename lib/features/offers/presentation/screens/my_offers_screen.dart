@@ -5,6 +5,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/widgets/verification_guard.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../venues/domain/entities/venue.dart' show venueCategoryIcon;
 import '../../domain/entities/offer.dart';
 import '../providers/offer_providers.dart';
@@ -288,17 +289,19 @@ class _EmptyMyOffers extends StatelessWidget {
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 13.5, color: ChatLightColors.inkFaint, height: 1.5),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () async {
-                if (!await requireVerified(context, ref)) return;
-                if (!context.mounted) return;
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateOfferScreen()));
-              },
-              icon: const Icon(Icons.add, color: AppColors.onAccent),
-              label: Text(loc.offerCreateTitle),
-              style: ElevatedButton.styleFrom(minimumSize: const Size(200, 50)),
-            ),
+            if (ref.read(profileControllerProvider).hasBusinessAccess) ...[
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  if (!await requireVerified(context, ref)) return;
+                  if (!context.mounted) return;
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateOfferScreen()));
+                },
+                icon: const Icon(Icons.add, color: AppColors.onAccent),
+                label: Text(loc.offerCreateTitle),
+                style: ElevatedButton.styleFrom(minimumSize: const Size(200, 50)),
+              ),
+            ],
           ],
         ),
       ),

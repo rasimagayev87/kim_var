@@ -67,6 +67,7 @@ abstract class AuthRepository {
     required String gender,
     required String country,
     required String city,
+    required String businessStatus,
     String? bio,
   });
 

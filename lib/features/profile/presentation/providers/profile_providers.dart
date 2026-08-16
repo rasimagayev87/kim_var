@@ -86,6 +86,7 @@ class ProfileController extends StateNotifier<UserProfile> {
       heartCount: (data['heartCount'] as num?)?.toInt() ?? 0,
       isVerified: data['isVerified'] as bool? ?? false,
       identityVerified: data['identityVerified'] as bool? ?? false,
+      businessStatus: data['businessStatus'] as String?,
     );
   }
 
@@ -175,6 +176,30 @@ class ProfileController extends StateNotifier<UserProfile> {
       },
       SetOptions(merge: true),
     );
+    // `state` updates automatically via the live Firestore listener above.
+  }
+
+  /// "Biznes fəaliyyəti" — the user can flip this freely, any time, no
+  /// approval needed (see `PrivacySecurityScreen`). Only ever changes
+  /// future venue/offer-*creation* access (gated client-side by
+  /// `hasBusinessAccess`, server-side by `isBusinessUser` in
+  /// firestore.rules) — existing venues/offers are never touched here.
+  Future<bool> updateBusinessStatus(String value) async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return false;
+
+    try {
+      await _firestore.collection('users').doc(uid).set(
+        {
+          'businessStatus': value,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+      return true;
+    } catch (_) {
+      return false;
+    }
     // `state` updates automatically via the live Firestore listener above.
   }
 }

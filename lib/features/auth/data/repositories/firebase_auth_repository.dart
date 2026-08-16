@@ -256,6 +256,7 @@ class FirebaseAuthRepository implements AuthRepository {
     required String gender,
     required String country,
     required String city,
+    required String businessStatus,
     String? bio,
   }) async {
     final user = _auth.currentUser;
@@ -290,6 +291,7 @@ class FirebaseAuthRepository implements AuthRepository {
       'bio': bio ?? '',
       'country': country,
       'city': city,
+      'businessStatus': businessStatus,
       // `premium`/`isVerified` are deliberately NOT set here — both are
       // grant-of-privilege fields firestore.rules forbids the client
       // from ever writing (even to their own default `false`), so the

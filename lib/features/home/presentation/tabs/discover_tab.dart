@@ -88,6 +88,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
     final loc = AppLocalizations.of(context);
     final locationState = ref.watch(locationControllerProvider);
     final nearbyUsers = ref.watch(nearbyUsersProvider);
+    final hasBusinessAccess = ref.watch(profileControllerProvider).hasBusinessAccess;
 
     return SafeArea(
       child: Column(
@@ -104,7 +105,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                     onPressed: () => _showGenderFilterSheet(context),
                     icon: const Icon(Icons.filter_alt_outlined, color: AppColors.textSecondary),
                   ),
-                if (_view == _DiscoverView.places) ...[
+                if (_view == _DiscoverView.places && hasBusinessAccess) ...[
                   IconButton(
                     tooltip: loc.venueMyVenuesTooltip,
                     onPressed: () => Navigator.push(
@@ -126,7 +127,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                     icon: const Icon(Icons.add_circle_outline, color: AppColors.textSecondary),
                   ),
                 ],
-                if (_view == _DiscoverView.offers) ...[
+                if (_view == _DiscoverView.offers && hasBusinessAccess) ...[
                   IconButton(
                     tooltip: loc.offerMyOffersTooltip,
                     onPressed: () => Navigator.push(

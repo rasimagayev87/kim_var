@@ -15,7 +15,7 @@ import '../../../../core/widgets/premium_text_field.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../home/presentation/screens/home_screen.dart';
 import '../../../location/presentation/providers/location_providers.dart';
-import '../../../profile/domain/entities/user_profile.dart' show kGenderOptions;
+import '../../../profile/domain/entities/user_profile.dart' show kBusinessStatusActive, kBusinessStatusNone, kGenderOptions;
 import '../../../profile/presentation/providers/photo_upload_provider.dart';
 import '../../../profile/presentation/storage_failure_messages.dart';
 import '../providers/auth_providers.dart';
@@ -40,6 +40,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   String? _gender;
   String? _country;
   String? _city;
+  String? _businessStatus;
   File? _pickedPhoto;
   bool _saving = false;
 
@@ -112,6 +113,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       );
       return;
     }
+    if (_businessStatus == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.onboardingSelectBusinessStatusError)),
+      );
+      return;
+    }
 
     setState(() => _saving = true);
 
@@ -123,6 +130,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             gender: _gender!,
             country: _country!,
             city: _city!,
+            businessStatus: _businessStatus!,
             bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
           );
 
@@ -280,6 +288,30 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onCityChanged: (value) => setState(() => _city = value),
               ),
               const SizedBox(height: 24),
+              Text(loc.sectionBusinessStatusTitle, style: AppTextStyles.sectionTitle.copyWith(fontSize: 20)),
+              const SizedBox(height: 6),
+              Text(loc.sectionBusinessStatusSubtitle, style: AppTextStyles.caption),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _BusinessStatusOption(
+                      label: loc.businessStatusActiveLabel,
+                      selected: _businessStatus == kBusinessStatusActive,
+                      onTap: () => setState(() => _businessStatus = kBusinessStatusActive),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _BusinessStatusOption(
+                      label: loc.businessStatusNoneLabel,
+                      selected: _businessStatus == kBusinessStatusNone,
+                      onTap: () => setState(() => _businessStatus = kBusinessStatusNone),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
               Text(loc.sectionAboutOptionalTitle, style: AppTextStyles.sectionTitle.copyWith(fontSize: 20)),
               const SizedBox(height: 12),
               TextField(
@@ -296,6 +328,46 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onPressed: _finish,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One selectable card in the "Biznes fəaliyyəti" pair — a plain
+/// 2-way choice, not a full radio-group widget, since this is the
+/// only place in the app that needs exactly this shape today.
+class _BusinessStatusOption extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _BusinessStatusOption({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary.withValues(alpha: 0.12) : AppColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: selected ? AppColors.primary : AppColors.divider, width: selected ? 1.5 : 1),
+        ),
+        child: Text(
+          label,
+          style: AppTextStyles.body.copyWith(
+            fontSize: 15,
+            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            color: selected ? AppColors.primary : AppColors.textSecondary,
           ),
         ),
       ),

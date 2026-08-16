@@ -6,6 +6,7 @@ import '../../offers/presentation/providers/offer_providers.dart';
 import '../../offers/presentation/screens/create_offer_screen.dart';
 import '../../offers/presentation/screens/offer_details_screen.dart';
 import '../../post_share/presentation/screens/post_detail_screen.dart';
+import '../../profile/presentation/providers/profile_providers.dart';
 import '../../profile/presentation/screens/user_profile_screen.dart';
 import '../../venues/presentation/screens/venue_profile_screen.dart';
 import '../domain/entities/notification.dart';
@@ -30,6 +31,7 @@ Future<void> openNotificationTarget(BuildContext context, WidgetRef ref, AppNoti
   // first and separately so the switch stays a plain, synchronous
   // `Navigator.push` dispatch for everything else.
   if (notification.targetType == 'birthday_match') {
+    if (!ref.read(profileControllerProvider).hasBusinessAccess) return;
     final match = await ref.read(offerRepositoryProvider).fetchBirthdayMatch(targetId);
     if (match == null || !context.mounted) return;
     Navigator.push(
@@ -67,7 +69,9 @@ Future<void> openNotificationTarget(BuildContext context, WidgetRef ref, AppNoti
     // at their own venue's profile, so this skips straight to the
     // Create Offer form with the venue already selected.
     case 'venue_create_offer':
-      Navigator.push(context, MaterialPageRoute(builder: (_) => CreateOfferScreen(preselectedVenueId: targetId)));
+      if (ref.read(profileControllerProvider).hasBusinessAccess) {
+        Navigator.push(context, MaterialPageRoute(builder: (_) => CreateOfferScreen(preselectedVenueId: targetId)));
+      }
     // A venue event's own radius-fanout push (`notifyNearbyUsersOfNewEvent`).
     case 'event':
       Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailsScreen(eventId: targetId)));

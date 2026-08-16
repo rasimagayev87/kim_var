@@ -11,6 +11,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/widgets/country_dial_code.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../../premium/presentation/providers/premium_providers.dart';
+import '../../../profile/domain/entities/user_profile.dart' show kBusinessStatusActive, kBusinessStatusNone;
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../safety/presentation/screens/blocked_users_screen.dart';
 import '../../domain/entities/privacy_settings.dart';
@@ -28,6 +29,7 @@ class PrivacySecurityScreen extends ConsumerWidget {
     final settings = settingsAsync.valueOrNull ?? const PrivacySettings();
     final isPremium = ref.watch(isPremiumProvider);
     final controller = ref.read(privacySettingsControllerProvider);
+    final businessStatus = ref.watch(profileControllerProvider).businessStatus ?? kBusinessStatusActive;
 
     void showError() {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -120,6 +122,21 @@ class PrivacySecurityScreen extends ConsumerWidget {
                     final ok = await controller.updateBirthdayOffersOptIn(v);
                     if (!ok && context.mounted) showError();
                   },
+                ),
+                SettingsMenuRow(
+                  icon: Icons.storefront_outlined,
+                  title: loc.sectionBusinessStatusTitle,
+                  subtitle: loc.sectionBusinessStatusSubtitle,
+                  trailing: SettingsPill(label: _businessStatusLabel(loc, businessStatus)),
+                  onTap: () => _showBusinessStatusSheet(
+                    context: context,
+                    loc: loc,
+                    current: businessStatus,
+                    onSelected: (v) async {
+                      final ok = await ref.read(profileControllerProvider.notifier).updateBusinessStatus(v);
+                      if (!ok && context.mounted) showError();
+                    },
+                  ),
                 ),
               ],
             ),
@@ -237,6 +254,10 @@ class PrivacySecurityScreen extends ConsumerWidget {
     }
   }
 
+  String _businessStatusLabel(AppLocalizations loc, String v) {
+    return v == kBusinessStatusNone ? loc.businessStatusNoneLabel : loc.businessStatusActiveLabel;
+  }
+
   String _whoCanMessageLabel(AppLocalizations loc, WhoCanMessageMe v) {
     switch (v) {
       case WhoCanMessageMe.everyone:
@@ -261,6 +282,24 @@ class PrivacySecurityScreen extends ConsumerWidget {
         _Option(AccountPrivacy.private, loc.privacyAccountPrivacyPrivate),
       ],
       onSelected: (value, locked) => onSelected(value),
+    );
+  }
+
+  void _showBusinessStatusSheet({
+    required BuildContext context,
+    required AppLocalizations loc,
+    required String current,
+    required ValueChanged<String> onSelected,
+  }) {
+    _showOptionsSheet<String>(
+      context: context,
+      title: loc.sectionBusinessStatusTitle,
+      current: current,
+      options: [
+        _Option(kBusinessStatusActive, loc.businessStatusActiveLabel),
+        _Option(kBusinessStatusNone, loc.businessStatusNoneLabel),
+      ],
+      onSelected: (value, _) => onSelected(value),
     );
   }
 

@@ -72,6 +72,7 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     required String gender,
     required String country,
     required String city,
+    required String businessStatus,
     String? bio,
   }) async {
     state = const AsyncValue.loading();
@@ -83,6 +84,7 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
         gender: gender,
         country: country,
         city: city,
+        businessStatus: businessStatus,
         bio: bio,
       ),
     );

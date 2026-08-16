@@ -128,6 +128,11 @@
   "onboardingSelectBirthDateError": "Select your date of birth",
   "onboardingSelectGenderError": "Select your gender",
   "onboardingSelectCountryCityError": "Select your country and city",
+  "sectionBusinessStatusTitle": "Business activity",
+  "sectionBusinessStatusSubtitle": "Determines whether you can create venues or offers. You can change this anytime from Settings.",
+  "businessStatusActiveLabel": "I have one",
+  "businessStatusNoneLabel": "I don't have one",
+  "onboardingSelectBusinessStatusError": "Select your business activity",
   "onboardingPhotoUploadFailedError": "The photo couldn't be uploaded — you can add it later from your profile.",
   "errorWithDetails": "Something went wrong: {error}",
   "@errorWithDetails": {
