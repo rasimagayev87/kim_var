@@ -916,6 +916,52 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
   return 2 * earthRadiusMeters * Math.asin(Math.sqrt(a));
 }
 
+/**
+ * Whether [userData] (a candidate `users/{uid}` doc) has personally
+ * dialed their own Discover radius (`discoverRadiusMode`/
+ * `discoverRadiusKm`, mirrored from the client by
+ * `discoverRadiusPersistenceProvider` in `location_providers.dart`)
+ * wide enough to include a venue at [venueLat]/[venueLng] in
+ * [venueCountry]. A venue's own audience radius was never meant to be
+ * the ONLY filter for who gets notified about it — product rule: the
+ * recipient's own chosen radius always caps it too, so a venue
+ * broadcasting to Ölkə/Dünya still can't reach someone who has
+ * personally narrowed their own radius to 1 km. The one exception is
+ * `independentArtist` follows (see `resolveNotifyCandidates`), which
+ * bypass this check entirely — callers there simply don't call this
+ * function for that category.
+ *
+ * Missing `discoverRadiusMode` (a user who's never opened Discover, so
+ * the client never had a value to write) defaults to unrestricted
+ * rather than silently narrowing every pre-existing user's
+ * notifications to nothing — see `discoverRadiusPersistenceProvider`'s
+ * own doc comment.
+ */
+function isWithinRecipientDiscoverRadius(
+  userData: FirebaseFirestore.DocumentData,
+  venueLat: number | undefined,
+  venueLng: number | undefined,
+  venueCountry: string | undefined,
+): boolean {
+  const mode = userData.discoverRadiusMode as string | undefined;
+  if (mode === undefined || mode === "world") return true;
+  if (mode === "country") return userData.country !== undefined && userData.country === venueCountry;
+
+  const radiusKm = userData.discoverRadiusKm as number | undefined;
+  const userLat = userData.lat as number | undefined;
+  const userLng = userData.lng as number | undefined;
+  if (
+    radiusKm === undefined ||
+    userLat === undefined ||
+    userLng === undefined ||
+    venueLat === undefined ||
+    venueLng === undefined
+  ) {
+    return true;
+  }
+  return haversineMeters(venueLat, venueLng, userLat, userLng) <= radiusKm * 1000;
+}
+
 interface AudienceUserDoc {
   lat?: number;
   lng?: number;
@@ -1091,6 +1137,8 @@ interface BirthdayUserDoc {
   lat?: number;
   lng?: number;
   country?: string;
+  discoverRadiusMode?: string;
+  discoverRadiusKm?: number;
 }
 
 /**
@@ -1159,32 +1207,47 @@ export const computeBirthdayMatches = onSchedule(
       const bdMonth = String(bd.getUTCMonth() + 1).padStart(2, "0");
       const bdDay = String(bd.getUTCDate()).padStart(2, "0");
       if (bdMonth !== bakuMonth || bdDay !== bakuDay) continue;
-      birthdayUsers.push({ uid: doc.id, lat: data.lat, lng: data.lng, country: data.country });
+      birthdayUsers.push({
+        uid: doc.id,
+        lat: data.lat,
+        lng: data.lng,
+        country: data.country,
+        discoverRadiusMode: data.discoverRadiusMode,
+        discoverRadiusKm: data.discoverRadiusKm,
+      });
     }
     if (birthdayUsers.length === 0) return;
 
     for (const venueDoc of eligibleVenuesSnap.docs) {
       const venue = venueDoc.data();
       const mode = (venue.audienceRadiusMode as string | undefined) ?? "distance";
-      let matchedUserIds: string[];
+      const venueLat = venue.lat as number | undefined;
+      const venueLng = venue.lng as number | undefined;
+      const venueCountry = venue.country as string | undefined;
+      let venueMatched: BirthdayUserDoc[];
 
       if (mode === "country") {
-        const country = venue.country as string | undefined;
-        matchedUserIds = country ? birthdayUsers.filter((u) => u.country === country).map((u) => u.uid) : [];
+        venueMatched = venueCountry ? birthdayUsers.filter((u) => u.country === venueCountry) : [];
       } else if (mode === "world") {
-        matchedUserIds = birthdayUsers.map((u) => u.uid);
+        venueMatched = birthdayUsers;
       } else {
-        const lat = venue.lat as number | undefined;
-        const lng = venue.lng as number | undefined;
         const radiusKm = (venue.audienceRadiusKm as number | undefined) ?? 1;
-        matchedUserIds =
-          lat === undefined || lng === undefined
+        venueMatched =
+          venueLat === undefined || venueLng === undefined
             ? []
             : birthdayUsers
                 .filter((u) => u.lat !== undefined && u.lng !== undefined)
-                .filter((u) => haversineMeters(lat, lng, u.lat!, u.lng!) <= radiusKm * 1000)
-                .map((u) => u.uid);
+                .filter((u) => haversineMeters(venueLat, venueLng, u.lat!, u.lng!) <= radiusKm * 1000);
       }
+
+      // Same recipient-radius rule as `resolveNotifyCandidates` — the
+      // venue's own audience radius is a ceiling, not the only gate.
+      // No independentArtist-follow exception here: birthday matching
+      // isn't follow-based, every candidate above is a generic
+      // opted-in user, not someone who chose to follow this venue.
+      const matchedUserIds = venueMatched
+        .filter((u) => isWithinRecipientDiscoverRadius(u, venueLat, venueLng, venueCountry))
+        .map((u) => u.uid);
 
       if (matchedUserIds.length === 0) continue;
 
@@ -1752,6 +1815,15 @@ const OFFER_NOTIFY_CANDIDATE_LIMIT = 1000;
  * nothing — an `independentArtist` follower who lives outside the
  * radius the owner chose is excluded exactly like a random stranger
  * would be.
+ *
+ * For every category EXCEPT `independentArtist`, a candidate must
+ * ALSO fall within their OWN chosen Discover radius (see
+ * [isWithinRecipientDiscoverRadius]) — the venue's radius is a
+ * ceiling, not the only gate. `independentArtist` followers are the
+ * one deliberate exception: following a venue means wanting its posts
+ * regardless of distance, matching how `LiveFeedService.
+ * fetchFollowedVenueItems` already bypasses the viewer's own radius
+ * for the exact same category/reason.
  */
 async function resolveNotifyCandidates(
   venueId: string,
@@ -1759,9 +1831,10 @@ async function resolveNotifyCandidates(
   limit: number,
 ): Promise<FirebaseFirestore.DocumentSnapshot[]> {
   const mode = (venue.audienceRadiusMode as string | undefined) ?? "distance";
+  const isFollowBased = venue.category === "independentArtist";
 
   let sourceDocs: FirebaseFirestore.DocumentSnapshot[];
-  if (venue.category === "independentArtist") {
+  if (isFollowBased) {
     const followerSnaps = await db.collection("venues").doc(venueId).collection("followers").limit(limit).get();
     sourceDocs = await Promise.all(followerSnaps.docs.map((d) => db.collection("users").doc(d.id).get()));
     sourceDocs = sourceDocs.filter((d) => d.exists);
@@ -1769,25 +1842,33 @@ async function resolveNotifyCandidates(
     sourceDocs = (await db.collection("users").limit(limit).get()).docs;
   }
 
+  let venueFiltered: FirebaseFirestore.DocumentSnapshot[];
   if (mode === "country") {
     const country = venue.country as string | undefined;
-    if (!country) return [];
-    return sourceDocs.filter((d) => d.data()?.country === country);
-  }
-  if (mode === "world") {
-    return sourceDocs;
+    venueFiltered = country ? sourceDocs.filter((d) => d.data()?.country === country) : [];
+  } else if (mode === "world") {
+    venueFiltered = sourceDocs;
+  } else {
+    const lat = venue.lat as number | undefined;
+    const lng = venue.lng as number | undefined;
+    const radiusKm = (venue.audienceRadiusKm as number | undefined) ?? 1;
+    venueFiltered =
+      lat === undefined || lng === undefined
+        ? []
+        : sourceDocs.filter((d) => {
+            const userLat = d.data()?.lat as number | undefined;
+            const userLng = d.data()?.lng as number | undefined;
+            if (userLat === undefined || userLng === undefined) return false;
+            return haversineMeters(lat, lng, userLat, userLng) <= radiusKm * 1000;
+          });
   }
 
-  const lat = venue.lat as number | undefined;
-  const lng = venue.lng as number | undefined;
-  const radiusKm = (venue.audienceRadiusKm as number | undefined) ?? 1;
-  if (lat === undefined || lng === undefined) return [];
-  return sourceDocs.filter((d) => {
-    const userLat = d.data()?.lat as number | undefined;
-    const userLng = d.data()?.lng as number | undefined;
-    if (userLat === undefined || userLng === undefined) return false;
-    return haversineMeters(lat, lng, userLat, userLng) <= radiusKm * 1000;
-  });
+  if (isFollowBased) return venueFiltered;
+
+  const venueLat = venue.lat as number | undefined;
+  const venueLng = venue.lng as number | undefined;
+  const venueCountry = venue.country as string | undefined;
+  return venueFiltered.filter((d) => isWithinRecipientDiscoverRadius(d.data() ?? {}, venueLat, venueLng, venueCountry));
 }
 
 /**

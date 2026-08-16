@@ -86,6 +86,10 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
+    // Keeps `users/{uid}.discoverRadiusMode`/`discoverRadiusKm` in sync
+    // with the picker below — see the provider's own doc comment for
+    // why this lives here rather than in LocationController.
+    ref.watch(discoverRadiusPersistenceProvider);
     final locationState = ref.watch(locationControllerProvider);
     final nearbyUsers = ref.watch(nearbyUsersProvider);
     final hasBusinessAccess = ref.watch(profileControllerProvider).hasBusinessAccess;

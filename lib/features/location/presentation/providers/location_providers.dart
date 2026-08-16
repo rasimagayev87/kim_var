@@ -166,6 +166,52 @@ final selectedDiscoverModeProvider = StateProvider<DiscoverRadiusSelection>(
   (ref) => const DiscoverRadiusSelection.distance(1.0),
 );
 
+/// Mirrors [selectedDiscoverModeProvider] onto `users/{uid}` as
+/// `discoverRadiusMode`/`discoverRadiusKm` — the ONLY reason this
+/// exists is so server-side notification fanout
+/// (`resolveNotifyCandidates`/`computeBirthdayMatches` in
+/// `functions/src/index.ts`) can see it: a venue's own audience radius
+/// was never meant to be the sole filter for who gets pinged about it
+/// — the recipient's own chosen radius is always the other half (a
+/// venue with a 30 km/Ölkə/Dünya audience must not reach someone who
+/// has personally dialed their own radius down to 1 km). The one
+/// exception is `independentArtist` follows, which bypass this on
+/// purpose (see `resolveNotifyCandidates`'s own doc comment) — a
+/// follower wants that venue's posts regardless of distance.
+///
+/// Watched from [DiscoverTab] (`ref.watch(...)` in its `build`, value
+/// discarded) rather than tied to [LocationController] — that class
+/// predates having a [Ref] to read this from, and duplicating its own
+/// Firestore-write plumbing here isn't worth avoiding one extra
+/// `ref.watch` call at the one place this actually needs to be alive.
+/// `fireImmediately: true` means even a user who never touches the
+/// radius picker still gets today's default (1 km) written once,
+/// instead of leaving the field permanently absent (which would
+/// silently exempt them from every recipient-radius check below).
+final discoverRadiusPersistenceProvider = Provider<void>((ref) {
+  ref.listen<DiscoverRadiusSelection>(selectedDiscoverModeProvider, (previous, next) {
+    if (previous == next) return;
+    _persistDiscoverRadius(next);
+  }, fireImmediately: true);
+});
+
+void _persistDiscoverRadius(DiscoverRadiusSelection selection) {
+  final uid = fb.FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return;
+  unawaited(
+    FirebaseFirestore.instance.collection('users').doc(uid).set({
+      'discoverRadiusMode': switch (selection.mode) {
+        DiscoverRadiusMode.distance => 'distance',
+        DiscoverRadiusMode.country => 'country',
+        DiscoverRadiusMode.world => 'world',
+      },
+      'discoverRadiusKm': selection.km,
+    }, SetOptions(merge: true)).catchError((e, st) {
+      logError('location_providers._persistDiscoverRadius', e, st);
+    }),
+  );
+}
+
 /// Gender filter for the discover map/cards. Matches the free-text
 /// `gender` values ('Kişi' / 'Qadın') already written to Firestore
 /// by the profile edit screen.
