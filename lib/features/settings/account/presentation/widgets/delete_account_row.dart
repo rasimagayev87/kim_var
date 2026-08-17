@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,7 @@ import '../../../../../core/theme/app_text_styles.dart';
 import '../../../../../core/utils/app_logger.dart';
 import '../../../../../core/widgets/settings_group.dart';
 import '../../../../../l10n/app_localizations.dart';
+import '../../../../auth/domain/entities/app_user.dart' show LoginProvider;
 import '../../../../onboarding/presentation/screens/welcome_screen.dart';
 import '../../../../privacy/domain/repositories/account_repository.dart';
 import '../../../../privacy/presentation/providers/privacy_providers.dart';
@@ -193,10 +196,14 @@ class _TypeToConfirmSheetState extends State<_TypeToConfirmSheet> {
   }
 }
 
-/// Phone-OTP re-verification for the *current* user (see
-/// [ReauthenticationRequiredException] doc comment) — pops `true` once
-/// reauthentication succeeds, so the caller knows it can retry the
-/// delete.
+/// Re-authentication for the *current* user (see
+/// [ReauthenticationRequiredException] doc comment), scoped to
+/// whichever provider they originally signed in with — pops `true`
+/// once reauthentication succeeds, so the caller knows it can retry
+/// the delete. Apple/Google complete synchronously (native popup);
+/// Email sends a fresh sign-in link and waits on
+/// [AccountController.emailReauthCompleted], since that half of the
+/// flow finishes later, out-of-band, in `EmailLinkSignInScreen`.
 class _ReauthSheet extends ConsumerStatefulWidget {
   const _ReauthSheet();
 
@@ -205,72 +212,73 @@ class _ReauthSheet extends ConsumerStatefulWidget {
 }
 
 class _ReauthSheetState extends ConsumerState<_ReauthSheet> {
-  final _codeController = TextEditingController();
-  String? _verificationId;
-  bool _sending = false;
-  bool _confirming = false;
+  bool _busy = false;
+  bool _emailLinkSent = false;
+  StreamSubscription<void>? _emailReauthSub;
 
   @override
   void dispose() {
-    _codeController.dispose();
+    _emailReauthSub?.cancel();
     super.dispose();
   }
 
-  Future<void> _sendCode() async {
-    final phone = fb.FirebaseAuth.instance.currentUser?.phoneNumber;
+  void _fail(Object e, StackTrace st, String site) {
+    logError(site, e, st);
+    if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    if (phone == null) return;
-
-    setState(() => _sending = true);
-    try {
-      await ref.read(accountControllerProvider).sendReauthCode(
-        phoneNumber: phone,
-        onCodeSent: (verificationId) {
-          if (!mounted) return;
-          setState(() {
-            _verificationId = verificationId;
-            _sending = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountCodeSentMessage)));
-        },
-        onFailed: () {
-          if (!mounted) return;
-          setState(() => _sending = false);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
-        },
-      );
-    } catch (e, st) {
-      logError('delete_account_row.sendReauthCode', e, st);
-      if (!mounted) return;
-      setState(() => _sending = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
-    }
+    setState(() => _busy = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
   }
 
-  Future<void> _confirmCode() async {
-    final verificationId = _verificationId;
-    final code = _codeController.text.trim();
-    if (verificationId == null || code.isEmpty) return;
-
-    setState(() => _confirming = true);
-    final loc = AppLocalizations.of(context);
+  Future<void> _reauthApple() async {
+    setState(() => _busy = true);
     try {
-      await ref.read(accountControllerProvider).confirmReauthCode(verificationId: verificationId, smsCode: code);
+      await ref.read(accountControllerProvider).reauthenticateWithApple();
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e, st) {
-      logError('delete_account_row.confirmReauthCode', e, st);
-      if (!mounted) return;
-      setState(() => _confirming = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
+      _fail(e, st, 'delete_account_row.reauthApple');
     }
   }
+
+  Future<void> _reauthGoogle() async {
+    setState(() => _busy = true);
+    try {
+      await ref.read(accountControllerProvider).reauthenticateWithGoogle();
+      if (!mounted) return;
+      Navigator.pop(context, true);
+    } catch (e, st) {
+      _fail(e, st, 'delete_account_row.reauthGoogle');
+    }
+  }
+
+  Future<void> _sendEmailLink() async {
+    setState(() => _busy = true);
+    try {
+      final controller = ref.read(accountControllerProvider);
+      _emailReauthSub ??= controller.emailReauthCompleted.listen((_) {
+        if (!mounted) return;
+        Navigator.pop(context, true);
+      });
+      await controller.sendReauthEmailLink();
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _emailLinkSent = true;
+      });
+    } catch (e, st) {
+      _fail(e, st, 'delete_account_row.sendReauthEmailLink');
+    }
+  }
+
+  Widget _spinner() =>
+      const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent));
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final phone = fb.FirebaseAuth.instance.currentUser?.phoneNumber ?? '';
-    final codeRequested = _verificationId != null;
+    final provider = ref.read(accountControllerProvider).currentLoginProvider();
+    final email = fb.FirebaseAuth.instance.currentUser?.email ?? '';
 
     return SafeArea(
       top: false,
@@ -284,34 +292,23 @@ class _ReauthSheetState extends ConsumerState<_ReauthSheet> {
             const SizedBox(height: 8),
             Text(loc.deleteAccountReauthMessage, style: AppTextStyles.caption.copyWith(height: 1.4)),
             const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-              decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(16)),
-              child: Text(phone, style: AppTextStyles.body.copyWith(fontSize: 15, fontWeight: FontWeight.w600)),
-            ),
-            const SizedBox(height: 16),
-            if (!codeRequested)
+            if (provider == LoginProvider.apple)
               ElevatedButton(
-                onPressed: _sending ? null : _sendCode,
-                child: _sending
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent))
-                    : Text(loc.deleteAccountSendCodeButton),
+                onPressed: _busy ? null : _reauthApple,
+                child: _busy ? _spinner() : Text(loc.deleteAccountReauthAppleButton),
               )
-            else ...[
-              TextField(
-                controller: _codeController,
-                keyboardType: TextInputType.number,
-                style: AppTextStyles.body.copyWith(fontSize: 15),
-                decoration: InputDecoration(hintText: loc.deleteAccountOtpHint),
-              ),
-              const SizedBox(height: 12),
+            else if (provider == LoginProvider.google)
               ElevatedButton(
-                onPressed: _confirming ? null : _confirmCode,
-                child: _confirming
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent))
-                    : Text(loc.deleteAccountConfirmCodeButton),
+                onPressed: _busy ? null : _reauthGoogle,
+                child: _busy ? _spinner() : Text(loc.deleteAccountReauthGoogleButton),
+              )
+            else if (_emailLinkSent)
+              Text(loc.deleteAccountReauthEmailSentMessage(email), style: AppTextStyles.body)
+            else
+              ElevatedButton(
+                onPressed: _busy ? null : _sendEmailLink,
+                child: _busy ? _spinner() : Text(loc.deleteAccountReauthEmailButton),
               ),
-            ],
           ],
         ),
       ),

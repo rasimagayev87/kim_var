@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../home/presentation/screens/home_screen.dart';
+import '../../../privacy/presentation/providers/privacy_providers.dart';
 import '../providers/auth_providers.dart';
 import 'auth_screen.dart';
 import 'onboarding_screen.dart';
@@ -34,6 +36,27 @@ class _EmailLinkSignInScreenState extends ConsumerState<EmailLinkSignInScreen> {
   }
 
   Future<void> _complete() async {
+    // Signed in AND profile already complete is the account-deletion
+    // reauth flow (see `DeleteAccountRow._ReauthSheet`) reusing the
+    // same email-link mechanism — complete that instead of starting a
+    // fresh sign-in. A signed-in user with an INCOMPLETE profile can
+    // legitimately hit this same link too (resuming onboarding after
+    // the app was closed mid-signup, see `SplashScreen`) — that case
+    // must fall through to the normal sign-in-link handling below,
+    // not be mistaken for a reauth.
+    final authController = ref.read(authControllerProvider.notifier);
+    if (fb.FirebaseAuth.instance.currentUser != null && !authController.needsOnboarding) {
+      try {
+        await ref.read(accountControllerProvider).reauthenticateWithEmailLink(widget.link);
+      } catch (_) {
+        // Swallowed — the reauth sheet is still open and waiting; the
+        // user can just try again from there.
+      }
+      if (!mounted) return;
+      Navigator.of(context).pop();
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final email = prefs.getString(_kPendingEmailLinkAddressKey);
     if (email == null) {

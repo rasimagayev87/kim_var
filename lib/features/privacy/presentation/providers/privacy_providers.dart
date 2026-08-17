@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../auth/domain/entities/app_user.dart' show LoginProvider;
 import '../../data/repositories/firebase_account_repository.dart';
 import '../../data/repositories/firebase_device_session_repository.dart';
 import '../../data/repositories/firebase_privacy_settings_repository.dart';
@@ -172,21 +173,27 @@ class AccountController {
     }
   }
 
-  Future<void> sendReauthCode({
-    required String phoneNumber,
-    required void Function(String verificationId) onCodeSent,
-    required void Function() onFailed,
-  }) {
-    return _ref.read(accountRepositoryProvider).sendReauthCode(
-          phoneNumber: phoneNumber,
-          onCodeSent: onCodeSent,
-          onFailed: onFailed,
-        );
+  LoginProvider currentLoginProvider() {
+    return _ref.read(accountRepositoryProvider).currentLoginProvider();
   }
 
-  Future<void> confirmReauthCode({required String verificationId, required String smsCode}) {
-    return _ref.read(accountRepositoryProvider).confirmReauthCode(verificationId: verificationId, smsCode: smsCode);
+  Future<void> reauthenticateWithApple() {
+    return _ref.read(accountRepositoryProvider).reauthenticateWithApple();
   }
+
+  Future<void> reauthenticateWithGoogle() {
+    return _ref.read(accountRepositoryProvider).reauthenticateWithGoogle();
+  }
+
+  Future<void> sendReauthEmailLink() {
+    return _ref.read(accountRepositoryProvider).sendReauthEmailLink();
+  }
+
+  Future<void> reauthenticateWithEmailLink(String link) {
+    return _ref.read(accountRepositoryProvider).reauthenticateWithEmailLink(link);
+  }
+
+  Stream<void> get emailReauthCompleted => _ref.read(accountRepositoryProvider).emailReauthCompleted;
 
   /// Returns true on success (logged internally on failure).
   Future<bool> updateEmail(String newEmail) async {

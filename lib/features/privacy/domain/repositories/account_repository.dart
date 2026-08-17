@@ -1,13 +1,12 @@
+import '../../../auth/domain/entities/app_user.dart' show LoginProvider;
+
 /// Thrown by [AccountRepository.deleteAccount] when the current sign-in
 /// is too old for Firebase to allow account deletion. The UI catches
-/// this specifically and offers [AccountRepository.sendReauthCode] /
-/// [confirmReauthCode] — a phone-OTP re-verification step scoped to
+/// this specifically and offers a re-authentication step — scoped to
 /// *this* signed-in user (via `reauthenticateWithCredential`, not a
-/// fresh sign-in) — before retrying the delete. Deliberately its own
-/// small flow rather than reusing the app's onboarding/login OTP
-/// screens, which assume "nobody is signed in yet" and would otherwise
-/// need to be taught a "this is actually a reauth, don't touch
-/// onboarding state" mode.
+/// fresh sign-in) — before retrying the delete, via whichever of
+/// [reauthenticateWithApple]/[reauthenticateWithGoogle]/
+/// [sendReauthEmailLink] matches [currentLoginProvider].
 class ReauthenticationRequiredException implements Exception {
   const ReauthenticationRequiredException();
 }
@@ -35,22 +34,39 @@ abstract class AccountRepository {
   /// to do safely.
   Future<String> exportUserData();
 
-  /// Starts phone-OTP re-verification for the currently signed-in user
-  /// (not a new sign-in) — call this after catching
-  /// [ReauthenticationRequiredException].
-  Future<void> sendReauthCode({
-    required String phoneNumber,
-    required void Function(String verificationId) onCodeSent,
-    required void Function() onFailed,
-  });
+  /// Which provider the signed-in user originally authenticated with —
+  /// determines which of the re-authentication methods below the UI
+  /// should offer after catching [ReauthenticationRequiredException].
+  LoginProvider currentLoginProvider();
 
-  /// Completes the re-verification started by [sendReauthCode]. On
-  /// success, the current session is fresh again and [deleteAccount]
-  /// can be retried.
-  Future<void> confirmReauthCode({
-    required String verificationId,
-    required String smsCode,
-  });
+  /// Apple: redoes the native Sign in with Apple flow and re-links the
+  /// resulting credential to the current session via
+  /// `reauthenticateWithCredential`. On success, the session is fresh
+  /// again and [deleteAccount] can be retried immediately.
+  Future<void> reauthenticateWithApple();
+
+  /// Google: redoes the native Google Sign-In flow and re-links the
+  /// resulting credential to the current session via
+  /// `reauthenticateWithCredential`. On success, the session is fresh
+  /// again and [deleteAccount] can be retried immediately.
+  Future<void> reauthenticateWithGoogle();
+
+  /// Email: sends a fresh sign-in link to the current user's own
+  /// email — completion happens later, out-of-band, once they tap it
+  /// (see `EmailLinkSignInScreen`, which detects it was opened while
+  /// already signed in and calls [reauthenticateWithEmailLink] instead
+  /// of starting a new sign-in). Listen to [emailReauthCompleted] to
+  /// know when that finished.
+  Future<void> sendReauthEmailLink();
+
+  /// Completes the flow [sendReauthEmailLink] started, once the user
+  /// taps the emailed link.
+  Future<void> reauthenticateWithEmailLink(String link);
+
+  /// Fires once after each successful [reauthenticateWithEmailLink] —
+  /// lets the (possibly backgrounded) delete-account UI know the user
+  /// came back after tapping the link.
+  Stream<void> get emailReauthCompleted;
 
   /// Updates the Firestore-stored `email` field. NOT a Firebase-Auth
   /// email credential with a verification link — this app has no

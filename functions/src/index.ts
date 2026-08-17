@@ -33,6 +33,42 @@ const DELETED_SENDER_PLACEHOLDER = "Bu istifadəçi hesabını silib";
 const cloudflareTurnKeyId = defineSecret("CLOUDFLARE_TURN_KEY_ID");
 const cloudflareTurnApiToken = defineSecret("CLOUDFLARE_TURN_API_TOKEN");
 
+// Resend API key — set once via: firebase functions:secrets:set RESEND_API_KEY
+// Used only by sendPrivacyNotificationEmail below, to relay new user/event
+// reports to privacy@peakpin.app as they come in (that inbox otherwise has
+// no way to know about a report short of someone opening the admin panel).
+const resendApiKey = defineSecret("RESEND_API_KEY");
+
+/**
+ * Sends a plain notification email via Resend's REST API (not SMTP —
+ * this is app-triggered mail, unrelated to Firebase Auth's own
+ * CUSTOM_SMTP config for sign-in emails). Never throws: a failed send
+ * shouldn't fail the report-creation write it's reacting to, since the
+ * report itself is already safely in Firestore either way.
+ */
+async function sendPrivacyNotificationEmail(subject: string, html: string): Promise<void> {
+  try {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${resendApiKey.value()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: "PeakPin <noreply@peakpin.app>",
+        to: "privacy@peakpin.app",
+        subject,
+        html,
+      }),
+    });
+    if (!response.ok) {
+      logger.error("sendPrivacyNotificationEmail failed", { status: response.status, body: await response.text() });
+    }
+  } catch (e) {
+    logger.error("sendPrivacyNotificationEmail threw", e);
+  }
+}
+
 /**
  * Mints short-lived (1 hour) Cloudflare Realtime TURN credentials for
  * the CALLING signed-in user. The Flutter app calls this right before
@@ -2214,3 +2250,68 @@ export const onChatMessageCreated = onDocumentCreated(
 function isUnregisteredTokenError(code?: string): boolean {
   return code === "messaging/registration-token-not-registered" || code === "messaging/invalid-registration-token";
 }
+
+/**
+ * Relays every new user report (from `report_user_sheet.dart`'s
+ * "Report user" flow, e.g. harassment, spam, fake profile) to
+ * privacy@peakpin.app — this collection previously had zero
+ * notification path, only the admin panel's own manual review queue.
+ */
+export const onUserReportCreated = onDocumentCreated(
+  { document: "reports/{reportId}", secrets: [resendApiKey] },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    const reporterId = data.reporterId as string | undefined;
+    const reportedUserId = data.reportedUserId as string | undefined;
+    const reason = (data.reason as string | undefined) ?? "(səbəb qeyd edilməyib)";
+    if (!reporterId || !reportedUserId) return;
+
+    const [reporter, reported] = await Promise.all([
+      getUserDisplayInfo(reporterId),
+      getUserDisplayInfo(reportedUserId),
+    ]);
+
+    await sendPrivacyNotificationEmail(
+      "Yeni istifadəçi şikayəti — PeakPin",
+      `<p><strong>Şikayətçi:</strong> ${reporter.name} (${reporterId})</p>
+       <p><strong>Şikayət olunan:</strong> ${reported.name} (${reportedUserId})</p>
+       <p><strong>Səbəb:</strong> ${reason}</p>
+       ${data.chatId ? `<p><strong>Söhbət ID:</strong> ${data.chatId}</p>` : ""}
+       <p>Baxmaq üçün admin paneldəki "İstifadəçilər" bölümünə keçin.</p>`
+    );
+  }
+);
+
+/**
+ * Relays every new event report ("Tədbir şikayətləri", `reportEvent()`
+ * in firebase_venue_event_repository.dart) to privacy@peakpin.app —
+ * same reasoning as onUserReportCreated above.
+ */
+export const onEventReportCreated = onDocumentCreated(
+  { document: "eventReports/{reportId}", secrets: [resendApiKey] },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    const eventId = data.eventId as string | undefined;
+    const reportedBy = data.reportedBy as string | undefined;
+    const reason = (data.reason as string | undefined) ?? "(səbəb qeyd edilməyib)";
+    if (!eventId || !reportedBy) return;
+
+    const [reporter, eventSnap] = await Promise.all([
+      getUserDisplayInfo(reportedBy),
+      db.collection("events").doc(eventId).get(),
+    ]);
+    const eventTitle = (eventSnap.data()?.title as string | undefined) ?? eventId;
+
+    await sendPrivacyNotificationEmail(
+      "Yeni tədbir şikayəti — PeakPin",
+      `<p><strong>Şikayətçi:</strong> ${reporter.name} (${reportedBy})</p>
+       <p><strong>Tədbir:</strong> ${eventTitle} (${eventId})</p>
+       <p><strong>Səbəb:</strong> ${reason}</p>
+       <p>Baxmaq üçün admin paneldəki "Tədbir şikayətləri" bölümünə keçin.</p>`
+    );
+  }
+);

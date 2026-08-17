@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +10,7 @@ import '../../../../core/utils/app_logger.dart';
 import '../../../../core/widgets/premium_upsell_sheet.dart';
 import '../../../../core/widgets/settings_group.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../auth/domain/entities/app_user.dart' show LoginProvider;
 import '../../../auth/presentation/widgets/country_dial_code.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../../premium/presentation/providers/premium_providers.dart';
@@ -659,71 +662,70 @@ class _TwoFactorSheet extends ConsumerStatefulWidget {
 }
 
 class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
-  final _codeController = TextEditingController();
-  String? _verificationId;
-  bool _sending = false;
-  bool _confirming = false;
+  bool _busy = false;
   bool _disabling = false;
+  bool _emailLinkSent = false;
+  StreamSubscription<void>? _emailReauthSub;
 
   @override
   void dispose() {
-    _codeController.dispose();
+    _emailReauthSub?.cancel();
     super.dispose();
   }
 
-  Future<void> _sendCode() async {
-    final phone = fb.FirebaseAuth.instance.currentUser?.phoneNumber;
+  Future<void> _afterReauth() async {
     final loc = AppLocalizations.of(context);
-    if (phone == null) return;
-
-    setState(() => _sending = true);
-    try {
-      await ref.read(accountControllerProvider).sendReauthCode(
-        phoneNumber: phone,
-        onCodeSent: (verificationId) {
-          if (!mounted) return;
-          setState(() {
-            _verificationId = verificationId;
-            _sending = false;
-          });
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountCodeSentMessage)));
-        },
-        onFailed: () {
-          if (!mounted) return;
-          setState(() => _sending = false);
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
-        },
-      );
-    } catch (e, st) {
-      logError('privacy_security_screen.twoFactor.sendCode', e, st);
-      if (!mounted) return;
-      setState(() => _sending = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
+    final ok = await ref.read(privacySettingsControllerProvider).updateTwoFactorEnabled(true);
+    if (!mounted) return;
+    if (ok) {
+      Navigator.pop(context);
+    } else {
+      setState(() => _busy = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.privacySettingUpdateErrorMessage)));
     }
   }
 
-  Future<void> _confirmCode() async {
-    final verificationId = _verificationId;
-    final code = _codeController.text.trim();
-    if (verificationId == null || code.isEmpty) return;
-
-    setState(() => _confirming = true);
+  void _fail(Object e, StackTrace st, String site) {
+    logError(site, e, st);
+    if (!mounted) return;
     final loc = AppLocalizations.of(context);
+    setState(() => _busy = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
+  }
+
+  Future<void> _reauthApple() async {
+    setState(() => _busy = true);
     try {
-      await ref.read(accountControllerProvider).confirmReauthCode(verificationId: verificationId, smsCode: code);
-      final ok = await ref.read(privacySettingsControllerProvider).updateTwoFactorEnabled(true);
-      if (!mounted) return;
-      if (ok) {
-        Navigator.pop(context);
-      } else {
-        setState(() => _confirming = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.privacySettingUpdateErrorMessage)));
-      }
+      await ref.read(accountControllerProvider).reauthenticateWithApple();
+      await _afterReauth();
     } catch (e, st) {
-      logError('privacy_security_screen.twoFactor.confirmCode', e, st);
+      _fail(e, st, 'privacy_security_screen.twoFactor.reauthApple');
+    }
+  }
+
+  Future<void> _reauthGoogle() async {
+    setState(() => _busy = true);
+    try {
+      await ref.read(accountControllerProvider).reauthenticateWithGoogle();
+      await _afterReauth();
+    } catch (e, st) {
+      _fail(e, st, 'privacy_security_screen.twoFactor.reauthGoogle');
+    }
+  }
+
+  Future<void> _sendEmailLink() async {
+    setState(() => _busy = true);
+    try {
+      final controller = ref.read(accountControllerProvider);
+      _emailReauthSub ??= controller.emailReauthCompleted.listen((_) => _afterReauth());
+      await controller.sendReauthEmailLink();
       if (!mounted) return;
-      setState(() => _confirming = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
+      setState(() {
+        _busy = false;
+        _emailLinkSent = true;
+      });
+    } catch (e, st) {
+      _fail(e, st, 'privacy_security_screen.twoFactor.sendReauthEmailLink');
     }
   }
 
@@ -740,10 +742,14 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
     }
   }
 
+  Widget _spinner() =>
+      const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent));
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final codeRequested = _verificationId != null;
+    final provider = ref.read(accountControllerProvider).currentLoginProvider();
+    final email = fb.FirebaseAuth.instance.currentUser?.email ?? '';
 
     return SafeArea(
       top: false,
@@ -768,28 +774,23 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
                     ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : Text(loc.privacyTwoFactorDisableButton),
               )
-            else if (!codeRequested)
+            else if (provider == LoginProvider.apple)
               ElevatedButton(
-                onPressed: _sending ? null : _sendCode,
-                child: _sending
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent))
-                    : Text(loc.deleteAccountSendCodeButton),
+                onPressed: _busy ? null : _reauthApple,
+                child: _busy ? _spinner() : Text(loc.deleteAccountReauthAppleButton),
               )
-            else ...[
-              TextField(
-                controller: _codeController,
-                keyboardType: TextInputType.number,
-                style: AppTextStyles.body.copyWith(fontSize: 15),
-                decoration: InputDecoration(hintText: loc.deleteAccountOtpHint),
-              ),
-              const SizedBox(height: 12),
+            else if (provider == LoginProvider.google)
               ElevatedButton(
-                onPressed: _confirming ? null : _confirmCode,
-                child: _confirming
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent))
-                    : Text(loc.deleteAccountConfirmCodeButton),
+                onPressed: _busy ? null : _reauthGoogle,
+                child: _busy ? _spinner() : Text(loc.deleteAccountReauthGoogleButton),
+              )
+            else if (_emailLinkSent)
+              Text(loc.deleteAccountReauthEmailSentMessage(email), style: AppTextStyles.body)
+            else
+              ElevatedButton(
+                onPressed: _busy ? null : _sendEmailLink,
+                child: _busy ? _spinner() : Text(loc.deleteAccountReauthEmailButton),
               ),
-            ],
           ],
         ),
       ),

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/animations/animated_background.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
-import '../../../auth/presentation/screens/onboarding_screen.dart';
 import '../../../home/presentation/screens/home_screen.dart';
 import 'welcome_screen.dart';
 
@@ -27,17 +26,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (authState.isLoading) return; // still restoring session, wait
 
     _navigated = true;
-    final controller = ref.read(authControllerProvider.notifier);
     final user = authState.valueOrNull;
 
-    Widget destination;
-    if (user != null) {
-      destination = const HomeScreen();
-    } else if (controller.needsOnboarding) {
-      destination = const OnboardingScreen();
-    } else {
-      destination = const WelcomeScreen();
-    }
+    // A signed-in-but-incomplete-profile session (`needsOnboarding`)
+    // deliberately does NOT route straight to OnboardingScreen here —
+    // it goes through WelcomeScreen/AuthScreen like any other
+    // unauthenticated cold start. Landing on Onboarding again is the
+    // natural result of _that_ sign-in succeeding (see AuthScreen /
+    // EmailLinkSignInScreen, which both already route to Onboarding
+    // vs Home based on the sign-in result's `isNewUser`) — not
+    // something this splash check should short-circuit into.
+    final destination = user != null ? const HomeScreen() : const WelcomeScreen();
 
     Navigator.pushReplacement(
       context,
