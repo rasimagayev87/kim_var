@@ -13,6 +13,7 @@
   "authEmailLinkSpamHint": "Не видите письмо? Проверьте папку Спам.",
   "authConsentRequiredError": "Примите Политику конфиденциальности и Условия использования, чтобы продолжить",
   "authSignInFailedError": "Не удалось войти. Попробуйте снова.",
+  "authRateLimitError": "Слишком много попыток. Попробуйте немного позже.",
   "authInvalidEmailError": "Введите действительный адрес эл. почты",
   "authSigningInMessage": "Выполняется вход...",
   "loginTitle": "Войти",

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/animations/animated_background.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/rate_limit_error.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../home/presentation/screens/home_screen.dart';
 import '../../../legal/presentation/widgets/consent_checkbox_row.dart';
@@ -96,9 +97,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       });
     } catch (e) {
       if (!mounted) return;
+      final loc = AppLocalizations.of(context);
       setState(() {
         _submitting = false;
-        _error = AppLocalizations.of(context).authSignInFailedError;
+        _error = isRateLimitError(e) ? loc.authRateLimitError : loc.authSignInFailedError;
       });
     }
   }

@@ -13,6 +13,7 @@
   "authEmailLinkSpamHint": "Görünmüyorsa Spam/Gereksiz klasörünü de kontrol edin.",
   "authConsentRequiredError": "Devam etmek için Gizlilik Politikası ve Kullanım Şartlarını kabul edin",
   "authSignInFailedError": "Giriş başarısız oldu. Tekrar deneyin.",
+  "authRateLimitError": "Çok sık denediniz. Lütfen biraz sonra tekrar deneyin.",
   "authInvalidEmailError": "Geçerli bir e-posta adresi girin",
   "authSigningInMessage": "Giriş yapılıyor...",
   "loginTitle": "Giriş yap",

@@ -19,6 +19,7 @@
   "authEmailLinkSpamHint": "Don't see it? Check your Spam/Junk folder too.",
   "authConsentRequiredError": "Accept the Privacy Policy and Terms of Service to continue",
   "authSignInFailedError": "Sign-in failed. Please try again.",
+  "authRateLimitError": "You tried too many times. Please try again in a bit.",
   "authInvalidEmailError": "Enter a valid email address",
   "authSigningInMessage": "Signing in...",
   "loginTitle": "Log in",

@@ -13,6 +13,7 @@
   "authEmailLinkSpamHint": "Məktub görünmürsə, Spam/Junk qovluğunu da yoxlayın.",
   "authConsentRequiredError": "Davam etmək üçün Məxfilik Siyasəti və İstifadə Şərtlərini qəbul edin",
   "authSignInFailedError": "Giriş uğursuz oldu. Yenidən cəhd edin.",
+  "authRateLimitError": "Çox tez-tez cəhd etdiniz. Bir az sonra yenidən yoxlayın.",
   "authInvalidEmailError": "Düzgün e-poçt ünvanı daxil edin",
   "authSigningInMessage": "Daxil olunur...",
   "loginTitle": "Daxil ol",

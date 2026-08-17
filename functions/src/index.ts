@@ -6,6 +6,7 @@ import { BatchResponse, getMessaging } from "firebase-admin/messaging";
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import { beforeEmailSent } from "firebase-functions/v2/identity";
 import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 
@@ -2302,7 +2303,7 @@ export const onEventReportCreated = onDocumentCreated(
 
     const [reporter, eventSnap] = await Promise.all([
       getUserDisplayInfo(reportedBy),
-      db.collection("events").doc(eventId).get(),
+      db.collection("venueEvents").doc(eventId).get(),
     ]);
     const eventTitle = (eventSnap.data()?.title as string | undefined) ?? eventId;
 
@@ -2313,5 +2314,82 @@ export const onEventReportCreated = onDocumentCreated(
        <p><strong>Səbəb:</strong> ${reason}</p>
        <p>Baxmaq üçün admin paneldəki "Tədbir şikayətləri" bölümünə keçin.</p>`
     );
+  }
+);
+
+// Stable marker embedded in the blocking error's message — Firebase
+// Auth's client SDKs don't reliably surface the HttpsError *code*
+// through a blocking-function rejection (it typically lands as a
+// generic FirebaseAuthException), but the message text does come
+// through intact. AuthScreen/DeleteAccountRow's error handlers grep
+// for this to show the friendly rate-limit copy instead of the
+// generic "sign-in failed" one.
+const RATE_LIMIT_MARKER = "RATE_LIMIT_EXCEEDED";
+
+const EMAIL_SEND_MIN_INTERVAL_MS = 60 * 1000; // 1 link per email per 60s
+const EMAIL_SEND_HOURLY_MAX = 5; // 5 links per email per hour
+const IP_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const IP_DISTINCT_EMAIL_MAX = 5; // 5 distinct emails per IP per window
+
+/**
+ * Server-side gate for the app's passwordless email sign-in link (see
+ * `sendEmailSignInLink`/`sendReauthEmailLink` in the Flutter client) —
+ * a Blocking Function fires here automatically, before Firebase sends
+ * ANY auth email, for every provider/platform, with no client-side
+ * change needed. Deliberately ignores `PASSWORD_RESET` (the admin
+ * panel's separate email+password login) — this task is scoped to the
+ * email *link* flow only.
+ *
+ * Firestore-backed sliding-window counters, not a queue or cache
+ * service — `rateLimits/{key}` docs store recent-send timestamps and
+ * self-prune (anything outside the window is dropped on the next
+ * write), per the task's own "no new backend infra" constraint.
+ *
+ * Must run in us-central1 — Identity Platform blocking functions are
+ * restricted to that region regardless of where the rest of this
+ * codebase's functions are deployed.
+ */
+export const enforceEmailLinkRateLimit = beforeEmailSent(
+  { region: "us-central1" },
+  async (event) => {
+    if (event.emailType !== "EMAIL_SIGN_IN") return;
+
+    // NOT event.data?.email — that's undefined for a not-yet-existing
+    // account (the common case: someone's first-ever sign-in link).
+    // Confirmed via a live debug log dump of the raw event.
+    const email = (event.additionalUserInfo?.email ?? "").toLowerCase().trim();
+    const ip = event.ipAddress || "unknown";
+    if (!email) return;
+
+    const now = Date.now();
+    const emailRef = db.collection("rateLimits").doc(`email:${email}`);
+    const ipRef = db.collection("rateLimits").doc(`ip:${ip}`);
+
+    await db.runTransaction(async (tx) => {
+      const [emailSnap, ipSnap] = await Promise.all([tx.get(emailRef), tx.get(ipRef)]);
+
+      const emailTimestamps: number[] = (emailSnap.data()?.timestamps ?? []).filter(
+        (t: number) => now - t < 60 * 60 * 1000
+      );
+      const lastSend = emailTimestamps[emailTimestamps.length - 1];
+      if (lastSend && now - lastSend < EMAIL_SEND_MIN_INTERVAL_MS) {
+        throw new HttpsError("resource-exhausted", RATE_LIMIT_MARKER);
+      }
+      if (emailTimestamps.length >= EMAIL_SEND_HOURLY_MAX) {
+        throw new HttpsError("resource-exhausted", RATE_LIMIT_MARKER);
+      }
+
+      const ipEntries: { email: string; ts: number }[] = (ipSnap.data()?.entries ?? []).filter(
+        (e: { ts: number }) => now - e.ts < IP_WINDOW_MS
+      );
+      const distinctEmails = new Set(ipEntries.map((e) => e.email));
+      distinctEmails.add(email);
+      if (distinctEmails.size > IP_DISTINCT_EMAIL_MAX) {
+        throw new HttpsError("resource-exhausted", RATE_LIMIT_MARKER);
+      }
+
+      tx.set(emailRef, { timestamps: [...emailTimestamps, now] });
+      tx.set(ipRef, { entries: [...ipEntries.filter((e) => e.email !== email), { email, ts: now }] });
+    });
   }
 );

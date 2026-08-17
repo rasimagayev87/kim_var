@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_text_styles.dart';
 import '../../../../../core/utils/app_logger.dart';
+import '../../../../../core/utils/rate_limit_error.dart';
 import '../../../../../core/widgets/settings_group.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../../../auth/domain/entities/app_user.dart' show LoginProvider;
@@ -227,7 +228,8 @@ class _ReauthSheetState extends ConsumerState<_ReauthSheet> {
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
     setState(() => _busy = false);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
+    final message = isRateLimitError(e) ? loc.authRateLimitError : loc.deleteAccountReauthFailedMessage;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _reauthApple() async {
