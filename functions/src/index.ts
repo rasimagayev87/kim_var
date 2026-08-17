@@ -2331,6 +2331,53 @@ const EMAIL_SEND_HOURLY_MAX = 5; // 5 links per email per hour
 const IP_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
 const IP_DISTINCT_EMAIL_MAX = 5; // 5 distinct emails per IP per window
 
+const SPIKE_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
+const SPIKE_ALERT_THRESHOLD = 100; // project-wide EMAIL_SIGN_IN attempts in that window
+const SPIKE_ALERT_COOLDOWN_MS = 30 * 60 * 1000; // don't re-alert for the same ongoing spike more than once per 30min
+
+/**
+ * Faza 6 — best-effort project-wide anomaly alert, reusing the same
+ * Resend-backed email helper `onUserReportCreated` already sends
+ * moderation notices through (no separate monitoring stack). Counts
+ * every EMAIL_SIGN_IN *attempt* (blocked or not) — a real attack shows
+ * up as request volume regardless of how much of it the per-email/IP
+ * limits above actually let through. Never throws: a failure here
+ * must never block or unblock a send decision that's already been made.
+ */
+async function checkEmailSendSpike(): Promise<void> {
+  try {
+    const now = Date.now();
+    const spikeRef = db.collection("rateLimits").doc("global:emailSignInSpike");
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(spikeRef);
+      const data = snap.data();
+      const timestamps: number[] = (data?.timestamps ?? []).filter((t: number) => now - t < SPIKE_WINDOW_MS);
+      timestamps.push(now);
+
+      const lastAlertAt: number | undefined = data?.lastAlertAt;
+      const coolingDown = lastAlertAt !== undefined && now - lastAlertAt < SPIKE_ALERT_COOLDOWN_MS;
+
+      if (timestamps.length >= SPIKE_ALERT_THRESHOLD && !coolingDown) {
+        tx.set(spikeRef, { timestamps, lastAlertAt: now });
+        // Fires after the transaction would normally commit, but
+        // Firestore doesn't support side effects mid-transaction —
+        // acceptable here since a duplicate alert is harmless and the
+        // cooldown above already prevents the common case.
+        await sendPrivacyNotificationEmail(
+          "⚠️ Qeyri-adi yüksək giriş-linki trafiki — PeakPin",
+          `<p>Son ${SPIKE_WINDOW_MS / 60000} dəqiqədə <strong>${timestamps.length}</strong> e-poçt giriş linki sorğusu qeydə alındı (hədd: ${SPIKE_ALERT_THRESHOLD}).</p>
+           <p>Bu, sui-istifadə/bot hücumu cəhdi ola bilər. Firebase Console → Authentication → Usage bölümündən yoxlayın.</p>
+           <p>Növbəti xəbərdarlıq ən tez ${SPIKE_ALERT_COOLDOWN_MS / 60000} dəqiqə sonra göndəriləcək (davam edən bir hadisə üçün təkrar-təkrar bildiriş göndərilmir).</p>`
+        );
+      } else {
+        tx.set(spikeRef, { timestamps, lastAlertAt: lastAlertAt ?? null });
+      }
+    });
+  } catch (e) {
+    logger.error("checkEmailSendSpike failed", e);
+  }
+}
+
 /**
  * Server-side gate for the app's passwordless email sign-in link (see
  * `sendEmailSignInLink`/`sendReauthEmailLink` in the Flutter client) —
@@ -2360,6 +2407,8 @@ export const enforceEmailLinkRateLimit = beforeEmailSent(
     const email = (event.additionalUserInfo?.email ?? "").toLowerCase().trim();
     const ip = event.ipAddress || "unknown";
     if (!email) return;
+
+    await checkEmailSendSpike();
 
     const now = Date.now();
     const emailRef = db.collection("rateLimits").doc(`email:${email}`);
