@@ -639,7 +639,7 @@ export const onUserUpdated = onDocumentUpdated("users/{userId}", async (event) =
     category: "venueUpdates",
     type: "vipGranted",
     title: "VIP statusu aktivləşdi",
-    body: "Artıq VIP istifadəçisiniz! Əlavə imtiyazlardan yararlanın.",
+    body: "Siz artıq VIP istifadəçi statusundasınız.",
     params: {},
   });
 });

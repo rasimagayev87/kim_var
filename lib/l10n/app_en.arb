@@ -1059,7 +1059,7 @@
   "notifVenueEventTitleGeneric": "🎤 Event nearby",
   "notifVenueOfferTitleGeneric": "New offer nearby",
   "notifVipGrantedTitle": "VIP status activated",
-  "notifVipGrantedBody": "You're now a VIP user! Enjoy your extra perks.",
+  "notifVipGrantedBody": "You now have VIP user status.",
   "notifWaitlistCalledTitle": "It's your turn!",
   "notifWaitlistCalledBody": "{venueName} — come in 5 minutes, your spot is waiting.",
   "notifWaitlistCalledBodyGeneric": "It's your turn! Come in 5 minutes.",
