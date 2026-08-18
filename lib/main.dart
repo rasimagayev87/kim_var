@@ -30,7 +30,15 @@ void main() async {
   // installed (`No AppCheckProvider installed` in logcat).
   await FirebaseAppCheck.instance.activate(
     androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
-    appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.appAttest,
+    // Was AppleProvider.appAttest — real devices (confirmed: Google
+    // Sign-In itself succeeding, Gmail even sending its own "new
+    // sign-in" notification) were getting "Firebase App Check token is
+    // invalid" back from Identity Toolkit even with server-side
+    // enforcement OFF, meaning the SDK was generating a broken
+    // attestation and still attaching it. DeviceCheck is the older,
+    // simpler Apple attestation API — no per-install key generation to
+    // go stale/mismatch the way App Attest's can.
+    appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
   );
 
   final prefs = await SharedPreferences.getInstance();
