@@ -26,21 +26,30 @@ export interface RegistrationDay {
 export async function getDashboardStats(): Promise<DashboardStats> {
   const db = getAdminDb();
 
-  const [usersSnap, activeVenuesSnap, activeOffersSnap, pendingVenuesSnap, pendingOffersSnap, pendingReportsSnap] =
-    await Promise.all([
-      db.collection("users").count().get(),
-      db.collection("venues").where("status", "==", "approved").count().get(),
-      db.collection("offers").where("status", "==", "approved").count().get(),
-      db.collection("venues").where("status", "==", "pending").count().get(),
-      db.collection("offers").where("status", "==", "pending").count().get(),
-      db.collection("reports").where("status", "==", "pending").count().get(),
-    ]);
+  const [
+    usersSnap,
+    activeVenuesSnap,
+    activeOffersSnap,
+    pendingVenuesSnap,
+    pendingOffersSnap,
+    pendingReportsSnap,
+    pendingIdentityVerificationsSnap,
+  ] = await Promise.all([
+    db.collection("users").count().get(),
+    db.collection("venues").where("status", "==", "approved").count().get(),
+    db.collection("offers").where("status", "==", "approved").count().get(),
+    db.collection("venues").where("status", "==", "pending").count().get(),
+    db.collection("offers").where("status", "==", "pending").count().get(),
+    db.collection("reports").where("status", "==", "pending").count().get(),
+    db.collection("identityVerifications").where("status", "==", "pending").count().get(),
+  ]);
 
   return {
     totalUsers: usersSnap.data().count,
     activeVenues: activeVenuesSnap.data().count,
     activeOffers: activeOffersSnap.data().count,
-    pendingModeration: pendingVenuesSnap.data().count + pendingOffersSnap.data().count,
+    pendingModeration:
+      pendingVenuesSnap.data().count + pendingOffersSnap.data().count + pendingIdentityVerificationsSnap.data().count,
     pendingReports: pendingReportsSnap.data().count,
   };
 }
