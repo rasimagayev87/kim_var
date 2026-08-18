@@ -1,10 +1,12 @@
 import 'package:app_links/app_links.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_branch_sdk/flutter_branch_sdk.dart';
 
 import '../../features/auth/presentation/screens/email_link_sign_in_screen.dart';
 import '../../features/post_share/presentation/screens/post_detail_screen.dart';
+import '../../features/profile/presentation/screens/user_profile_screen.dart';
 import '../utils/app_logger.dart';
 
 /// App-wide navigator key so incoming deep links can push a screen
@@ -45,6 +47,31 @@ void _handleUri(Uri uri) {
     navigatorKey.currentState?.push(
       MaterialPageRoute(builder: (_) => PostDetailScreen(postId: postId)),
     );
+    return;
+  }
+
+  if (segments.length >= 2 && segments[0] == 'u') {
+    _openProfileByUsername(segments[1]);
+  }
+}
+
+/// Resolves `https://peakpin.app/u/{username}` the same way the
+/// registration flow checks username availability — a direct doc get
+/// on the `usernames/{lowercaseUsername}` reservation collection
+/// (`FirebaseAuthRepository`'s own lookup pattern) — rather than a
+/// `where` query, since [UserProfileScreen] needs a uid, not a
+/// username. Silently no-ops on a stale/mistyped link; there's no
+/// screen worth showing for "this username doesn't exist".
+Future<void> _openProfileByUsername(String username) async {
+  try {
+    final reservation = await FirebaseFirestore.instance.collection('usernames').doc(username.toLowerCase()).get();
+    final uid = reservation.data()?['uid'] as String?;
+    if (uid == null) return;
+    navigatorKey.currentState?.push(
+      MaterialPageRoute(builder: (_) => UserProfileScreen(uid: uid)),
+    );
+  } catch (e, st) {
+    logError('deep_link_handler._openProfileByUsername', e, st);
   }
 }
 

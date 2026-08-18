@@ -47,8 +47,10 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
             <!-- App Links for post share URLs (https://peakpin.app/p/{id},
-                 Instagram's own /p/ convention). assetlinks.json is now
-                 live at peakpin.app/.well-known/assetlinks.json (see
+                 Instagram's own /p/ convention) and profile share URLs
+                 (https://peakpin.app/u/{username}, TikTok's own /u/
+                 convention). assetlinks.json is now live at
+                 peakpin.app/.well-known/assetlinks.json (see
                  peakpin-landing's public/.well-known/ — its
                  sha256_cert_fingerprints entry must be regenerated from
                  android/keystore/peakpin-release.jks any time that
@@ -61,6 +63,7 @@
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <data android:scheme="https" android:host="peakpin.app" android:pathPrefix="/p"/>
+                <data android:scheme="https" android:host="peakpin.app" android:pathPrefix="/u"/>
             </intent-filter>
             <!-- Custom URL scheme fallback for Firebase Email Link
                  sign-in — see deep_link_handler.dart and
