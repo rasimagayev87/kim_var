@@ -230,6 +230,7 @@ const Map<NotificationType, IconData> _notificationIcons = {
   NotificationType.vipGranted: Icons.workspace_premium_rounded,
   NotificationType.identityVerificationApproved: Icons.verified,
   NotificationType.identityVerificationRejected: Icons.cancel_rounded,
+  NotificationType.productionPost: Icons.movie_creation_outlined,
   NotificationType.venueApproved: Icons.check_circle_rounded,
   NotificationType.offerApproved: Icons.check_circle_rounded,
   NotificationType.venueNeedsRevision: Icons.edit_note_rounded,

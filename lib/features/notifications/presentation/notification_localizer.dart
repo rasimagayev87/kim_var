@@ -206,6 +206,18 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: loc.notifIdentityVerificationApprovedBody,
       );
 
+    case NotificationType.productionPost:
+      final venueName = str('venueName');
+      // Fired from either the offer or event path (see
+      // notifyNearbyUsersOfNewOffer/...NewEvent in
+      // functions/src/index.ts) — whichever of these two params keys
+      // is present tells which one it was; the other is always empty.
+      final postTitle = str('offerTitle').isNotEmpty ? str('offerTitle') : str('eventTitle');
+      return LocalizedNotificationText(
+        title: venueName.isEmpty ? loc.notifProductionPostTitleGeneric : loc.notifProductionPostTitle(venueName),
+        body: postTitle,
+      );
+
     case NotificationType.identityVerificationRejected:
       final note = str('note');
       return LocalizedNotificationText(

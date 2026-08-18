@@ -1697,14 +1697,18 @@ async function resolveNotifyCandidates(
   const mode = (venue.audienceRadiusMode as string | undefined) ?? "distance";
   const isFollowBased = venue.category === "independentArtist";
 
-  let sourceDocs: FirebaseFirestore.DocumentSnapshot[];
   if (isFollowBased) {
+    // Faza 3 (bildiriş sistemi tamamlanması): "Fərdi Prodakşn/Sənətçi"
+    // is pure follow, no radius ceiling at all — a follower who lives
+    // outside the venue's own audienceRadiusKm used to be excluded
+    // just like a random stranger, which defeated the point of
+    // choosing to follow a specific artist/production account.
     const followerSnaps = await db.collection("venues").doc(venueId).collection("followers").limit(limit).get();
-    sourceDocs = await Promise.all(followerSnaps.docs.map((d) => db.collection("users").doc(d.id).get()));
-    sourceDocs = sourceDocs.filter((d) => d.exists);
-  } else {
-    sourceDocs = (await db.collection("users").limit(limit).get()).docs;
+    const followerDocs = await Promise.all(followerSnaps.docs.map((d) => db.collection("users").doc(d.id).get()));
+    return followerDocs.filter((d) => d.exists);
   }
+
+  const sourceDocs = (await db.collection("users").limit(limit).get()).docs;
 
   let venueFiltered: FirebaseFirestore.DocumentSnapshot[];
   if (mode === "country") {
@@ -1726,8 +1730,6 @@ async function resolveNotifyCandidates(
             return haversineMeters(lat, lng, userLat, userLng) <= radiusKm * 1000;
           });
   }
-
-  if (isFollowBased) return venueFiltered;
 
   const venueLat = venue.lat as number | undefined;
   const venueLng = venue.lng as number | undefined;
@@ -1758,6 +1760,10 @@ async function notifyNearbyUsersOfNewOffer(
   if (!venue) return;
 
   const candidateDocs = await resolveNotifyCandidates(venueId, venue, OFFER_NOTIFY_CANDIDATE_LIMIT);
+  // Faza 3: "Fərdi Prodakşn/Sənətçi" followers get their own type —
+  // see resolveNotifyCandidates' doc comment for why this category's
+  // candidate pool is already radius-unrestricted followers only.
+  const isProduction = venue.category === "independentArtist";
 
   const venueName = (venue.name as string | undefined) ?? "";
   const offerTitle = (offer.title as string | undefined) ?? "";
@@ -1778,8 +1784,10 @@ async function notifyNearbyUsersOfNewOffer(
       await notifyUser({
         uid,
         category: "venueOffers",
-        type: "venueOffer",
-        title: venueName ? `☕ ${venueName} yaxınlığınızda` : "Yaxınlığınızda yeni təklif",
+        type: isProduction ? "productionPost" : "venueOffer",
+        title: isProduction
+          ? (venueName ? `🎬 ${venueName} yeni paylaşım etdi` : "Yeni paylaşım")
+          : (venueName ? `☕ ${venueName} yaxınlığınızda` : "Yaxınlığınızda yeni təklif"),
         body: offerTitle,
         params: { venueName, offerTitle },
         targetId: offerId,
@@ -1823,6 +1831,7 @@ export const notifyNearbyUsersOfNewEvent = onDocumentCreated("venueEvents/{event
 
   const ownerId = venue.ownerId as string | undefined;
   const candidateDocs = await resolveNotifyCandidates(venueId, venue, EVENT_NOTIFY_CANDIDATE_LIMIT);
+  const isProduction = venue.category === "independentArtist";
 
   const venueName = (venue.name as string | undefined) ?? "";
   const eventTitle = (data.title as string | undefined) ?? "";
@@ -1843,8 +1852,10 @@ export const notifyNearbyUsersOfNewEvent = onDocumentCreated("venueEvents/{event
       await notifyUser({
         uid,
         category: "venueOffers",
-        type: "venueEvent",
-        title: venueName ? `🎤 ${venueName}-də bu axşam` : "🎤 Yaxınlığınızda tədbir",
+        type: isProduction ? "productionPost" : "venueEvent",
+        title: isProduction
+          ? (venueName ? `🎬 ${venueName} yeni paylaşım etdi` : "Yeni paylaşım")
+          : (venueName ? `🎤 ${venueName}-də bu axşam` : "🎤 Yaxınlığınızda tədbir"),
         body: eventTitle,
         params: { venueName, eventTitle },
         targetId: eventId,

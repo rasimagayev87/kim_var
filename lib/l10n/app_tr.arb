@@ -961,6 +961,8 @@
   "notifVenueEventTitle": "🎤 Bu akşam {venueName}'da",
   "notifVenueEventTitleGeneric": "🎤 Yakınınızda etkinlik",
   "notifVenueOfferTitleGeneric": "Yakınınızda yeni teklif",
+  "notifProductionPostTitle": "🎬 {venueName} yeni bir paylaşım yaptı",
+  "notifProductionPostTitleGeneric": "Yeni paylaşım",
   "notifVipGrantedTitle": "VIP durumu etkinleştirildi",
   "notifVipGrantedBody": "Artık VIP kullanıcı statüsündesiniz.",
   "notifIdentityVerificationApprovedTitle": "Kimliğiniz doğrulandı",

@@ -97,6 +97,15 @@ enum NotificationType {
   /// [venueRejected].
   identityVerificationApproved,
   identityVerificationRejected,
+
+  /// "Fərdi Prodakşn/Sənətçi" (`independentArtist`) venue published a
+  /// new offer or event — sent to every follower
+  /// (`venues/{venueId}/followers`), no radius ceiling, unlike
+  /// [venueOffer]/[venueEvent]. `targetType`/`targetId` are `offer`/
+  /// `event` same as those two, whichever kind of post triggered it —
+  /// this only exists to give the follow-based case its own icon/copy
+  /// in the feed.
+  productionPost,
   system,
   security,
   promotion,

@@ -1075,6 +1075,8 @@
   "notifVenueEventTitle": "🎤 Tonight at {venueName}",
   "notifVenueEventTitleGeneric": "🎤 Event nearby",
   "notifVenueOfferTitleGeneric": "New offer nearby",
+  "notifProductionPostTitle": "🎬 {venueName} shared something new",
+  "notifProductionPostTitleGeneric": "New post",
   "notifVipGrantedTitle": "VIP status activated",
   "notifVipGrantedBody": "You now have VIP user status.",
   "notifIdentityVerificationApprovedTitle": "Your identity is verified",

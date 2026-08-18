@@ -961,6 +961,8 @@
   "notifVenueEventTitle": "🎤 Сегодня вечером в {venueName}",
   "notifVenueEventTitleGeneric": "🎤 Мероприятие рядом с вами",
   "notifVenueOfferTitleGeneric": "Новое предложение рядом",
+  "notifProductionPostTitle": "🎬 {venueName} опубликовал(а) новое",
+  "notifProductionPostTitleGeneric": "Новая публикация",
   "notifVipGrantedTitle": "VIP-статус активирован",
   "notifVipGrantedBody": "Теперь у вас статус VIP-пользователя.",
   "notifIdentityVerificationApprovedTitle": "Ваша личность подтверждена",
