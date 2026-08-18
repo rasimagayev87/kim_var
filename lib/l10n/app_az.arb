@@ -135,7 +135,7 @@
   "liveFeedSectionBirthday": "Doğum günü",
   "liveFeedEmptyMessage": "Hələ radiusunuzda canlı bir şey yoxdur",
   "liveFeedIncreaseRadiusButton": "Radiusu artır",
-  "liveFeedRadiusIncreasedMessage": "Radius {km} km-ə artırıldı",
+  "liveFeedRadiusIncreasedMessage": "Radius {value}-ə artırıldı",
   "navChatsLabel": "Söhbət",
   "navNotificationsLabel": "Bildirişlər",
   "navProfileLabel": "Profil",

@@ -6,6 +6,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../events/presentation/screens/event_details_screen.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../../offers/presentation/screens/offer_details_screen.dart';
+import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../../domain/entities/live_feed_item.dart';
 import '../providers/live_feed_providers.dart';
@@ -206,10 +207,27 @@ class _LiveFeedEmptyState extends ConsumerWidget {
     );
   }
 
+  /// The exact same tiers Kəşf et's own picker offers
+  /// (`kDefaultRadiusOptionsKm` + `kExtraRadiusOptionsKm`), plus
+  /// Ölkə/Dünya for VIP users only — so cycling here can never land on
+  /// a value that isn't a real, selectable option anywhere else in the
+  /// app.
+  List<DiscoverRadiusSelection> _radiusCycle(bool isPremium) => [
+    for (final km in [...kDefaultRadiusOptionsKm, ...kExtraRadiusOptionsKm]) DiscoverRadiusSelection.distance(km),
+    if (isPremium) const DiscoverRadiusSelection.country(),
+    if (isPremium) const DiscoverRadiusSelection.world(),
+  ];
+
   /// Bumps the SAME radius state Kəşf et's own filter sheet writes to
   /// (`selectedDiscoverModeProvider`) — Canlı doesn't own a separate
   /// radius concept, it reuses Kəşf et's exactly as instructed, so
-  /// widening it here is visible there too.
+  /// widening it here is visible there too (including the button
+  /// showing up as the selected option when the user navigates back to
+  /// Kəşf et).
+  ///
+  /// Cycles forward one tier in [_radiusCycle], wrapping back to 100m
+  /// after the last tier available to this user (30km for regular
+  /// users, Dünya üzrə for VIP).
   ///
   /// Updating that provider alone used to be silently invisible: the
   /// poll loop only picks up the new radius on its next scheduled tick
@@ -219,15 +237,21 @@ class _LiveFeedEmptyState extends ConsumerWidget {
   /// even on the (likely, right after this radius still finds
   /// nothing) case where the list stays empty.
   void _increaseRadius(BuildContext context, WidgetRef ref) {
-    final current = ref.read(selectedDiscoverModeProvider);
-    if (current.mode != DiscoverRadiusMode.distance || current.km == null) return;
-    final next = (current.km! * 2).clamp(1.0, 100.0);
-    ref.read(selectedDiscoverModeProvider.notifier).state = DiscoverRadiusSelection.distance(next);
+    final cycle = _radiusCycle(ref.read(isPremiumProvider));
+    final currentIndex = cycle.indexOf(ref.read(selectedDiscoverModeProvider));
+    final next = cycle[(currentIndex + 1) % cycle.length];
+    ref.read(selectedDiscoverModeProvider.notifier).state = next;
     ref.read(liveFeedControllerProvider.notifier).refreshNow();
 
     final loc = AppLocalizations.of(context);
+    final label = switch (next.mode) {
+      DiscoverRadiusMode.distance =>
+        next.km! < 1 ? '${(next.km! * 1000).round()} m' : '${next.km!.toStringAsFixed(0)} km',
+      DiscoverRadiusMode.country => loc.privacyRadiusCountryLabel,
+      DiscoverRadiusMode.world => loc.privacyRadiusWorldLabel,
+    };
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(loc.liveFeedRadiusIncreasedMessage(next.toStringAsFixed(0)))),
+      SnackBar(content: Text(loc.liveFeedRadiusIncreasedMessage(label))),
     );
   }
 }

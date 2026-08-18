@@ -165,7 +165,7 @@
   "liveFeedSectionBirthday": "Birthday",
   "liveFeedEmptyMessage": "Nothing live in your radius yet",
   "liveFeedIncreaseRadiusButton": "Increase radius",
-  "liveFeedRadiusIncreasedMessage": "Radius increased to {km} km",
+  "liveFeedRadiusIncreasedMessage": "Radius increased to {value}",
   "navChatsLabel": "Chat",
   "navNotificationsLabel": "Notifications",
   "navProfileLabel": "Profile",

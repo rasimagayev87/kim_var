@@ -135,7 +135,7 @@
   "liveFeedSectionBirthday": "Doğum günü",
   "liveFeedEmptyMessage": "Çevrenizde henüz canlı bir şey yok",
   "liveFeedIncreaseRadiusButton": "Yarıçapı artır",
-  "liveFeedRadiusIncreasedMessage": "Yarıçap {km} km'ye artırıldı",
+  "liveFeedRadiusIncreasedMessage": "Yarıçap {value} olarak artırıldı",
   "navChatsLabel": "Sohbet",
   "navNotificationsLabel": "Bildirimler",
   "navProfileLabel": "Profil",
