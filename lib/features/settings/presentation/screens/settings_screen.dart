@@ -5,10 +5,10 @@ import '../../../../core/localization/app_language.dart';
 import '../../../../core/localization/locale_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
-import '../../../../core/widgets/coming_soon_screen.dart';
 import '../../../../core/widgets/settings_group.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../identity_verification/presentation/screens/identity_verification_screen.dart';
 import '../../../legal/presentation/screens/legal_hub_screen.dart';
 import '../../../location/presentation/providers/presence_provider.dart';
 import '../../../onboarding/presentation/screens/welcome_screen.dart';
@@ -352,7 +352,7 @@ class _IdentityVerificationMenuRow extends ConsumerWidget {
       title: loc.settingsIdentityVerificationRowTitle,
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => ComingSoonScreen(title: loc.settingsIdentityVerificationRowTitle)),
+        MaterialPageRoute(builder: (_) => const IdentityVerificationScreen()),
       ),
     );
   }
