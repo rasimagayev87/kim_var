@@ -28,18 +28,32 @@ void main() async {
   // is what actually backs the phone-verification reCAPTCHA fallback,
   // which had been silently failing without any App Check provider
   // installed (`No AppCheckProvider installed` in logcat).
-  await FirebaseAppCheck.instance.activate(
-    androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
-    // Was AppleProvider.appAttest — real devices (confirmed: Google
-    // Sign-In itself succeeding, Gmail even sending its own "new
-    // sign-in" notification) were getting "Firebase App Check token is
-    // invalid" back from Identity Toolkit even with server-side
-    // enforcement OFF, meaning the SDK was generating a broken
-    // attestation and still attaching it. DeviceCheck is the older,
-    // simpler Apple attestation API — no per-install key generation to
-    // go stale/mismatch the way App Attest's can.
-    appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
-  );
+  //
+  // Wrapped: a sideloaded/ad-hoc release APK (not installed via Play
+  // Store) can make the Play Integrity provider throw a raw
+  // PlatformException *during activation itself* — before any network
+  // round-trip, before enforcement even matters — which would
+  // otherwise crash before runApp() ever runs (confirmed on a real
+  // device: the app never got past its native launch splash). App
+  // Check activation must never be the reason the app can't open; a
+  // user stuck on this path just gets rejected by server-side
+  // enforcement on individual requests instead of never seeing the UI.
+  try {
+    await FirebaseAppCheck.instance.activate(
+      androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+      // Was AppleProvider.appAttest — real devices (confirmed: Google
+      // Sign-In itself succeeding, Gmail even sending its own "new
+      // sign-in" notification) were getting "Firebase App Check token is
+      // invalid" back from Identity Toolkit even with server-side
+      // enforcement OFF, meaning the SDK was generating a broken
+      // attestation and still attaching it. DeviceCheck is the older,
+      // simpler Apple attestation API — no per-install key generation to
+      // go stale/mismatch the way App Attest's can.
+      appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
+    );
+  } catch (_) {
+    // Best-effort, see above — swallow and continue without App Check.
+  }
 
   final prefs = await SharedPreferences.getInstance();
   final initialLocale = await resolveInitialLocale(prefs);
