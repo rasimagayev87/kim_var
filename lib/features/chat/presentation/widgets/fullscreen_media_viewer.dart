@@ -1,7 +1,15 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:gal/gal.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_logger.dart';
+import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/chat_message.dart';
 
 /// Full-bleed black viewer opened by tapping an image or video bubble.
@@ -18,6 +26,7 @@ class FullscreenMediaViewer extends StatefulWidget {
 
 class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
   VideoPlayerController? _controller;
+  bool _downloading = false;
 
   @override
   void initState() {
@@ -41,14 +50,66 @@ class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
     super.dispose();
   }
 
+  Future<void> _download() async {
+    if (_downloading) return;
+    setState(() => _downloading = true);
+    final loc = AppLocalizations.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final hasAccess = await Gal.hasAccess(toAlbum: true);
+      if (!hasAccess) {
+        final granted = await Gal.requestAccess(toAlbum: true);
+        if (!granted) {
+          if (mounted) messenger.showSnackBar(SnackBar(content: Text(loc.chatMediaDownloadErrorMessage)));
+          return;
+        }
+      }
+
+      final response = await http.get(Uri.parse(widget.mediaUrl));
+      if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
+
+      if (widget.type == MessageType.image) {
+        await Gal.putImageBytes(response.bodyBytes, album: 'PeakPin');
+      } else {
+        final dir = await getTemporaryDirectory();
+        final file = File('${dir.path}/peakpin_${DateTime.now().microsecondsSinceEpoch}.mp4');
+        await file.writeAsBytes(response.bodyBytes);
+        await Gal.putVideo(file.path, album: 'PeakPin');
+        unawaited(file.delete().catchError((_) => file));
+      }
+
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text(loc.chatMediaDownloadedMessage)));
+    } catch (e, st) {
+      logError('fullscreen_media_viewer._download', e, st);
+      if (mounted) messenger.showSnackBar(SnackBar(content: Text(loc.chatMediaDownloadErrorMessage)));
+    } finally {
+      if (mounted) setState(() => _downloading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            tooltip: loc.chatMediaDownloadTooltip,
+            onPressed: _downloading ? null : _download,
+            icon: _downloading
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.download_outlined),
+          ),
+        ],
       ),
       extendBodyBehindAppBar: true,
       body: Center(

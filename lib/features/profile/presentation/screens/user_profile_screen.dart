@@ -19,6 +19,7 @@ import '../../../privacy/domain/entities/privacy_settings.dart';
 import '../../../privacy/presentation/providers/privacy_providers.dart';
 import '../../../safety/presentation/providers/safety_providers.dart';
 import '../../../safety/presentation/widgets/report_user_sheet.dart';
+import '../widgets/verification_badges.dart';
 import '../../../stories/domain/entities/story.dart';
 import '../../../stories/presentation/providers/story_providers.dart';
 import '../../../stories/presentation/screens/story_viewer_screen.dart';
@@ -133,6 +134,10 @@ class UserProfileScreen extends ConsumerWidget {
                                 textAlign: TextAlign.center,
                               ),
                             ),
+                            if (profile != null && (profile.identityVerified || profile.premium)) ...[
+                              const SizedBox(width: 6),
+                              VerificationBadges(identityVerified: profile.identityVerified, premium: profile.premium),
+                            ],
                             if (profile?.isRecentlyActive == true) ...[
                               const SizedBox(width: 8),
                               Container(

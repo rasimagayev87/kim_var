@@ -17,6 +17,8 @@ class PublicProfile {
   final int starCount;
   final int heartCount;
   final int dislikeCount;
+  final bool identityVerified;
+  final bool premium;
 
   const PublicProfile({
     required this.id,
@@ -31,6 +33,8 @@ class PublicProfile {
     this.starCount = 0,
     this.heartCount = 0,
     this.dislikeCount = 0,
+    this.identityVerified = false,
+    this.premium = false,
   });
 
   /// Always derived from [birthDate] — see [UserProfile.age].

@@ -239,6 +239,9 @@
   "chatRequestDeclinedByPeerNotice": "This user declined your message request.",
   "chatRequestActionErrorMessage": "That didn't go through. Please try again in a moment.",
   "chatOnlineStatus": "Online",
+  "chatMediaDownloadTooltip": "Download",
+  "chatMediaDownloadedMessage": "Saved to gallery",
+  "chatMediaDownloadErrorMessage": "Download failed",
   "chatLastSeenUnknown": "Offline",
   "chatLastSeenAt": "Last seen: {time}",
   "@chatLastSeenAt": {

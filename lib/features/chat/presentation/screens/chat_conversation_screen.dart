@@ -29,6 +29,7 @@ import '../../../location/presentation/providers/presence_provider.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
 import '../../../profile/presentation/screens/user_profile_screen.dart';
+import '../../../profile/presentation/widgets/verification_badges.dart';
 import '../../../post_share/presentation/screens/post_detail_screen.dart';
 import '../../../privacy/presentation/providers/privacy_providers.dart';
 import '../../domain/chat_failure.dart';
@@ -76,6 +77,8 @@ class _ChatHeader extends StatelessWidget {
   /// same pending state.
   final bool callsEnabled;
   final String callsDisabledTooltip;
+  final bool peerIdentityVerified;
+  final bool peerPremium;
 
   const _ChatHeader({
     required this.peerName,
@@ -91,6 +94,8 @@ class _ChatHeader extends StatelessWidget {
     required this.videoCallLabel,
     required this.callsEnabled,
     required this.callsDisabledTooltip,
+    required this.peerIdentityVerified,
+    required this.peerPremium,
   });
 
   @override
@@ -129,15 +134,30 @@ class _ChatHeader extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Text(
-                              peerName,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 16.5,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.1,
-                                color: ChatLightColors.ink,
-                              ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    peerName,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 16.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.1,
+                                      color: ChatLightColors.ink,
+                                    ),
+                                  ),
+                                ),
+                                if (peerIdentityVerified || peerPremium) ...[
+                                  const SizedBox(width: 4),
+                                  VerificationBadges(
+                                    identityVerified: peerIdentityVerified,
+                                    premium: peerPremium,
+                                    size: 15,
+                                  ),
+                                ],
+                              ],
                             ),
                             const SizedBox(height: 1),
                             Row(
@@ -631,6 +651,8 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                   peerPhoto: peerPhoto,
                   statusText: statusText,
                   statusIsLive: statusIsLive,
+                  peerIdentityVerified: peer?.identityVerified ?? false,
+                  peerPremium: peer?.premium ?? false,
                   onBack: () => Navigator.pop(context),
                   onTapProfile: () async {
                     if (!context.mounted) return;
