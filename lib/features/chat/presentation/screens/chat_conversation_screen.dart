@@ -18,12 +18,14 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/relative_time_formatter.dart';
 import '../../../../core/widgets/friendly_error_state.dart';
+import '../../../../core/widgets/marquee_text.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../theme/chat_light_theme.dart';
 import '../../../calls/domain/entities/call_session.dart';
 import '../../../calls/presentation/providers/active_call_controller.dart';
 import '../../../calls/presentation/providers/call_providers.dart';
 import '../../../calls/presentation/screens/call_screen.dart';
+import '../../../location/presentation/providers/presence_provider.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
 import '../../../profile/presentation/screens/user_profile_screen.dart';
@@ -153,11 +155,10 @@ class _ChatHeader extends StatelessWidget {
                                   ),
                                 ],
                                 Flexible(
-                                  child: Text(
+                                  child: MarqueeText(
                                     peerUsername != null && peerUsername!.isNotEmpty
                                         ? '@$peerUsername · $statusText'
                                         : statusText,
-                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w400,
@@ -602,6 +603,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
     final peerPhoto = peer?.photoUrl ?? widget.otherPhotoUrl;
     final myPhoto = ref.watch(profileControllerProvider).photoUrl;
     final isPeerTyping = chat?.typingUserId == widget.otherUid;
+    ref.watch(presenceTickProvider); // forces re-evaluation of isRecentlyActive as time passes
     final isPeerOnline = peer?.isRecentlyActive == true;
     final peerLastSeen = peer?.lastSeen;
     final statusText = isPeerTyping

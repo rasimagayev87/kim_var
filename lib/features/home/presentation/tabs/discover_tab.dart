@@ -18,6 +18,7 @@ import '../../../location/domain/country_bounds.dart';
 import '../../../location/domain/location_failure.dart';
 import '../../../location/domain/nearby_user.dart';
 import '../../../location/presentation/providers/location_providers.dart';
+import '../../../location/presentation/providers/presence_provider.dart';
 import '../../../offers/presentation/screens/create_offer_screen.dart';
 import '../../../offers/presentation/screens/my_offers_screen.dart';
 import '../../../events/presentation/widgets/venue_event_banner.dart';
@@ -89,6 +90,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
     // with the picker below — see the provider's own doc comment for
     // why this lives here rather than in LocationController.
     ref.watch(discoverRadiusPersistenceProvider);
+    ref.watch(presenceTickProvider); // forces re-evaluation of isRecentlyActive as time passes
     final locationState = ref.watch(locationControllerProvider);
     final nearbyUsers = ref.watch(nearbyUsersProvider);
     final hasBusinessAccess = ref.watch(profileControllerProvider).hasBusinessAccess;

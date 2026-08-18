@@ -29,6 +29,20 @@ final presenceControllerProvider = Provider<PresenceController>((ref) {
   return controller;
 });
 
+/// Ticks periodically so any widget rendering `isRecentlyOnline`/
+/// `isRecentlyActive` (presence_utils.dart) re-evaluates that
+/// wall-clock check even when the peer's Firestore doc hasn't
+/// changed — a force-quit or crash on their end never writes again,
+/// so nothing would otherwise trigger a rebuild once the staleness
+/// window passes, leaving "online" shown forever instead of aging
+/// into a last-seen time. `ref.watch` this (the emitted value itself
+/// is unused) wherever that staleness check feeds a build method.
+/// Comfortably under `kOnlineStalenessThreshold` (90s) so a crossing
+/// can't be missed by more than one tick.
+final presenceTickProvider = StreamProvider<int>((ref) {
+  return Stream.periodic(const Duration(seconds: 20), (i) => i);
+});
+
 class PresenceController {
   PresenceController({FirebaseFirestore? firestore, fb.FirebaseAuth? auth})
       : _firestore = firestore ?? FirebaseFirestore.instance,

@@ -13,6 +13,7 @@ import '../../../chat/presentation/screens/chat_conversation_screen.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../follow/presentation/providers/follow_providers.dart';
 import '../../../home/presentation/tabs/profile_tab.dart';
+import '../../../location/presentation/providers/presence_provider.dart';
 import '../../../post_share/presentation/providers/post_providers.dart';
 import '../../../privacy/domain/entities/privacy_settings.dart';
 import '../../../privacy/presentation/providers/privacy_providers.dart';
@@ -71,6 +72,7 @@ class UserProfileScreen extends ConsumerWidget {
     // navigation into this screen (see profile_visitors_providers.dart)
     // rather than needing an initState this ConsumerWidget doesn't have.
     ref.watch(recordProfileVisitProvider(uid));
+    ref.watch(presenceTickProvider); // forces re-evaluation of isRecentlyActive as time passes
 
     final loc = AppLocalizations.of(context);
     final profileAsync = ref.watch(publicProfileProvider(uid));

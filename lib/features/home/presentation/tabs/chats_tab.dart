@@ -12,6 +12,7 @@ import '../../../chat/domain/entities/chat_message.dart';
 import '../../../chat/presentation/providers/chat_providers.dart';
 import '../../../chat/presentation/screens/chat_conversation_screen.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../../../location/presentation/providers/presence_provider.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
 
 enum _ChatFilter { all, unread, archived, requests }
@@ -461,6 +462,7 @@ class _ChatCard extends ConsumerWidget {
     final loc = AppLocalizations.of(context);
     final otherUid = chat.otherParticipant(myUid);
     final peerAsync = ref.watch(publicProfileProvider(otherUid));
+    ref.watch(presenceTickProvider); // forces re-evaluation of isRecentlyActive as time passes
     final peer = peerAsync.valueOrNull;
     final displayName = (peer?.name ?? '').isEmpty ? loc.defaultUserName : peer!.name;
     final unread = chat.unreadFor(myUid);
