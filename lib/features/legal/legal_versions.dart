@@ -8,4 +8,4 @@
 /// `presentation/widgets/consent_dialog.dart`'s doc comment for the
 /// re-consent flow this drives.
 const String kCurrentTermsVersion = '1.0';
-const String kCurrentPrivacyVersion = '1.0';
+const String kCurrentPrivacyVersion = '1.1';
