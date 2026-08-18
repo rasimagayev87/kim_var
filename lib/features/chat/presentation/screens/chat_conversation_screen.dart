@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -372,6 +373,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
     _chatId = chatIdWith(widget.otherUid);
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) => _requestMarkSeen());
+    _setActiveChatId(_chatId);
   }
 
   @override
@@ -382,6 +384,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
     if (_isTyping) {
       ref.read(chatControllerProvider.notifier).setTyping(_chatId, false);
     }
+    _setActiveChatId(null);
     _textController.dispose();
     _textFocusNode.dispose();
     _scrollController.dispose();
@@ -391,7 +394,25 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _isForeground = state == AppLifecycleState.resumed;
-    if (_isForeground) _requestMarkSeen();
+    if (_isForeground) {
+      _requestMarkSeen();
+      _setActiveChatId(_chatId);
+    } else {
+      _setActiveChatId(null);
+    }
+  }
+
+  /// Server-visible "am I looking at this chat right now" flag —
+  /// `onChatMessageCreated` (Cloud Function) reads `users/{uid}.
+  /// activeChatId` to skip a push for a chat the recipient already has
+  /// open, so an incoming message doesn't also buzz their phone. Purely
+  /// best-effort like the rest of this screen's presence bookkeeping
+  /// (`_isForeground`) — a lost race just means one push shows or gets
+  /// skipped when it ideally wouldn't, never a correctness issue.
+  void _setActiveChatId(String? chatId) {
+    final uid = _myUid;
+    if (uid == null) return;
+    unawaited(FirebaseFirestore.instance.collection('users').doc(uid).update({'activeChatId': chatId}));
   }
 
   /// Debounced so a screen that's opened and immediately swiped back

@@ -2391,6 +2391,14 @@ export const onChatMessageCreated = onDocumentCreated(
     const receiverData = receiverSnap.data();
     if (!receiverData) return;
 
+    // Receiver has this exact chat open right now (foreground) — see
+    // `activeChatId` on `users/{uid}`, set/cleared by
+    // ChatConversationScreen. A push while they're already looking at
+    // the conversation would just be noise (and could double-count as
+    // an unread badge blip); the in-app message list itself is the
+    // real-time signal in that case.
+    if (receiverData.activeChatId === chatId) return;
+
     const prefs = receiverData.notificationPreferences ?? {};
     const pushEnabled = prefs.pushEnabled ?? true;
     const messagesEnabled = prefs.messages ?? true;
@@ -2404,11 +2412,12 @@ export const onChatMessageCreated = onDocumentCreated(
       .filter((part) => typeof part === "string" && part.length > 0)
       .join(" ") || "PeakPin";
 
+    // Never the raw message text — a push can sit on a lock screen for
+    // anyone nearby to read. Non-text types already used a generic
+    // type label (CHAT_PREVIEW_LABELS); text now gets the same
+    // treatment instead of leaking its content.
     const type = message.type as string | undefined;
-    const body =
-      type && type !== "text"
-        ? CHAT_PREVIEW_LABELS[type] ?? "Yeni mesaj"
-        : ((message.text as string | undefined) || "Yeni mesaj");
+    const body = type && type !== "text" ? CHAT_PREVIEW_LABELS[type] ?? "Yeni mesaj" : "Sizə mesaj göndərdi";
 
     // No custom Android notification channel — the client doesn't create
     // one (would need flutter_local_notifications), so this relies on
