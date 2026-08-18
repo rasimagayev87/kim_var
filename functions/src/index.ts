@@ -2035,6 +2035,68 @@ export const resubmitOffer = onCall({ region: "us-central1" }, async (request) =
 });
 
 /**
+ * Sole writer of `identityVerifications/{requestId}` — firestore.rules
+ * blocks every client write on that collection outright (see its own
+ * doc comment) because "at most one active pending request per user"
+ * needs a query, not a single-doc rule check. Enforced here instead:
+ * reject if the caller already has a `pending` doc, otherwise create
+ * one server-side (uid comes from the auth context, never trusted from
+ * the client) referencing the three Storage PATHS the client already
+ * uploaded to `identity_verifications/{uid}/{requestId}/...` (see
+ * storage.rules) — not download URLs, so this doc never leaks the
+ * images to anyone who reads it, including the submitting user
+ * themselves (matches its `allow read: if ... uid == userId` in
+ * firestore.rules: they may see their own status/rejectionReason, but
+ * a Storage path alone gets them nothing without an admin-issued
+ * signed URL).
+ */
+export const submitIdentityVerification = onCall({ region: "us-central1" }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+  const requestId = request.data?.requestId as string | undefined;
+  const idFrontPath = request.data?.idFrontPath as string | undefined;
+  const idBackPath = request.data?.idBackPath as string | undefined;
+  const selfieWithIdPath = request.data?.selfieWithIdPath as string | undefined;
+  if (!requestId || !idFrontPath || !idBackPath || !selfieWithIdPath) {
+    throw new HttpsError("invalid-argument", "Bütün sənədlər tələb olunur.");
+  }
+
+  // Every path must live under this exact uid's own Storage folder —
+  // guards against a tampered client pointing the doc at someone
+  // else's (or a nonexistent) file, same "never trust client-supplied
+  // paths blindly" reasoning as `resubmitVenue`'s ownerId check above.
+  const expectedPrefix = `identity_verifications/${uid}/${requestId}/`;
+  if (![idFrontPath, idBackPath, selfieWithIdPath].every((p) => p.startsWith(expectedPrefix))) {
+    throw new HttpsError("invalid-argument", "Sənəd yolları etibarsızdır.");
+  }
+
+  const existingPending = await db
+    .collection("identityVerifications")
+    .where("userId", "==", uid)
+    .where("status", "==", "pending")
+    .limit(1)
+    .get();
+  if (!existingPending.empty) {
+    throw new HttpsError("failed-precondition", "already-pending");
+  }
+
+  await db.collection("identityVerifications").doc(requestId).set({
+    userId: uid,
+    idFrontPath,
+    idBackPath,
+    selfieWithIdPath,
+    status: "pending",
+    rejectionReason: null,
+    submittedAt: FieldValue.serverTimestamp(),
+    reviewedAt: null,
+    reviewedByAdminId: null,
+  });
+
+  return { ok: true };
+});
+
+/**
  * Fires whenever a `payments/{paymentId}` doc's `status` newly becomes
  * `refund_pending` (from admin rejection, or `expireListingRevisionDeadlines`
  * below auto-rejecting an expired revision window) — NOT on every write,

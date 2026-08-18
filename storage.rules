@@ -126,6 +126,25 @@ service firebase.storage {
                    );
     }
 
+    // "Kimlik doğrulama" (ID front/back + selfie-with-ID) — deliberately
+    // NO read rule at all, unlike every other path above (which all
+    // allow any signed-in user to read). Falls through to the
+    // `{allPaths=**}` default-deny below, so nobody — not even the
+    // uploader themselves — can read these via the client SDK; the
+    // admin panel reads them exclusively through the Admin SDK (which
+    // bypasses these rules entirely) and hands out short-lived signed
+    // URLs server-side. {requestId} (not just {userId}) scopes each
+    // submission's files separately, so a rejected-then-resubmitted
+    // user's old evidence isn't silently overwritten, and the Faza 4
+    // retention sweep can delete one request's files without touching
+    // a later one.
+    match /identity_verifications/{userId}/{requestId}/{fileName} {
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

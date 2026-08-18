@@ -441,6 +441,24 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // "Kimlik doğrulama" (ID + selfie -> blue-check review), separate
+    // from `users/{userId}.identityVerified` itself (already
+    // grant-of-trust locked above) and from the OLD phone-OTP
+    // `isVerified` step this has nothing to do with. Deliberately
+    // `allow write: if false` in full, including create — unlike every
+    // other owner-submitted collection in this file (venues, offers,
+    // payments), a raw client write can't enforce "at most one active
+    // pending request per user" (that needs a query, not a single-doc
+    // rule check), so submission goes through `submitIdentityVerification`
+    // (Cloud Function, Admin SDK) instead, which enforces it in code.
+    // `idFrontPath`/`idBackPath`/`selfieWithIdPath` are Storage PATHS,
+    // never download URLs — see storage.rules' identity_verifications/
+    // block for why a URL would leak the image regardless of rules.
+    match /identityVerifications/{requestId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow write: if false;
+    }
+
     // A user's like on a venue — existence alone is the "like", no
     // fields to validate. `likeCount`/`rating` on the parent venue doc
     // are derived from this collection's size by Cloud Function
