@@ -135,6 +135,7 @@
   "liveFeedSectionBirthday": "День рождения",
   "liveFeedEmptyMessage": "В вашем радиусе пока ничего нет",
   "liveFeedIncreaseRadiusButton": "Увеличить радиус",
+  "liveFeedRadiusIncreasedMessage": "Радиус увеличен до {km} км",
   "navChatsLabel": "Чат",
   "navNotificationsLabel": "Уведомления",
   "navProfileLabel": "Профиль",

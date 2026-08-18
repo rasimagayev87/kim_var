@@ -197,7 +197,7 @@ class _LiveFeedEmptyState extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             TextButton(
-              onPressed: () => _increaseRadius(ref),
+              onPressed: () => _increaseRadius(context, ref),
               child: Text(loc.liveFeedIncreaseRadiusButton),
             ),
           ],
@@ -210,10 +210,24 @@ class _LiveFeedEmptyState extends ConsumerWidget {
   /// (`selectedDiscoverModeProvider`) — Canlı doesn't own a separate
   /// radius concept, it reuses Kəşf et's exactly as instructed, so
   /// widening it here is visible there too.
-  void _increaseRadius(WidgetRef ref) {
+  ///
+  /// Updating that provider alone used to be silently invisible: the
+  /// poll loop only picks up the new radius on its next scheduled tick
+  /// (up to [liveFeedPollInterval] later), which read as "the button
+  /// does nothing" — [LiveFeedController.refreshNow] forces an
+  /// immediate fetch, and the snackbar confirms the tap registered
+  /// even on the (likely, right after this radius still finds
+  /// nothing) case where the list stays empty.
+  void _increaseRadius(BuildContext context, WidgetRef ref) {
     final current = ref.read(selectedDiscoverModeProvider);
     if (current.mode != DiscoverRadiusMode.distance || current.km == null) return;
     final next = (current.km! * 2).clamp(1.0, 100.0);
     ref.read(selectedDiscoverModeProvider.notifier).state = DiscoverRadiusSelection.distance(next);
+    ref.read(liveFeedControllerProvider.notifier).refreshNow();
+
+    final loc = AppLocalizations.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(loc.liveFeedRadiusIncreasedMessage(next.toStringAsFixed(0)))),
+    );
   }
 }

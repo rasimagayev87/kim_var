@@ -104,6 +104,17 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
     _audienceTimer = Timer.periodic(liveFeedAudiencePollInterval, (_) => unawaited(_runAudienceCycle()));
   }
 
+  /// Forces an immediate fetch on the current radius/mode without
+  /// resetting the poll timers — call this right after something the
+  /// user did (not the timer) changes what a cycle would fetch, e.g.
+  /// [selectedDiscoverModeProvider] widening from the empty-state's
+  /// "Radiusu artır" button. Without this, that button only took
+  /// effect on the NEXT scheduled tick (up to [liveFeedPollInterval]
+  /// later), which read as "the button does nothing."
+  void refreshNow() {
+    unawaited(_runFastCycle(alsoRefreshAudience: true));
+  }
+
   /// Cancels both poll timers — call this when the Canlı screen is
   /// backgrounded/disposed. Doesn't clear [state]: the last-fetched
   /// list stays visible (stale-but-present beats a blank screen) until
