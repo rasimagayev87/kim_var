@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { Bell } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,8 +79,10 @@ export function NotificationBell({
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <button
-            className="relative w-9 h-9 rounded-lg flex items-center justify-center text-ink-muted dark:text-ink-muted-dark hover:bg-canvas dark:hover:bg-surface-raised-dark transition"
+          <Button
+            variant="ghost"
+            size="icon-lg"
+            className="relative text-ink-muted dark:text-ink-muted-dark hover:bg-canvas dark:hover:bg-surface-raised-dark"
             aria-label="Bildirişlər"
           >
             <Bell className="w-[18px] h-[18px]" />
@@ -88,7 +91,7 @@ export function NotificationBell({
                 {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
-          </button>
+          </Button>
         }
       />
       <DropdownMenuContent align="end" className="w-80">
