@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -95,14 +96,14 @@ export function NotificationBell({
         }
       />
       <DropdownMenuContent align="end" className="w-80">
-        <div className="flex items-center justify-between px-2 py-1.5">
+        <DropdownMenuGroup className="flex items-center justify-between px-2 py-1.5">
           <DropdownMenuLabel className="p-0">Bildirişlər</DropdownMenuLabel>
           {unreadCount > 0 && (
             <button onClick={handleMarkAllRead} className="text-xs text-cyan hover:underline">
               Hamısını oxunmuş et
             </button>
           )}
-        </div>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {rows.length === 0 ? (
           <p className="px-2 py-4 text-center text-sm text-muted-foreground">Bildiriş yoxdur.</p>
