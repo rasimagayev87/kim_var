@@ -94,6 +94,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "148607007767-7od83gjpk1smehtag8amu13jelgdvd7r.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.peakpin.app",
+            "certificate_hash": "54247d6f07723e16f6e7f1bc58d3e02c543590bb"
+          }
+        },
+        {
+          "client_id": "148607007767-kqmeu2q18u81rgoc64ejccb02avv9m80.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.peakpin.app",
+            "certificate_hash": "259e4b62d3e6e675ecfa0b65fb40d1c616ab3fd5"
+          }
+        },
+        {
           "client_id": "148607007767-s3np74ma77k70h3nt9n2k825h2ibvd5f.apps.googleusercontent.com",
           "client_type": 3
         }

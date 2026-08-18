@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/animations/animated_background.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/rate_limit_error.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../home/presentation/screens/home_screen.dart';
@@ -58,7 +59,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         MaterialPageRoute(builder: (_) => isNewUser ? const OnboardingScreen() : const HomeScreen()),
         (route) => false,
       );
-    } catch (e) {
+    } catch (e, st) {
+      logError('auth_screen._handleResult', e, st);
       if (!mounted) return;
       setState(() {
         _submitting = false;

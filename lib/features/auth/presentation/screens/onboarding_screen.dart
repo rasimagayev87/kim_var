@@ -151,8 +151,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     unawaited(ref.read(locationControllerProvider.notifier).refresh());
 
     // Notifications: real system permission request (Android 13+),
-    // ready for when push notifications are wired up.
-    await Permission.notification.request();
+    // ready for when push notifications are wired up. Fire-and-forget
+    // (not awaited) — permission_handler's notification request has a
+    // known hang on some OEM skins (confirmed on a real Samsung
+    // device: onboarding got stuck on its loading spinner
+    // indefinitely), and nothing downstream depends on this
+    // resolving before the user reaches HomeScreen.
+    unawaited(Permission.notification.request());
   }
 
   Future<void> _finish() async {
