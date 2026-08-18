@@ -1,17 +1,21 @@
 "use client";
 
-import { Search, Bell, Sun, Moon, Command } from "lucide-react";
+import { Search, Sun, Moon, Command } from "lucide-react";
 import { toast } from "sonner";
 import { useTheme } from "@/components/dashboard/ThemeProvider";
+import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { LogoutButton } from "@/components/auth/logout-button";
+import type { AdminNotificationRow } from "@/lib/data/admin-notifications";
 import type { AdminRole } from "@/lib/auth/session";
 
 interface TopbarProps {
   adminEmail: string;
   adminRole: AdminRole;
+  notifications: AdminNotificationRow[];
+  unreadNotificationsCount: number;
 }
 
-export function Topbar({ adminEmail, adminRole }: TopbarProps) {
+export function Topbar({ adminEmail, adminRole, notifications, unreadNotificationsCount }: TopbarProps) {
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -52,13 +56,7 @@ export function Topbar({ adminEmail, adminRole }: TopbarProps) {
           {theme === "dark" ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
         </button>
 
-        <button
-          onClick={() => toast("Tezliklə əlavə olunacaq")}
-          className="relative w-9 h-9 rounded-lg flex items-center justify-center text-ink-muted dark:text-ink-muted-dark hover:bg-canvas dark:hover:bg-surface-raised-dark transition"
-          aria-label="Bildirişlər"
-        >
-          <Bell className="w-[18px] h-[18px]" />
-        </button>
+        <NotificationBell initialRows={notifications} initialUnreadCount={unreadNotificationsCount} />
 
         <div className="w-px h-6 bg-dash-border dark:bg-dash-border-dark mx-1" />
 

@@ -459,6 +459,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Faza 5 (bildiriş sistemi tamamlanması) — admin panelin "Bell"
+    // xəbərdarlıq siyahısı. No mobile-app user, admin or otherwise,
+    // ever needs to read this via the client SDK: the admin panel is
+    // entirely server-rendered (Server Components/Actions, Admin SDK,
+    // bypasses these rules) — see its `src/lib/data/
+    // admin-notifications.ts`. Written only by Cloud Functions.
+    match /adminNotifications/{notificationId} {
+      allow read, write: if false;
+    }
+
     // A user's like on a venue — existence alone is the "like", no
     // fields to validate. `likeCount`/`rating` on the parent venue doc
     // are derived from this collection's size by Cloud Function

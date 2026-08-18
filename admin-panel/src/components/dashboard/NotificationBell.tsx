@@ -1,0 +1,126 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import Link from "next/link";
+import { Bell } from "lucide-react";
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { markAdminNotificationRead, markAllAdminNotificationsRead } from "@/lib/actions/admin-notifications";
+import type { AdminNotificationRow } from "@/lib/data/admin-notifications";
+
+const TYPE_LABELS: Record<string, string> = {
+  "report.user": "İstifadəçi şikayəti",
+  "report.event": "Tədbir şikayəti",
+};
+
+/** `/users/{id}` has a real detail page; event reports don't have a
+ * per-report route yet, so they land on the list page instead — see
+ * `src/app/(protected)/event-reports/page.tsx`. */
+function targetHref(row: AdminNotificationRow): string {
+  if (row.targetType === "user") return `/users/${row.targetId}`;
+  if (row.targetType === "event") return "/event-reports";
+  return "#";
+}
+
+function formatRelativeTime(iso: string | null): string {
+  if (!iso) return "";
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "indicə";
+  if (minutes < 60) return `${minutes} dəq əvvəl`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} saat əvvəl`;
+  const days = Math.floor(hours / 24);
+  return `${days} gün əvvəl`;
+}
+
+/** Bell dropdown — a lightweight in-panel notification inbox, not
+ * real-time (initial data comes from the server-rendered layout, see
+ * `ProtectedLayout`); refreshes on next navigation/reload like the
+ * rest of this admin panel, no client-side Firestore listener. */
+export function NotificationBell({
+  initialRows,
+  initialUnreadCount,
+}: {
+  initialRows: AdminNotificationRow[];
+  initialUnreadCount: number;
+}) {
+  const [rows, setRows] = useState(initialRows);
+  const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
+  const [, startTransition] = useTransition();
+
+  function handleItemClick(id: string) {
+    const row = rows.find((r) => r.id === id);
+    if (!row || row.read) return;
+    setRows((prev) => prev.map((r) => (r.id === id ? { ...r, read: true } : r)));
+    setUnreadCount((count) => Math.max(0, count - 1));
+    startTransition(() => {
+      markAdminNotificationRead(id);
+    });
+  }
+
+  function handleMarkAllRead() {
+    setRows((prev) => prev.map((r) => ({ ...r, read: true })));
+    setUnreadCount(0);
+    startTransition(() => {
+      markAllAdminNotificationsRead();
+    });
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <button
+            className="relative w-9 h-9 rounded-lg flex items-center justify-center text-ink-muted dark:text-ink-muted-dark hover:bg-canvas dark:hover:bg-surface-raised-dark transition"
+            aria-label="Bildirişlər"
+          >
+            <Bell className="w-[18px] h-[18px]" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-cyan text-white text-[10px] font-mono leading-4 text-center">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
+          </button>
+        }
+      />
+      <DropdownMenuContent align="end" className="w-80">
+        <div className="flex items-center justify-between px-2 py-1.5">
+          <DropdownMenuLabel className="p-0">Bildirişlər</DropdownMenuLabel>
+          {unreadCount > 0 && (
+            <button onClick={handleMarkAllRead} className="text-xs text-cyan hover:underline">
+              Hamısını oxunmuş et
+            </button>
+          )}
+        </div>
+        <DropdownMenuSeparator />
+        {rows.length === 0 ? (
+          <p className="px-2 py-4 text-center text-sm text-muted-foreground">Bildiriş yoxdur.</p>
+        ) : (
+          rows.map((row) => (
+            <DropdownMenuItem
+              key={row.id}
+              onClick={() => handleItemClick(row.id)}
+              render={<Link href={targetHref(row)} />}
+              className="flex flex-col items-start gap-0.5 whitespace-normal"
+            >
+              <span className="flex w-full items-center gap-1.5 text-xs font-medium">
+                {!row.read && <span className="size-1.5 shrink-0 rounded-full bg-cyan" />}
+                {TYPE_LABELS[row.type] ?? row.type}
+              </span>
+              <span className="text-xs text-muted-foreground">{row.message}</span>
+              <span className="text-[10px] text-muted-foreground/70">{formatRelativeTime(row.createdAt)}</span>
+            </DropdownMenuItem>
+          ))
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

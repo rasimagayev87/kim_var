@@ -2451,6 +2451,28 @@ function isUnregisteredTokenError(code?: string): boolean {
 }
 
 /**
+ * Faza 5 (bildiriş sistemi tamamlanması) — the admin panel's Bell
+ * icon's data source. Deliberately minimal, per that phase's own
+ * scope: one Firestore doc, no web-push/VAPID infra. Sits alongside
+ * (not instead of) the existing privacy@peakpin.app email below —
+ * that's an out-of-band alert an admin sees even with the panel
+ * closed; this is the in-panel, persistent, markable-read history the
+ * Bell button previously had no data behind at all.
+ */
+async function notifyAdmins(params: {
+  type: string;
+  message: string;
+  targetType: string;
+  targetId: string;
+}): Promise<void> {
+  await db.collection("adminNotifications").add({
+    ...params,
+    read: false,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/**
  * Relays every new user report (from `report_user_sheet.dart`'s
  * "Report user" flow, e.g. harassment, spam, fake profile) to
  * privacy@peakpin.app — this collection previously had zero
@@ -2480,6 +2502,13 @@ export const onUserReportCreated = onDocumentCreated(
        ${data.chatId ? `<p><strong>Söhbət ID:</strong> ${data.chatId}</p>` : ""}
        <p>Baxmaq üçün admin paneldəki "İstifadəçilər" bölümünə keçin.</p>`
     );
+
+    await notifyAdmins({
+      type: "report.user",
+      message: `${reporter.name} → ${reported.name}: ${reason}`,
+      targetType: "user",
+      targetId: reportedUserId,
+    });
   }
 );
 
@@ -2512,6 +2541,13 @@ export const onEventReportCreated = onDocumentCreated(
        <p><strong>Səbəb:</strong> ${reason}</p>
        <p>Baxmaq üçün admin paneldəki "Tədbir şikayətləri" bölümünə keçin.</p>`
     );
+
+    await notifyAdmins({
+      type: "report.event",
+      message: `${reporter.name} → "${eventTitle}": ${reason}`,
+      targetType: "event",
+      targetId: eventId,
+    });
   }
 );
 

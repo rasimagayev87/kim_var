@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/dashboard/Sidebar";
 import { Topbar } from "@/components/dashboard/Topbar";
 import { getCurrentAdmin } from "@/lib/auth/server";
+import { getUnreadAdminNotificationsCount, listRecentAdminNotifications } from "@/lib/data/admin-notifications";
 
 /**
  * Shared chrome (sidebar + header) for every real admin-panel screen.
@@ -22,11 +23,21 @@ export default async function ProtectedLayout({ children }: { children: React.Re
     redirect("/login");
   }
 
+  const [notifications, unreadNotificationsCount] = await Promise.all([
+    listRecentAdminNotifications(),
+    getUnreadAdminNotificationsCount(),
+  ]);
+
   return (
     <div className="min-h-screen bg-canvas dark:bg-canvas-dark">
       <Sidebar role={admin.role} />
       <div className="flex flex-1 flex-col lg:pl-64">
-        <Topbar adminEmail={admin.email} adminRole={admin.role} />
+        <Topbar
+          adminEmail={admin.email}
+          adminRole={admin.role}
+          notifications={notifications}
+          unreadNotificationsCount={unreadNotificationsCount}
+        />
         <main className="flex-1 p-6">{children}</main>
       </div>
     </div>
