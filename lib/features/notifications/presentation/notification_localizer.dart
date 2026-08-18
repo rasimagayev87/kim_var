@@ -200,6 +200,19 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
     case NotificationType.vipGranted:
       return LocalizedNotificationText(title: loc.notifVipGrantedTitle, body: loc.notifVipGrantedBody);
 
+    case NotificationType.identityVerificationApproved:
+      return LocalizedNotificationText(
+        title: loc.notifIdentityVerificationApprovedTitle,
+        body: loc.notifIdentityVerificationApprovedBody,
+      );
+
+    case NotificationType.identityVerificationRejected:
+      final note = str('note');
+      return LocalizedNotificationText(
+        title: loc.notifIdentityVerificationRejectedTitle,
+        body: note.isEmpty ? loc.notifIdentityVerificationRejectedBodyNoNote : loc.notifIdentityVerificationRejectedBodyWithNote(note),
+      );
+
     // Every other type either has no server producer at all (mention,
     // system, security, promotion, warning, announcement) or is the
     // forward-compat fallback (other/follow) — none of these carry a

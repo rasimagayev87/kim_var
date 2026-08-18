@@ -89,6 +89,14 @@ enum NotificationType {
   /// `onUserUpdated` (Cloud Function). No `targetId`/`targetType`;
   /// nothing to deep-link to.
   vipGranted,
+
+  /// Admin approved/rejected an `identityVerifications/{requestId}` —
+  /// see `onIdentityVerificationUpdated` (Cloud Function). No
+  /// `targetId`/`targetType` for the approved case; the rejected case
+  /// carries the admin's reason in `params.note`, same shape as
+  /// [venueRejected].
+  identityVerificationApproved,
+  identityVerificationRejected,
   system,
   security,
   promotion,

@@ -1,4 +1,5 @@
 import {
+  BadgeCheck,
   ClipboardList,
   Flag,
   LayoutDashboard,
@@ -31,6 +32,12 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { label: "İstifadəçilər", href: "/users", icon: Users, permission: "manageUsers" },
+  {
+    label: "Kimlik doğrulama",
+    href: "/identity-verifications",
+    icon: BadgeCheck,
+    permission: "moderateIdentityVerifications",
+  },
   { label: "Məkanlar", href: "/venues", icon: Store, permission: "moderateVenues" },
   { label: "Ödənişlər", href: "/payments", icon: Wallet, permission: "moderateVenues" },
   { label: "Təkliflər", href: "/offers", icon: Tag, permission: "moderateOffers" },

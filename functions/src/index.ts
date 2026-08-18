@@ -2097,6 +2097,47 @@ export const submitIdentityVerification = onCall({ region: "us-central1" }, asyn
 });
 
 /**
+ * Notification-only side of a review decision — the decision itself
+ * (including setting `users/{uid}.identityVerified` on approval) is
+ * the admin panel's `setIdentityVerificationStatus` Server Action, not
+ * this trigger; same "state change lives in the action, fan-out lives
+ * in a trigger reacting to it" split as `onVenueUpdated`/
+ * `onOfferUpdated` + `moderationStatusNotification`.
+ */
+export const onIdentityVerificationUpdated = onDocumentUpdated("identityVerifications/{requestId}", async (event) => {
+  const before = event.data?.before.data();
+  const after = event.data?.after.data();
+  if (!before || !after) return;
+  if (before.status === after.status) return;
+  if (after.status !== "approved" && after.status !== "rejected") return;
+
+  const userId = after.userId as string | undefined;
+  if (!userId) return;
+
+  if (after.status === "approved") {
+    await notifyUser({
+      uid: userId,
+      category: "venueUpdates",
+      type: "identityVerificationApproved",
+      title: "Kimliyiniz təsdiqləndi",
+      body: "Profilinizdə mavi tık nişanı aktivləşdi.",
+      params: {},
+    });
+    return;
+  }
+
+  const reason = typeof after.rejectionReason === "string" && after.rejectionReason.trim() ? after.rejectionReason.trim() : undefined;
+  await notifyUser({
+    uid: userId,
+    category: "venueUpdates",
+    type: "identityVerificationRejected",
+    title: "Kimlik doğrulaması rədd edildi",
+    body: reason ? `Səbəb: ${reason}` : "Müraciətiniz rədd edildi.",
+    params: reason ? { note: reason } : {},
+  });
+});
+
+/**
  * Fires whenever a `payments/{paymentId}` doc's `status` newly becomes
  * `refund_pending` (from admin rejection, or `expireListingRevisionDeadlines`
  * below auto-rejecting an expired revision window) — NOT on every write,

@@ -21,6 +21,7 @@ const PERMISSION_MATRIX = {
     broadcastNotifications: true,
     manageFeedback: true,
     manageAdmins: true,
+    moderateIdentityVerifications: true,
   },
   moderator: {
     manageUsers: false,
@@ -30,6 +31,11 @@ const PERMISSION_MATRIX = {
     broadcastNotifications: false,
     manageFeedback: true,
     manageAdmins: false,
+    // Government ID photos + a selfie are the most sensitive data this
+    // app handles — gated at the same admin-only level as manageUsers
+    // (which also grants permanent, identity-linked trust: VIP), not
+    // the moderator-accessible level of ordinary content moderation.
+    moderateIdentityVerifications: false,
   },
 } as const satisfies Record<AdminRole, Record<string, boolean>>;
 

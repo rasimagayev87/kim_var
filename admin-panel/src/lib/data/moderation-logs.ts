@@ -30,7 +30,9 @@ export type ModerationAction =
   | "broadcast.sent"
   | "admin.added"
   | "admin.roleChanged"
-  | "admin.removed";
+  | "admin.removed"
+  | "identityVerification.approved"
+  | "identityVerification.rejected";
 
 export type ModerationTargetType =
   | "user"
@@ -43,7 +45,8 @@ export type ModerationTargetType =
   | "eventReport"
   | "broadcast"
   | "admin"
-  | "payment";
+  | "payment"
+  | "identityVerification";
 
 export interface ModerationLogRow {
   id: string;

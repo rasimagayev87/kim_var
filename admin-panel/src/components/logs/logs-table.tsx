@@ -29,6 +29,8 @@ const ACTION_LABELS: Record<string, string> = {
   "admin.added": "Admin/moderator əlavə edildi",
   "admin.roleChanged": "Rol dəyişdirildi",
   "admin.removed": "Admin/moderator silindi",
+  "identityVerification.approved": "Kimlik doğrulaması təsdiqləndi",
+  "identityVerification.rejected": "Kimlik doğrulaması rədd edildi",
 };
 
 const TARGET_TYPE_LABELS: Record<string, string> = {
@@ -41,6 +43,7 @@ const TARGET_TYPE_LABELS: Record<string, string> = {
   broadcast: "Bildiriş",
   admin: "Admin/moderator",
   payment: "Ödəniş",
+  identityVerification: "Kimlik doğrulaması",
 };
 
 function formatDate(iso: string): string {
