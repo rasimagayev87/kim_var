@@ -56,12 +56,15 @@
 				<string>com.googleusercontent.apps.148607007767-dkrl4dagoo9isvpgtjg3rmguhd715nqa</string>
 			</array>
 		</dict>
-		<!-- Custom scheme fallback for Firebase Email Link sign-in —
-		     see deep_link_handler.dart and peakpin-landing's
-		     /auth-email-link page. Doesn't need Associated Domains /
-		     apple-app-site-association (which needs a paid Apple
-		     Developer Team ID we don't have yet), unlike the https
-		     Universal Link this rides alongside. -->
+		<!-- Custom scheme, used two ways: (1) Firebase Email Link
+		     sign-in fallback — see deep_link_handler.dart and
+		     peakpin-landing's /auth-email-link page; (2) the "PeakPin-də
+		     aç" button on /u/{username}'s web fallback page
+		     (peakpin://u/{username}), since re-tapping the same https
+		     Universal Link from inside a mobile browser doesn't reliably
+		     reopen the app on either platform. Doesn't need Associated
+		     Domains / apple-app-site-association, unlike the https
+		     Universal Link these ride alongside. -->
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>

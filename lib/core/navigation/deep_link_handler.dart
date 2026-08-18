@@ -52,6 +52,16 @@ void _handleUri(Uri uri) {
 
   if (segments.length >= 2 && segments[0] == 'u') {
     _openProfileByUsername(segments[1]);
+    return;
+  }
+
+  // `peakpin://u/{username}` — the custom-scheme "PeakPin-də aç" button
+  // on the /u/{username} web fallback page. A custom scheme puts the
+  // first path component in [Uri.host], not [Uri.pathSegments] (unlike
+  // the https form above), since there's no real authority to parse —
+  // handled separately here rather than folding into the https check.
+  if (uri.scheme == 'peakpin' && uri.host == 'u' && segments.isNotEmpty) {
+    _openProfileByUsername(segments[0]);
   }
 }
 
