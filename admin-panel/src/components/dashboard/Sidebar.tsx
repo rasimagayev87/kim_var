@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  BadgeCheck,
   LayoutGrid,
   Users,
   Store,
@@ -31,7 +32,14 @@ import { ComingSoonBadge } from "@/components/dashboard/ComingSoon";
 const EXISTING_NAV: { href: string; label: string; icon: typeof LayoutGrid; permission?: Permission }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
   { href: "/users", label: "İstifadəçilər", icon: Users, permission: "manageUsers" },
+  {
+    href: "/identity-verifications",
+    label: "Kimlik doğrulama",
+    icon: BadgeCheck,
+    permission: "moderateIdentityVerifications",
+  },
   { href: "/venues", label: "Məkanlar", icon: Store, permission: "moderateVenues" },
+  { href: "/payments", label: "Ödənişlər", icon: CreditCard, permission: "moderateVenues" },
   { href: "/offers", label: "Təkliflər", icon: Tag, permission: "moderateOffers" },
   { href: "/feedback", label: "Şikayətlər", icon: Flag, permission: "manageFeedback" },
   { href: "/event-reports", label: "Tədbir şikayətləri", icon: Flag, permission: "moderateVenues" },
