@@ -2137,6 +2137,55 @@ export const onIdentityVerificationUpdated = onDocumentUpdated("identityVerifica
   });
 });
 
+const IDENTITY_VERIFICATION_IMAGE_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+
+/**
+ * Daily sweep: 90 days after a request was reviewed (approved OR
+ * rejected — never a still-`pending` one), deletes its 3 Storage
+ * images and clears the now-dangling path fields. The
+ * `identityVerifications/{requestId}` Firestore doc itself is kept —
+ * status/reviewedAt/reviewedByAdminId stay as an audit trail — only
+ * the actual ID/selfie photos, the sensitive part, get removed once
+ * there's no realistic dispute-window reason left to hold onto them.
+ * `deleteFiles({ prefix })` removes all 3 in one call since they share
+ * `identity_verifications/{userId}/{requestId}/` as their prefix.
+ */
+export const cleanupExpiredIdentityVerificationImages = onSchedule(
+  { schedule: "every 24 hours", region: "europe-west1" },
+  async () => {
+    const cutoff = Timestamp.fromMillis(Date.now() - IDENTITY_VERIFICATION_IMAGE_RETENTION_MS);
+
+    for (const status of ["approved", "rejected"] as const) {
+      const expired = await db
+        .collection("identityVerifications")
+        .where("status", "==", status)
+        .where("reviewedAt", "<", cutoff)
+        .get();
+
+      await Promise.all(
+        expired.docs.map(async (doc) => {
+          const data = doc.data();
+          // Firestore can't combine two inequality filters (reviewedAt
+          // AND idFrontPath) in one query — this in-memory check is
+          // what makes a re-run after a previous sweep already cleared
+          // the paths a no-op instead of re-issuing an empty-prefix
+          // delete every day for the rest of that doc's existence.
+          if (data.idFrontPath == null) return;
+          const userId = data.userId as string;
+          const requestId = doc.id;
+          try {
+            await storage.bucket().deleteFiles({ prefix: `identity_verifications/${userId}/${requestId}/` });
+          } catch {
+            // A file already gone (e.g. a re-run after a partial
+            // previous failure) must not block clearing the doc below.
+          }
+          await doc.ref.update({ idFrontPath: null, idBackPath: null, selfieWithIdPath: null });
+        }),
+      );
+    }
+  },
+);
+
 /**
  * Fires whenever a `payments/{paymentId}` doc's `status` newly becomes
  * `refund_pending` (from admin rejection, or `expireListingRevisionDeadlines`
