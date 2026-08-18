@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/coming_soon_screen.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -15,6 +14,7 @@ import '../../../post_share/domain/entities/post.dart';
 import '../../../post_share/presentation/providers/post_providers.dart';
 import '../../../post_share/presentation/widgets/post_capture_sheet.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
+import '../../../profile/presentation/screens/profile_share_screen.dart';
 import '../../../profile/presentation/screens/profile_visitors_screen.dart';
 import '../../../profile/presentation/widgets/profile_display_widgets.dart';
 import '../../../settings/presentation/screens/settings_screen.dart';
@@ -95,14 +95,18 @@ class ProfileTab extends ConsumerWidget {
                           IconButton(
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ComingSoonScreen(
-                                  title: loc.shareProfileLabel,
-                                ),
-                              ),
-                            ),
+                            onPressed: (authUser?.username ?? '').isEmpty
+                                ? null
+                                : () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ProfileShareScreen(
+                                          name: displayName,
+                                          username: authUser!.username!,
+                                          photoUrl: profile.photoUrl,
+                                        ),
+                                      ),
+                                    ),
                             icon: const Icon(
                               Icons.share_outlined,
                               color: ChatLightColors.ink,

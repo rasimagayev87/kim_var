@@ -55,6 +55,7 @@ dependencies:
   wakelock_plus: ^1.2.10
   flutter_webrtc: ^0.12.6
   webrtc_interface: ^1.5.1
+  qr_flutter: ^4.1.0
 
 dependency_overrides:
   # pub.dev's video_thumbnail 0.5.6 (the latest published version) still
