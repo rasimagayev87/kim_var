@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  NOT currently wired into the build (no CODE_SIGN_ENTITLEMENTS build
+  setting references this file — see project.pbxproj). Xcode's
+  "Personal Team" (free Apple ID, no paid Developer Program
+  membership) flatly refuses to sign anything with the Associated
+  Domains capability, which blocked every local device build once
+  this was wired in. Re-add
+  `CODE_SIGN_ENTITLEMENTS = Runner/Runner.entitlements;` to all three
+  Runner target build configs once signing with a paid-team account —
+  that's the only thing standing between this and working iOS
+  Universal Links for peakpin.app.
+-->
 <plist version="1.0">
 <dict>
 	<key>com.apple.developer.associated-domains</key>
