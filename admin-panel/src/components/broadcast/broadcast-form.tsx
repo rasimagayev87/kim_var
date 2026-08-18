@@ -23,7 +23,7 @@ import { countBroadcastAudience, sendBroadcast, type BroadcastSegment, type Broa
 const SEGMENT_LABELS: Record<BroadcastSegment, string> = {
   all: "Hamı",
   vip: "VIP istifadəçilər",
-  verified: "Verified istifadəçilər",
+  verified: "Kimlik təsdiqli istifadəçilər",
 };
 
 export function BroadcastForm() {
@@ -110,7 +110,7 @@ export function BroadcastForm() {
               <SelectContent>
                 <SelectItem value="all">Hamı</SelectItem>
                 <SelectItem value="vip">VIP istifadəçilər</SelectItem>
-                <SelectItem value="verified">Verified istifadəçilər</SelectItem>
+                <SelectItem value="verified">Kimlik təsdiqli istifadəçilər</SelectItem>
               </SelectContent>
             </Select>
           </div>

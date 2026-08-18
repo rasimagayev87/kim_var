@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { setUserBanned, setUserPremium, setUserVerified } from "@/lib/actions/users";
+import { setUserBanned, setUserIdentityVerified, setUserPremium } from "@/lib/actions/users";
 import type { AdminUserRow } from "@/lib/data/users";
 
 export function UserDetailActions({ user }: { user: AdminUserRow }) {
@@ -27,17 +27,17 @@ export function UserDetailActions({ user }: { user: AdminUserRow }) {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <Label htmlFor="verified-switch" className="flex flex-col items-start gap-0.5">
-          <span>Verified</span>
-          <span className="text-xs font-normal text-muted-foreground">Telefon təsdiqi statusu</span>
+          <span>Kimlik nişanı</span>
+          <span className="text-xs font-normal text-muted-foreground">Profildə mavi tik göstərir</span>
         </Label>
         <Switch
           id="verified-switch"
-          checked={user.isVerified}
+          checked={user.identityVerified}
           disabled={pending}
           onCheckedChange={(checked) =>
             run(
-              () => setUserVerified(user.uid, checked),
-              checked ? "İstifadəçi verified edildi." : "Verified status ləğv edildi.",
+              () => setUserIdentityVerified(user.uid, checked),
+              checked ? "İstifadəçiyə kimlik nişanı verildi." : "Kimlik nişanı ləğv edildi.",
             )
           }
         />

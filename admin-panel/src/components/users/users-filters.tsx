@@ -49,12 +49,12 @@ export function UsersFilters({
       />
       <Select defaultValue={initialVerified} onValueChange={(value) => updateParam("verified", value)}>
         <SelectTrigger className="sm:w-44">
-          <SelectValue placeholder="Verified statusu" />
+          <SelectValue placeholder="Kimlik nişanı" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">Hamısı</SelectItem>
-          <SelectItem value="verified">Verified</SelectItem>
-          <SelectItem value="unverified">Unverified</SelectItem>
+          <SelectItem value="verified">Kimlik təsdiqli</SelectItem>
+          <SelectItem value="unverified">Nişansız</SelectItem>
         </SelectContent>
       </Select>
       <Select defaultValue={initialVip} onValueChange={(value) => updateParam("vip", value)}>

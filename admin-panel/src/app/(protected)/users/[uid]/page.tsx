@@ -50,9 +50,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ uid
                 {user.username ? `@${user.username}` : "username yoxdur"}
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                <Badge variant={user.isVerified ? "default" : "outline"}>
-                  {user.isVerified ? "Verified" : "Unverified"}
-                </Badge>
+                {user.identityVerified && <Badge variant="default">Kimlik təsdiqli</Badge>}
                 {user.premium && <Badge variant="secondary">VIP</Badge>}
                 {user.banned && <Badge variant="destructive">Ban edilib</Badge>}
               </div>

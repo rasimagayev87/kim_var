@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { setUserBanned, setUserPremium, setUserVerified } from "@/lib/actions/users";
+import { setUserBanned, setUserIdentityVerified, setUserPremium } from "@/lib/actions/users";
 import type { AdminUserRow } from "@/lib/data/users";
 
 export function UserRowActions({ user }: { user: AdminUserRow }) {
@@ -45,12 +45,12 @@ export function UserRowActions({ user }: { user: AdminUserRow }) {
         <DropdownMenuItem
           onClick={() =>
             run(
-              () => setUserVerified(user.uid, !user.isVerified),
-              user.isVerified ? "Verified status ləğv edildi." : "İstifadəçi verified edildi.",
+              () => setUserIdentityVerified(user.uid, !user.identityVerified),
+              user.identityVerified ? "Kimlik nişanı ləğv edildi." : "İstifadəçiyə kimlik nişanı verildi.",
             )
           }
         >
-          {user.isVerified ? "Verified-i ləğv et" : "Verified et"}
+          {user.identityVerified ? "Kimlik nişanını ləğv et" : "Kimlik nişanı ver"}
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() =>

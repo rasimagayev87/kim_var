@@ -33,7 +33,7 @@ export async function countBroadcastAudience(segment: BroadcastSegment): Promise
   const db = getAdminDb();
   let query: FirebaseFirestore.Query = db.collection("users");
   if (segment === "vip") query = query.where("premium", "==", true);
-  if (segment === "verified") query = query.where("isVerified", "==", true);
+  if (segment === "verified") query = query.where("identityVerified", "==", true);
 
   const snap = await query.count().get();
   return snap.data().count;
@@ -73,7 +73,7 @@ export async function sendBroadcast({
     const db = getAdminDb();
     let query: FirebaseFirestore.Query = db.collection("users");
     if (segment === "vip") query = query.where("premium", "==", true);
-    if (segment === "verified") query = query.where("isVerified", "==", true);
+    if (segment === "verified") query = query.where("identityVerified", "==", true);
 
     const snap = await query.select().get();
     if (snap.empty) {

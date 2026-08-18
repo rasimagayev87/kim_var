@@ -10,7 +10,12 @@ export interface AdminUserRow {
   photoUrl: string | null;
   phoneNumber: string | null;
   createdAt: string | null;
-  isVerified: boolean;
+  /** The profile checkmark badge, admin-granted only — see
+   * firestore.rules' `users/{userId}` doc comment. Not driven by any
+   * automatic process (the old phone-OTP `isVerified` step this field
+   * replaced is gone); an admin manually awards it to notable/trusted
+   * accounts, same idea as a platform "blue check". */
+  identityVerified: boolean;
   premium: boolean;
   /** Firebase Auth's `disabled` flag — NOT a Firestore field. Ban et/
    * Aç works by disabling the Auth account (kills sign-in / invalidates
@@ -58,7 +63,7 @@ export async function listUsers({
 
   if (verifiedFilter !== "all") {
     const wantVerified = verifiedFilter === "verified";
-    rows = rows.filter((row) => row.isVerified === wantVerified);
+    rows = rows.filter((row) => row.identityVerified === wantVerified);
   }
   if (vipFilter !== "all") {
     const wantVip = vipFilter === "vip";
@@ -96,7 +101,7 @@ function docToRow(doc: FirebaseFirestore.QueryDocumentSnapshot): Omit<AdminUserR
     photoUrl: (data.photoUrl as string) ?? null,
     phoneNumber: (data.phoneNumber as string) ?? null,
     createdAt: createdAt ? createdAt.toDate().toISOString() : null,
-    isVerified: (data.isVerified as boolean) ?? false,
+    identityVerified: (data.identityVerified as boolean) ?? false,
     premium: (data.premium as boolean) ?? false,
   };
 }

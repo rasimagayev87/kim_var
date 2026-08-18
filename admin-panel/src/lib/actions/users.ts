@@ -29,16 +29,17 @@ async function requireUserManagement(): Promise<{ admin: AdminSession } | { deni
   return { admin };
 }
 
-export async function setUserVerified(uid: string, verified: boolean): Promise<ActionResult> {
+export async function setUserIdentityVerified(uid: string, verified: boolean): Promise<ActionResult> {
   const check = await requireUserManagement();
   if ("denied" in check) return check.denied;
 
   try {
     // Admin SDK — bypasses firestore.rules entirely, which is exactly
     // the intended path: rules block the CLIENT from ever setting
-    // `isVerified` itself (see firestore.rules' users/{userId} block),
-    // specifically so only a trusted server actor like this one can.
-    await getAdminDb().collection("users").doc(uid).update({ isVerified: verified });
+    // `identityVerified` itself (see firestore.rules' users/{userId}
+    // doc comment), specifically so only a trusted server actor like
+    // this one can.
+    await getAdminDb().collection("users").doc(uid).update({ identityVerified: verified });
     await logModerationAction({
       actor: check.admin,
       action: verified ? "user.verified" : "user.unverified",
