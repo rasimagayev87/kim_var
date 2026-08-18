@@ -618,6 +618,32 @@ export const onFollowUpdated = onDocumentUpdated("follows/{followId}", async (ev
   });
 });
 
+/**
+ * Fires on `premium` false -> true, whichever path caused it — today
+ * that's only the admin panel's manual "VIP et" grant (Server Action,
+ * Admin SDK write), since real purchases aren't wired to anything yet
+ * (see `isPremiumProvider`'s doc comment in premium_providers.dart).
+ * Watching the field itself instead of notifying from the admin
+ * action means a future RevenueCat webhook flipping the same field
+ * gets this notification for free, with no second call site to keep
+ * in sync.
+ */
+export const onUserUpdated = onDocumentUpdated("users/{userId}", async (event) => {
+  const before = event.data?.before.data();
+  const after = event.data?.after.data();
+  if (!before || !after) return;
+  if (before.premium === true || after.premium !== true) return;
+
+  await notifyUser({
+    uid: event.params.userId,
+    category: "venueUpdates",
+    type: "vipGranted",
+    title: "VIP statusu aktivləşdi",
+    body: "Artıq VIP istifadəçisiniz! Əlavə imtiyazlardan yararlanın.",
+    params: {},
+  });
+});
+
 export const onPostLikeCreated = onDocumentCreated("posts/{postId}/likes/{uid}", async (event) => {
   await bumpPostCounter(event.params.postId, "likesCount", 1);
 

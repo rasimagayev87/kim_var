@@ -944,6 +944,8 @@
   "notifVenueEventTitle": "🎤 {venueName}-də bu axşam",
   "notifVenueEventTitleGeneric": "🎤 Yaxınlığınızda tədbir",
   "notifVenueOfferTitleGeneric": "Yaxınlığınızda yeni təklif",
+  "notifVipGrantedTitle": "VIP statusu aktivləşdi",
+  "notifVipGrantedBody": "Artıq VIP istifadəçisiniz! Əlavə imtiyazlardan yararlanın.",
   "notifWaitlistCalledTitle": "Sıra sizindir!",
   "notifWaitlistCalledBody": "{venueName} — 5 dəqiqəyə gəlin, yeriniz gözlənilir.",
   "notifWaitlistCalledBodyGeneric": "Sıra sizindir! 5 dəqiqəyə gəlin.",

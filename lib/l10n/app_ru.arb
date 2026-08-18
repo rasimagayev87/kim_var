@@ -944,6 +944,8 @@
   "notifVenueEventTitle": "🎤 Сегодня вечером в {venueName}",
   "notifVenueEventTitleGeneric": "🎤 Мероприятие рядом с вами",
   "notifVenueOfferTitleGeneric": "Новое предложение рядом",
+  "notifVipGrantedTitle": "VIP-статус активирован",
+  "notifVipGrantedBody": "Вы теперь VIP-пользователь! Пользуйтесь дополнительными привилегиями.",
   "notifWaitlistCalledTitle": "Ваша очередь!",
   "notifWaitlistCalledBody": "{venueName} — приходите через 5 минут, ваше место ждёт.",
   "notifWaitlistCalledBodyGeneric": "Ваша очередь! Приходите через 5 минут.",

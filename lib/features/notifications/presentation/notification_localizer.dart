@@ -197,6 +197,9 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: str('offerTitle'),
       );
 
+    case NotificationType.vipGranted:
+      return LocalizedNotificationText(title: loc.notifVipGrantedTitle, body: loc.notifVipGrantedBody);
+
     // Every other type either has no server producer at all (mention,
     // system, security, promotion, warning, announcement) or is the
     // forward-compat fallback (other/follow) — none of these carry a

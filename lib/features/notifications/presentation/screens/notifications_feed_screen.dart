@@ -227,6 +227,7 @@ const Map<NotificationType, IconData> _notificationIcons = {
   NotificationType.waitlistCalled: Icons.notifications_active_rounded,
   NotificationType.waitlistDisabled: Icons.notifications_off_rounded,
   NotificationType.venueEvent: Icons.celebration_rounded,
+  NotificationType.vipGranted: Icons.workspace_premium_rounded,
   NotificationType.venueApproved: Icons.check_circle_rounded,
   NotificationType.offerApproved: Icons.check_circle_rounded,
   NotificationType.venueNeedsRevision: Icons.edit_note_rounded,

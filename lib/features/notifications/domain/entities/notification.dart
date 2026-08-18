@@ -84,6 +84,11 @@ enum NotificationType {
   /// `notifyNearbyUsersOfNewEvent` (Cloud Function). `targetType:
   /// 'event'`, deep-links to `EventDetailsScreen(eventId: ...)`.
   venueEvent,
+
+  /// `users/{uid}.premium` just flipped false -> true — see
+  /// `onUserUpdated` (Cloud Function). No `targetId`/`targetType`;
+  /// nothing to deep-link to.
+  vipGranted,
   system,
   security,
   promotion,
