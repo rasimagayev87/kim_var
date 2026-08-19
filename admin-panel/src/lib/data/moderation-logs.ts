@@ -11,6 +11,7 @@ export type ModerationAction =
   | "venue.premiumGranted"
   | "venue.premiumRevoked"
   | "payment.refunded"
+  | "pinboxPayout.paid"
   | "offer.approved"
   | "offer.needsRevision"
   | "offer.rejected"
@@ -46,6 +47,7 @@ export type ModerationTargetType =
   | "broadcast"
   | "admin"
   | "payment"
+  | "venuePayout"
   | "identityVerification";
 
 export interface ModerationLogRow {

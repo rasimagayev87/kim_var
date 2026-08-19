@@ -174,7 +174,7 @@
   "discoverTitle": "Keşfet",
   "viewSwitcherPeopleLabel": "İnsanlar",
   "viewSwitcherPlacesLabel": "Mekanlar",
-  "viewSwitcherOffersLabel": "Teklifler",
+  "viewSwitcherOffersLabel": "Fırsatlar",
   "genderFilterAll": "Herkes",
   "genderFilterMale": "Erkek",
   "genderFilterFemale": "Kadın",
@@ -379,6 +379,30 @@
   "eventDateTimePlaceholder": "Seçin",
   "eventPublishButton": "Yayınla",
   "eventMyEventsTitle": "Etkinlikler",
+  "eventMyEventsTooltip": "Etkinliklerim",
+  "eventVenuePickerLabel": "Mekan seçin",
+  "pinboxMyBoxesTooltip": "Kutularım",
+  "pinboxMyBoxesTitle": "Kutularım",
+  "pinboxTabPurchased": "Aldıklarım",
+  "pinboxTabCreated": "Oluşturduklarım",
+  "pinboxMyOrdersEmptyMessage": "Henüz hiç kutu almadınız.",
+  "pinboxMyListingsEmptyMessage": "Henüz hiç kutu oluşturmadınız.",
+  "pinboxListingStatusPending": "İnceleniyor",
+  "pinboxListingStatusActive": "Aktif",
+  "pinboxListingStatusSoldOut": "Tükendi",
+  "pinboxListingStatusExpired": "Süresi doldu",
+  "pinboxListingStatusRejected": "Reddedildi",
+  "pinboxSoldCountLabel": "{sold}/{total} satıldı",
+  "@pinboxSoldCountLabel": {
+    "placeholders": {
+      "sold": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "eventTabUpcoming": "Yaklaşan",
   "eventTabLive": "Canlı",
   "eventTabEnded": "Bitmiş",
@@ -392,6 +416,7 @@
   "eventFilterAll": "Hepsi",
   "eventFilterOffers": "Kampanya",
   "eventFilterEvents": "Etkinlik",
+  "eventFilterPinbox": "PinBox",
   "eventDetailsSectionTitle": "Etkinlikler",
   "eventReportButton": "Şikayet et",
   "eventReportSheetTitle": "Neden şikayet ediyorsunuz?",
@@ -459,7 +484,7 @@
   "venueFilterTooltip": "Filtre",
   "venueCategoryFilterTitle": "Kategori seç",
   "venueCategoryAllOption": "Hepsi",
-  "offersSearchHint": "Teklif ara...",
+  "offersSearchHint": "Fırsat ara...",
   "offerFilterTooltip": "Filtre",
   "offersEmptyTitle": "Henüz teklif yok",
   "offersEmptySubtitle": "Yakındaki mekanlardan teklifler burada görünecek.",
@@ -553,6 +578,93 @@
   "offerMyOffersEmptyTitle": "Henüz hiç teklif eklemediniz",
   "offerMyOffersEmptySubtitle": "Eklediğiniz teklifler burada görünecek ve istediğiniz zaman düzenleyebilir veya silebilirsiniz.",
   "offerMyOffersTooltip": "Tekliflerim",
+  "createOfferMenuOption": "Kampanya oluştur",
+  "createEventMenuOption": "Etkinlik oluştur",
+  "createPinboxMenuOption": "Kutu oluştur",
+  "pinboxPhotoLabel": "PinBox fotoğrafı ekle",
+  "pinboxNameLabel": "PinBox adı",
+  "pinboxNameHint": "Kutunun adını yazın",
+  "pinboxDescriptionLabel": "Kutu hakkında kısa bilgi",
+  "pinboxDescriptionHint": "Kutunun içindekileri tanımlayın...",
+  "pinboxOriginalPriceLabel": "Menü değeri",
+  "pinboxPriceLabel": "PinBox fiyatı",
+  "pinboxStockLabel": "Mevcut sayı (Stok)",
+  "pinboxStockHint": "Kaç adet?",
+  "pinboxPickupWindowLabel": "Teslim saat aralığı",
+  "pinboxPickupStartLabel": "Başlangıç",
+  "pinboxPickupEndLabel": "Bitiş",
+  "pinboxPublishButton": "Yayınla",
+  "pinboxCreatedNotice": "Kutu yayınlandı, admin onayı bekleniyor",
+  "pinboxNonRefundableNotice": "Dikkat: ödeme yapıldıktan sonra sipariş iptal edilemez veya iade edilemez.",
+  "pinboxSoldOutLabel": "Tükendi",
+  "pinboxCheckoutTitle": "Siparişi Onayla",
+  "pinboxDeliveryTermsLabel": "TESLİM ALMA ŞARTLARI",
+  "pinboxPickupOnlyNotice": "Yalnızca belirtilen saat aralığında teslim edilir",
+  "pinboxPickupModelLabel": "Model: Gel Al (Pick-up)",
+  "pinboxPaymentMethodLabel": "ÖDEME YÖNTEMİ",
+  "pinboxPaymentMethodOption": "Apple Pay / Kart ile",
+  "pinboxPaymentDetailsLabel": "ÖDEME DETAYLARI",
+  "pinboxServiceFeeLabel": "Teslimat / Hizmet ücreti",
+  "pinboxServiceFeeFree": "0.00 AZN (Ücretsiz)",
+  "pinboxTotalToPayLabel": "Toplam Ödenecek:",
+  "pinboxPayButtonLabel": "Öde ve Kutuyu Ayırt",
+  "pinboxOrderCreatedNotice": "Sipariş oluşturuldu!",
+  "pinboxSoldOutErrorMessage": "Üzgünüz, bu kutu az önce tükendi.",
+  "pinboxCheckoutErrorMessage": "Sipariş oluşturulamadı. Lütfen birazdan tekrar deneyin.",
+  "pinboxTicketTitle": "Sipariş Detayları",
+  "pinboxTicketNotFoundMessage": "Sipariş bulunamadı.",
+  "pinboxTicketItemLabel": "{title} ({quantity}x)",
+  "@pinboxTicketItemLabel": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "quantity": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxTicketQrUnavailableMessage": "QR kod mevcut değil",
+  "pinboxTicketQrRefreshCountdown": "{seconds} saniye sonra yenilenecek",
+  "@pinboxTicketQrRefreshCountdown": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxTicketShowToCashierHint": "Kasiyere yaklaştığınızda QR kodu gösterin",
+  "pinboxTicketAmountPaidLabel": "Ödenen tutar",
+  "pinboxTicketSavingsLabel": "Tasarrufunuz",
+  "pinboxTicketOpenRouteButton": "Yol Tarifi Al",
+  "pinboxOrderStatusReserved": "Teslim için hazır",
+  "pinboxOrderStatusCompleted": "Teslim edildi",
+  "pinboxOrderStatusExpired": "Süresi doldu",
+  "pinboxRedeemMenuLabel": "Kutu teslim et",
+  "pinboxRedeemTitle": "PinBox Teslimi",
+  "pinboxRedeemSubtitle": "Müşterinin bilet ekranındaki 6 haneli kodu girin.",
+  "pinboxRedeemCodeHint": "000000",
+  "pinboxRedeemButtonLabel": "Teslim et",
+  "pinboxRedeemInvalidCodeMessage": "Kod geçersiz veya süresi dolmuş.",
+  "pinboxRedeemSuccessMessage": "{title} ({quantity}x) başarıyla teslim edildi.",
+  "@pinboxRedeemSuccessMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "quantity": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxStockLeftLabel": "{count} adet kaldı",
+  "@pinboxStockLeftLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "offerAddButtonTooltip": "Teklif oluştur",
   "venueCategoryUnselectedLabel": "Seçin",
   "venueCategoryRestaurant": "Restoran",

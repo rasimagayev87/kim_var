@@ -1,0 +1,235 @@
+import 'dart:io';
+
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
+
+import '../../../../core/utils/app_logger.dart';
+import '../../../location/presentation/providers/location_providers.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
+import '../../../venues/domain/entities/venue.dart' show VenueCategory;
+import '../../data/datasources/firebase_pinbox_remote_datasource.dart';
+import '../../data/datasources/pinbox_remote_datasource.dart';
+import '../../data/repositories/firebase_pinbox_repository.dart';
+import '../../domain/entities/pinbox.dart';
+import '../../domain/entities/pinbox_order.dart';
+import '../../domain/pinbox_failure.dart';
+import '../../domain/repositories/pinbox_repository.dart';
+import '../../domain/usecases/create_pinbox_usecase.dart';
+
+export '../../domain/repositories/pinbox_repository.dart' show PinBoxWithDistance;
+
+final pinboxRemoteDatasourceProvider = Provider<PinBoxRemoteDatasource>((ref) => FirebasePinBoxRemoteDatasource());
+
+final pinboxRepositoryProvider = Provider<PinBoxRepository>((ref) {
+  return FirebasePinBoxRepository(datasource: ref.watch(pinboxRemoteDatasourceProvider));
+});
+
+final createPinBoxUseCaseProvider = Provider<CreatePinBoxUseCase>((ref) {
+  return CreatePinBoxUseCase(ref.watch(pinboxRepositoryProvider));
+});
+
+String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
+
+final pinboxByIdProvider = StreamProvider.family<PinBox?, String>((ref, pinboxId) {
+  return ref.watch(pinboxRepositoryProvider).watchPinBox(pinboxId);
+});
+
+/// Backs PinBox Faza 8's ticket screen — live status, `qrToken`/
+/// `qrTokenExpiresAt` as last written by `generatePinBoxQrToken`.
+final pinboxOrderByIdProvider = StreamProvider.autoDispose.family<PinBoxOrder?, String>((ref, orderId) {
+  return ref.watch(pinboxRepositoryProvider).watchPinBoxOrder(orderId);
+});
+
+/// Every PinBox the signed-in user has published — mirrors `myOffersProvider`.
+/// Backs Qutularım's "Yaratdıqlarım" (PinBox Faza 11).
+final myPinBoxesProvider = StreamProvider.autoDispose<List<PinBox>>((ref) {
+  final uid = _currentUid();
+  if (uid == null) return Stream.value(const []);
+  return ref.watch(pinboxRepositoryProvider).watchMyPinBoxes(uid);
+});
+
+/// Every order the signed-in user has bought — backs Qutularım's
+/// "Aldıqlarım" (PinBox Faza 11).
+final myPinBoxOrdersProvider = StreamProvider.autoDispose<List<PinBoxOrder>>((ref) {
+  final uid = _currentUid();
+  if (uid == null) return Stream.value(const []);
+  return ref.watch(pinboxRepositoryProvider).watchMyOrders(uid);
+});
+
+/// Drives PinBox creation — same "log internally, callback the UI a
+/// typed outcome" contract as `OfferController`.
+class PinBoxController {
+  PinBoxController(this._ref);
+
+  final Ref _ref;
+
+  Future<String?> createPinBox({
+    required String venueId,
+    required String venueName,
+    String? venuePhotoUrl,
+    required double lat,
+    required double lng,
+    required String address,
+    String? country,
+    required VenueCategory category,
+    required String title,
+    required String description,
+    required File? photo,
+    required double? originalPrice,
+    required double? pinboxPrice,
+    required int? stockTotal,
+    required DateTime? pickupWindowStart,
+    required DateTime? pickupWindowEnd,
+    required void Function(List<PinBoxFieldError> missing) onValidationError,
+    required void Function() onError,
+    ValueChanged<double>? onUploadProgress,
+    ValueChanged<VoidCallback>? onUploadTaskReady,
+  }) async {
+    final uid = _currentUid();
+    if (uid == null) return null;
+
+    try {
+      final pinboxId = await _ref.read(createPinBoxUseCaseProvider).call(
+            ownerId: uid,
+            venueId: venueId,
+            venueName: venueName,
+            venuePhotoUrl: venuePhotoUrl,
+            lat: lat,
+            lng: lng,
+            address: address,
+            country: country,
+            category: category,
+            title: title,
+            description: description,
+            photo: photo,
+            originalPrice: originalPrice,
+            pinboxPrice: pinboxPrice,
+            stockTotal: stockTotal,
+            pickupWindowStart: pickupWindowStart,
+            pickupWindowEnd: pickupWindowEnd,
+            onUploadProgress: onUploadProgress,
+            onUploadTaskReady: onUploadTaskReady,
+          );
+      return pinboxId;
+    } on PinBoxValidationException catch (e) {
+      onValidationError(e.missingFields);
+      return null;
+    } catch (e, st) {
+      logError('pinbox_providers.createPinBox', e, st);
+      onError();
+      return null;
+    }
+  }
+}
+
+final pinboxControllerProvider = Provider<PinBoxController>((ref) => PinBoxController(ref));
+
+/// [PinBoxReserveOutcome.soldOut] is the one failure the UI needs to
+/// tell apart from a generic error — the box sold out to someone else
+/// between the buyer opening Checkout and pressing "Ödə" (the Cloud
+/// Function's own transaction is the actual race-condition guard; this
+/// is just surfacing its `failed-precondition` distinctly).
+enum PinBoxReserveOutcome { success, soldOut, error }
+
+typedef PinBoxReserveResult = ({PinBoxReserveOutcome outcome, String? orderId});
+
+/// Drives PinBox Faza 7 checkout — a thin wrapper over the
+/// `reservePinBoxOrder` Cloud Function (see that function's own doc
+/// comment for why order creation/stock decrement never happens as a
+/// raw client write).
+class PinBoxCheckoutController {
+  PinBoxCheckoutController(this._ref);
+
+  final Ref _ref;
+
+  Future<PinBoxReserveResult> reserveOrder(String pinboxId) async {
+    final uid = _currentUid();
+    if (uid == null) return (outcome: PinBoxReserveOutcome.error, orderId: null);
+
+    try {
+      final orderId = await _ref.read(pinboxRepositoryProvider).reservePinBoxOrder(pinboxId: pinboxId);
+      return (outcome: PinBoxReserveOutcome.success, orderId: orderId);
+    } on FirebaseFunctionsException catch (e, st) {
+      if (e.code == 'failed-precondition') return (outcome: PinBoxReserveOutcome.soldOut, orderId: null);
+      logError('pinbox_providers.reserveOrder', e, st);
+      return (outcome: PinBoxReserveOutcome.error, orderId: null);
+    } catch (e, st) {
+      logError('pinbox_providers.reserveOrder', e, st);
+      return (outcome: PinBoxReserveOutcome.error, orderId: null);
+    }
+  }
+}
+
+final pinboxCheckoutControllerProvider = Provider<PinBoxCheckoutController>((ref) => PinBoxCheckoutController(ref));
+
+/// [PinBoxRedeemOutcome.invalidCode] covers both "wrong code" and
+/// "right code, too late" — `redeemPinBoxOrder`'s own doc comment
+/// explains why those two are deliberately indistinguishable from the
+/// error alone.
+enum PinBoxRedeemOutcome { success, invalidCode, error }
+
+typedef PinBoxRedeemResult = ({PinBoxRedeemOutcome outcome, String? pinboxTitle, int? quantity});
+
+/// Drives PinBox Faza 9's venue-side redemption screen — a thin wrapper
+/// over the `redeemPinBoxOrder` Cloud Function.
+class PinBoxRedeemController {
+  PinBoxRedeemController(this._ref);
+
+  final Ref _ref;
+
+  Future<PinBoxRedeemResult> redeem({required String venueId, required String code}) async {
+    try {
+      final result = await _ref.read(pinboxRepositoryProvider).redeemPinBoxOrder(venueId: venueId, code: code);
+      return (outcome: PinBoxRedeemOutcome.success, pinboxTitle: result.pinboxTitle, quantity: result.quantity);
+    } on FirebaseFunctionsException catch (e, st) {
+      if (e.code == 'not-found') return (outcome: PinBoxRedeemOutcome.invalidCode, pinboxTitle: null, quantity: null);
+      logError('pinbox_providers.redeem', e, st);
+      return (outcome: PinBoxRedeemOutcome.error, pinboxTitle: null, quantity: null);
+    } catch (e, st) {
+      logError('pinbox_providers.redeem', e, st);
+      return (outcome: PinBoxRedeemOutcome.error, pinboxTitle: null, quantity: null);
+    }
+  }
+}
+
+final pinboxRedeemControllerProvider = Provider<PinBoxRedeemController>((ref) => PinBoxRedeemController(ref));
+
+List<PinBoxWithDistance> _withDistanceFrom(List<PinBox> pinboxes, Position position) {
+  return pinboxes
+      .map(
+        (pinbox) => (
+          pinbox: pinbox,
+          distanceMeters: Geolocator.distanceBetween(position.latitude, position.longitude, pinbox.lat, pinbox.lng),
+        ),
+      )
+      .toList();
+}
+
+/// Backs Kəşf et → Fürsətlər's PinBox chip — reuses the EXACT same
+/// radius system as İnsanlar/Məkanlar/Təkliflər
+/// ([selectedDiscoverModeProvider]), per the explicit product decision
+/// that PinBox does NOT get its own radius model. One-shot fetch, not a
+/// live stream, same reasoning as `nearbyOffersProvider`.
+final nearbyPinBoxesProvider = FutureProvider.autoDispose<List<PinBoxWithDistance>>((ref) async {
+  final position = ref.watch(locationControllerProvider).valueOrNull;
+  final selection = ref.watch(selectedDiscoverModeProvider);
+  final repository = ref.watch(pinboxRepositoryProvider);
+
+  if (position == null) return const [];
+
+  switch (selection.mode) {
+    case DiscoverRadiusMode.distance:
+      return repository.fetchPinBoxesWithinRadius(lat: position.latitude, lng: position.longitude, radiusKm: selection.km!);
+    case DiscoverRadiusMode.country:
+      final myCountry = ref.watch(profileControllerProvider.select((p) => p.country));
+      if (myCountry == null) return const [];
+      final pinboxes = await repository.fetchPinBoxesByCountry(myCountry);
+      return _withDistanceFrom(pinboxes, position);
+    case DiscoverRadiusMode.world:
+      final pinboxes = await repository.fetchAllActivePinBoxes();
+      return _withDistanceFrom(pinboxes, position);
+  }
+});

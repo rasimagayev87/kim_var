@@ -10,6 +10,8 @@ import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../events/domain/repositories/venue_event_repository.dart';
 import '../../../events/presentation/providers/venue_event_providers.dart';
 import '../../../events/presentation/widgets/venue_event_card.dart';
+import '../../../pinbox/presentation/providers/pinbox_providers.dart';
+import '../../../pinbox/presentation/screens/pinbox_checkout_screen.dart';
 import '../../../settings/map_location/presentation/providers/map_location_providers.dart';
 import '../../../venues/domain/entities/venue.dart';
 import '../../../venues/presentation/screens/create_venue_screen.dart' show venueCategoryLabel;
@@ -18,32 +20,42 @@ import '../providers/offer_providers.dart';
 import '../screens/offer_details_screen.dart';
 import 'offer_filter_sheet.dart';
 
-/// Hamısı/Kompaniya/Tədbir filter chips at the top of Kəşf et →
-/// Təkliflər — "Kompaniya" covers every `Offer` (discount/gift/1+1/
+/// Hamısı/Kompaniya/Tədbir/PinBox filter chips at the top of Kəşf et →
+/// Fürsətlər — "Kompaniya" covers every `Offer` (discount/gift/1+1/
 /// fixed-price/happy-hour/first-visit/birthday all fall under it, per
 /// the product decision that "Endirim" alone undersold what the tab
-/// actually contains), "Tədbir" is `VenueEvent`.
-enum ListingFilter { all, offers, events }
+/// actually contains), "Tədbir" is `VenueEvent`, "PinBox" is `PinBox`
+/// (surprise-box discount sales).
+enum ListingFilter { all, offers, events, pinbox }
 
 final listingFilterProvider = StateProvider.autoDispose<ListingFilter>((ref) => ListingFilter.all);
 
-/// One row in the merged Hamısı list — either an offer or an event,
-/// never both; [distanceMeters] is what the merged list sorts by (the
-/// same proximity-first ordering every other Discover list already
-/// uses, extended here to cover both listing types at once).
+/// One row in the merged Hamısı list — an offer, an event, or a
+/// PinBox, never more than one; [distanceMeters] is what the merged
+/// list sorts by (the same proximity-first ordering every other
+/// Discover list already uses, extended here to cover all 3 listing
+/// types at once).
 class _ListingItem {
   final OfferWithDistance? offerItem;
   final VenueEventWithDistance? eventItem;
+  final PinBoxWithDistance? pinboxItem;
 
   _ListingItem.offer(OfferWithDistance item)
       : offerItem = item,
-        eventItem = null;
+        eventItem = null,
+        pinboxItem = null;
 
   _ListingItem.event(VenueEventWithDistance item)
       : offerItem = null,
-        eventItem = item;
+        eventItem = item,
+        pinboxItem = null;
 
-  double get distanceMeters => offerItem?.distanceMeters ?? eventItem!.distanceMeters;
+  _ListingItem.pinbox(PinBoxWithDistance item)
+      : offerItem = null,
+        eventItem = null,
+        pinboxItem = item;
+
+  double get distanceMeters => offerItem?.distanceMeters ?? eventItem?.distanceMeters ?? pinboxItem!.distanceMeters;
 }
 
 /// Collapses the Azerbaijani/Turkish İ/I/ı family down to plain ASCII
@@ -136,17 +148,27 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
     }).toList();
   }
 
+  List<PinBoxWithDistance> _visiblePinBoxes(List<PinBoxWithDistance> all) {
+    if (_query.isEmpty) return all;
+    final q = _azSearchKey(_query);
+    return all.where((item) {
+      final pinbox = item.pinbox;
+      return _azSearchKey(pinbox.title).contains(q) || _azSearchKey(pinbox.venueName).contains(q);
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final offersAsync = ref.watch(nearbyOffersProvider);
     final eventsAsync = ref.watch(nearbyEventsProvider);
+    final pinboxesAsync = ref.watch(nearbyPinBoxesProvider);
     final distanceUnit = ref.watch(mapLocationSettingsProvider).valueOrNull?.distanceUnit ?? DistanceUnit.km;
     final selectedCategory = ref.watch(selectedOfferCategoryFilterProvider);
     final listingFilter = ref.watch(listingFilterProvider);
 
     Widget body;
-    if (offersAsync.isLoading || eventsAsync.isLoading) {
+    if (offersAsync.isLoading || eventsAsync.isLoading || pinboxesAsync.isLoading) {
       body = const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary));
     } else if (offersAsync.hasError) {
       body = _OfferStatusMessage(
@@ -164,13 +186,26 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
         actionLabel: loc.actionRetry,
         onAction: () => ref.invalidate(nearbyEventsProvider),
       );
+    } else if (pinboxesAsync.hasError) {
+      body = _OfferStatusMessage(
+        icon: Icons.error_outline,
+        title: loc.errorTitle,
+        subtitle: '${pinboxesAsync.error}',
+        actionLabel: loc.actionRetry,
+        onAction: () => ref.invalidate(nearbyPinBoxesProvider),
+      );
     } else {
       final offers = _visibleOffers(offersAsync.valueOrNull ?? const []);
       final events = _visibleEvents(eventsAsync.valueOrNull ?? const []);
+      final pinboxes = _visiblePinBoxes(pinboxesAsync.valueOrNull ?? const []);
 
       final items = <_ListingItem>[
-        if (listingFilter != ListingFilter.events) ...offers.map(_ListingItem.offer),
-        if (listingFilter != ListingFilter.offers) ...events.map(_ListingItem.event),
+        if (listingFilter == ListingFilter.all || listingFilter == ListingFilter.offers)
+          ...offers.map(_ListingItem.offer),
+        if (listingFilter == ListingFilter.all || listingFilter == ListingFilter.events)
+          ...events.map(_ListingItem.event),
+        if (listingFilter == ListingFilter.all || listingFilter == ListingFilter.pinbox)
+          ...pinboxes.map(_ListingItem.pinbox),
       ]..sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
 
       if (items.isEmpty) {
@@ -189,9 +224,9 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final item = items[index];
-            return item.offerItem != null
-                ? _OfferCard(item: item.offerItem!, loc: loc, distanceUnit: distanceUnit)
-                : VenueEventCard(item: item.eventItem!, distanceUnit: distanceUnit);
+            if (item.offerItem != null) return _OfferCard(item: item.offerItem!, loc: loc, distanceUnit: distanceUnit);
+            if (item.eventItem != null) return VenueEventCard(item: item.eventItem!, distanceUnit: distanceUnit);
+            return _PinBoxCard(item: item.pinboxItem!, loc: loc, distanceUnit: distanceUnit);
           },
         );
       }
@@ -243,6 +278,7 @@ class _ListingFilterChips extends StatelessWidget {
       (ListingFilter.all, loc.eventFilterAll),
       (ListingFilter.offers, loc.eventFilterOffers),
       (ListingFilter.events, loc.eventFilterEvents),
+      (ListingFilter.pinbox, loc.eventFilterPinbox),
     ];
 
     return SizedBox(
@@ -575,6 +611,141 @@ class _OfferStatusMessage extends StatelessWidget {
               TextButton(onPressed: onAction, child: Text(actionLabel!)),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Same card shape as `_OfferCard`/`VenueEventCard` — deliberately
+/// mirrored, not shared (see `VenueEventCard`'s own doc comment on why).
+/// Tapping opens `PinBoxCheckoutScreen` (PinBox Faza 7) — no separate
+/// "details" screen, that same screen doubles as both per the product
+/// mockups.
+class _PinBoxCard extends StatelessWidget {
+  final PinBoxWithDistance item;
+  final AppLocalizations loc;
+  final DistanceUnit distanceUnit;
+
+  const _PinBoxCard({required this.item, required this.loc, required this.distanceUnit});
+
+  @override
+  Widget build(BuildContext context) {
+    final pinbox = item.pinbox;
+    final soldOut = pinbox.isSoldOut;
+    final pickupFormat = DateFormat('HH:mm');
+
+    return Opacity(
+      opacity: soldOut ? 0.55 : 1,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(22),
+        elevation: 0,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(22),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => PinBoxCheckoutScreen(pinbox: pinbox)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: SizedBox(
+                    width: 52,
+                    height: 52,
+                    child: pinbox.imageUrl != null
+                        ? Image.network(pinbox.imageUrl!, fit: BoxFit.cover)
+                        : Container(
+                            color: ChatLightColors.cardSurface,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.inventory_2_outlined, color: ChatLightColors.inkSoft, size: 24),
+                          ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        pinbox.venueName,
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.primary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        pinbox.title,
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on_outlined, size: 12.5, color: ChatLightColors.inkFaint),
+                          const SizedBox(width: 3),
+                          Expanded(
+                            child: Text(
+                              formatDistance(loc, item.distanceMeters, distanceUnit),
+                              style: const TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.schedule_outlined, size: 12.5, color: ChatLightColors.inkFaint),
+                          const SizedBox(width: 3),
+                          Text(
+                            '${pickupFormat.format(pinbox.pickupWindowStart)}-${pickupFormat.format(pinbox.pickupWindowEnd)}',
+                            style: const TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '${pinbox.originalPrice.toStringAsFixed(2)} ₼',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: ChatLightColors.inkFaint,
+                        decoration: TextDecoration.lineThrough,
+                      ),
+                    ),
+                    Text(
+                      '${pinbox.pinboxPrice.toStringAsFixed(2)} ₼',
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.primary),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: soldOut ? ChatLightColors.inkFaint.withValues(alpha: 0.18) : AppColors.primary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        soldOut ? loc.pinboxSoldOutLabel : loc.pinboxStockLeftLabel(pinbox.stockRemaining),
+                        style: TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: soldOut ? ChatLightColors.inkSoft : AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

@@ -14,6 +14,9 @@ import '../widgets/avatar_pin_marker.dart';
 import '../../../auth/presentation/widgets/country_dial_code.dart';
 import '../../../chat/presentation/screens/chat_conversation_screen.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../../../events/presentation/providers/venue_event_providers.dart';
+import '../../../events/presentation/screens/create_event_screen.dart';
+import '../../../events/presentation/screens/my_venue_events_screen.dart';
 import '../../../location/domain/country_bounds.dart';
 import '../../../location/domain/location_failure.dart';
 import '../../../location/domain/nearby_user.dart';
@@ -23,6 +26,9 @@ import '../../../offers/presentation/screens/create_offer_screen.dart';
 import '../../../offers/presentation/screens/my_offers_screen.dart';
 import '../../../events/presentation/widgets/venue_event_banner.dart';
 import '../../../offers/presentation/widgets/offer_list_view.dart';
+import '../../../offers/presentation/widgets/venue_picker_sheet.dart';
+import '../../../pinbox/presentation/screens/create_pinbox_screen.dart';
+import '../../../pinbox/presentation/screens/pinbox_my_boxes_screen.dart';
 import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../profile/presentation/screens/user_profile_screen.dart';
@@ -39,6 +45,10 @@ import '../../../venues/presentation/widgets/venue_filter_sheet.dart';
 import '../../../venues/presentation/widgets/venue_star_rating.dart';
 
 enum _DiscoverView { map, places, offers }
+
+/// Options in the Fürsətlər "+" chooser sheet — see
+/// `_DiscoverTabState._openCreateOptionsSheet`.
+enum _CreateListingAction { offer, event, pinbox }
 
 class DiscoverTab extends ConsumerStatefulWidget {
   const DiscoverTab({super.key});
@@ -94,6 +104,17 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
     final locationState = ref.watch(locationControllerProvider);
     final nearbyUsers = ref.watch(nearbyUsersProvider);
     final hasBusinessAccess = ref.watch(profileControllerProvider).hasBusinessAccess;
+    // Drives the chip-aware "manage" icon in the Fürsətlər header —
+    // only actually read when a venue owner is looking at the Tədbir
+    // chip, but cheap enough (both already-cached streams) to compute
+    // unconditionally rather than guard behind `listingFilter`.
+    final listingFilter = ref.watch(listingFilterProvider);
+    final myVenues = ref.watch(myVenuesProvider).valueOrNull ?? const [];
+    final eligibleEventCategories = ref.watch(eventCategoryConfigProvider).valueOrNull ?? const {};
+    final myEventVenues = myVenues.where((v) => eligibleEventCategories.contains(v.category)).toList();
+    // PinBox eligibility is a fixed constant (kPinboxEligibleVenueCategories,
+    // in venue.dart), not Firestore-config-driven like events above.
+    final myPinboxVenues = myVenues.where((v) => kPinboxEligibleVenueCategories.contains(v.category)).toList();
 
     return SafeArea(
       child: Column(
@@ -132,23 +153,10 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                   ),
                 ],
                 if (_view == _DiscoverView.offers && hasBusinessAccess) ...[
-                  IconButton(
-                    tooltip: loc.offerMyOffersTooltip,
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const MyOffersScreen()),
-                    ),
-                    icon: const Icon(Icons.local_offer_outlined, color: AppColors.textSecondary),
-                  ),
+                  _buildListingManageIcon(loc, listingFilter, myEventVenues, myPinboxVenues),
                   IconButton(
                     tooltip: loc.offerAddButtonTooltip,
-                    onPressed: () async {
-                      if (!context.mounted) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const CreateOfferScreen()),
-                      );
-                    },
+                    onPressed: () => _openCreateOptionsSheet(loc, myEventVenues, myPinboxVenues),
                     icon: const Icon(Icons.add_circle_outline, color: AppColors.textSecondary),
                   ),
                 ],
@@ -203,6 +211,149 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
         ],
       ),
     );
+  }
+
+  /// The Fürsətlər header's "manage" icon — target depends on which
+  /// [ListingFilter] chip is active. Kompaniya/Hamısı keeps the original
+  /// "Mənim təkliflərim" behavior unchanged; Tədbir reuses the EXISTING
+  /// per-venue `MyVenueEventsScreen` (not a new cross-venue screen, per
+  /// product decision) with a thin venue-routing layer on top; PinBox
+  /// opens Qutularım (PinBox Faza 11) — [myPinboxVenues] decides whether
+  /// its "Yaratdıqlarım" tab shows at all.
+  Widget _buildListingManageIcon(
+    AppLocalizations loc,
+    ListingFilter listingFilter,
+    List<Venue> myEventVenues,
+    List<Venue> myPinboxVenues,
+  ) {
+    if (listingFilter == ListingFilter.events) {
+      if (myEventVenues.isEmpty) return const SizedBox.shrink();
+      return IconButton(
+        tooltip: loc.eventMyEventsTooltip,
+        onPressed: () => _openMyEvents(myEventVenues, loc),
+        icon: const Icon(Icons.celebration_outlined, color: AppColors.textSecondary),
+      );
+    }
+    if (listingFilter == ListingFilter.pinbox) {
+      return IconButton(
+        tooltip: loc.pinboxMyBoxesTooltip,
+        onPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => PinBoxMyBoxesScreen(eligibleVenues: myPinboxVenues)),
+        ),
+        icon: const Icon(Icons.inventory_2_outlined, color: AppColors.textSecondary),
+      );
+    }
+    return IconButton(
+      tooltip: loc.offerMyOffersTooltip,
+      onPressed: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const MyOffersScreen()),
+      ),
+      icon: const Icon(Icons.local_offer_outlined, color: AppColors.textSecondary),
+    );
+  }
+
+  Future<void> _openMyEvents(List<Venue> eligibleVenues, AppLocalizations loc) async {
+    if (eligibleVenues.length == 1) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => MyVenueEventsScreen(venue: eligibleVenues.first)));
+      return;
+    }
+    final selected = await showModalBottomSheet<Venue>(
+      context: context,
+      backgroundColor: ChatLightColors.bg1,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (_) => VenuePickerSheet(venues: eligibleVenues, label: loc.eventVenuePickerLabel),
+    );
+    if (selected == null || !context.mounted) return;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => MyVenueEventsScreen(venue: selected)));
+  }
+
+  /// The Fürsətlər "+" chooser — Kompaniya yarat / Tədbir yarat / Qutu
+  /// yarat, matching the existing 3-dot-menu bottom-sheet style
+  /// (`my_venues_screen.dart`'s `_openMenu`). Tədbir/Qutu rows are
+  /// hidden outright (not disabled) when the signed-in user owns no
+  /// category-eligible venue for that listing type, same "hide, don't
+  /// disable" convention as everywhere else category-gating shows up in
+  /// this app.
+  Future<void> _openCreateOptionsSheet(AppLocalizations loc, List<Venue> myEventVenues, List<Venue> myPinboxVenues) async {
+    final action = await showModalBottomSheet<_CreateListingAction>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.local_offer_outlined, color: ChatLightColors.ink),
+              title: Text(loc.createOfferMenuOption, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+              onTap: () => Navigator.pop(sheetContext, _CreateListingAction.offer),
+            ),
+            if (myEventVenues.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.celebration_outlined, color: ChatLightColors.ink),
+                title: Text(loc.createEventMenuOption, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+                onTap: () => Navigator.pop(sheetContext, _CreateListingAction.event),
+              ),
+            if (myPinboxVenues.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.inventory_2_outlined, color: ChatLightColors.ink),
+                title: Text(loc.createPinboxMenuOption, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+                onTap: () => Navigator.pop(sheetContext, _CreateListingAction.pinbox),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (action == null || !context.mounted) return;
+
+    switch (action) {
+      case _CreateListingAction.offer:
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateOfferScreen()));
+      case _CreateListingAction.event:
+        await _openCreateEvent(myEventVenues, loc);
+      case _CreateListingAction.pinbox:
+        await _openCreatePinBox(myPinboxVenues, loc);
+    }
+  }
+
+  /// Same 1-venue-direct/multi-venue-picker routing as
+  /// [_openCreateEvent], landing on [CreatePinBoxScreen] (PinBox Faza 5)
+  /// instead of [CreateEventScreen].
+  Future<void> _openCreatePinBox(List<Venue> eligibleVenues, AppLocalizations loc) async {
+    if (eligibleVenues.length == 1) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => CreatePinBoxScreen(venue: eligibleVenues.first)));
+      return;
+    }
+    final selected = await showModalBottomSheet<Venue>(
+      context: context,
+      backgroundColor: ChatLightColors.bg1,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (_) => VenuePickerSheet(venues: eligibleVenues, label: loc.eventVenuePickerLabel),
+    );
+    if (selected == null || !context.mounted) return;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CreatePinBoxScreen(venue: selected)));
+  }
+
+  Future<void> _openCreateEvent(List<Venue> eligibleVenues, AppLocalizations loc) async {
+    if (eligibleVenues.length == 1) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => CreateEventScreen(venue: eligibleVenues.first)));
+      return;
+    }
+    final selected = await showModalBottomSheet<Venue>(
+      context: context,
+      backgroundColor: ChatLightColors.bg1,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (_) => VenuePickerSheet(venues: eligibleVenues, label: loc.eventVenuePickerLabel),
+    );
+    if (selected == null || !context.mounted) return;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => CreateEventScreen(venue: selected)));
   }
 
   Widget _buildError(BuildContext context, Object error) {

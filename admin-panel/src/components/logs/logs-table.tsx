@@ -11,6 +11,7 @@ const ACTION_LABELS: Record<string, string> = {
   "venue.premiumRevoked": "Məkanın premiumu ləğv edildi",
   "venue.needsRevision": "Məkan düzəlişə göndərildi",
   "payment.refunded": "Ödəniş geri qaytarıldı kimi işarələndi",
+  "pinboxPayout.paid": "PinBox ödənişi ödənildi kimi işarələndi",
   "offer.approved": "Təklif təsdiqləndi",
   "offer.needsRevision": "Təklif düzəlişə göndərildi",
   "offer.rejected": "Təklif rədd edildi",
@@ -43,6 +44,7 @@ const TARGET_TYPE_LABELS: Record<string, string> = {
   broadcast: "Bildiriş",
   admin: "Admin/moderator",
   payment: "Ödəniş",
+  venuePayout: "PinBox ödənişi",
   identityVerification: "Kimlik doğrulaması",
 };
 

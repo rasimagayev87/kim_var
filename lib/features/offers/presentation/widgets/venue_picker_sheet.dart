@@ -13,13 +13,22 @@ import '../../../venues/presentation/screens/create_venue_screen.dart' show venu
 /// belong to a venue its creator owns. Pops the full [Venue] (not just
 /// an id) so the caller can denormalize name/photo/address/position
 /// without a second read.
+///
+/// [venues]/[label] let other callers (e.g. Discover's "Mənim
+/// tədbirlərim" icon, PinBox Faza 3's "Qutu yarat" flow) reuse this same
+/// sheet with a pre-filtered venue list and their own heading instead of
+/// the unfiltered "Məkan seçin" — [venues] null falls back to watching
+/// [myVenuesProvider] directly, unchanged from the original behavior.
 class VenuePickerSheet extends ConsumerWidget {
-  const VenuePickerSheet({super.key});
+  final List<Venue>? venues;
+  final String? label;
+
+  const VenuePickerSheet({super.key, this.venues, this.label});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final venuesAsync = ref.watch(myVenuesProvider);
+    final venuesAsync = venues != null ? AsyncValue.data(venues!) : ref.watch(myVenuesProvider);
 
     return SafeArea(
       top: false,
@@ -41,7 +50,7 @@ class VenuePickerSheet extends ConsumerWidget {
               ),
             ),
             Text(
-              loc.offerVenuePickerLabel,
+              label ?? loc.offerVenuePickerLabel,
               style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
             ),
             const SizedBox(height: 12),

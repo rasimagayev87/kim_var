@@ -627,6 +627,58 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == userId;
     }
 
+    // PinBox (surprise-box discount sales, Kəşf et → Fürsətlər → PinBox)
+    // — same moderation-lock shape as offers above: must start
+    // 'pending', no forged review trail, admin panel is the only path
+    // off 'pending'. `stockRemaining` is ALSO locked from direct client
+    // writes (unlike ordinary offer fields) — PinBox Faza 7's checkout
+    // decrements it atomically via a Cloud Function transaction, not a
+    // client `update()`, so a race between two simultaneous buyers can
+    // never oversell the same box.
+    match /pinboxes/{pinboxId} {
+      allow read: if request.auth != null;
+
+      allow create: if request.auth != null &&
+        request.auth.uid == request.resource.data.ownerId &&
+        isBusinessUser(request.auth.uid) &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.stockRemaining == request.resource.data.stockTotal &&
+        !('reviewNote' in request.resource.data) &&
+        !('reviewedBy' in request.resource.data) &&
+        !('reviewedAt' in request.resource.data);
+
+      allow update: if request.auth != null &&
+        request.auth.uid == resource.data.ownerId &&
+        request.resource.data.ownerId == resource.data.ownerId &&
+        !request.resource.data.diff(resource.data).affectedKeys()
+          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'stockRemaining']);
+
+      allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
+    }
+
+    // A buyer's reservation of one PinBox. Deliberately NO client write
+    // path at all (create OR update) — PinBox Faza 7's checkout must
+    // decrement `pinboxes/{id}.stockRemaining` and create this order
+    // atomically in the same transaction (a raw client create here
+    // could race that decrement), and every status transition
+    // (redemption in Faza 9, expiry) is likewise a Cloud Function using
+    // the Admin SDK, which bypasses these rules entirely. Read is
+    // buyer-only — the venue-side redemption flow verifies a scanned QR
+    // token through a callable rather than reading this doc directly,
+    // so it never needs broader read access.
+    match /pinboxOrders/{orderId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.buyerId;
+      allow write: if false;
+    }
+
+    // Monthly venue payout reconciliation (PinBox Faza 10) — entirely
+    // Cloud-Function/admin-panel territory (Admin SDK bypasses these
+    // rules); no mobile screen reads this per the PinBox spec, so
+    // there's no client read path to grant.
+    match /venuePayouts/{payoutId} {
+      allow read, write: if false;
+    }
+
     // Owner-published, auto-approved event — see `VenueEvent`'s doc
     // comment for why there's no `pending` moderation gate the way
     // venues/offers have one (the venue itself is already verified).

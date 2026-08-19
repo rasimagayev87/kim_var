@@ -6,6 +6,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../events/presentation/providers/venue_event_providers.dart';
 import '../../../events/presentation/screens/my_venue_events_screen.dart';
+import '../../../pinbox/presentation/screens/pinbox_redeem_screen.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../waitlist/presentation/providers/waitlist_providers.dart';
 import '../../../waitlist/presentation/screens/venue_waitlist_screen.dart';
@@ -97,7 +98,7 @@ class MyVenuesScreen extends ConsumerWidget {
   }
 }
 
-enum _MyVenueCardAction { edit, seats, waitlist, events, delete }
+enum _MyVenueCardAction { edit, seats, waitlist, events, pinboxRedeem, delete }
 
 class _MyVenueCard extends ConsumerWidget {
   final Venue venue;
@@ -135,6 +136,12 @@ class _MyVenueCard extends ConsumerWidget {
     // no "existing history" carve-out here: an ineligible category
     // hides this row outright, full stop.
     final showSeatsMenuItem = eligibleWaitlistCategories.contains(venue.category);
+
+    // PinBox eligibility is a hardcoded product decision, not
+    // Firestore-config-driven (see `kPinboxEligibleVenueCategories`'s own
+    // doc comment) — no "existing history" carve-out, an ineligible
+    // category hides this row outright, same as Boş yer sayı above.
+    final showPinboxRedeemMenuItem = kPinboxEligibleVenueCategories.contains(venue.category);
     if (!context.mounted) return;
 
     final action = await showModalBottomSheet<_MyVenueCardAction>(
@@ -189,6 +196,15 @@ class _MyVenueCard extends ConsumerWidget {
                 ),
                 onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.events),
               ),
+            if (showPinboxRedeemMenuItem)
+              ListTile(
+                leading: const Icon(Icons.qr_code_scanner_outlined, color: ChatLightColors.ink),
+                title: Text(
+                  loc.pinboxRedeemMenuLabel,
+                  style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+                ),
+                onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.pinboxRedeem),
+              ),
             ListTile(
               leading: const Icon(
                 Icons.delete_outline_rounded,
@@ -223,6 +239,8 @@ class _MyVenueCard extends ConsumerWidget {
         Navigator.push(context, MaterialPageRoute(builder: (_) => VenueWaitlistScreen(venue: venue)));
       case _MyVenueCardAction.events:
         Navigator.push(context, MaterialPageRoute(builder: (_) => MyVenueEventsScreen(venue: venue)));
+      case _MyVenueCardAction.pinboxRedeem:
+        Navigator.push(context, MaterialPageRoute(builder: (_) => PinBoxRedeemScreen(venue: venue)));
       case _MyVenueCardAction.delete:
         _confirmDelete(context, ref);
     }

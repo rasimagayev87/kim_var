@@ -91,6 +91,22 @@ const kBirthdayEligibleVenueCategories = <VenueCategory>{
   VenueCategory.perfumeryCosmetics,
 };
 
+/// Categories PinBox (surprise-box discount sales) can be created for —
+/// a fixed product decision, unlike Tədbir/Növbə's category allowlists
+/// which live in Firestore (`config/eventCategories`/`waitlistCategories`)
+/// and are admin-editable without a release. This one is hardcoded on
+/// purpose: the product owner explicitly locked these 6 categories in
+/// during PinBox's spec (perishable/quick-turnover goods only), with no
+/// stated intent to make it configurable.
+const kPinboxEligibleVenueCategories = <VenueCategory>{
+  VenueCategory.restaurant,
+  VenueCategory.coffeeShop,
+  VenueCategory.fastFood,
+  VenueCategory.sweetsShop,
+  VenueCategory.perfumeryCosmetics,
+  VenueCategory.supermarket,
+};
+
 const _venueCategoryIcons = <VenueCategory, IconData>{
   VenueCategory.restaurant: Icons.restaurant_outlined,
   VenueCategory.pub: Icons.local_bar_outlined,

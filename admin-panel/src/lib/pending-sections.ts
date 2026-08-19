@@ -13,12 +13,14 @@ export interface PendingCounts {
   reports: number;
   eventReports: number;
   payments: number;
+  pinboxPayouts: number;
 }
 
 export const PENDING_SECTION_META: { key: keyof PendingCounts; label: string; href: string }[] = [
   { key: "identityVerifications", label: "Kimlik doğrulama", href: "/identity-verifications" },
   { key: "venues", label: "Məkanlar", href: "/venues" },
   { key: "payments", label: "Ödənişlər", href: "/payments" },
+  { key: "pinboxPayouts", label: "PinBox ödənişləri", href: "/pinbox-payouts" },
   { key: "offers", label: "Təkliflər", href: "/offers" },
   { key: "reports", label: "Şikayətlər", href: "/feedback" },
   { key: "eventReports", label: "Tədbir şikayətləri", href: "/event-reports" },

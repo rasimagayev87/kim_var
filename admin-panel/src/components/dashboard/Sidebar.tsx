@@ -50,6 +50,13 @@ const EXISTING_NAV: {
   },
   { href: "/venues", label: "Məkanlar", icon: Store, permission: "moderateVenues", countKey: "venues" },
   { href: "/payments", label: "Ödənişlər", icon: CreditCard, permission: "moderateVenues", countKey: "payments" },
+  {
+    href: "/pinbox-payouts",
+    label: "PinBox ödənişləri",
+    icon: CreditCard,
+    permission: "moderateVenues",
+    countKey: "pinboxPayouts",
+  },
   { href: "/offers", label: "Təkliflər", icon: Tag, permission: "moderateOffers", countKey: "offers" },
   { href: "/feedback", label: "Şikayətlər", icon: Flag, permission: "manageFeedback", countKey: "reports" },
   {

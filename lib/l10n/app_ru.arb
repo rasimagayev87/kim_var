@@ -174,7 +174,7 @@
   "discoverTitle": "Обзор",
   "viewSwitcherPeopleLabel": "Люди",
   "viewSwitcherPlacesLabel": "Места",
-  "viewSwitcherOffersLabel": "Предложения",
+  "viewSwitcherOffersLabel": "Возможности",
   "genderFilterAll": "Все",
   "genderFilterMale": "Мужчины",
   "genderFilterFemale": "Женщины",
@@ -379,6 +379,30 @@
   "eventDateTimePlaceholder": "Выбрать",
   "eventPublishButton": "Опубликовать",
   "eventMyEventsTitle": "Мероприятия",
+  "eventMyEventsTooltip": "Мои мероприятия",
+  "eventVenuePickerLabel": "Выберите заведение",
+  "pinboxMyBoxesTooltip": "Мои коробки",
+  "pinboxMyBoxesTitle": "Мои коробки",
+  "pinboxTabPurchased": "Купленные",
+  "pinboxTabCreated": "Созданные",
+  "pinboxMyOrdersEmptyMessage": "Вы ещё не покупали коробки.",
+  "pinboxMyListingsEmptyMessage": "Вы ещё не создали ни одной коробки.",
+  "pinboxListingStatusPending": "На проверке",
+  "pinboxListingStatusActive": "Активна",
+  "pinboxListingStatusSoldOut": "Распродана",
+  "pinboxListingStatusExpired": "Истёк срок",
+  "pinboxListingStatusRejected": "Отклонена",
+  "pinboxSoldCountLabel": "Продано {sold}/{total}",
+  "@pinboxSoldCountLabel": {
+    "placeholders": {
+      "sold": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "eventTabUpcoming": "Предстоящие",
   "eventTabLive": "Сейчас",
   "eventTabEnded": "Завершённые",
@@ -392,6 +416,7 @@
   "eventFilterAll": "Все",
   "eventFilterOffers": "Акции",
   "eventFilterEvents": "Мероприятия",
+  "eventFilterPinbox": "PinBox",
   "eventDetailsSectionTitle": "Мероприятия",
   "eventReportButton": "Пожаловаться",
   "eventReportSheetTitle": "Почему вы жалуетесь?",
@@ -459,7 +484,7 @@
   "venueFilterTooltip": "Фильтр",
   "venueCategoryFilterTitle": "Выберите категорию",
   "venueCategoryAllOption": "Все",
-  "offersSearchHint": "Поиск предложений...",
+  "offersSearchHint": "Поиск возможностей...",
   "offerFilterTooltip": "Фильтр",
   "offersEmptyTitle": "Пока нет предложений",
   "offersEmptySubtitle": "Предложения от ближайших заведений появятся здесь.",
@@ -553,6 +578,93 @@
   "offerMyOffersEmptyTitle": "Вы ещё не добавили ни одного предложения",
   "offerMyOffersEmptySubtitle": "Добавленные вами предложения появятся здесь, вы сможете редактировать или удалять их в любое время.",
   "offerMyOffersTooltip": "Мои предложения",
+  "createOfferMenuOption": "Создать акцию",
+  "createEventMenuOption": "Создать мероприятие",
+  "createPinboxMenuOption": "Создать коробку",
+  "pinboxPhotoLabel": "Добавить фото PinBox",
+  "pinboxNameLabel": "Название PinBox",
+  "pinboxNameHint": "Название коробки",
+  "pinboxDescriptionLabel": "Краткое описание коробки",
+  "pinboxDescriptionHint": "Опишите содержимое коробки...",
+  "pinboxOriginalPriceLabel": "Стоимость по меню",
+  "pinboxPriceLabel": "Цена PinBox",
+  "pinboxStockLabel": "Количество (Сток)",
+  "pinboxStockHint": "Сколько штук?",
+  "pinboxPickupWindowLabel": "Время выдачи",
+  "pinboxPickupStartLabel": "Начало",
+  "pinboxPickupEndLabel": "Конец",
+  "pinboxPublishButton": "Опубликовать",
+  "pinboxCreatedNotice": "Коробка опубликована, ожидает одобрения администратора",
+  "pinboxNonRefundableNotice": "Внимание: после оплаты заказ нельзя отменить или вернуть.",
+  "pinboxSoldOutLabel": "Продано",
+  "pinboxCheckoutTitle": "Подтвердить заказ",
+  "pinboxDeliveryTermsLabel": "УСЛОВИЯ ПОЛУЧЕНИЯ",
+  "pinboxPickupOnlyNotice": "Выдача только в указанный промежуток времени",
+  "pinboxPickupModelLabel": "Модель: Самовывоз",
+  "pinboxPaymentMethodLabel": "СПОСОБ ОПЛАТЫ",
+  "pinboxPaymentMethodOption": "Apple Pay / Картой",
+  "pinboxPaymentDetailsLabel": "ДЕТАЛИ ОПЛАТЫ",
+  "pinboxServiceFeeLabel": "Доставка / Сервисный сбор",
+  "pinboxServiceFeeFree": "0.00 AZN (Бесплатно)",
+  "pinboxTotalToPayLabel": "Итого к оплате:",
+  "pinboxPayButtonLabel": "Оплатить и забронировать коробку",
+  "pinboxOrderCreatedNotice": "Заказ создан!",
+  "pinboxSoldOutErrorMessage": "К сожалению, эта коробка только что продана.",
+  "pinboxCheckoutErrorMessage": "Не удалось создать заказ. Попробуйте ещё раз чуть позже.",
+  "pinboxTicketTitle": "Детали заказа",
+  "pinboxTicketNotFoundMessage": "Заказ не найден.",
+  "pinboxTicketItemLabel": "{title} ({quantity}x)",
+  "@pinboxTicketItemLabel": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "quantity": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxTicketQrUnavailableMessage": "QR-код недоступен",
+  "pinboxTicketQrRefreshCountdown": "Обновится через {seconds} с",
+  "@pinboxTicketQrRefreshCountdown": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxTicketShowToCashierHint": "Покажите этот QR-код кассиру",
+  "pinboxTicketAmountPaidLabel": "Оплаченная сумма",
+  "pinboxTicketSavingsLabel": "Ваша экономия",
+  "pinboxTicketOpenRouteButton": "Проложить маршрут",
+  "pinboxOrderStatusReserved": "Готово к выдаче",
+  "pinboxOrderStatusCompleted": "Выдано",
+  "pinboxOrderStatusExpired": "Истёк срок",
+  "pinboxRedeemMenuLabel": "Выдать коробку",
+  "pinboxRedeemTitle": "Выдача PinBox",
+  "pinboxRedeemSubtitle": "Введите 6-значный код с экрана билета клиента.",
+  "pinboxRedeemCodeHint": "000000",
+  "pinboxRedeemButtonLabel": "Выдать",
+  "pinboxRedeemInvalidCodeMessage": "Код неверен или срок его действия истёк.",
+  "pinboxRedeemSuccessMessage": "{title} ({quantity}x) успешно выдано.",
+  "@pinboxRedeemSuccessMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "quantity": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxStockLeftLabel": "Осталось {count}",
+  "@pinboxStockLeftLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "offerAddButtonTooltip": "Создать предложение",
   "venueCategoryUnselectedLabel": "Выбрать",
   "venueCategoryRestaurant": "Ресторан",

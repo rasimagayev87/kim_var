@@ -9,6 +9,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { beforeEmailSent } from "firebase-functions/v2/identity";
 import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
+import { randomInt } from "crypto";
 
 initializeApp();
 
@@ -2675,4 +2676,271 @@ export const enforceEmailLinkRateLimit = beforeEmailSent(
       tx.set(ipRef, { entries: [...ipEntries.filter((e) => e.email !== email), { email, ts: now }] });
     });
   }
+);
+
+/**
+ * PinBox Faza 7 — the ONLY path that ever creates a `pinboxOrders` doc
+ * or decrements `pinboxes/{id}.stockRemaining` (both locked from direct
+ * client writes in firestore.rules — see those rules' own doc
+ * comments). Stock check + decrement + order creation all happen in one
+ * transaction so two buyers hitting "Ödə" on the last unit at the same
+ * moment can never both succeed — the loser gets a clean
+ * `failed-precondition`, not an oversold box.
+ *
+ * No real payment gateway is wired yet (see `core/data/listing_payment.dart`'s
+ * own doc comment — the same "no provider, write straight to
+ * completed" stub every other listing type already uses); this
+ * function stands in for "payment captured" the same way. Once a real
+ * gateway exists, its webhook becomes the trigger for this same
+ * transaction instead of a client-initiated call, same migration path
+ * `listing_payment.dart` already describes.
+ *
+ * Per the product's explicit "ləğv edilə bilməz" rule, there's no
+ * corresponding "cancel/refund" callable — a reservation is final the
+ * moment this function returns.
+ */
+export const reservePinBoxOrder = onCall({ region: "us-central1" }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+  const pinboxId = request.data?.pinboxId as string | undefined;
+  if (!pinboxId) throw new HttpsError("invalid-argument", "pinboxId tələb olunur.");
+  const quantity = (request.data?.quantity as number | undefined) ?? 1;
+  if (!Number.isInteger(quantity) || quantity < 1) {
+    throw new HttpsError("invalid-argument", "quantity müsbət tam ədəd olmalıdır.");
+  }
+
+  const pinboxRef = db.collection("pinboxes").doc(pinboxId);
+  const orderRef = db.collection("pinboxOrders").doc();
+
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(pinboxRef);
+    if (!snap.exists) throw new HttpsError("not-found", "PinBox tapılmadı.");
+    const data = snap.data()!;
+
+    if (data.status !== "active") throw new HttpsError("failed-precondition", "not-active");
+
+    const stockRemaining = (data.stockRemaining as number | undefined) ?? 0;
+    if (stockRemaining < quantity) throw new HttpsError("failed-precondition", "sold-out");
+
+    const newRemaining = stockRemaining - quantity;
+    tx.update(pinboxRef, {
+      stockRemaining: newRemaining,
+      ...(newRemaining <= 0 ? { status: "soldOut" } : {}),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const pinboxPrice = (data.pinboxPrice as number | undefined) ?? 0;
+    tx.set(orderRef, {
+      pinboxId,
+      venueId: data.venueId,
+      buyerId: uid,
+      quantity,
+      amountPaid: pinboxPrice * quantity,
+      status: "reserved",
+      qrToken: null,
+      qrTokenExpiresAt: null,
+      createdAt: FieldValue.serverTimestamp(),
+      redeemedAt: null,
+    });
+  });
+
+  return { orderId: orderRef.id };
+});
+
+/**
+ * PinBox Faza 8 — QR bilet təhlükəsizliyi. Deliberately NOT a stateless
+ * signed token (HMAC/JWT) — a random opaque value stored on the order
+ * doc and compared server-side at redemption (PinBox Faza 9) is equally
+ * secure here (the only writer is this function, via the Admin SDK;
+ * `pinboxOrders` is already `allow write: if false` for every client)
+ * and avoids standing up secret-key management for no extra protection.
+ *
+ * A 6-digit code, not a long random string — PinBox Faza 9's "no camera
+ * scanning" constraint means redemption is a manual-entry fallback by
+ * design, so the code itself has to be short enough for a cashier to
+ * read off the buyer's screen and type in. 6 digits (1M possibilities)
+ * inside a short, per-venue-scoped, [_qrTokenTtlMs]-bounded window is
+ * the same trade-off banking/delivery OTP codes make, and the QR image
+ * still encodes this exact value for a future camera-scan upgrade —
+ * nothing else about the security model changes.
+ *
+ * Client calls this every 30s while the ticket screen is open (see
+ * `PinBoxTicketScreen`'s refresh timer) — [_qrTokenTtlMs] deliberately
+ * outlives that interval by a margin so a slow network round-trip never
+ * shows an already-expired code, while still keeping any single
+ * screenshot useless well within the same viewing session.
+ */
+const _qrTokenTtlMs = 40_000;
+
+export const generatePinBoxQrToken = onCall({ region: "us-central1" }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+  const orderId = request.data?.orderId as string | undefined;
+  if (!orderId) throw new HttpsError("invalid-argument", "orderId tələb olunur.");
+
+  const orderRef = db.collection("pinboxOrders").doc(orderId);
+  const orderSnap = await orderRef.get();
+  if (!orderSnap.exists) throw new HttpsError("not-found", "Sifariş tapılmadı.");
+  const order = orderSnap.data()!;
+
+  if (order.buyerId !== uid) throw new HttpsError("permission-denied", "Bu sifarişin sahibi deyilsiniz.");
+  if (order.status !== "reserved") throw new HttpsError("failed-precondition", "not-reserved");
+
+  const pinboxSnap = await db.collection("pinboxes").doc(order.pinboxId as string).get();
+  const pinbox = pinboxSnap.data();
+  const pickupStart = (pinbox?.pickupWindowStart as Timestamp | undefined)?.toMillis();
+  const pickupEnd = (pinbox?.pickupWindowEnd as Timestamp | undefined)?.toMillis();
+  const now = Date.now();
+  if (pickupStart === undefined || pickupEnd === undefined || now < pickupStart || now > pickupEnd) {
+    throw new HttpsError("failed-precondition", "outside-pickup-window");
+  }
+
+  const token = randomInt(100000, 1000000).toString();
+  const expiresAtMs = now + _qrTokenTtlMs;
+  await orderRef.update({ qrToken: token, qrTokenExpiresAt: Timestamp.fromMillis(expiresAtMs) });
+
+  return { qrToken: token, qrTokenExpiresAtMs: expiresAtMs };
+});
+
+/**
+ * PinBox Faza 9 — venue-side redemption. Manual code entry only (Faza 0
+ * explicitly rules out building camera-scan infrastructure) — the
+ * cashier reads the current 6-digit code off the buyer's ticket screen
+ * and types it in. Matches ONLY against this venue's own still-
+ * 'reserved' orders (never a global lookup) and rejects an expired
+ * code the same way an unmatched one is rejected, so there's no way to
+ * distinguish "wrong code" from "right code, too late" from the error
+ * alone.
+ */
+export const redeemPinBoxOrder = onCall({ region: "us-central1" }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+  const venueId = request.data?.venueId as string | undefined;
+  const code = request.data?.code as string | undefined;
+  if (!venueId || !code) throw new HttpsError("invalid-argument", "venueId və code tələb olunur.");
+
+  const venueSnap = await db.collection("venues").doc(venueId).get();
+  if (!venueSnap.exists) throw new HttpsError("not-found", "Məkan tapılmadı.");
+  if (venueSnap.data()!.ownerId !== uid) throw new HttpsError("permission-denied", "Bu məkanın sahibi deyilsiniz.");
+
+  const candidates = await db
+    .collection("pinboxOrders")
+    .where("venueId", "==", venueId)
+    .where("status", "==", "reserved")
+    .get();
+
+  const now = Date.now();
+  const match = candidates.docs.find((doc) => {
+    const data = doc.data();
+    const expiresAtMs = (data.qrTokenExpiresAt as Timestamp | undefined)?.toMillis();
+    return data.qrToken === code && expiresAtMs !== undefined && expiresAtMs > now;
+  });
+
+  if (!match) throw new HttpsError("not-found", "Kod düzgün deyil və ya vaxtı keçib.");
+
+  await match.ref.update({
+    status: "completed",
+    redeemedAt: FieldValue.serverTimestamp(),
+    qrToken: null,
+    qrTokenExpiresAt: null,
+  });
+
+  const orderData = match.data();
+  const pinboxSnap = await db.collection("pinboxes").doc(orderData.pinboxId as string).get();
+
+  return {
+    orderId: match.id,
+    pinboxTitle: (pinboxSnap.data()?.title as string | undefined) ?? "",
+    quantity: orderData.quantity as number,
+  };
+});
+
+const PINBOX_PAYOUT_COMMISSION_RATE = 0.15;
+
+/**
+ * PinBox Faza 10 — monthly commission reconciliation. Runs at 03:00
+ * Asia/Baku on the 1st of each month and settles the FULL PREVIOUS
+ * calendar month: sums every `completed` order's `amountPaid` per
+ * venue, splits it 85/15 (venue/PeakPin), and upserts one
+ * `venuePayouts` doc per venue per period. No money actually moves
+ * here — per the product's explicit "no automated bank transfer" rule,
+ * this only computes what's owed; an admin marks a doc `status: "paid"`
+ * by hand (admin panel's PinBox Ödənişləri page) once they've sent it.
+ *
+ * Idempotent by construction: the doc id is `${venueId}_${period}`, and
+ * a doc already `status: "paid"` is left untouched on rerun (a manual
+ * re-invocation for the same period must never un-pay something the
+ * admin already settled).
+ */
+export const computeMonthlyPinBoxPayouts = onSchedule(
+  { schedule: "0 3 1 * *", timeZone: "Asia/Baku", region: "europe-west1" },
+  async () => {
+    const now = new Date();
+    const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const period = `${periodStart.getUTCFullYear()}-${String(periodStart.getUTCMonth() + 1).padStart(2, "0")}`;
+
+    const ordersSnap = await db
+      .collection("pinboxOrders")
+      .where("status", "==", "completed")
+      .where("redeemedAt", ">=", Timestamp.fromDate(periodStart))
+      .where("redeemedAt", "<", Timestamp.fromDate(periodEnd))
+      .get();
+
+    if (ordersSnap.empty) {
+      logger.info("computeMonthlyPinBoxPayouts: no completed orders", { period });
+      return;
+    }
+
+    const grossByVenue = new Map<string, { gross: number; orderCount: number }>();
+    for (const doc of ordersSnap.docs) {
+      const data = doc.data();
+      const venueId = data.venueId as string;
+      const amountPaid = (data.amountPaid as number | undefined) ?? 0;
+      const entry = grossByVenue.get(venueId) ?? { gross: 0, orderCount: 0 };
+      entry.gross += amountPaid;
+      entry.orderCount += 1;
+      grossByVenue.set(venueId, entry);
+    }
+
+    const venueIds = [...grossByVenue.keys()];
+    const venueDocs = await Promise.all(venueIds.map((id) => db.collection("venues").doc(id).get()));
+    const venueById = new Map(venueDocs.map((doc) => [doc.id, doc.data()]));
+
+    let written = 0;
+    for (const venueId of venueIds) {
+      const { gross, orderCount } = grossByVenue.get(venueId)!;
+      const venue = venueById.get(venueId);
+      const payoutRef = db.collection("venuePayouts").doc(`${venueId}_${period}`);
+      const existing = await payoutRef.get();
+      if (existing.exists && existing.data()?.status === "paid") continue;
+
+      const commissionAmount = Math.round(gross * PINBOX_PAYOUT_COMMISSION_RATE * 100) / 100;
+      const payoutAmount = Math.round((gross - commissionAmount) * 100) / 100;
+
+      await payoutRef.set({
+        venueId,
+        venueName: (venue?.name as string | undefined) ?? "Naməlum",
+        ownerId: (venue?.ownerId as string | undefined) ?? null,
+        period,
+        periodStart: Timestamp.fromDate(periodStart),
+        periodEnd: Timestamp.fromDate(periodEnd),
+        orderCount,
+        grossAmount: gross,
+        commissionRate: PINBOX_PAYOUT_COMMISSION_RATE,
+        commissionAmount,
+        payoutAmount,
+        currency: "AZN",
+        status: "pending",
+        createdAt: existing.exists ? (existing.data()?.createdAt ?? FieldValue.serverTimestamp()) : FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      written++;
+    }
+
+    logger.info("computeMonthlyPinBoxPayouts: wrote payouts", { period, venueCount: written });
+  },
 );

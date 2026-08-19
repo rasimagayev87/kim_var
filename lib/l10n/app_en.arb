@@ -204,7 +204,7 @@
   "discoverTitle": "Discover",
   "viewSwitcherPeopleLabel": "People",
   "viewSwitcherPlacesLabel": "Places",
-  "viewSwitcherOffersLabel": "Offers",
+  "viewSwitcherOffersLabel": "Perks",
   "genderFilterAll": "Everyone",
   "genderFilterMale": "Men",
   "genderFilterFemale": "Women",
@@ -444,6 +444,30 @@
   "eventDateTimePlaceholder": "Select",
   "eventPublishButton": "Publish",
   "eventMyEventsTitle": "Events",
+  "eventMyEventsTooltip": "My events",
+  "eventVenuePickerLabel": "Choose a venue",
+  "pinboxMyBoxesTooltip": "My boxes",
+  "pinboxMyBoxesTitle": "My boxes",
+  "pinboxTabPurchased": "Purchased",
+  "pinboxTabCreated": "Created",
+  "pinboxMyOrdersEmptyMessage": "You haven't bought any boxes yet.",
+  "pinboxMyListingsEmptyMessage": "You haven't created any boxes yet.",
+  "pinboxListingStatusPending": "Under review",
+  "pinboxListingStatusActive": "Active",
+  "pinboxListingStatusSoldOut": "Sold out",
+  "pinboxListingStatusExpired": "Expired",
+  "pinboxListingStatusRejected": "Rejected",
+  "pinboxSoldCountLabel": "{sold}/{total} sold",
+  "@pinboxSoldCountLabel": {
+    "placeholders": {
+      "sold": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "eventTabUpcoming": "Upcoming",
   "eventTabLive": "Live",
   "eventTabEnded": "Ended",
@@ -457,6 +481,7 @@
   "eventFilterAll": "All",
   "eventFilterOffers": "Deals",
   "eventFilterEvents": "Events",
+  "eventFilterPinbox": "PinBox",
   "eventDetailsSectionTitle": "Events",
   "eventReportButton": "Report",
   "eventReportSheetTitle": "Why are you reporting this?",
@@ -524,7 +549,7 @@
   "venueFilterTooltip": "Filter",
   "venueCategoryFilterTitle": "Choose category",
   "venueCategoryAllOption": "All",
-  "offersSearchHint": "Search offers...",
+  "offersSearchHint": "Search perks...",
   "offerFilterTooltip": "Filter",
   "offersEmptyTitle": "No offers yet",
   "offersEmptySubtitle": "Offers from nearby venues will show up here.",
@@ -618,6 +643,93 @@
   "offerMyOffersEmptyTitle": "You haven't added any offers yet",
   "offerMyOffersEmptySubtitle": "Offers you add will show up here, and you can edit or delete them anytime.",
   "offerMyOffersTooltip": "My offers",
+  "createOfferMenuOption": "Create a deal",
+  "createEventMenuOption": "Create an event",
+  "createPinboxMenuOption": "Create a box",
+  "pinboxPhotoLabel": "Add PinBox photo",
+  "pinboxNameLabel": "PinBox name",
+  "pinboxNameHint": "Name your box",
+  "pinboxDescriptionLabel": "Short description of the box",
+  "pinboxDescriptionHint": "Describe what's inside...",
+  "pinboxOriginalPriceLabel": "Menu value",
+  "pinboxPriceLabel": "PinBox price",
+  "pinboxStockLabel": "Available count (Stock)",
+  "pinboxStockHint": "How many?",
+  "pinboxPickupWindowLabel": "Pickup time window",
+  "pinboxPickupStartLabel": "Start",
+  "pinboxPickupEndLabel": "End",
+  "pinboxPublishButton": "Publish",
+  "pinboxCreatedNotice": "Box published, awaiting admin approval",
+  "pinboxNonRefundableNotice": "Note: once paid, an order cannot be cancelled or refunded.",
+  "pinboxSoldOutLabel": "Sold out",
+  "pinboxCheckoutTitle": "Confirm Order",
+  "pinboxDeliveryTermsLabel": "PICKUP TERMS",
+  "pinboxPickupOnlyNotice": "Pickup only during the time window shown",
+  "pinboxPickupModelLabel": "Model: Self Pickup",
+  "pinboxPaymentMethodLabel": "PAYMENT METHOD",
+  "pinboxPaymentMethodOption": "Apple Pay / Card",
+  "pinboxPaymentDetailsLabel": "PAYMENT DETAILS",
+  "pinboxServiceFeeLabel": "Delivery / Service fee",
+  "pinboxServiceFeeFree": "0.00 AZN (Free)",
+  "pinboxTotalToPayLabel": "Total to pay:",
+  "pinboxPayButtonLabel": "Pay & Reserve the Box",
+  "pinboxOrderCreatedNotice": "Order created!",
+  "pinboxSoldOutErrorMessage": "Sorry, this box just sold out.",
+  "pinboxCheckoutErrorMessage": "Couldn't create the order. Please try again shortly.",
+  "pinboxTicketTitle": "Order Details",
+  "pinboxTicketNotFoundMessage": "Order not found.",
+  "pinboxTicketItemLabel": "{title} ({quantity}x)",
+  "@pinboxTicketItemLabel": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "quantity": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxTicketQrUnavailableMessage": "QR code unavailable",
+  "pinboxTicketQrRefreshCountdown": "Refreshes in {seconds}s",
+  "@pinboxTicketQrRefreshCountdown": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxTicketShowToCashierHint": "Show this QR code to the cashier",
+  "pinboxTicketAmountPaidLabel": "Amount paid",
+  "pinboxTicketSavingsLabel": "Your savings",
+  "pinboxTicketOpenRouteButton": "Get Directions",
+  "pinboxOrderStatusReserved": "Ready for pickup",
+  "pinboxOrderStatusCompleted": "Picked up",
+  "pinboxOrderStatusExpired": "Expired",
+  "pinboxRedeemMenuLabel": "Redeem a box",
+  "pinboxRedeemTitle": "PinBox Redemption",
+  "pinboxRedeemSubtitle": "Enter the 6-digit code from the customer's ticket screen.",
+  "pinboxRedeemCodeHint": "000000",
+  "pinboxRedeemButtonLabel": "Redeem",
+  "pinboxRedeemInvalidCodeMessage": "This code is invalid or has expired.",
+  "pinboxRedeemSuccessMessage": "{title} ({quantity}x) redeemed successfully.",
+  "@pinboxRedeemSuccessMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "quantity": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxStockLeftLabel": "{count} left",
+  "@pinboxStockLeftLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "offerAddButtonTooltip": "Create offer",
   "venueCategoryUnselectedLabel": "Select",
   "venueCategoryRestaurant": "Restaurant",

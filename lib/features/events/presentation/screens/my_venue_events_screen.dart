@@ -36,8 +36,6 @@ class _MyVenueEventsScreenState extends ConsumerState<MyVenueEventsScreen> with 
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final eventsAsync = ref.watch(venueEventsByVenueProvider(widget.venue.id));
-    final eligibleCategories = ref.watch(eventCategoryConfigProvider).valueOrNull ?? const {};
-    final canCreate = eligibleCategories.contains(widget.venue.category);
 
     return Scaffold(
       backgroundColor: ChatLightColors.bg1,
@@ -54,17 +52,12 @@ class _MyVenueEventsScreenState extends ConsumerState<MyVenueEventsScreen> with 
           loc.eventMyEventsTitle,
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
         ),
-        // Hidden (not disabled) when the venue's category isn't
-        // event-eligible right now — see `eventCategoryConfigProvider`'s
-        // doc comment. A category change never removes events already
-        // published; it only closes off publishing a NEW one.
-        actions: [
-          if (canCreate)
-            IconButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreateEventScreen(venue: widget.venue))),
-              icon: const Icon(Icons.add, color: AppColors.primary),
-            ),
-        ],
+        // No "+" here anymore — event creation now starts exclusively
+        // from Kəşf et → Fürsətlər's "+" chooser sheet (see
+        // `discover_tab.dart`'s `_openCreateOptionsSheet`), which picks
+        // (or asks for) an eligible venue before landing on
+        // `CreateEventScreen`. This screen stays purely a per-venue
+        // Upcoming/Live/Ended list + edit/cancel surface.
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.primary,

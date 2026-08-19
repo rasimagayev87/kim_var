@@ -174,7 +174,7 @@
   "discoverTitle": "Kəşf et",
   "viewSwitcherPeopleLabel": "İnsanlar",
   "viewSwitcherPlacesLabel": "Məkanlar",
-  "viewSwitcherOffersLabel": "Təkliflər",
+  "viewSwitcherOffersLabel": "Fürsətlər",
   "genderFilterAll": "Hamı",
   "genderFilterMale": "Kişi",
   "genderFilterFemale": "Qadın",
@@ -379,6 +379,30 @@
   "eventDateTimePlaceholder": "Seçin",
   "eventPublishButton": "Yayımla",
   "eventMyEventsTitle": "Tədbirlər",
+  "eventMyEventsTooltip": "Mənim tədbirlərim",
+  "eventVenuePickerLabel": "Məkan seçin",
+  "pinboxMyBoxesTooltip": "Qutularım",
+  "pinboxMyBoxesTitle": "Qutularım",
+  "pinboxTabPurchased": "Aldıqlarım",
+  "pinboxTabCreated": "Yaratdıqlarım",
+  "pinboxMyOrdersEmptyMessage": "Hələ heç bir qutu almamısınız.",
+  "pinboxMyListingsEmptyMessage": "Hələ heç bir qutu yaratmamısınız.",
+  "pinboxListingStatusPending": "Yoxlanılır",
+  "pinboxListingStatusActive": "Aktiv",
+  "pinboxListingStatusSoldOut": "Satılıb",
+  "pinboxListingStatusExpired": "Bitib",
+  "pinboxListingStatusRejected": "Rədd edilib",
+  "pinboxSoldCountLabel": "{sold}/{total} satılıb",
+  "@pinboxSoldCountLabel": {
+    "placeholders": {
+      "sold": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
   "eventTabUpcoming": "Gələcək",
   "eventTabLive": "Canlı",
   "eventTabEnded": "Bitmiş",
@@ -392,6 +416,7 @@
   "eventFilterAll": "Hamısı",
   "eventFilterOffers": "Kompaniya",
   "eventFilterEvents": "Tədbir",
+  "eventFilterPinbox": "PinBox",
   "eventDetailsSectionTitle": "Tədbirlər",
   "eventReportButton": "Şikayət et",
   "eventReportSheetTitle": "Nə üçün şikayət edirsiniz?",
@@ -459,7 +484,7 @@
   "venueFilterTooltip": "Filtr",
   "venueCategoryFilterTitle": "Kateqoriya seç",
   "venueCategoryAllOption": "Hamısı",
-  "offersSearchHint": "Təklif axtar...",
+  "offersSearchHint": "Fürsət axtar...",
   "offerFilterTooltip": "Filtr",
   "offersEmptyTitle": "Hələ heç bir təklif yoxdur",
   "offersEmptySubtitle": "Yaxınlıqdakı məkanlardan təkliflər burada görünəcək.",
@@ -553,6 +578,93 @@
   "offerMyOffersEmptyTitle": "Hələ heç bir təklif əlavə etməmisiniz",
   "offerMyOffersEmptySubtitle": "Əlavə etdiyiniz təkliflər burada görünəcək və onları istənilən vaxt redaktə edə və ya silə bilərsiniz.",
   "offerMyOffersTooltip": "Mənim təkliflərim",
+  "createOfferMenuOption": "Kompaniya yarat",
+  "createEventMenuOption": "Tədbir yarat",
+  "createPinboxMenuOption": "Qutu yarat",
+  "pinboxPhotoLabel": "PinBox şəkli əlavə et",
+  "pinboxNameLabel": "PinBox adı",
+  "pinboxNameHint": "Qutunun adını yazın",
+  "pinboxDescriptionLabel": "Qutu haqqında qısa məlumat",
+  "pinboxDescriptionHint": "Qutunun içindəkiləri təsvir edin...",
+  "pinboxOriginalPriceLabel": "Menyu dəyəri",
+  "pinboxPriceLabel": "PinBox qiyməti",
+  "pinboxStockLabel": "Mövcud say (Stok)",
+  "pinboxStockHint": "Neçə ədəd?",
+  "pinboxPickupWindowLabel": "Təhvil saatı aralığı",
+  "pinboxPickupStartLabel": "Başlanğıc",
+  "pinboxPickupEndLabel": "Bitmə",
+  "pinboxPublishButton": "Dərc et",
+  "pinboxCreatedNotice": "Qutu dərc edildi, admin təsdiqini gözləyir",
+  "pinboxNonRefundableNotice": "Diqqət: ödəniş edildikdən sonra sifariş ləğv edilə və ya geri qaytarıla bilməz.",
+  "pinboxSoldOutLabel": "Satılıb",
+  "pinboxCheckoutTitle": "Sifarişi Təsdiqlə",
+  "pinboxDeliveryTermsLabel": "TƏHVİL-TƏSLİM ŞƏRTLƏRİ",
+  "pinboxPickupOnlyNotice": "Yalnız göstərilən saat aralığında təhvil verilir",
+  "pinboxPickupModelLabel": "Model: Özün Götür (Pick-up)",
+  "pinboxPaymentMethodLabel": "ÖDƏNİŞ ÜSULU",
+  "pinboxPaymentMethodOption": "Apple Pay / Kart ilə",
+  "pinboxPaymentDetailsLabel": "ÖDƏNİŞ DETALLARI",
+  "pinboxServiceFeeLabel": "Çatdırılma / Xidmət haqqı",
+  "pinboxServiceFeeFree": "0.00 AZN (Pulsuz)",
+  "pinboxTotalToPayLabel": "Cəmi Ödəniləcək:",
+  "pinboxPayButtonLabel": "Ödə və Qutunu Rezerv Et",
+  "pinboxOrderCreatedNotice": "Sifariş yaradıldı!",
+  "pinboxSoldOutErrorMessage": "Təəssüf ki, bu qutu artıq satılıb.",
+  "pinboxCheckoutErrorMessage": "Sifariş yaradıla bilmədi. Bir az sonra yenidən cəhd edin.",
+  "pinboxTicketTitle": "Sifariş Detalları",
+  "pinboxTicketNotFoundMessage": "Sifariş tapılmadı.",
+  "pinboxTicketItemLabel": "{title} ({quantity}x)",
+  "@pinboxTicketItemLabel": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "quantity": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxTicketQrUnavailableMessage": "QR kod mövcud deyil",
+  "pinboxTicketQrRefreshCountdown": "{seconds} saniyədən sonra yenilənəcək",
+  "@pinboxTicketQrRefreshCountdown": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxTicketShowToCashierHint": "Kassirə yaxınlaşdıqda QR kodu göstərin",
+  "pinboxTicketAmountPaidLabel": "Ödənilən məbləğ",
+  "pinboxTicketSavingsLabel": "Qənaətiniz",
+  "pinboxTicketOpenRouteButton": "Marşrut Aç",
+  "pinboxOrderStatusReserved": "Təhvil üçün hazırdır",
+  "pinboxOrderStatusCompleted": "Təhvil verildi",
+  "pinboxOrderStatusExpired": "Vaxtı bitib",
+  "pinboxRedeemMenuLabel": "Qutu təhvil ver",
+  "pinboxRedeemTitle": "PinBox Təhvil",
+  "pinboxRedeemSubtitle": "Müştərinin bilet ekranındakı 6 rəqəmli kodu daxil edin.",
+  "pinboxRedeemCodeHint": "000000",
+  "pinboxRedeemButtonLabel": "Təhvil ver",
+  "pinboxRedeemInvalidCodeMessage": "Kod düzgün deyil və ya vaxtı keçib.",
+  "pinboxRedeemSuccessMessage": "{title} ({quantity}x) uğurla təhvil verildi.",
+  "@pinboxRedeemSuccessMessage": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      },
+      "quantity": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxStockLeftLabel": "{count} ədəd qaldı",
+  "@pinboxStockLeftLabel": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "offerAddButtonTooltip": "Təklif yarat",
   "venueCategoryUnselectedLabel": "Seçin",
   "venueCategoryRestaurant": "Restoran",
