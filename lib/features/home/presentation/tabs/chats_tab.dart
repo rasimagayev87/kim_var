@@ -113,6 +113,15 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     }
 
     result.sort((a, b) {
+      // VIP-Faza-3: on Sorğular only, a Premium sender's request jumps
+      // ahead of everyone else's — doesn't apply to Hamısı/Oxunmayanlar/
+      // Arxivlənənlər, where recency (and pinning) alone still decides
+      // order.
+      if (_filter == _ChatFilter.requests) {
+        final aVip = a.initiatorIsPremium;
+        final bVip = b.initiatorIsPremium;
+        if (aVip != bVip) return aVip ? -1 : 1;
+      }
       final aPinned = a.isPinnedFor(myUid);
       final bPinned = b.isPinnedFor(myUid);
       if (aPinned != bPinned) return aPinned ? -1 : 1;

@@ -361,6 +361,12 @@ class FirebaseChatRepository implements ChatRepository {
       throw const ChatException(ChatFailure.notAllowedByRecipient);
     }
 
+    // Only needed for a brand-new chat's `initiatorIsPremium` (see
+    // Chat's own doc comment) — skipped on every follow-up message in
+    // an existing thread, where this field is never touched again.
+    final senderIsPremium =
+        chatExistsAlready ? false : (await _users.doc(senderId).get()).data()?['premium'] as bool? ?? false;
+
     await _firestore.runTransaction((tx) async {
       final chatSnap = await tx.get(chatRef);
 
@@ -368,6 +374,7 @@ class FirebaseChatRepository implements ChatRepository {
         tx.set(chatRef, {
           'participants': [...participantIds]..sort(),
           'initiatorId': senderId,
+          'initiatorIsPremium': senderIsPremium,
           'status': 'pending',
           'lastMessage': lastMessage,
           'lastMessageType': lastMessageType,
@@ -525,6 +532,7 @@ class FirebaseChatRepository implements ChatRepository {
       id: id,
       participantIds: (data['participants'] as List?)?.cast<String>() ?? const [],
       initiatorId: data['initiatorId'] as String? ?? '',
+      initiatorIsPremium: data['initiatorIsPremium'] as bool? ?? false,
       status: _statusFrom(data['status'] as String?),
       lastMessage: data['lastMessage'] as String? ?? '',
       lastMessageType: _typeFrom(data['lastMessageType'] as String?),

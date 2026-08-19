@@ -10,6 +10,12 @@ class Chat {
   final String id;
   final List<String> participantIds;
   final String initiatorId;
+
+  /// [initiatorId]'s Premium status AT THE MOMENT the chat was created —
+  /// captured once (not re-synced if their status changes later) purely
+  /// to drive "VIP göndərənlər önə çıxsın" ordering in the Sorğular tab
+  /// (see `ChatsTab._visibleChats`), not a live premium check.
+  final bool initiatorIsPremium;
   final ChatRequestStatus status;
   final String lastMessage;
   final MessageType? lastMessageType;
@@ -30,6 +36,7 @@ class Chat {
     required this.id,
     required this.participantIds,
     required this.initiatorId,
+    this.initiatorIsPremium = false,
     required this.status,
     this.lastMessage = '',
     this.lastMessageType,
