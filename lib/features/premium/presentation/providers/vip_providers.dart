@@ -8,6 +8,9 @@ const vipFeatureIconsByKey = <String, IconData>{
   'ghost': Icons.visibility_off_outlined,
   'radius': Icons.radar_outlined,
   'filter': Icons.tune_outlined,
+  'visitors': Icons.directions_walk,
+  'incognito': Icons.explore_off_outlined,
+  'priority': Icons.bolt_outlined,
   'star': Icons.star_outline,
 };
 
@@ -16,7 +19,8 @@ const vipFeatureIconsByKey = <String, IconData>{
 /// changed without a release. Returns an empty list until that
 /// collection is populated — [VipScreen] falls back to a localized
 /// default list (describing real, already-shipped features: Ghost
-/// Mode, 5/10 km radius, gender filter) only in that case, so the
+/// Mode, Ölkə/Dünya radius, gender filter, profile viewers, incognito
+/// browsing, priority message requests) only in that case, so the
 /// screen isn't blank on first launch.
 final vipFeaturesProvider = StreamProvider.autoDispose<List<VipFeature>>((ref) {
   return FirebaseFirestore.instance.collection('vipFeatures').orderBy('order').snapshots().map((snap) {

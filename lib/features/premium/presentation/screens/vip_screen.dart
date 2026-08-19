@@ -156,6 +156,9 @@ class _VipScreenState extends ConsumerState<VipScreen> {
         VipFeature(icon: Icons.visibility_off_outlined, title: loc.vipFeatureGhostTitle, description: loc.vipFeatureGhostDescription),
         VipFeature(icon: Icons.radar_outlined, title: loc.vipFeatureRadiusTitle, description: loc.vipFeatureRadiusDescription),
         VipFeature(icon: Icons.tune_outlined, title: loc.vipFeatureFilterTitle, description: loc.vipFeatureFilterDescription),
+        VipFeature(icon: Icons.directions_walk, title: loc.vipFeatureVisitorsTitle, description: loc.vipFeatureVisitorsDescription),
+        VipFeature(icon: Icons.explore_off_outlined, title: loc.vipFeatureIncognitoTitle, description: loc.vipFeatureIncognitoDescription),
+        VipFeature(icon: Icons.bolt_outlined, title: loc.vipFeaturePriorityTitle, description: loc.vipFeaturePriorityDescription),
       ];
 }
 
