@@ -24,12 +24,21 @@ import { cn } from "@/lib/utils";
 import { hasPermission, type Permission } from "@/lib/auth/permissions";
 import type { AdminRole } from "@/lib/auth/session";
 import { ComingSoonBadge } from "@/components/dashboard/ComingSoon";
+import type { PendingCounts } from "@/lib/data/pending-counts";
 
 // Same hrefs/permissions as the previous nav-items.ts (moderateVenues,
 // manageFeedback, etc.) — only the visual treatment changed. A
 // moderator still can't see İstifadəçilər/Bildirişlər/Admin
-// idarəetməsi here, same as before.
-const EXISTING_NAV: { href: string; label: string; icon: typeof LayoutGrid; permission?: Permission }[] = [
+// idarəetməsi here, same as before. `countKey` maps a row to its
+// field in `PendingCounts` (see pending-counts.ts) — omitted for rows
+// with no pending-approval concept of their own.
+const EXISTING_NAV: {
+  href: string;
+  label: string;
+  icon: typeof LayoutGrid;
+  permission?: Permission;
+  countKey?: keyof PendingCounts;
+}[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
   { href: "/users", label: "İstifadəçilər", icon: Users, permission: "manageUsers" },
   {
@@ -37,12 +46,19 @@ const EXISTING_NAV: { href: string; label: string; icon: typeof LayoutGrid; perm
     label: "Kimlik doğrulama",
     icon: BadgeCheck,
     permission: "moderateIdentityVerifications",
+    countKey: "identityVerifications",
   },
-  { href: "/venues", label: "Məkanlar", icon: Store, permission: "moderateVenues" },
-  { href: "/payments", label: "Ödənişlər", icon: CreditCard, permission: "moderateVenues" },
-  { href: "/offers", label: "Təkliflər", icon: Tag, permission: "moderateOffers" },
-  { href: "/feedback", label: "Şikayətlər", icon: Flag, permission: "manageFeedback" },
-  { href: "/event-reports", label: "Tədbir şikayətləri", icon: Flag, permission: "moderateVenues" },
+  { href: "/venues", label: "Məkanlar", icon: Store, permission: "moderateVenues", countKey: "venues" },
+  { href: "/payments", label: "Ödənişlər", icon: CreditCard, permission: "moderateVenues", countKey: "payments" },
+  { href: "/offers", label: "Təkliflər", icon: Tag, permission: "moderateOffers", countKey: "offers" },
+  { href: "/feedback", label: "Şikayətlər", icon: Flag, permission: "manageFeedback", countKey: "reports" },
+  {
+    href: "/event-reports",
+    label: "Tədbir şikayətləri",
+    icon: Flag,
+    permission: "moderateVenues",
+    countKey: "eventReports",
+  },
   { href: "/notifications", label: "Bildirişlər", icon: Bell, permission: "broadcastNotifications" },
   { href: "/logs", label: "Loglar", icon: ScrollText },
   { href: "/admins", label: "Admin idarəetməsi", icon: ShieldCheck, permission: "manageAdmins" },
@@ -57,7 +73,7 @@ const PLANNED_NAV = [
   { href: "/roles", label: "Rollar və İcazələr", icon: KeyRound, badge: "Tezliklə" },
 ];
 
-export function Sidebar({ role }: { role: AdminRole }) {
+export function Sidebar({ role, pendingCounts }: { role: AdminRole; pendingCounts: PendingCounts }) {
   const pathname = usePathname();
   const visibleExisting = EXISTING_NAV.filter((item) => !item.permission || hasPermission(role, item.permission));
 
@@ -75,7 +91,11 @@ export function Sidebar({ role }: { role: AdminRole }) {
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-0.5">
         {visibleExisting.map((item) => (
-          <NavItem key={item.href} item={item} active={pathname === item.href || pathname.startsWith(`${item.href}/`)} />
+          <NavItem
+            key={item.href}
+            item={{ ...item, count: item.countKey ? pendingCounts[item.countKey] : undefined }}
+            active={pathname === item.href || pathname.startsWith(`${item.href}/`)}
+          />
         ))}
 
         <div className="pt-4 mt-4 border-t border-dash-border dark:border-dash-border-dark">
