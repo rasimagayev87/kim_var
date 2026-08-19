@@ -22,6 +22,7 @@ class ProfileVisitorsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final visitorsAsync = ref.watch(profileVisitorsProvider(uid));
+    ref.watch(markVisitorsCheckedProvider);
 
     return Scaffold(
       backgroundColor: ChatLightColors.bg1,

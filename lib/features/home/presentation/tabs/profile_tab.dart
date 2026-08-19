@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
+import '../../../../core/widgets/premium_upsell_sheet.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
@@ -13,7 +14,9 @@ import '../../../follow/presentation/providers/follow_providers.dart';
 import '../../../post_share/domain/entities/post.dart';
 import '../../../post_share/presentation/providers/post_providers.dart';
 import '../../../post_share/presentation/widgets/post_capture_sheet.dart';
+import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
+import '../../../profile/presentation/providers/profile_visitors_providers.dart';
 import '../../../profile/presentation/screens/profile_share_screen.dart';
 import '../../../profile/presentation/screens/profile_visitors_screen.dart';
 import '../../../profile/presentation/widgets/profile_display_widgets.dart';
@@ -40,6 +43,8 @@ class ProfileTab extends ConsumerWidget {
     final postsAsync = myUid == null
         ? const AsyncValue.data(<Post>[])
         : ref.watch(userPostsProvider(myUid));
+    final isPremium = ref.watch(isPremiumProvider);
+    final newVisitorsCount = ref.watch(newProfileVisitorsCountProvider);
 
     final displayName = authUser?.name ?? loc.profileNamePlaceholder;
 
@@ -75,22 +80,58 @@ class ProfileTab extends ConsumerWidget {
                           // IconButton spacing between them) — three
                           // buttons stretched across most of the row
                           // read as loose/unfinished, not premium.
-                          IconButton(
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                            onPressed: myUid == null
-                                ? null
-                                : () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => ProfileVisitorsScreen(uid: myUid),
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                                onPressed: myUid == null
+                                    ? null
+                                    : () {
+                                        if (!isPremium) {
+                                          showPremiumUpsellSheet(
+                                            context,
+                                            title: loc.premiumUpsellVisitorsTitle,
+                                            message: loc.premiumUpsellVisitorsMessage,
+                                          );
+                                          return;
+                                        }
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => ProfileVisitorsScreen(uid: myUid),
+                                          ),
+                                        );
+                                      },
+                                icon: const Icon(
+                                  Icons.directions_walk,
+                                  color: ChatLightColors.ink,
+                                  size: 20,
+                                ),
+                              ),
+                              if (isPremium && newVisitorsCount > 0)
+                                Positioned(
+                                  top: 2,
+                                  right: 2,
+                                  child: IgnorePointer(
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                      constraints: const BoxConstraints(minWidth: 17),
+                                      decoration: BoxDecoration(
+                                        color: AppColors.error,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(color: ChatLightColors.bg1, width: 1.5),
+                                      ),
+                                      child: Text(
+                                        newVisitorsCount > 99 ? '99+' : '$newVisitorsCount',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
                                       ),
                                     ),
-                            icon: const Icon(
-                              Icons.directions_walk,
-                              color: ChatLightColors.ink,
-                              size: 20,
-                            ),
+                                  ),
+                                ),
+                            ],
                           ),
                           IconButton(
                             padding: EdgeInsets.zero,

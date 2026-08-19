@@ -34,6 +34,29 @@ final recordProfileVisitProvider = FutureProvider.autoDispose.family<void, Strin
   });
 });
 
+/// Streams the signed-in user's own `lastVisitorsCheckedAt` field — null
+/// if the visitors screen has never been opened, meaning every visit in
+/// the window still counts as "new".
+final lastVisitorsCheckedAtProvider = StreamProvider.autoDispose<DateTime?>((ref) {
+  final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
+  if (myUid == null) return Stream.value(null);
+  return FirebaseFirestore.instance.collection('users').doc(myUid).snapshots().map(
+        (snap) => (snap.data()?['lastVisitorsCheckedAt'] as Timestamp?)?.toDate(),
+      );
+});
+
+/// Marks the visitors list as caught-up as of now — fired once when
+/// [ProfileVisitorsScreen] opens, mirroring [recordProfileVisitProvider]'s
+/// "watch to fire once per fresh navigation" shape.
+final markVisitorsCheckedProvider = FutureProvider.autoDispose<void>((ref) async {
+  final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
+  if (myUid == null) return;
+  await FirebaseFirestore.instance
+      .collection('users')
+      .doc(myUid)
+      .set({'lastVisitorsCheckedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+});
+
 const _kProfileVisitorsWindow = Duration(days: 30);
 
 /// Live list of everyone who viewed [uid]'s profile in the last 30
@@ -54,4 +77,18 @@ final profileVisitorsProvider = StreamProvider.autoDispose.family<List<ProfileVi
               viewedAt: (data['viewedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
             );
           }).toList());
+});
+
+/// Live "new since last check" count for the signed-in user's own
+/// visitors — the badge shown on the footprint icon before it's opened.
+/// Falls back to the full window's count when [lastVisitorsCheckedAt]
+/// hasn't been set yet (never opened before).
+final newProfileVisitorsCountProvider = Provider.autoDispose<int>((ref) {
+  final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
+  if (myUid == null) return 0;
+
+  final visitors = ref.watch(profileVisitorsProvider(myUid)).valueOrNull ?? const [];
+  final lastChecked = ref.watch(lastVisitorsCheckedAtProvider).valueOrNull;
+  if (lastChecked == null) return visitors.length;
+  return visitors.where((v) => v.viewedAt.isAfter(lastChecked)).length;
 });

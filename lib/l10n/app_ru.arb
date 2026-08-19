@@ -331,6 +331,8 @@
   "premiumUpsellRadiusMessage": "С Premium ты сможешь видеть людей по всей своей стране и по всему миру и знакомиться с большим числом людей.",
   "premiumUpsellGenderTitle": "Фильтруй по полу 🎯",
   "premiumUpsellGenderMessage": "С Premium ты можешь показывать только мужчин или только женщин.",
+  "premiumUpsellVisitorsTitle": "Узнай, кто тебя смотрел 👣",
+  "premiumUpsellVisitorsMessage": "С Premium ты можешь видеть всех, кто посетил твой профиль.",
   "premiumUpgradeButton": "Перейти на Premium",
   "premiumLaterButton": "Позже",
   "premiumComingSoonTitle": "Premium",
