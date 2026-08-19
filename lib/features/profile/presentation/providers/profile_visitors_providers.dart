@@ -23,6 +23,13 @@ final recordProfileVisitProvider = FutureProvider.autoDispose.family<void, Strin
   final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
   if (myUid == null || myUid == viewedUid) return;
 
+  // "Gizli baxış" (VIP incognito browsing) — a viewer with this on
+  // leaves no trace, so the write below is skipped entirely rather
+  // than written-then-hidden. See `PrivacySettings.incognitoBrowsingEnabled`.
+  final myDoc = await FirebaseFirestore.instance.collection('users').doc(myUid).get();
+  final incognito = myDoc.data()?['incognitoBrowsingEnabled'] as bool? ?? false;
+  if (incognito) return;
+
   await FirebaseFirestore.instance
       .collection('users')
       .doc(viewedUid)

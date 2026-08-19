@@ -42,6 +42,7 @@ class FirebasePrivacySettingsRepository implements PrivacySettingsRepository {
       twoFactorEnabled: data['twoFactorEnabled'] as bool? ?? false,
       ghostModeEnabled: data['ghostModeEnabled'] as bool? ?? false,
       birthdayOffersOptIn: data['birthdayOffersOptIn'] as bool? ?? false,
+      incognitoBrowsingEnabled: data['incognitoBrowsingEnabled'] as bool? ?? false,
     );
   }
 

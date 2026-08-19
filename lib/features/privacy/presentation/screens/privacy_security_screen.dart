@@ -118,6 +118,26 @@ class PrivacySecurityScreen extends ConsumerWidget {
                   },
                 ),
                 SettingsToggleRow(
+                  icon: Icons.explore_off_outlined,
+                  iconColor: AppColors.gold,
+                  title: loc.privacyIncognitoBrowsingTitle,
+                  subtitle: loc.privacyIncognitoBrowsingDescription,
+                  value: settings.incognitoBrowsingEnabled,
+                  badge: const SettingsPill(label: 'VIP', color: AppColors.gold),
+                  onChanged: (v) async {
+                    if (v && !isPremium) {
+                      showPremiumUpsellSheet(
+                        context,
+                        title: loc.privacyIncognitoBrowsingPremiumTitle,
+                        message: loc.privacyIncognitoBrowsingPremiumMessage,
+                      );
+                      return;
+                    }
+                    final ok = await controller.updateIncognitoBrowsing(v);
+                    if (!ok && context.mounted) showError();
+                  },
+                ),
+                SettingsToggleRow(
                   icon: Icons.cake_outlined,
                   title: loc.privacyBirthdayOffersTitle,
                   subtitle: loc.privacyBirthdayOffersDescription,

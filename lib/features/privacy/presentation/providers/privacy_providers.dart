@@ -16,6 +16,7 @@ import '../../domain/usecases/export_user_data_usecase.dart';
 import '../../domain/usecases/update_account_privacy_usecase.dart';
 import '../../domain/usecases/update_birthday_offers_opt_in_usecase.dart';
 import '../../domain/usecases/update_ghost_mode_usecase.dart';
+import '../../domain/usecases/update_incognito_browsing_usecase.dart';
 import '../../domain/usecases/update_profile_visibility_usecase.dart';
 import '../../domain/usecases/update_show_online_status_usecase.dart';
 import '../../domain/usecases/update_show_read_receipts_usecase.dart';
@@ -61,6 +62,10 @@ final updateGhostModeUseCaseProvider = Provider<UpdateGhostModeUseCase>((ref) {
 
 final updateBirthdayOffersOptInUseCaseProvider = Provider<UpdateBirthdayOffersOptInUseCase>((ref) {
   return UpdateBirthdayOffersOptInUseCase(ref.watch(privacySettingsRepositoryProvider));
+});
+
+final updateIncognitoBrowsingUseCaseProvider = Provider<UpdateIncognitoBrowsingUseCase>((ref) {
+  return UpdateIncognitoBrowsingUseCase(ref.watch(privacySettingsRepositoryProvider));
 });
 
 final accountRepositoryProvider = Provider<AccountRepository>((ref) => FirebaseAccountRepository());
@@ -130,6 +135,10 @@ class PrivacySettingsController {
 
   Future<bool> updateBirthdayOffersOptIn(bool enabled) {
     return _run((uid) => _ref.read(updateBirthdayOffersOptInUseCaseProvider).call(uid: uid, enabled: enabled));
+  }
+
+  Future<bool> updateIncognitoBrowsing(bool enabled) {
+    return _run((uid) => _ref.read(updateIncognitoBrowsingUseCaseProvider).call(uid: uid, enabled: enabled));
   }
 
   Future<bool> _run(Future<void> Function(String uid) action) async {

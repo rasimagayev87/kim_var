@@ -94,6 +94,14 @@ class PrivacySettings {
   /// doc comment in `functions/src/index.ts`.
   final bool birthdayOffersOptIn;
 
+  /// Premium-gated, same UI-level check as [ghostModeEnabled] — but a
+  /// DIFFERENT axis entirely: this hides the fact that *this user*
+  /// viewed *someone else's* profile (no `profileViews` doc gets
+  /// written, see `recordProfileVisitProvider`), while [ghostModeEnabled]
+  /// hides this user from Discover/the nearby map. A user can have
+  /// either, both, or neither independently.
+  final bool incognitoBrowsingEnabled;
+
   const PrivacySettings({
     this.profileVisibility = ProfileVisibility.everyone,
     this.accountPrivacy = AccountPrivacy.public,
@@ -105,6 +113,7 @@ class PrivacySettings {
     this.twoFactorEnabled = false,
     this.ghostModeEnabled = false,
     this.birthdayOffersOptIn = false,
+    this.incognitoBrowsingEnabled = false,
   });
 
   PrivacySettings copyWith({
@@ -119,6 +128,7 @@ class PrivacySettings {
     bool? twoFactorEnabled,
     bool? ghostModeEnabled,
     bool? birthdayOffersOptIn,
+    bool? incognitoBrowsingEnabled,
   }) {
     return PrivacySettings(
       profileVisibility: profileVisibility ?? this.profileVisibility,
@@ -131,6 +141,7 @@ class PrivacySettings {
       twoFactorEnabled: twoFactorEnabled ?? this.twoFactorEnabled,
       ghostModeEnabled: ghostModeEnabled ?? this.ghostModeEnabled,
       birthdayOffersOptIn: birthdayOffersOptIn ?? this.birthdayOffersOptIn,
+      incognitoBrowsingEnabled: incognitoBrowsingEnabled ?? this.incognitoBrowsingEnabled,
     );
   }
 }
