@@ -1,6 +1,23 @@
 {
   "indexes": [
     {
+      "collectionGroup": "pinboxes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "position.geohash", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pinboxes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "category", "order": "ASCENDING" },
+        { "fieldPath": "position.geohash", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "pinboxOrders",
       "queryScope": "COLLECTION",
       "fields": [
