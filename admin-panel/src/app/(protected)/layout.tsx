@@ -39,6 +39,7 @@ export default async function ProtectedLayout({ children }: { children: React.Re
           adminRole={admin.role}
           notifications={notifications}
           unreadNotificationsCount={unreadNotificationsCount}
+          pendingCounts={pendingCounts}
         />
         <main className="flex-1 p-6">{children}</main>
       </div>

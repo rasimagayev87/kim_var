@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { markAdminNotificationRead, markAllAdminNotificationsRead } from "@/lib/actions/admin-notifications";
 import type { AdminNotificationRow } from "@/lib/data/admin-notifications";
+import { PENDING_SECTION_META, type PendingCounts } from "@/lib/pending-sections";
 
 const TYPE_LABELS: Record<string, string> = {
   "report.user": "İstifadəçi şikayəti",
@@ -50,13 +51,21 @@ function formatRelativeTime(iso: string | null): string {
 export function NotificationBell({
   initialRows,
   initialUnreadCount,
+  pendingCounts,
 }: {
   initialRows: AdminNotificationRow[];
   initialUnreadCount: number;
+  pendingCounts: PendingCounts;
 }) {
   const [rows, setRows] = useState(initialRows);
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
   const [, startTransition] = useTransition();
+
+  const pendingSections = PENDING_SECTION_META.map((meta) => ({
+    ...meta,
+    count: pendingCounts[meta.key],
+  })).filter((section) => section.count > 0);
+  const totalPending = pendingSections.reduce((sum, section) => sum + section.count, 0);
 
   function handleItemClick(id: string) {
     const row = rows.find((r) => r.id === id);
@@ -87,15 +96,38 @@ export function NotificationBell({
             aria-label="Bildirişlər"
           >
             <Bell className="w-[18px] h-[18px]" />
-            {unreadCount > 0 && (
+            {totalPending > 0 && (
               <span className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full bg-cyan text-white text-[10px] font-mono leading-4 text-center">
-                {unreadCount > 9 ? "9+" : unreadCount}
+                {totalPending > 9 ? "9+" : totalPending}
               </span>
+            )}
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 left-1.5 size-2 rounded-full bg-pink" aria-hidden />
             )}
           </Button>
         }
       />
       <DropdownMenuContent align="end" className="w-80">
+        {pendingSections.length > 0 && (
+          <>
+            <DropdownMenuGroup className="flex items-center justify-between px-2 py-1.5">
+              <DropdownMenuLabel className="p-0">Gözləyən təsdiqlər</DropdownMenuLabel>
+            </DropdownMenuGroup>
+            {pendingSections.map((section) => (
+              <DropdownMenuItem
+                key={section.key}
+                render={<Link href={section.href} />}
+                className="flex items-center justify-between"
+              >
+                <span className="text-xs">{section.label}</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-pill bg-cyan text-white">
+                  {section.count}
+                </span>
+              </DropdownMenuItem>
+            ))}
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuGroup className="flex items-center justify-between px-2 py-1.5">
           <DropdownMenuLabel className="p-0">Bildirişlər</DropdownMenuLabel>
           {unreadCount > 0 && (

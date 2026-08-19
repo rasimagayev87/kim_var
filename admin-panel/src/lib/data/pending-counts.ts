@@ -1,6 +1,10 @@
 import "server-only";
 
 import { getAdminDb } from "@/lib/firebase/admin";
+import type { PendingCounts } from "@/lib/pending-sections";
+
+export type { PendingCounts } from "@/lib/pending-sections";
+export { PENDING_SECTION_META } from "@/lib/pending-sections";
 
 /**
  * One shared source for "how many items are waiting on this admin" —
@@ -15,16 +19,13 @@ import { getAdminDb } from "@/lib/firebase/admin";
  * collection's own status enum is `"open" | "resolved" | "dismissed"`
  * (see `event-reports.ts`), so "open" is what "still needs review"
  * means there.
+ *
+ * The `PendingCounts` shape and `PENDING_SECTION_META` display labels
+ * live in `@/lib/pending-sections` (no `"server-only"`) so client
+ * components like `NotificationBell` can import them without pulling
+ * the Admin SDK into the browser bundle; re-exported here so existing
+ * server-side imports don't need to change.
  */
-export interface PendingCounts {
-  venues: number;
-  offers: number;
-  identityVerifications: number;
-  reports: number;
-  eventReports: number;
-  payments: number;
-}
-
 export async function getPendingCounts(): Promise<PendingCounts> {
   const db = getAdminDb();
 

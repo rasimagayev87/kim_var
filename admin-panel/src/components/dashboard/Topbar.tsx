@@ -6,6 +6,7 @@ import { useTheme } from "@/components/dashboard/ThemeProvider";
 import { NotificationBell } from "@/components/dashboard/NotificationBell";
 import { LogoutButton } from "@/components/auth/logout-button";
 import type { AdminNotificationRow } from "@/lib/data/admin-notifications";
+import type { PendingCounts } from "@/lib/pending-sections";
 import type { AdminRole } from "@/lib/auth/session";
 
 interface TopbarProps {
@@ -13,9 +14,16 @@ interface TopbarProps {
   adminRole: AdminRole;
   notifications: AdminNotificationRow[];
   unreadNotificationsCount: number;
+  pendingCounts: PendingCounts;
 }
 
-export function Topbar({ adminEmail, adminRole, notifications, unreadNotificationsCount }: TopbarProps) {
+export function Topbar({
+  adminEmail,
+  adminRole,
+  notifications,
+  unreadNotificationsCount,
+  pendingCounts,
+}: TopbarProps) {
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -56,7 +64,11 @@ export function Topbar({ adminEmail, adminRole, notifications, unreadNotificatio
           {theme === "dark" ? <Sun className="w-[18px] h-[18px]" /> : <Moon className="w-[18px] h-[18px]" />}
         </button>
 
-        <NotificationBell initialRows={notifications} initialUnreadCount={unreadNotificationsCount} />
+        <NotificationBell
+          initialRows={notifications}
+          initialUnreadCount={unreadNotificationsCount}
+          pendingCounts={pendingCounts}
+        />
 
         <div className="w-px h-6 bg-dash-border dark:bg-dash-border-dark mx-1" />
 

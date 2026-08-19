@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { hasPermission, type Permission } from "@/lib/auth/permissions";
 import type { AdminRole } from "@/lib/auth/session";
 import { ComingSoonBadge } from "@/components/dashboard/ComingSoon";
-import type { PendingCounts } from "@/lib/data/pending-counts";
+import type { PendingCounts } from "@/lib/pending-sections";
 
 // Same hrefs/permissions as the previous nav-items.ts (moderateVenues,
 // manageFeedback, etc.) — only the visual treatment changed. A
