@@ -98,6 +98,16 @@ service firebase.storage {
                    && request.resource.contentType.matches('image/.*');
     }
 
+    // PinBox photos — path is `pinbox_photos/{pinboxId}.jpg`, same
+    // flat-path/unguessable-auto-id reasoning as venue_photos above.
+    match /pinbox_photos/{fileName} {
+      allow read: if request.auth != null;
+
+      allow write: if request.auth != null
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
     // 24h stories — image or video, owner-only upload. Read is open to
     // any signed-in user (same precedent as every other path above);
     // Firestore's own `stories/{storyId}` visibility rule is the real
