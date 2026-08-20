@@ -4,8 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
-import '../../../events/presentation/providers/venue_event_providers.dart';
-import '../../../events/presentation/screens/my_venue_events_screen.dart';
 import '../../../pinbox/presentation/screens/pinbox_redeem_screen.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../waitlist/presentation/providers/waitlist_providers.dart';
@@ -98,7 +96,7 @@ class MyVenuesScreen extends ConsumerWidget {
   }
 }
 
-enum _MyVenueCardAction { edit, seats, waitlist, events, pinboxRedeem, delete }
+enum _MyVenueCardAction { edit, seats, waitlist, pinboxRedeem, delete }
 
 class _MyVenueCard extends ConsumerWidget {
   final Venue venue;
@@ -108,21 +106,11 @@ class _MyVenueCard extends ConsumerWidget {
   Future<void> _openMenu(BuildContext context, WidgetRef ref) async {
     final loc = AppLocalizations.of(context);
 
-    // "Tədbirlər" stays in the menu if either the venue's CURRENT
-    // category is event-eligible, or it already has event history to
-    // manage from a time when it was — a category change never hides
-    // past events, only closes off publishing new ones (see
-    // `eventCategoryConfigProvider`'s doc comment). Checked once here,
-    // on demand, rather than as an always-on listener per card.
-    final eligibleCategories = await ref.read(eventCategoryConfigProvider.future);
-    var showEventsMenuItem = eligibleCategories.contains(venue.category);
-    if (!showEventsMenuItem) {
-      showEventsMenuItem = await ref.read(venueEventRepositoryProvider).hasAnyEvent(venue.id);
-    }
-
-    // Same "eligible category OR existing history" rule as Tədbirlər
-    // above, for the waitlist feature — see
-    // `waitlistCategoryConfigProvider`'s doc comment.
+    // Same "eligible category OR existing history" rule the waitlist
+    // feature has always used — see `waitlistCategoryConfigProvider`'s
+    // doc comment. (Tədbirlər/events management moved out of this menu
+    // entirely — it now lives under Kəşf et → Fürsətlər's own "manage"
+    // icon, see `discover_tab.dart`'s `_openMyEvents`.)
     final eligibleWaitlistCategories = await ref.read(waitlistCategoryConfigProvider.future);
     var showWaitlistMenuItem = eligibleWaitlistCategories.contains(venue.category);
     if (!showWaitlistMenuItem) {
@@ -187,15 +175,6 @@ class _MyVenueCard extends ConsumerWidget {
                 ),
                 onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.waitlist),
               ),
-            if (showEventsMenuItem)
-              ListTile(
-                leading: const Icon(Icons.celebration_outlined, color: ChatLightColors.ink),
-                title: Text(
-                  loc.eventMyEventsTitle,
-                  style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
-                ),
-                onTap: () => Navigator.pop(sheetContext, _MyVenueCardAction.events),
-              ),
             if (showPinboxRedeemMenuItem)
               ListTile(
                 leading: const Icon(Icons.qr_code_scanner_outlined, color: ChatLightColors.ink),
@@ -237,8 +216,6 @@ class _MyVenueCard extends ConsumerWidget {
         showSeatCountEditorSheet(context, venue);
       case _MyVenueCardAction.waitlist:
         Navigator.push(context, MaterialPageRoute(builder: (_) => VenueWaitlistScreen(venue: venue)));
-      case _MyVenueCardAction.events:
-        Navigator.push(context, MaterialPageRoute(builder: (_) => MyVenueEventsScreen(venue: venue)));
       case _MyVenueCardAction.pinboxRedeem:
         Navigator.push(context, MaterialPageRoute(builder: (_) => PinBoxRedeemScreen(venue: venue)));
       case _MyVenueCardAction.delete:
