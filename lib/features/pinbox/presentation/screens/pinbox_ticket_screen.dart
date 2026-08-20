@@ -30,6 +30,14 @@ class PinBoxTicketScreen extends ConsumerStatefulWidget {
 
 const _kQrRefreshInterval = Duration(seconds: 30);
 
+/// "482913" → "482 913" — purely a legibility split for the 6-digit
+/// code shown alongside the QR image; falls back to the raw value for
+/// any other length so a future token-format change never breaks this.
+String _formatQrCode(String token) {
+  if (token.length != 6) return token;
+  return '${token.substring(0, 3)} ${token.substring(3)}';
+}
+
 class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
   Timer? _refreshTimer;
   Timer? _countdownTimer;
@@ -223,6 +231,24 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                                         color: ChatLightColors.ink,
                                       ),
                                     ),
+                                  if (_qrToken != null) ...[
+                                    const SizedBox(height: 14),
+                                    // The code itself, not just the QR image encoding
+                                    // it — PinBox Faza 9's redemption screen is
+                                    // manual-entry-only (no camera scanning), so the
+                                    // buyer needs something they can actually read
+                                    // aloud or type in themselves when the cashier
+                                    // has no scanner.
+                                    Text(
+                                      _formatQrCode(_qrToken!),
+                                      style: const TextStyle(
+                                        fontSize: 26,
+                                        fontWeight: FontWeight.w800,
+                                        color: ChatLightColors.ink,
+                                        letterSpacing: 2,
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 10),
                                   Text(
                                     loc.pinboxTicketQrRefreshCountdown(_countdown.inSeconds),

@@ -633,7 +633,7 @@
       }
     }
   },
-  "pinboxTicketShowToCashierHint": "Покажите этот QR-код кассиру",
+  "pinboxTicketShowToCashierHint": "Покажите этот QR-код кассиру или назовите код выше",
   "pinboxTicketAmountPaidLabel": "Оплаченная сумма",
   "pinboxTicketSavingsLabel": "Ваша экономия",
   "pinboxTicketOpenRouteButton": "Проложить маршрут",

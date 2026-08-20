@@ -633,7 +633,7 @@
       }
     }
   },
-  "pinboxTicketShowToCashierHint": "Kassirə yaxınlaşdıqda QR kodu göstərin",
+  "pinboxTicketShowToCashierHint": "Kassirə yaxınlaşdıqda QR kodu göstərin və ya yuxarıdakı kodu deyin",
   "pinboxTicketAmountPaidLabel": "Ödənilən məbləğ",
   "pinboxTicketSavingsLabel": "Qənaətiniz",
   "pinboxTicketOpenRouteButton": "Marşrut Aç",

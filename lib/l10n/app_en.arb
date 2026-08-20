@@ -698,7 +698,7 @@
       }
     }
   },
-  "pinboxTicketShowToCashierHint": "Show this QR code to the cashier",
+  "pinboxTicketShowToCashierHint": "Show this QR code to the cashier, or read them the code above",
   "pinboxTicketAmountPaidLabel": "Amount paid",
   "pinboxTicketSavingsLabel": "Your savings",
   "pinboxTicketOpenRouteButton": "Get Directions",

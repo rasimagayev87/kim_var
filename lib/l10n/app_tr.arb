@@ -633,7 +633,7 @@
       }
     }
   },
-  "pinboxTicketShowToCashierHint": "Kasiyere yaklaştığınızda QR kodu gösterin",
+  "pinboxTicketShowToCashierHint": "Kasiyere yaklaştığınızda QR kodu gösterin ya da yukarıdaki kodu söyleyin",
   "pinboxTicketAmountPaidLabel": "Ödenen tutar",
   "pinboxTicketSavingsLabel": "Tasarrufunuz",
   "pinboxTicketOpenRouteButton": "Yol Tarifi Al",
