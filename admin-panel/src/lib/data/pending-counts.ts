@@ -29,10 +29,11 @@ export { PENDING_SECTION_META } from "@/lib/pending-sections";
 export async function getPendingCounts(): Promise<PendingCounts> {
   const db = getAdminDb();
 
-  const [venuesSnap, offersSnap, identitySnap, reportsSnap, eventReportsSnap, paymentsSnap, pinboxPayoutsSnap] =
+  const [venuesSnap, offersSnap, pinboxesSnap, identitySnap, reportsSnap, eventReportsSnap, paymentsSnap, pinboxPayoutsSnap] =
     await Promise.all([
       db.collection("venues").where("status", "==", "pending").count().get(),
       db.collection("offers").where("status", "==", "pending").count().get(),
+      db.collection("pinboxes").where("status", "==", "pending").count().get(),
       db.collection("identityVerifications").where("status", "==", "pending").count().get(),
       db.collection("reports").where("status", "==", "pending").count().get(),
       db.collection("eventReports").where("status", "==", "open").count().get(),
@@ -43,6 +44,7 @@ export async function getPendingCounts(): Promise<PendingCounts> {
   return {
     venues: venuesSnap.data().count,
     offers: offersSnap.data().count,
+    pinboxes: pinboxesSnap.data().count,
     identityVerifications: identitySnap.data().count,
     reports: reportsSnap.data().count,
     eventReports: eventReportsSnap.data().count,

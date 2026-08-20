@@ -20,6 +20,9 @@ const STATUS_LABELS: Record<string, string> = {
   upcoming: "Gələcək",
   live: "Canlı",
   ended: "Bitib",
+  active: "Aktiv",
+  soldOut: "Satılıb",
+  expired: "Vaxtı bitib",
 };
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -42,6 +45,9 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "des
   upcoming: "secondary",
   live: "default",
   ended: "outline",
+  active: "default",
+  soldOut: "secondary",
+  expired: "outline",
 };
 
 export function StatusBadge({ status }: { status: string }) {

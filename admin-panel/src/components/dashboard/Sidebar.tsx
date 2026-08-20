@@ -6,6 +6,7 @@ import {
   Users,
   Store,
   Tag,
+  Package,
   Flag,
   Bell,
   ScrollText,
@@ -58,6 +59,7 @@ const EXISTING_NAV: {
     countKey: "pinboxPayouts",
   },
   { href: "/offers", label: "Təkliflər", icon: Tag, permission: "moderateOffers", countKey: "offers" },
+  { href: "/pinboxes", label: "PinBox", icon: Package, permission: "moderateOffers", countKey: "pinboxes" },
   { href: "/feedback", label: "Şikayətlər", icon: Flag, permission: "manageFeedback", countKey: "reports" },
   {
     href: "/event-reports",
