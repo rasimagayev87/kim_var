@@ -605,7 +605,7 @@
   "pinboxPaymentMethodOption": "Apple Pay / Картой",
   "pinboxPaymentDetailsLabel": "ДЕТАЛИ ОПЛАТЫ",
   "pinboxServiceFeeLabel": "Доставка / Сервисный сбор",
-  "pinboxServiceFeeFree": "0.00 AZN (Бесплатно)",
+  "pinboxServiceFeeFree": "Нет",
   "pinboxTotalToPayLabel": "Итого к оплате:",
   "pinboxPayButtonLabel": "Оплатить и забронировать коробку",
   "pinboxOrderCreatedNotice": "Заказ создан!",

@@ -670,7 +670,7 @@
   "pinboxPaymentMethodOption": "Apple Pay / Card",
   "pinboxPaymentDetailsLabel": "PAYMENT DETAILS",
   "pinboxServiceFeeLabel": "Delivery / Service fee",
-  "pinboxServiceFeeFree": "0.00 AZN (Free)",
+  "pinboxServiceFeeFree": "None",
   "pinboxTotalToPayLabel": "Total to pay:",
   "pinboxPayButtonLabel": "Pay & Reserve the Box",
   "pinboxOrderCreatedNotice": "Order created!",

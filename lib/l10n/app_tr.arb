@@ -605,7 +605,7 @@
   "pinboxPaymentMethodOption": "Apple Pay / Kart ile",
   "pinboxPaymentDetailsLabel": "ÖDEME DETAYLARI",
   "pinboxServiceFeeLabel": "Teslimat / Hizmet ücreti",
-  "pinboxServiceFeeFree": "0.00 AZN (Ücretsiz)",
+  "pinboxServiceFeeFree": "Yok",
   "pinboxTotalToPayLabel": "Toplam Ödenecek:",
   "pinboxPayButtonLabel": "Öde ve Kutuyu Ayırt",
   "pinboxOrderCreatedNotice": "Sipariş oluşturuldu!",

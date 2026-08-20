@@ -605,7 +605,7 @@
   "pinboxPaymentMethodOption": "Apple Pay / Kart ilə",
   "pinboxPaymentDetailsLabel": "ÖDƏNİŞ DETALLARI",
   "pinboxServiceFeeLabel": "Çatdırılma / Xidmət haqqı",
-  "pinboxServiceFeeFree": "0.00 AZN (Pulsuz)",
+  "pinboxServiceFeeFree": "Yoxdur",
   "pinboxTotalToPayLabel": "Cəmi Ödəniləcək:",
   "pinboxPayButtonLabel": "Ödə və Qutunu Rezerv Et",
   "pinboxOrderCreatedNotice": "Sifariş yaradıldı!",
