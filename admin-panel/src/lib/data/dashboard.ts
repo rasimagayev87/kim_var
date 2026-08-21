@@ -6,6 +6,8 @@ export interface DashboardStats {
   totalUsers: number;
   activeVenues: number;
   activeOffers: number;
+  activeEvents: number;
+  activePinBoxes: number;
   pendingModeration: number;
   pendingReports: number;
 }
@@ -30,6 +32,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     usersSnap,
     activeVenuesSnap,
     activeOffersSnap,
+    activeEventsSnap,
+    activePinBoxesSnap,
     pendingVenuesSnap,
     pendingOffersSnap,
     pendingReportsSnap,
@@ -38,6 +42,13 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     db.collection("users").count().get(),
     db.collection("venues").where("status", "==", "approved").count().get(),
     db.collection("offers").where("status", "==", "approved").count().get(),
+    // "upcoming"/"live" (see advanceVenueEventStatuses, functions/src/
+    // index.ts) — an event auto-cancelled or past "ended" isn't active
+    // anymore, mirrors why the venue/offer counts above filter on
+    // their own "currently visible" status rather than every doc ever
+    // created.
+    db.collection("venueEvents").where("status", "in", ["upcoming", "live"]).count().get(),
+    db.collection("pinboxes").where("status", "==", "active").count().get(),
     db.collection("venues").where("status", "==", "pending").count().get(),
     db.collection("offers").where("status", "==", "pending").count().get(),
     db.collection("reports").where("status", "==", "pending").count().get(),
@@ -48,6 +59,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     totalUsers: usersSnap.data().count,
     activeVenues: activeVenuesSnap.data().count,
     activeOffers: activeOffersSnap.data().count,
+    activeEvents: activeEventsSnap.data().count,
+    activePinBoxes: activePinBoxesSnap.data().count,
     pendingModeration:
       pendingVenuesSnap.data().count + pendingOffersSnap.data().count + pendingIdentityVerificationsSnap.data().count,
     pendingReports: pendingReportsSnap.data().count,

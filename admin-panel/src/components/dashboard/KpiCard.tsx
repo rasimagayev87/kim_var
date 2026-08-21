@@ -11,6 +11,8 @@ import {
   ShieldAlert,
   Flag,
   Activity,
+  Calendar,
+  Package,
   ArrowUp,
   ArrowDown,
   Minus,
@@ -19,7 +21,7 @@ import { LineChart, Line, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
 import type { KpiDatum } from "@/lib/types";
 
-const ICONS = { Users, UserPlus, Store, Tag, Wallet, CreditCard, ShieldAlert, Flag, Activity };
+const ICONS = { Users, UserPlus, Store, Tag, Wallet, CreditCard, ShieldAlert, Flag, Activity, Calendar, Package };
 
 const TONE_CLASSES: Record<NonNullable<KpiDatum["tone"]>, string> = {
   cyan: "bg-cyan-soft text-cyan dark:bg-cyan/10",

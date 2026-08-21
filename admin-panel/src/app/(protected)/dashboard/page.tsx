@@ -52,6 +52,8 @@ export default async function DashboardPage() {
     { id: "new-users-today", label: "Yeni İstifadəçilər", value: todayNewUsers, icon: "UserPlus", tone: "purple" },
     { id: "active-venues", label: "Aktiv Məkanlar", value: stats.activeVenues, icon: "Store", tone: "cyan" },
     { id: "active-offers", label: "Aktiv Təkliflər", value: stats.activeOffers, icon: "Tag", tone: "pink" },
+    { id: "active-events", label: "Aktiv Tədbirlər", value: stats.activeEvents, icon: "Calendar", tone: "purple" },
+    { id: "active-pinboxes", label: "Aktiv PinBox-lar", value: stats.activePinBoxes, icon: "Package", tone: "amber" },
     { id: "revenue-today", label: "Gəlir (Bugün)", value: 0, unit: "AZN", icon: "Wallet", tone: "success" },
     { id: "subscriptions", label: "Abunəliklər", value: 0, icon: "CreditCard", tone: "purple" },
     { id: "reports", label: "Reports", value: stats.pendingReports, icon: "Flag", tone: "danger" },
@@ -95,7 +97,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-4">
-      {/* KPI row — 8 cards */}
+      {/* KPI row — 10 cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
         {kpiData.map((kpi) => (
           <KpiCard key={kpi.id} data={kpi} />

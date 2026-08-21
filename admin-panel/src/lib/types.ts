@@ -26,7 +26,9 @@ export type LucideIconName =
   | "CreditCard"
   | "ShieldAlert"
   | "Flag"
-  | "Activity";
+  | "Activity"
+  | "Calendar"
+  | "Package";
 
 export interface ActivityEvent {
   id: string;
