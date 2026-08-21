@@ -25,6 +25,8 @@ mixin _$VenueEvent {
   String get venueId => throw _privateConstructorUsedError;
   String get venueName => throw _privateConstructorUsedError;
   String? get venuePhotoUrl => throw _privateConstructorUsedError;
+  @VenueCategoryConverter()
+  VenueCategory get venueCategory => throw _privateConstructorUsedError;
   double get lat => throw _privateConstructorUsedError;
   double get lng => throw _privateConstructorUsedError;
   String get title => throw _privateConstructorUsedError;
@@ -63,6 +65,7 @@ abstract class $VenueEventCopyWith<$Res> {
     String venueId,
     String venueName,
     String? venuePhotoUrl,
+    @VenueCategoryConverter() VenueCategory venueCategory,
     double lat,
     double lng,
     String title,
@@ -95,6 +98,7 @@ class _$VenueEventCopyWithImpl<$Res, $Val extends VenueEvent>
     Object? venueId = null,
     Object? venueName = null,
     Object? venuePhotoUrl = freezed,
+    Object? venueCategory = null,
     Object? lat = null,
     Object? lng = null,
     Object? title = null,
@@ -124,6 +128,10 @@ class _$VenueEventCopyWithImpl<$Res, $Val extends VenueEvent>
                 ? _value.venuePhotoUrl
                 : venuePhotoUrl // ignore: cast_nullable_to_non_nullable
                       as String?,
+            venueCategory: null == venueCategory
+                ? _value.venueCategory
+                : venueCategory // ignore: cast_nullable_to_non_nullable
+                      as VenueCategory,
             lat: null == lat
                 ? _value.lat
                 : lat // ignore: cast_nullable_to_non_nullable
@@ -184,6 +192,7 @@ abstract class _$$VenueEventImplCopyWith<$Res>
     String venueId,
     String venueName,
     String? venuePhotoUrl,
+    @VenueCategoryConverter() VenueCategory venueCategory,
     double lat,
     double lng,
     String title,
@@ -215,6 +224,7 @@ class __$$VenueEventImplCopyWithImpl<$Res>
     Object? venueId = null,
     Object? venueName = null,
     Object? venuePhotoUrl = freezed,
+    Object? venueCategory = null,
     Object? lat = null,
     Object? lng = null,
     Object? title = null,
@@ -244,6 +254,10 @@ class __$$VenueEventImplCopyWithImpl<$Res>
             ? _value.venuePhotoUrl
             : venuePhotoUrl // ignore: cast_nullable_to_non_nullable
                   as String?,
+        venueCategory: null == venueCategory
+            ? _value.venueCategory
+            : venueCategory // ignore: cast_nullable_to_non_nullable
+                  as VenueCategory,
         lat: null == lat
             ? _value.lat
             : lat // ignore: cast_nullable_to_non_nullable
@@ -297,6 +311,7 @@ class _$VenueEventImpl extends _VenueEvent {
     required this.venueId,
     required this.venueName,
     this.venuePhotoUrl,
+    @VenueCategoryConverter() this.venueCategory = VenueCategory.other,
     required this.lat,
     required this.lng,
     required this.title,
@@ -320,6 +335,10 @@ class _$VenueEventImpl extends _VenueEvent {
   final String venueName;
   @override
   final String? venuePhotoUrl;
+  @override
+  @JsonKey()
+  @VenueCategoryConverter()
+  final VenueCategory venueCategory;
   @override
   final double lat;
   @override
@@ -350,7 +369,7 @@ class _$VenueEventImpl extends _VenueEvent {
 
   @override
   String toString() {
-    return 'VenueEvent(id: $id, venueId: $venueId, venueName: $venueName, venuePhotoUrl: $venuePhotoUrl, lat: $lat, lng: $lng, title: $title, description: $description, coverImageUrl: $coverImageUrl, startAt: $startAt, endAt: $endAt, category: $category, status: $status, createdAt: $createdAt)';
+    return 'VenueEvent(id: $id, venueId: $venueId, venueName: $venueName, venuePhotoUrl: $venuePhotoUrl, venueCategory: $venueCategory, lat: $lat, lng: $lng, title: $title, description: $description, coverImageUrl: $coverImageUrl, startAt: $startAt, endAt: $endAt, category: $category, status: $status, createdAt: $createdAt)';
   }
 
   @override
@@ -364,6 +383,8 @@ class _$VenueEventImpl extends _VenueEvent {
                 other.venueName == venueName) &&
             (identical(other.venuePhotoUrl, venuePhotoUrl) ||
                 other.venuePhotoUrl == venuePhotoUrl) &&
+            (identical(other.venueCategory, venueCategory) ||
+                other.venueCategory == venueCategory) &&
             (identical(other.lat, lat) || other.lat == lat) &&
             (identical(other.lng, lng) || other.lng == lng) &&
             (identical(other.title, title) || other.title == title) &&
@@ -388,6 +409,7 @@ class _$VenueEventImpl extends _VenueEvent {
     venueId,
     venueName,
     venuePhotoUrl,
+    venueCategory,
     lat,
     lng,
     title,
@@ -420,6 +442,7 @@ abstract class _VenueEvent extends VenueEvent {
     required final String venueId,
     required final String venueName,
     final String? venuePhotoUrl,
+    @VenueCategoryConverter() final VenueCategory venueCategory,
     required final double lat,
     required final double lng,
     required final String title,
@@ -444,6 +467,9 @@ abstract class _VenueEvent extends VenueEvent {
   String get venueName;
   @override
   String? get venuePhotoUrl;
+  @override
+  @VenueCategoryConverter()
+  VenueCategory get venueCategory;
   @override
   double get lat;
   @override

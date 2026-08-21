@@ -11,7 +11,8 @@
     "set-legal-version": "tsx --env-file=.env.local scripts/set-legal-version.ts",
     "set-event-categories": "tsx --env-file=.env.local scripts/set-event-categories.ts",
     "set-waitlist-categories": "tsx --env-file=.env.local scripts/set-waitlist-categories.ts",
-    "backfill-venue-subscriptions": "tsx --env-file=.env.local scripts/backfill-venue-subscriptions.ts"
+    "backfill-venue-subscriptions": "tsx --env-file=.env.local scripts/backfill-venue-subscriptions.ts",
+    "backfill-event-venue-categories": "tsx --env-file=.env.local scripts/backfill-event-venue-categories.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../location/presentation/providers/location_providers.dart';
+import '../../../offers/presentation/providers/offer_providers.dart' show selectedOfferCategoryFilterProvider;
 import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../data/repositories/firebase_venue_event_repository.dart';
 import '../../domain/entities/venue_event.dart';
@@ -57,16 +58,20 @@ final venueTodayEventProvider = FutureProvider.autoDispose.family<VenueEvent?, S
 /// (a "bu axşam" happening doesn't make sense at a country/world
 /// scale the way an evergreen discount does), so country/world
 /// Discover modes simply show no events — Kompaniya offers still work
-/// normally in those modes.
+/// normally in those modes. Also reads the Fürsətlər filter sheet's
+/// [selectedOfferCategoryFilterProvider] and narrows by
+/// [VenueEvent.venueCategory] — mirrors `nearbyOffersProvider`.
 final nearbyEventsProvider = FutureProvider.autoDispose<List<VenueEventWithDistance>>((ref) async {
   final position = ref.watch(locationControllerProvider).valueOrNull;
   final selection = ref.watch(selectedDiscoverModeProvider);
+  final category = ref.watch(selectedOfferCategoryFilterProvider);
   if (position == null || selection.mode != DiscoverRadiusMode.distance || selection.km == null) return const [];
 
   return ref.watch(venueEventRepositoryProvider).fetchEventsWithinRadius(
         lat: position.latitude,
         lng: position.longitude,
         radiusKm: selection.km!,
+        category: category,
       );
 });
 
@@ -79,6 +84,7 @@ class VenueEventController {
     required String venueId,
     required String venueName,
     String? venuePhotoUrl,
+    required VenueCategory venueCategory,
     required double lat,
     required double lng,
     required String title,
@@ -95,6 +101,7 @@ class VenueEventController {
             venueId: venueId,
             venueName: venueName,
             venuePhotoUrl: venuePhotoUrl,
+            venueCategory: venueCategory,
             lat: lat,
             lng: lng,
             title: title,

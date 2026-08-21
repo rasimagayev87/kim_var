@@ -200,6 +200,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> with Widg
             venueId: widget.venue.id,
             venueName: widget.venue.name,
             venuePhotoUrl: widget.venue.photoUrl,
+            venueCategory: widget.venue.category,
             lat: widget.venue.lat,
             lng: widget.venue.lng,
             title: _titleController.text.trim(),

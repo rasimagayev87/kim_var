@@ -12,6 +12,11 @@ _$VenueEventImpl _$$VenueEventImplFromJson(Map<String, dynamic> json) =>
       venueId: json['venueId'] as String,
       venueName: json['venueName'] as String,
       venuePhotoUrl: json['venuePhotoUrl'] as String?,
+      venueCategory: json['venueCategory'] == null
+          ? VenueCategory.other
+          : const VenueCategoryConverter().fromJson(
+              json['venueCategory'] as String?,
+            ),
       lat: (json['lat'] as num).toDouble(),
       lng: (json['lng'] as num).toDouble(),
       title: json['title'] as String,
@@ -38,6 +43,9 @@ Map<String, dynamic> _$$VenueEventImplToJson(_$VenueEventImpl instance) =>
       'venueId': instance.venueId,
       'venueName': instance.venueName,
       'venuePhotoUrl': instance.venuePhotoUrl,
+      'venueCategory': const VenueCategoryConverter().toJson(
+        instance.venueCategory,
+      ),
       'lat': instance.lat,
       'lng': instance.lng,
       'title': instance.title,

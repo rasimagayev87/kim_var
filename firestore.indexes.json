@@ -284,6 +284,15 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "venueCategory", "order": "ASCENDING" },
+        { "fieldPath": "position.geohash", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "venueEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "startAt", "order": "ASCENDING" }
       ]
     },

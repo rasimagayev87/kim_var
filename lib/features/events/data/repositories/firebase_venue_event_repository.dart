@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
+import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../domain/entities/venue_event.dart';
 import '../../domain/repositories/venue_event_repository.dart';
 
@@ -29,6 +30,7 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
     required String venueId,
     required String venueName,
     String? venuePhotoUrl,
+    required VenueCategory venueCategory,
     required double lat,
     required double lng,
     required String title,
@@ -60,6 +62,7 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
       'venueId': venueId,
       'venueName': venueName,
       'venuePhotoUrl': venuePhotoUrl,
+      'venueCategory': venueCategory.name,
       'lat': lat,
       'lng': lng,
       _kEventGeoField: GeoFirePoint(GeoPoint(lat, lng)).data,
@@ -166,14 +169,23 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
   }
 
   @override
-  Future<List<VenueEventWithDistance>> fetchEventsWithinRadius({required double lat, required double lng, required double radiusKm}) async {
+  Future<List<VenueEventWithDistance>> fetchEventsWithinRadius({
+    required double lat,
+    required double lng,
+    required double radiusKm,
+    VenueCategory? category,
+  }) async {
     final geoCollection = GeoCollectionReference<Map<String, dynamic>>(_events);
     final results = await geoCollection.fetchWithinWithDistance(
       center: GeoFirePoint(GeoPoint(lat, lng)),
       radiusInKm: radiusKm,
       field: _kEventGeoField,
       geopointFrom: (data) => data[_kEventGeoField]['geopoint'] as GeoPoint,
-      queryBuilder: (query) => query.where('status', whereIn: [VenueEventStatus.upcoming.name, VenueEventStatus.live.name]),
+      queryBuilder: (query) {
+        var q = query.where('status', whereIn: [VenueEventStatus.upcoming.name, VenueEventStatus.live.name]);
+        if (category != null) q = q.where('venueCategory', isEqualTo: category.name);
+        return q;
+      },
       strictMode: true,
     );
     return results

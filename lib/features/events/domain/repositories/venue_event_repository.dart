@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../entities/venue_event.dart';
 
 /// Same distance-pairing convention as `OfferWithDistance`/`VenueWithDistance`.
@@ -18,6 +19,7 @@ abstract class VenueEventRepository {
     required String venueId,
     required String venueName,
     String? venuePhotoUrl,
+    required VenueCategory venueCategory,
     required double lat,
     required double lng,
     required String title,
@@ -75,11 +77,14 @@ abstract class VenueEventRepository {
 
   /// Kəşf et → Təkliflər → "Tədbir" filter — every upcoming/live event
   /// within [radiusKm] of ([lat], [lng]), same one-shot-fetch
-  /// reasoning as `VenueRepository.fetchVenuesWithinRadius`.
+  /// reasoning as `VenueRepository.fetchVenuesWithinRadius`. [category]
+  /// narrows by [VenueEvent.venueCategory] — same contract as
+  /// `OfferRepository.fetchOffersWithinRadius`'s own `category` param.
   Future<List<VenueEventWithDistance>> fetchEventsWithinRadius({
     required double lat,
     required double lng,
     required double radiusKm,
+    VenueCategory? category,
   });
 
   /// Writes an `eventReports/{reportId}` doc — write-only from the

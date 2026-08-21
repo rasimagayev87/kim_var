@@ -8,6 +8,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../location/presentation/providers/location_providers.dart';
+import '../../../offers/presentation/providers/offer_providers.dart' show selectedOfferCategoryFilterProvider;
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../data/datasources/firebase_pinbox_remote_datasource.dart';
@@ -287,24 +288,34 @@ List<PinBoxWithDistance> _withDistanceFrom(List<PinBox> pinboxes, Position posit
 /// radius system as İnsanlar/Məkanlar/Təkliflər
 /// ([selectedDiscoverModeProvider]), per the explicit product decision
 /// that PinBox does NOT get its own radius model. One-shot fetch, not a
-/// live stream, same reasoning as `nearbyOffersProvider`.
+/// live stream, same reasoning as `nearbyOffersProvider`. Also mirrors
+/// `nearbyOffersProvider` in reading the Fürsətlər filter sheet's
+/// [selectedOfferCategoryFilterProvider] — the repository/datasource
+/// already supported a `category` param end-to-end, it just wasn't
+/// being passed from here.
 final nearbyPinBoxesProvider = FutureProvider.autoDispose<List<PinBoxWithDistance>>((ref) async {
   final position = ref.watch(locationControllerProvider).valueOrNull;
   final selection = ref.watch(selectedDiscoverModeProvider);
+  final category = ref.watch(selectedOfferCategoryFilterProvider);
   final repository = ref.watch(pinboxRepositoryProvider);
 
   if (position == null) return const [];
 
   switch (selection.mode) {
     case DiscoverRadiusMode.distance:
-      return repository.fetchPinBoxesWithinRadius(lat: position.latitude, lng: position.longitude, radiusKm: selection.km!);
+      return repository.fetchPinBoxesWithinRadius(
+        lat: position.latitude,
+        lng: position.longitude,
+        radiusKm: selection.km!,
+        category: category,
+      );
     case DiscoverRadiusMode.country:
       final myCountry = ref.watch(profileControllerProvider.select((p) => p.country));
       if (myCountry == null) return const [];
-      final pinboxes = await repository.fetchPinBoxesByCountry(myCountry);
+      final pinboxes = await repository.fetchPinBoxesByCountry(myCountry, category: category);
       return _withDistanceFrom(pinboxes, position);
     case DiscoverRadiusMode.world:
-      final pinboxes = await repository.fetchAllActivePinBoxes();
+      final pinboxes = await repository.fetchAllActivePinBoxes(category: category);
       return _withDistanceFrom(pinboxes, position);
   }
 });

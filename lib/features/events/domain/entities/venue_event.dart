@@ -1,6 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import '../../../venues/domain/entities/venue.dart' show TimestampConverter;
+import '../../../venues/domain/entities/venue.dart' show TimestampConverter, VenueCategory, VenueCategoryConverter;
 
 part 'venue_event.freezed.dart';
 part 'venue_event.g.dart';
@@ -47,11 +47,19 @@ class VenueEventStatusConverter implements JsonConverter<VenueEventStatus, Strin
 /// is handled after the fact via `eventReports`, not gated before
 /// publish — see the create screen / Cloud Functions doc comments.
 ///
-/// [venueName]/[venuePhotoUrl]/[lat]/[lng] are denormalized from the
-/// venue at creation time, same reasoning as the identical fields on
-/// `Offer` — the merged Kəşf et → Təkliflər list (offers + events,
-/// sorted together) needs venue identity on every card without an N+1
-/// join back to `venues/{venueId}` per item.
+/// [venueName]/[venuePhotoUrl]/[venueCategory]/[lat]/[lng] are
+/// denormalized from the venue at creation time, same reasoning as the
+/// identical fields on `Offer` — the merged Kəşf et → Təkliflər list
+/// (offers + events + PinBox, sorted together) needs venue identity on
+/// every card without an N+1 join back to `venues/{venueId}` per item.
+/// [venueCategory] specifically exists so the Fürsətlər filter sheet's
+/// category chip (a [VenueCategory], NOT a [VenueEventCategory]) can
+/// filter events the same way it filters offers/PinBox — see
+/// `VenueEventRepository.fetchEventsWithinRadius`'s `category` param.
+/// A legacy event written before this field existed decodes it as
+/// [VenueCategory.other] (see [VenueCategoryConverter]'s `orElse`), not
+/// a crash — `admin-panel/scripts/backfill-event-venue-categories.ts`
+/// fixes those up from each event's own venue doc.
 @freezed
 class VenueEvent with _$VenueEvent {
   const VenueEvent._();
@@ -61,6 +69,7 @@ class VenueEvent with _$VenueEvent {
     required String venueId,
     required String venueName,
     String? venuePhotoUrl,
+    @VenueCategoryConverter() @Default(VenueCategory.other) VenueCategory venueCategory,
     required double lat,
     required double lng,
     required String title,
