@@ -93,7 +93,7 @@ async function sendPrivacyNotificationEmail(subject: string, html: string): Prom
  * only place the actual Cloudflare API token ever touches.
  */
 export const getTurnCredentials = onCall(
-  { region: "us-central1", secrets: [cloudflareTurnKeyId, cloudflareTurnApiToken] },
+  { region: "us-central1", secrets: [cloudflareTurnKeyId, cloudflareTurnApiToken], enforceAppCheck: true },
   async (request) => {
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -129,7 +129,7 @@ export const getTurnCredentials = onCall(
  * could. Only ever operates on request.auth.uid; there is no
  * "delete someone else" path.
  */
-export const deleteAccount = onCall({ region: "us-central1" }, async (request) => {
+export const deleteAccount = onCall({ region: "us-central1", enforceAppCheck: true }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -188,7 +188,7 @@ const DISCOVER_WORLD_CANDIDATES_LIMIT = 500;
  * the client reconstructs `Timestamp`s from them so the rest of
  * `nearbyUsersProvider`'s parsing stays unchanged.
  */
-export const getDiscoverCandidates = onCall({ region: "us-central1" }, async (request) => {
+export const getDiscoverCandidates = onCall({ region: "us-central1", enforceAppCheck: true }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -1610,7 +1610,7 @@ export const refreshHappyHourOfferStatus = onSchedule(
  * read gets invalidated by the first's write and the transaction
  * retries, seeing the just-created entry.
  */
-export const joinWaitlist = onCall({ region: "us-central1" }, async (request) => {
+export const joinWaitlist = onCall({ region: "us-central1", enforceAppCheck: true }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
 
@@ -2228,7 +2228,7 @@ function revertRevisionPayment(tx: FirebaseFirestore.Transaction, paymentId: str
  * pull a listing still awaiting its first review, or a rejected one,
  * into 'pending' through this side door.
  */
-export const resubmitVenue = onCall({ region: "us-central1" }, async (request) => {
+export const resubmitVenue = onCall({ region: "us-central1", enforceAppCheck: true }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
 
@@ -2262,7 +2262,7 @@ export const resubmitVenue = onCall({ region: "us-central1" }, async (request) =
 
 /** Offer equivalent of `resubmitVenue` — same contract (`needs_revision`
  * OR `approved` → `pending`), same reasoning. */
-export const resubmitOffer = onCall({ region: "us-central1" }, async (request) => {
+export const resubmitOffer = onCall({ region: "us-central1", enforceAppCheck: true }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
 
@@ -2303,7 +2303,7 @@ export const resubmitOffer = onCall({ region: "us-central1" }, async (request) =
  * on PinBox (no flat listing fee — see `PinBox`'s own doc comment), so
  * there's nothing equivalent to `revertRevisionPayment` to call here.
  */
-export const resubmitPinBox = onCall({ region: "us-central1" }, async (request) => {
+export const resubmitPinBox = onCall({ region: "us-central1", enforceAppCheck: true }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
 
@@ -2406,7 +2406,7 @@ export const onPinBoxUpdated = onDocumentUpdated("pinboxes/{pinboxId}", async (e
  * a Storage path alone gets them nothing without an admin-issued
  * signed URL).
  */
-export const submitIdentityVerification = onCall({ region: "us-central1" }, async (request) => {
+export const submitIdentityVerification = onCall({ region: "us-central1", enforceAppCheck: true }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
 
@@ -2797,7 +2797,7 @@ export const renewVenueSubscriptions = onSchedule(
  * this can't be used to prepay/skip ahead of the real due date.
  */
 export const retryVenueSubscriptionPayment = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: true },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -2837,7 +2837,7 @@ const BOOST_FEE_BY_HOURS: Record<number, number> = { 6: 2, 12: 4, 18: 6 };
  * `epointWebhook` on a confirmed charge, never here.
  */
 export const createBoostCheckout = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: true },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -3335,7 +3335,7 @@ export const notifyOnNewDeviceSignIn = beforeUserSignedIn({ region: "us-central1
  * moment this function returns.
  */
 export const reservePinBoxOrder = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: true },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -3451,7 +3451,7 @@ export const reservePinBoxOrder = onCall(
  */
 const _qrTokenTtlMs = 40_000;
 
-export const generatePinBoxQrToken = onCall({ region: "us-central1" }, async (request) => {
+export const generatePinBoxQrToken = onCall({ region: "us-central1", enforceAppCheck: true }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
 
@@ -3492,7 +3492,7 @@ export const generatePinBoxQrToken = onCall({ region: "us-central1" }, async (re
  * distinguish "wrong code" from "right code, too late" from the error
  * alone.
  */
-export const redeemPinBoxOrder = onCall({ region: "us-central1" }, async (request) => {
+export const redeemPinBoxOrder = onCall({ region: "us-central1", enforceAppCheck: true }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
 
@@ -3702,7 +3702,7 @@ async function startEpointCheckoutForPayment(
  * now that creation itself moved server-side.
  */
 export const submitOffer = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: true },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -3830,7 +3830,7 @@ export const submitOffer = onCall(
  * never needed payment in the first place.
  */
 export const retryOfferPayment = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: true },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -4015,10 +4015,12 @@ async function applyPaymentOutcome(orderId: string, succeeded: boolean): Promise
  * both resolve through this SAME endpoint (Epoint's widget posts its
  * result back the identical way a card checkout does), so no separate
  * webhook was needed for either. Not `onCall`, since Epoint has no
- * Firebase Auth token to present — trust comes entirely from
- * `verifyEpointSignature` recomputing the signature with the same
- * private key Epoint signed with; nothing here is trusted before that
- * check passes.
+ * Firebase Auth token OR App Check token to present (both are
+ * Firebase-client-SDK mechanisms; Epoint is an external server, same
+ * reasoning as `appStoreServerNotifications` below) — trust comes
+ * entirely from `verifyEpointSignature` recomputing the signature with
+ * the same private key Epoint signed with; nothing here is trusted
+ * before that check passes.
  */
 export const epointWebhook = onRequest({ region: "us-central1", secrets: [epointPrivateKey] }, async (req, res) => {
   const body = req.body as Record<string, unknown>;
@@ -4075,7 +4077,7 @@ async function loadOwnedPendingPayment(uid: string, paymentId: string): Promise<
  * back a URL, it never itself decides success/failure.
  */
 export const createApplePayCheckout = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: true },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -4116,7 +4118,7 @@ export const createApplePayCheckout = onCall(
 const EPOINT_GOOGLE_PAY_MERCHANT_ID = process.env.EPOINT_GOOGLE_PAY_MERCHANT_ID;
 
 export const submitGooglePayToken = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: true },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -4221,7 +4223,7 @@ async function recordIapSubscriptionOwner(
  * anything the client claims about its own purchase.
  */
 export const verifyInAppPurchase = onCall(
-  { region: "us-central1", secrets: [googlePlayServiceAccountJson] },
+  { region: "us-central1", secrets: [googlePlayServiceAccountJson], enforceAppCheck: true },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -4296,8 +4298,10 @@ export const verifyInAppPurchase = onCall(
  * Purchase > your key's app > App Store Server Notifications) for
  * BOTH Production and Sandbox. Handles renewal/expiration/cancellation
  * so `premium` stays correct even if the customer never reopens the
- * app. Trust comes entirely from `verifyAppleNotification`'s signature
- * check — nothing here is trusted before that passes.
+ * app. No App Check here either, same reasoning as `epointWebhook`
+ * above — Apple's server can't present one. Trust comes entirely from
+ * `verifyAppleNotification`'s signature check — nothing here is
+ * trusted before that passes.
  */
 export const appStoreServerNotifications = onRequest({ region: "us-central1" }, async (req, res) => {
   const signedPayload = req.body?.signedPayload as string | undefined;
