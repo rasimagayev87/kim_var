@@ -9,21 +9,30 @@ import '../../../../core/widgets/media_photo_picker.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
+import '../../domain/entities/pinbox.dart';
 import '../../domain/pinbox_failure.dart';
 import '../providers/pinbox_providers.dart';
 
 String _formatTimeOfDay(TimeOfDay time) =>
     '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
-/// PinBox Faza 5 — "PinBox yarat". Always venue-scoped, same as
-/// `CreateEventScreen`: the caller (Kəşf et → Fürsətlər's "+" chooser,
-/// see `discover_tab.dart`'s `_openCreateOptionsSheet`) already resolved
+/// PinBox Faza 5 — "PinBox yarat", also doubling as the edit form
+/// (Qutularım → Yaratdıqlarım's 3-dot menu) when [existingPinBox] is
+/// passed — same "one screen, `existingX` param" convention as
+/// `CreateOfferScreen`/`CreateVenueScreen`. Always venue-scoped: on
+/// create, the caller (Kəşf et → Fürsətlər's "+" chooser, see
+/// `discover_tab.dart`'s `_openCreateOptionsSheet`) already resolved
 /// (or asked the owner to pick) an eligible venue before pushing here,
-/// so there's no venue picker inside this form.
+/// so there's no venue picker inside this form — and on edit, the venue
+/// link is fixed anyway (see `PinBoxRepository.updatePinBox`'s doc
+/// comment), so [venue] is only ever needed for the create path.
 class CreatePinBoxScreen extends ConsumerStatefulWidget {
-  final Venue venue;
+  /// Required to create; unused (and safely omittable) when editing —
+  /// see this class's own doc comment.
+  final Venue? venue;
+  final PinBox? existingPinBox;
 
-  const CreatePinBoxScreen({super.key, required this.venue});
+  const CreatePinBoxScreen({super.key, this.venue, this.existingPinBox}) : assert(venue != null || existingPinBox != null);
 
   @override
   ConsumerState<CreatePinBoxScreen> createState() => _CreatePinBoxScreenState();
@@ -31,15 +40,21 @@ class CreatePinBoxScreen extends ConsumerStatefulWidget {
 
 class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     with WidgetsBindingObserver, PhotoPickerMixin<CreatePinBoxScreen> {
-  final _titleController = TextEditingController();
-  final _descriptionController = TextEditingController();
-  final _originalPriceController = TextEditingController();
-  final _pinboxPriceController = TextEditingController();
-  final _stockController = TextEditingController();
+  late final _titleController = TextEditingController(text: widget.existingPinBox?.title ?? '');
+  late final _descriptionController = TextEditingController(text: widget.existingPinBox?.description ?? '');
+  late final _originalPriceController =
+      TextEditingController(text: widget.existingPinBox?.originalPrice.toStringAsFixed(2) ?? '');
+  late final _pinboxPriceController =
+      TextEditingController(text: widget.existingPinBox?.pinboxPrice.toStringAsFixed(2) ?? '');
+  late final _stockController = TextEditingController(text: widget.existingPinBox?.stockTotal.toString() ?? '');
+
+  bool get _isEditing => widget.existingPinBox != null;
 
   File? _photo;
-  TimeOfDay? _pickupStart;
-  TimeOfDay? _pickupEnd;
+  late TimeOfDay? _pickupStart =
+      widget.existingPinBox != null ? TimeOfDay.fromDateTime(widget.existingPinBox!.pickupWindowStart) : null;
+  late TimeOfDay? _pickupEnd =
+      widget.existingPinBox != null ? TimeOfDay.fromDateTime(widget.existingPinBox!.pickupWindowEnd) : null;
   Set<PinBoxFieldError> _fieldErrors = {};
   bool _submitting = false;
   double? _uploadProgress;
@@ -119,6 +134,14 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
 
   Future<void> _submit() async {
     if (_submitting) return;
+    if (_isEditing) {
+      await _submitEdit();
+    } else {
+      await _submitCreate();
+    }
+  }
+
+  Future<void> _submitCreate() async {
     setState(() {
       _submitting = true;
       _fieldErrors = {};
@@ -127,7 +150,7 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     });
 
     final loc = AppLocalizations.of(context);
-    final venue = widget.venue;
+    final venue = widget.venue!;
 
     final pinboxId = await ref.read(pinboxControllerProvider).createPinBox(
           venueId: venue.id,
@@ -175,6 +198,55 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     }
   }
 
+  Future<void> _submitEdit() async {
+    setState(() {
+      _submitting = true;
+      _fieldErrors = {};
+      _uploadProgress = _photo != null ? 0 : null;
+      _cancelUpload = null;
+    });
+
+    final loc = AppLocalizations.of(context);
+
+    final success = await ref.read(pinboxControllerProvider).updatePinBox(
+          pinboxId: widget.existingPinBox!.id,
+          title: _titleController.text,
+          description: _descriptionController.text,
+          photo: _photo,
+          hasExistingPhoto: widget.existingPinBox!.imageUrl != null,
+          originalPrice: _originalPrice,
+          pinboxPrice: _pinboxPrice,
+          pickupWindowStart: _resolvedDateTime(_pickupStart),
+          pickupWindowEnd: _resolvedDateTime(_pickupEnd),
+          onValidationError: (missing) {
+            if (!mounted) return;
+            setState(() => _fieldErrors = missing.toSet());
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerRequiredFieldsMissing)));
+          },
+          onError: () {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+          },
+          onUploadProgress: (p) {
+            if (!mounted) return;
+            setState(() => _uploadProgress = p);
+          },
+          onUploadTaskReady: (cancel) => _cancelUpload = cancel,
+        );
+
+    if (!mounted) return;
+    setState(() {
+      _submitting = false;
+      _uploadProgress = null;
+      _cancelUpload = null;
+    });
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.pinboxUpdatedNotice)));
+      Navigator.pop(context);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
@@ -192,7 +264,7 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
           icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
         ),
         title: Text(
-          loc.createPinboxMenuOption,
+          _isEditing ? loc.pinboxEditTitle : loc.createPinboxMenuOption,
           style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
         ),
       ),
@@ -205,6 +277,7 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
               children: [
                 MediaPhotoPicker(
                   file: _photo,
+                  existingUrl: widget.existingPinBox?.imageUrl,
                   hasError: _fieldErrors.contains(PinBoxFieldError.photo),
                   label: loc.pinboxPhotoLabel,
                   onPick: () => pickPhoto((file) => setState(() => _photo = file)),
@@ -281,13 +354,36 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xxl),
-                _FieldLabel(loc.pinboxStockLabel),
-                _LightTextField(
-                  controller: _stockController,
-                  hint: loc.pinboxStockHint,
-                  keyboardType: TextInputType.number,
-                  errorText: _fieldErrors.contains(PinBoxFieldError.stock) ? loc.venueFieldRequiredError : null,
-                ),
+                if (_isEditing) ...[
+                  // Total stock is create-time-only — `stockRemaining` is
+                  // locked from every client update (see
+                  // `PinBoxRepository.updatePinBox`'s doc comment), so
+                  // changing the total here without a matching Cloud
+                  // Function to reconcile it would desync the two. Shown
+                  // read-only instead of hidden outright, so the owner
+                  // isn't left wondering where it went.
+                  _FieldLabel(loc.pinboxStockLabel),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: ChatLightColors.cardSurface,
+                      borderRadius: BorderRadius.circular(AppRadii.input),
+                    ),
+                    child: Text(
+                      loc.pinboxStockLockedNote(widget.existingPinBox!.stockRemaining, widget.existingPinBox!.stockTotal),
+                      style: const TextStyle(fontSize: 13.5, color: ChatLightColors.inkSoft),
+                    ),
+                  ),
+                ] else ...[
+                  _FieldLabel(loc.pinboxStockLabel),
+                  _LightTextField(
+                    controller: _stockController,
+                    hint: loc.pinboxStockHint,
+                    keyboardType: TextInputType.number,
+                    errorText: _fieldErrors.contains(PinBoxFieldError.stock) ? loc.venueFieldRequiredError : null,
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.xxl),
                 _FieldLabel(loc.pinboxPickupWindowLabel),
                 Row(
@@ -359,7 +455,7 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                               height: 22,
                               child: CircularProgressIndicator(strokeWidth: 2.4, color: ChatLightColors.contourLine),
                             )
-                          : Text(loc.pinboxPublishButton),
+                          : Text(_isEditing ? loc.venueSaveButton : loc.pinboxPublishButton),
                     ),
                   ),
               ],

@@ -21,6 +21,14 @@ abstract class PinBoxRemoteDatasource {
     ValueChanged<VoidCallback>? onTaskReady,
   });
 
+  /// Owner-only edit — same "everything except status/review/stockRemaining"
+  /// scope as firestore.rules' `pinboxes/{id}` update rule.
+  Future<void> updatePinBox(String pinboxId, Map<String, dynamic> data);
+
+  Future<void> deletePinBox(String pinboxId);
+
+  Future<void> deletePinBoxPhoto(String pinboxId);
+
   /// Admin-approved ('active') boxes within [radiusKm] of a point,
   /// paired with their distance — a still-'active' box with
   /// `stockRemaining == 0` IS included (rendered "Satılıb"/disabled by

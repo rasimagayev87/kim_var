@@ -595,6 +595,22 @@
   "pinboxPickupEndLabel": "Bitmə",
   "pinboxPublishButton": "Dərc et",
   "pinboxCreatedNotice": "Qutu dərc edildi, admin təsdiqini gözləyir",
+  "pinboxEditTitle": "Qutuya düzəliş et",
+  "pinboxUpdatedNotice": "Qutu yeniləndi",
+  "pinboxStockLockedNote": "{remaining}/{total} qalıb — yaradıldıqdan sonra dəyişdirilə bilməz",
+  "@pinboxStockLockedNote": {
+    "placeholders": {
+      "remaining": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxDeleteMenuOption": "Qutunu sil",
+  "pinboxDeleteConfirmMessage": "Bu qutunu silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.",
+  "pinboxDeletedNotice": "Qutu silindi",
   "pinboxNonRefundableNotice": "Diqqət: ödəniş edildikdən sonra sifariş ləğv edilə və ya geri qaytarıla bilməz.",
   "pinboxSoldOutLabel": "Satılıb",
   "pinboxCheckoutTitle": "Sifarişi Təsdiqlə",

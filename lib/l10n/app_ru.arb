@@ -595,6 +595,22 @@
   "pinboxPickupEndLabel": "Конец",
   "pinboxPublishButton": "Опубликовать",
   "pinboxCreatedNotice": "Коробка опубликована, ожидает одобрения администратора",
+  "pinboxEditTitle": "Редактировать коробку",
+  "pinboxUpdatedNotice": "Коробка обновлена",
+  "pinboxStockLockedNote": "Осталось {remaining}/{total} — нельзя изменить после создания",
+  "@pinboxStockLockedNote": {
+    "placeholders": {
+      "remaining": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxDeleteMenuOption": "Удалить коробку",
+  "pinboxDeleteConfirmMessage": "Вы уверены, что хотите удалить эту коробку? Это действие нельзя отменить.",
+  "pinboxDeletedNotice": "Коробка удалена",
   "pinboxNonRefundableNotice": "Внимание: после оплаты заказ нельзя отменить или вернуть.",
   "pinboxSoldOutLabel": "Продано",
   "pinboxCheckoutTitle": "Подтвердить заказ",

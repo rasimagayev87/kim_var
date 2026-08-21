@@ -595,6 +595,22 @@
   "pinboxPickupEndLabel": "Bitiş",
   "pinboxPublishButton": "Yayınla",
   "pinboxCreatedNotice": "Kutu yayınlandı, admin onayı bekleniyor",
+  "pinboxEditTitle": "Kutuyu düzenle",
+  "pinboxUpdatedNotice": "Kutu güncellendi",
+  "pinboxStockLockedNote": "{remaining}/{total} kaldı — oluşturulduktan sonra değiştirilemez",
+  "@pinboxStockLockedNote": {
+    "placeholders": {
+      "remaining": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
+    }
+  },
+  "pinboxDeleteMenuOption": "Kutuyu sil",
+  "pinboxDeleteConfirmMessage": "Bu kutuyu silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
+  "pinboxDeletedNotice": "Kutu silindi",
   "pinboxNonRefundableNotice": "Dikkat: ödeme yapıldıktan sonra sipariş iptal edilemez veya iade edilemez.",
   "pinboxSoldOutLabel": "Tükendi",
   "pinboxCheckoutTitle": "Siparişi Onayla",

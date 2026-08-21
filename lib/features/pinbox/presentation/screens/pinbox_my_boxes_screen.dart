@@ -8,6 +8,7 @@ import '../../../venues/domain/entities/venue.dart';
 import '../../domain/entities/pinbox.dart';
 import '../../domain/entities/pinbox_order.dart';
 import '../providers/pinbox_providers.dart';
+import 'create_pinbox_screen.dart';
 import 'pinbox_ticket_screen.dart';
 
 /// PinBox Faza 11 — replaces the Faza 2 "coming soon" stub. Two
@@ -228,13 +229,88 @@ class _MyListingsList extends ConsumerWidget {
   }
 }
 
-class _ListingCard extends StatelessWidget {
+enum _ListingCardAction { edit, delete }
+
+class _ListingCard extends ConsumerWidget {
   final PinBox pinbox;
 
   const _ListingCard({required this.pinbox});
 
+  Future<void> _openMenu(BuildContext context, WidgetRef ref) async {
+    final loc = AppLocalizations.of(context);
+    final action = await showModalBottomSheet<_ListingCardAction>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            ListTile(
+              leading: const Icon(Icons.edit_outlined, color: ChatLightColors.ink),
+              title: Text(loc.pinboxEditTitle, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+              onTap: () => Navigator.pop(sheetContext, _ListingCardAction.edit),
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+              title: Text(loc.pinboxDeleteMenuOption, style: const TextStyle(fontSize: 15, color: AppColors.error)),
+              onTap: () => Navigator.pop(sheetContext, _ListingCardAction.delete),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+
+    if (!context.mounted || action == null) return;
+
+    if (action == _ListingCardAction.edit) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => CreatePinBoxScreen(existingPinBox: pinbox)));
+    } else {
+      _confirmDelete(context, ref);
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final loc = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(loc.pinboxDeleteMenuOption, style: const TextStyle(color: ChatLightColors.ink, fontWeight: FontWeight.w700)),
+        content: Text(
+          loc.pinboxDeleteConfirmMessage,
+          style: const TextStyle(color: ChatLightColors.inkSoft, fontSize: 14.5, height: 1.4),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: Text(loc.actionDelete),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    final success = await ref.read(pinboxControllerProvider).deletePinBox(
+          pinbox.id,
+          onError: () {
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+          },
+        );
+
+    if (success && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.pinboxDeletedNotice)));
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final (statusLabel, statusColor) = switch (pinbox.status) {
       'active' => (loc.pinboxListingStatusActive, AppColors.primary),
@@ -245,49 +321,89 @@ class _ListingCard extends StatelessWidget {
     };
     final sold = pinbox.stockTotal - pinbox.stockRemaining;
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: Stack(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: SizedBox(
-              width: 64,
-              height: 64,
-              child: pinbox.imageUrl != null
-                  ? Image.network(pinbox.imageUrl!, fit: BoxFit.cover)
-                  : Container(
-                      color: ChatLightColors.cardSurface,
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.inventory_2_outlined, color: ChatLightColors.inkSoft),
-                    ),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
+          Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(pinbox.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ChatLightColors.ink)),
-                const SizedBox(height: 2),
-                Text(
-                  loc.pinboxSoldCountLabel(sold, pinbox.stockTotal),
-                  style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: SizedBox(
+                    width: 64,
+                    height: 64,
+                    child: pinbox.imageUrl != null
+                        ? Image.network(pinbox.imageUrl!, fit: BoxFit.cover)
+                        : Container(
+                            color: ChatLightColors.cardSurface,
+                            alignment: Alignment.center,
+                            child: const Icon(Icons.inventory_2_outlined, color: ChatLightColors.inkSoft),
+                          ),
+                  ),
                 ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
-                  child: Text(statusLabel, style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: statusColor)),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(right: 28),
+                        child: Text(
+                          pinbox.title,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        loc.pinboxSoldCountLabel(sold, pinbox.stockTotal),
+                        style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration:
+                                BoxDecoration(color: statusColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
+                            child: Text(
+                              statusLabel,
+                              style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: statusColor),
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            '${pinbox.pinboxPrice.toStringAsFixed(2)} AZN',
+                            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
-          Text(
-            '${pinbox.pinboxPrice.toStringAsFixed(2)} AZN',
-            style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          Positioned(
+            top: 6,
+            right: 6,
+            child: Material(
+              color: ChatLightColors.cardSurface,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () => _openMenu(context, ref),
+                child: const Padding(
+                  padding: EdgeInsets.all(6),
+                  child: Icon(Icons.more_vert_outlined, size: 18, color: ChatLightColors.inkSoft),
+                ),
+              ),
+            ),
           ),
         ],
       ),

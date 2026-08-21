@@ -63,6 +63,21 @@ class FirebasePinBoxRemoteDatasource implements PinBoxRemoteDatasource {
   }
 
   @override
+  Future<void> updatePinBox(String pinboxId, Map<String, dynamic> data) => _pinboxes.doc(pinboxId).update(data);
+
+  @override
+  Future<void> deletePinBox(String pinboxId) => _pinboxes.doc(pinboxId).delete();
+
+  @override
+  Future<void> deletePinBoxPhoto(String pinboxId) async {
+    try {
+      await _storage.ref('pinbox_photos/$pinboxId.jpg').delete();
+    } on FirebaseException catch (e) {
+      if (e.code != 'object-not-found') rethrow;
+    }
+  }
+
+  @override
   Future<List<(DocumentSnapshot<Map<String, dynamic>>, double)>> queryWithinRadius({
     required double lat,
     required double lng,

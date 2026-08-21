@@ -41,6 +41,31 @@ abstract class PinBoxRepository {
     ValueChanged<VoidCallback>? onUploadTaskReady,
   });
 
+  /// Owner-only edit, from Qutularım → Yaratdıqlarım's 3-dot menu —
+  /// [venueId]/[venueName]/[lat]/[lng]/[address]/[country]/[category]/
+  /// [stockTotal] are deliberately NOT editable here: the venue link is
+  /// fixed at creation same as [createPinBox], and `stockTotal` stays
+  /// out of this call because firestore.rules locks `stockRemaining`
+  /// from every client update — changing one without the other would
+  /// desync them, so total stock is a create-time-only decision.
+  Future<void> updatePinBox({
+    required String pinboxId,
+    required String title,
+    required String description,
+    required double originalPrice,
+    required double pinboxPrice,
+    required DateTime pickupWindowStart,
+    required DateTime pickupWindowEnd,
+    File? photo,
+    required bool hasExistingPhoto,
+    ValueChanged<double>? onUploadProgress,
+    ValueChanged<VoidCallback>? onUploadTaskReady,
+  });
+
+  /// Owner-only delete — mirrors `OfferRepository.deleteOffer` (also
+  /// removes the Storage photo, since nothing else deletes it).
+  Future<void> deletePinBox(String pinboxId);
+
   Stream<PinBox?> watchPinBox(String pinboxId);
 
   /// Every PinBox this uid has published, regardless of status — backs

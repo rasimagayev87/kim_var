@@ -18,6 +18,7 @@ import '../../domain/entities/pinbox_order.dart';
 import '../../domain/pinbox_failure.dart';
 import '../../domain/repositories/pinbox_repository.dart';
 import '../../domain/usecases/create_pinbox_usecase.dart';
+import '../../domain/usecases/update_pinbox_usecase.dart';
 
 export '../../domain/repositories/pinbox_repository.dart' show PinBoxWithDistance;
 
@@ -29,6 +30,10 @@ final pinboxRepositoryProvider = Provider<PinBoxRepository>((ref) {
 
 final createPinBoxUseCaseProvider = Provider<CreatePinBoxUseCase>((ref) {
   return CreatePinBoxUseCase(ref.watch(pinboxRepositoryProvider));
+});
+
+final updatePinBoxUseCaseProvider = Provider<UpdatePinBoxUseCase>((ref) {
+  return UpdatePinBoxUseCase(ref.watch(pinboxRepositoryProvider));
 });
 
 String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
@@ -121,6 +126,57 @@ class PinBoxController {
       logError('pinbox_providers.createPinBox', e, st);
       onError();
       return null;
+    }
+  }
+
+  Future<bool> updatePinBox({
+    required String pinboxId,
+    required String title,
+    required String description,
+    required File? photo,
+    required bool hasExistingPhoto,
+    required double? originalPrice,
+    required double? pinboxPrice,
+    required DateTime? pickupWindowStart,
+    required DateTime? pickupWindowEnd,
+    required void Function(List<PinBoxFieldError> missing) onValidationError,
+    required void Function() onError,
+    ValueChanged<double>? onUploadProgress,
+    ValueChanged<VoidCallback>? onUploadTaskReady,
+  }) async {
+    try {
+      await _ref.read(updatePinBoxUseCaseProvider).call(
+            pinboxId: pinboxId,
+            title: title,
+            description: description,
+            photo: photo,
+            hasExistingPhoto: hasExistingPhoto,
+            originalPrice: originalPrice,
+            pinboxPrice: pinboxPrice,
+            pickupWindowStart: pickupWindowStart,
+            pickupWindowEnd: pickupWindowEnd,
+            onUploadProgress: onUploadProgress,
+            onUploadTaskReady: onUploadTaskReady,
+          );
+      return true;
+    } on PinBoxValidationException catch (e) {
+      onValidationError(e.missingFields);
+      return false;
+    } catch (e, st) {
+      logError('pinbox_providers.updatePinBox', e, st);
+      onError();
+      return false;
+    }
+  }
+
+  Future<bool> deletePinBox(String pinboxId, {required void Function() onError}) async {
+    try {
+      await _ref.read(pinboxRepositoryProvider).deletePinBox(pinboxId);
+      return true;
+    } catch (e, st) {
+      logError('pinbox_providers.deletePinBox', e, st);
+      onError();
+      return false;
     }
   }
 }

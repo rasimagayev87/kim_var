@@ -30,6 +30,55 @@ class PinBoxTicketScreen extends ConsumerStatefulWidget {
 
 const _kQrRefreshInterval = Duration(seconds: 30);
 
+/// Lets the buyer pick which maps app opens the route, instead of
+/// hardcoding Google Maps — same three-way choice (Google/Apple/Waze)
+/// `VenueProfileScreen`'s `_DirectionsRow` already offers, reusing its
+/// exact URL schemes and l10n labels for consistency.
+Future<void> _openDirectionsPicker(BuildContext context, double lat, double lng) async {
+  final loc = AppLocalizations.of(context);
+
+  Future<void> open(String url) => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+
+  await showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    builder: (sheetContext) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 8),
+          ListTile(
+            leading: const Icon(Icons.map_outlined, color: ChatLightColors.ink),
+            title: Text(loc.venueDirectionsGoogleMaps, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              open('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.map_outlined, color: ChatLightColors.ink),
+            title: Text(loc.venueDirectionsAppleMaps, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              open('https://maps.apple.com/?daddr=$lat,$lng');
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.navigation_outlined, color: ChatLightColors.ink),
+            title: Text(loc.venueDirectionsWaze, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+            onTap: () {
+              Navigator.pop(sheetContext);
+              open('https://waze.com/ul?ll=$lat,$lng&navigate=yes');
+            },
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    ),
+  );
+}
+
 /// "482913" → "482 913" — purely a legibility split for the 6-digit
 /// code shown alongside the QR image; falls back to the raw value for
 /// any other length so a future token-format change never breaks this.
@@ -311,10 +360,7 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                             ),
                           ),
                           TextButton.icon(
-                            onPressed: () => launchUrl(
-                              Uri.parse('https://www.google.com/maps/dir/?api=1&destination=${pinbox.lat},${pinbox.lng}'),
-                              mode: LaunchMode.externalApplication,
-                            ),
+                            onPressed: () => _openDirectionsPicker(context, pinbox.lat, pinbox.lng),
                             icon: const Icon(Icons.map_outlined, size: 16),
                             label: Text(loc.pinboxTicketOpenRouteButton),
                           ),

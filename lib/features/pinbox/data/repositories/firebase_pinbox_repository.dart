@@ -82,6 +82,48 @@ class FirebasePinBoxRepository implements PinBoxRepository {
   }
 
   @override
+  Future<void> updatePinBox({
+    required String pinboxId,
+    required String title,
+    required String description,
+    required double originalPrice,
+    required double pinboxPrice,
+    required DateTime pickupWindowStart,
+    required DateTime pickupWindowEnd,
+    File? photo,
+    required bool hasExistingPhoto,
+    ValueChanged<double>? onUploadProgress,
+    ValueChanged<VoidCallback>? onUploadTaskReady,
+  }) async {
+    String? imageUrl;
+    if (photo != null) {
+      imageUrl = await _datasource.uploadPinBoxPhoto(
+        pinboxId,
+        photo,
+        onProgress: onUploadProgress,
+        onTaskReady: onUploadTaskReady,
+      );
+    }
+
+    await _datasource.updatePinBox(pinboxId, {
+      'title': title,
+      'description': description,
+      'originalPrice': originalPrice,
+      'pinboxPrice': pinboxPrice,
+      'pickupWindowStart': Timestamp.fromDate(pickupWindowStart),
+      'pickupWindowEnd': Timestamp.fromDate(pickupWindowEnd),
+      'updatedAt': FieldValue.serverTimestamp(),
+      if (imageUrl != null) 'imageUrl': imageUrl,
+    });
+  }
+
+  @override
+  Future<void> deletePinBox(String pinboxId) async {
+    await _datasource.deletePinBox(pinboxId);
+    await _datasource.deletePinBoxPhoto(pinboxId);
+  }
+
+  @override
   Stream<PinBox?> watchPinBox(String pinboxId) {
     return _datasource.watchPinBox(pinboxId).map((doc) => doc.exists ? PinBox.fromFirestore(doc.id, doc.data()!) : null);
   }
