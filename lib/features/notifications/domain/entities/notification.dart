@@ -29,6 +29,14 @@ enum NotificationType {
   likePost,
   commentPost,
   replyComment,
+
+  /// Reserved for future use, not yet active — no @-mention parsing
+  /// exists anywhere in posts/comments today (nothing extracts an
+  /// `@username` out of comment text), so nothing ever produces this.
+  /// Icon/copy scaffolding already exists (`notifications_feed_screen
+  /// .dart`) per this enum's own forward-compat design; a real mention
+  /// feature would just need its own Cloud Function producer, nothing
+  /// client-side.
   mention,
   venueOffer,
   venueAdded,
@@ -131,10 +139,36 @@ enum NotificationType {
   /// `notifyNearbyUsersOfNewPinBox` (Cloud Function). `targetType:
   /// 'pinbox'`, deep-links to `PinBoxCheckoutScreen`.
   pinboxNearby,
+
+  /// Reserved for future use, not yet active — no producer anywhere
+  /// today (no generic "system message" concept exists in the product,
+  /// e.g. maintenance notices or policy updates).
   system,
+
+  /// Reserved for future use, not yet active — no producer anywhere
+  /// today (no security-alert feature exists, e.g. "new device login"
+  /// or "password changed" notices).
   security,
+
+  /// Admin-authored, sent via the admin panel's broadcast tool
+  /// (`sendBroadcast` in `admin-panel/src/lib/actions/broadcast.ts`,
+  /// `/notifications` page) — targets a segment (all/VIP/verified
+  /// users), writes `title`/`body` verbatim (admin-typed, already in
+  /// Azerbaijani) with no params contract, unlike every other type
+  /// above. [promotion] and [announcement] are the same mechanism, two
+  /// distinct types only so the admin can label intent (marketing push
+  /// vs a general notice) and so the feed can give them separate
+  /// icons/copy.
   promotion,
+
+  /// Reserved for future use, not yet active — no producer anywhere
+  /// today (no "official warning" moderation action exists in the
+  /// admin panel; a ban/reject is the only account-level moderation
+  /// outcome today).
   warning,
+
+  /// Admin-authored broadcast — see [promotion]'s doc comment, the
+  /// same `sendBroadcast` mechanism.
   announcement,
   other,
 }

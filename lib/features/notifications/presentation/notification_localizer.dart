@@ -269,10 +269,12 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: note.isEmpty ? loc.notifIdentityVerificationRejectedBodyNoNote : loc.notifIdentityVerificationRejectedBodyWithNote(note),
       );
 
-    // Every other type either has no server producer at all (mention,
-    // system, security, promotion, warning, announcement) or is the
-    // forward-compat fallback (other/follow) — none of these carry a
-    // params contract to render from.
+    // Every other type either has no producer at all yet (mention,
+    // system, security, warning — see notification.dart's own doc
+    // comments), is an admin-authored broadcast with its own verbatim
+    // title/body and no params contract (promotion, announcement — see
+    // `sendBroadcast`), or is a forward-compat fallback (other/follow)
+    // — none of these render from a params contract here.
     case NotificationType.follow:
     case NotificationType.mention:
     case NotificationType.system:
