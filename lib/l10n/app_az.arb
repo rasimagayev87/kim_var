@@ -571,6 +571,21 @@
   "offerBoostComingSoonMessage": "Ödəniş sistemi hazırlanma mərhələsindədir, tezliklə aktivləşəcək.",
   "offerSubmitButton": "Təklifi yarat",
   "offerCreatedNotice": "Təklif yaradıldı",
+  "offerPlacementFreeNotice": "Bu təklif pulsuzdur (qalıq: {count}/5)",
+  "@offerPlacementFreeNotice": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "offerPlacementFeeNotice": "Bu təklifin yerləşdirmə haqqı: {amount} AZN",
+  "@offerPlacementFeeNotice": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
+  "offerAwaitingPaymentNotice": "Ödəniş səhifəsinə yönləndirildiniz ({amount} AZN). Ödəniş təsdiqlənən kimi təklifiniz nəzərdən keçirilməyə göndəriləcək.",
+  "@offerAwaitingPaymentNotice": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
+  "offerAwaitingPaymentBannerText": "Bu təklifin yerləşdirilməsi üçün ödəniş tələb olunur.",
+  "offerRetryPaymentButton": "Ödənişi tamamla",
+  "offerRetryPaymentErrorMessage": "Ödəniş linki alınmadı, bir az sonra yenidən cəhd edin.",
   "offerUpdatedNotice": "Təklif yeniləndi",
   "offerSentForReReviewNotice": "Dəyişikliklər saxlanıldı, təklif yenidən admin təsdiqini gözləyir",
   "offerRequiredFieldsMissing": "Zəhmət olmasa bütün məcburi sahələri doldurun.",
@@ -820,6 +835,7 @@
   "venueDeletedNotice": "Məkan silindi",
   "venueSentForReReviewNotice": "Dəyişikliklər saxlanıldı, məkan yenidən admin təsdiqini gözləyir",
   "moderationStatusPending": "Yoxlanılır",
+  "moderationStatusAwaitingPayment": "Ödəniş gözlənilir",
   "moderationStatusNeedsRevision": "Düzəliş tələb olunur",
   "moderationReviewNotePrefix": "Səbəb",
   "moderationResubmitSuccess": "Yenidən göndərildi, yoxlanmaq üçün növbədədir.",

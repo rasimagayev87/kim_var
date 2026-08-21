@@ -571,6 +571,21 @@
   "offerBoostComingSoonMessage": "Ödeme sistemi hazırlanma aşamasındadır, yakında etkinleşecek.",
   "offerSubmitButton": "Teklifi oluştur",
   "offerCreatedNotice": "Teklif oluşturuldu",
+  "offerPlacementFreeNotice": "Bu teklif ücretsizdir (kalan: {count}/5)",
+  "@offerPlacementFreeNotice": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "offerPlacementFeeNotice": "Bu teklifin yayınlama ücreti: {amount} AZN",
+  "@offerPlacementFeeNotice": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
+  "offerAwaitingPaymentNotice": "Ödeme sayfasına yönlendirildiniz ({amount} AZN). Ödeme onaylanınca teklifiniz incelemeye gönderilecek.",
+  "@offerAwaitingPaymentNotice": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
+  "offerAwaitingPaymentBannerText": "Bu teklifin yayınlanması için ödeme gerekiyor.",
+  "offerRetryPaymentButton": "Ödemeyi tamamla",
+  "offerRetryPaymentErrorMessage": "Ödeme linki alınamadı, lütfen kısa süre sonra tekrar deneyin.",
   "offerUpdatedNotice": "Teklif güncellendi",
   "offerSentForReReviewNotice": "Değişiklikler kaydedildi, teklif yeniden admin onayını bekliyor",
   "offerRequiredFieldsMissing": "Lütfen tüm zorunlu alanları doldurun.",
@@ -818,6 +833,7 @@
   "venueDeleteMenuOption": "Mekanı sil",
   "venueDeleteConfirmMessage": "Bu mekanı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.",
   "moderationStatusPending": "İnceleniyor",
+  "moderationStatusAwaitingPayment": "Ödeme bekleniyor",
   "moderationStatusNeedsRevision": "Düzeltme gerekiyor",
   "moderationReviewNotePrefix": "Sebep",
   "moderationResubmitSuccess": "Yeniden gönderildi, inceleme sırasında.",

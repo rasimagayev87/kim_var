@@ -571,6 +571,21 @@
   "offerBoostComingSoonMessage": "Платёжная система находится в разработке и скоро станет доступна.",
   "offerSubmitButton": "Создать предложение",
   "offerCreatedNotice": "Предложение создано",
+  "offerPlacementFreeNotice": "Это предложение бесплатно (осталось: {count}/5)",
+  "@offerPlacementFreeNotice": {
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "offerPlacementFeeNotice": "Плата за размещение этого предложения: {amount} AZN",
+  "@offerPlacementFeeNotice": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
+  "offerAwaitingPaymentNotice": "Вы перенаправлены на страницу оплаты ({amount} AZN). После подтверждения оплаты предложение будет отправлено на модерацию.",
+  "@offerAwaitingPaymentNotice": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
+  "offerAwaitingPaymentBannerText": "Для публикации этого предложения требуется оплата.",
+  "offerRetryPaymentButton": "Завершить оплату",
+  "offerRetryPaymentErrorMessage": "Не удалось получить ссылку на оплату, попробуйте немного позже.",
   "offerUpdatedNotice": "Предложение обновлено",
   "offerSentForReReviewNotice": "Изменения сохранены — предложение снова ожидает проверки администратора",
   "offerRequiredFieldsMissing": "Пожалуйста, заполните все обязательные поля.",
@@ -818,6 +833,7 @@
   "venueDeleteMenuOption": "Удалить заведение",
   "venueDeleteConfirmMessage": "Вы уверены, что хотите удалить это заведение? Это действие нельзя отменить.",
   "moderationStatusPending": "На проверке",
+  "moderationStatusAwaitingPayment": "Ожидается оплата",
   "moderationStatusNeedsRevision": "Требуется доработка",
   "moderationReviewNotePrefix": "Причина",
   "moderationResubmitSuccess": "Отправлено повторно, ожидает проверки.",

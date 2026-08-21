@@ -83,6 +83,30 @@ mixin _$Venue {
   @NullableTimestampConverter()
   DateTime? get subscriptionRenewsAt => throw _privateConstructorUsedError;
 
+  /// True for one of the first 1000 venues ever approved — see
+  /// `assignFoundingVenueIfEligible` (Cloud Function, functions/src/
+  /// index.ts), which sets this (with [freeOffersUsed]/
+  /// [freeOfferWindowEnd]) the moment [status] first reaches
+  /// 'approved', never at raw signup. Grant-of-trust — the owner can't
+  /// self-grant this (see firestore.rules). Drives the "Bu təklif
+  /// pulsuzdur" free-quota check in `submitOffer`/the offer create
+  /// form; `false` (the default) for every venue outside the first
+  /// 1000 and for any venue created before this field existed.
+  bool get isFoundingVenue => throw _privateConstructorUsedError;
+
+  /// How many of [isFoundingVenue]'s 5 free offer placements this
+  /// venue has used — incremented atomically inside `submitOffer`'s
+  /// own transaction each time a free placement is granted, never by
+  /// a direct client write (see firestore.rules). Meaningless when
+  /// [isFoundingVenue] is false.
+  int get freeOffersUsed => throw _privateConstructorUsedError;
+
+  /// The 1-month window [isFoundingVenue]'s free quota is valid
+  /// within — set once, alongside [isFoundingVenue], to
+  /// "first approval + 30 days". Null for a non-founding venue.
+  @NullableTimestampConverter()
+  DateTime? get freeOfferWindowEnd => throw _privateConstructorUsedError;
+
   /// Only set while [status] is 'needs_revision' — the owner has this
   /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
   /// Cloud Function) auto-rejects the venue and refunds the payment.
@@ -214,6 +238,9 @@ abstract class $VenueCopyWith<$Res> {
     @NullableTimestampConverter() DateTime? reviewedAt,
     String? paymentId,
     @NullableTimestampConverter() DateTime? subscriptionRenewsAt,
+    bool isFoundingVenue,
+    int freeOffersUsed,
+    @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
     @NullableTimestampConverter() DateTime? revisionDeadline,
     bool verified,
     int likeCount,
@@ -264,6 +291,9 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? reviewedAt = freezed,
     Object? paymentId = freezed,
     Object? subscriptionRenewsAt = freezed,
+    Object? isFoundingVenue = null,
+    Object? freeOffersUsed = null,
+    Object? freeOfferWindowEnd = freezed,
     Object? revisionDeadline = freezed,
     Object? verified = null,
     Object? likeCount = null,
@@ -349,6 +379,18 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
             subscriptionRenewsAt: freezed == subscriptionRenewsAt
                 ? _value.subscriptionRenewsAt
                 : subscriptionRenewsAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            isFoundingVenue: null == isFoundingVenue
+                ? _value.isFoundingVenue
+                : isFoundingVenue // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            freeOffersUsed: null == freeOffersUsed
+                ? _value.freeOffersUsed
+                : freeOffersUsed // ignore: cast_nullable_to_non_nullable
+                      as int,
+            freeOfferWindowEnd: freezed == freeOfferWindowEnd
+                ? _value.freeOfferWindowEnd
+                : freeOfferWindowEnd // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
             revisionDeadline: freezed == revisionDeadline
                 ? _value.revisionDeadline
@@ -442,6 +484,9 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     @NullableTimestampConverter() DateTime? reviewedAt,
     String? paymentId,
     @NullableTimestampConverter() DateTime? subscriptionRenewsAt,
+    bool isFoundingVenue,
+    int freeOffersUsed,
+    @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
     @NullableTimestampConverter() DateTime? revisionDeadline,
     bool verified,
     int likeCount,
@@ -491,6 +536,9 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? reviewedAt = freezed,
     Object? paymentId = freezed,
     Object? subscriptionRenewsAt = freezed,
+    Object? isFoundingVenue = null,
+    Object? freeOffersUsed = null,
+    Object? freeOfferWindowEnd = freezed,
     Object? revisionDeadline = freezed,
     Object? verified = null,
     Object? likeCount = null,
@@ -576,6 +624,18 @@ class __$$VenueImplCopyWithImpl<$Res>
         subscriptionRenewsAt: freezed == subscriptionRenewsAt
             ? _value.subscriptionRenewsAt
             : subscriptionRenewsAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        isFoundingVenue: null == isFoundingVenue
+            ? _value.isFoundingVenue
+            : isFoundingVenue // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        freeOffersUsed: null == freeOffersUsed
+            ? _value.freeOffersUsed
+            : freeOffersUsed // ignore: cast_nullable_to_non_nullable
+                  as int,
+        freeOfferWindowEnd: freezed == freeOfferWindowEnd
+            ? _value.freeOfferWindowEnd
+            : freeOfferWindowEnd // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
         revisionDeadline: freezed == revisionDeadline
             ? _value.revisionDeadline
@@ -663,6 +723,9 @@ class _$VenueImpl extends _Venue {
     @NullableTimestampConverter() this.reviewedAt,
     this.paymentId,
     @NullableTimestampConverter() this.subscriptionRenewsAt,
+    this.isFoundingVenue = false,
+    this.freeOffersUsed = 0,
+    @NullableTimestampConverter() this.freeOfferWindowEnd,
     @NullableTimestampConverter() this.revisionDeadline,
     this.verified = false,
     this.likeCount = 0,
@@ -774,6 +837,35 @@ class _$VenueImpl extends _Venue {
   @override
   @NullableTimestampConverter()
   final DateTime? subscriptionRenewsAt;
+
+  /// True for one of the first 1000 venues ever approved — see
+  /// `assignFoundingVenueIfEligible` (Cloud Function, functions/src/
+  /// index.ts), which sets this (with [freeOffersUsed]/
+  /// [freeOfferWindowEnd]) the moment [status] first reaches
+  /// 'approved', never at raw signup. Grant-of-trust — the owner can't
+  /// self-grant this (see firestore.rules). Drives the "Bu təklif
+  /// pulsuzdur" free-quota check in `submitOffer`/the offer create
+  /// form; `false` (the default) for every venue outside the first
+  /// 1000 and for any venue created before this field existed.
+  @override
+  @JsonKey()
+  final bool isFoundingVenue;
+
+  /// How many of [isFoundingVenue]'s 5 free offer placements this
+  /// venue has used — incremented atomically inside `submitOffer`'s
+  /// own transaction each time a free placement is granted, never by
+  /// a direct client write (see firestore.rules). Meaningless when
+  /// [isFoundingVenue] is false.
+  @override
+  @JsonKey()
+  final int freeOffersUsed;
+
+  /// The 1-month window [isFoundingVenue]'s free quota is valid
+  /// within — set once, alongside [isFoundingVenue], to
+  /// "first approval + 30 days". Null for a non-founding venue.
+  @override
+  @NullableTimestampConverter()
+  final DateTime? freeOfferWindowEnd;
 
   /// Only set while [status] is 'needs_revision' — the owner has this
   /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
@@ -899,7 +991,7 @@ class _$VenueImpl extends _Venue {
 
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, isFoundingVenue: $isFoundingVenue, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
   }
 
   @override
@@ -932,6 +1024,12 @@ class _$VenueImpl extends _Venue {
                 other.paymentId == paymentId) &&
             (identical(other.subscriptionRenewsAt, subscriptionRenewsAt) ||
                 other.subscriptionRenewsAt == subscriptionRenewsAt) &&
+            (identical(other.isFoundingVenue, isFoundingVenue) ||
+                other.isFoundingVenue == isFoundingVenue) &&
+            (identical(other.freeOffersUsed, freeOffersUsed) ||
+                other.freeOffersUsed == freeOffersUsed) &&
+            (identical(other.freeOfferWindowEnd, freeOfferWindowEnd) ||
+                other.freeOfferWindowEnd == freeOfferWindowEnd) &&
             (identical(other.revisionDeadline, revisionDeadline) ||
                 other.revisionDeadline == revisionDeadline) &&
             (identical(other.verified, verified) ||
@@ -988,6 +1086,9 @@ class _$VenueImpl extends _Venue {
     reviewedAt,
     paymentId,
     subscriptionRenewsAt,
+    isFoundingVenue,
+    freeOffersUsed,
+    freeOfferWindowEnd,
     revisionDeadline,
     verified,
     likeCount,
@@ -1038,6 +1139,9 @@ abstract class _Venue extends Venue {
     @NullableTimestampConverter() final DateTime? reviewedAt,
     final String? paymentId,
     @NullableTimestampConverter() final DateTime? subscriptionRenewsAt,
+    final bool isFoundingVenue,
+    final int freeOffersUsed,
+    @NullableTimestampConverter() final DateTime? freeOfferWindowEnd,
     @NullableTimestampConverter() final DateTime? revisionDeadline,
     final bool verified,
     final int likeCount,
@@ -1136,6 +1240,33 @@ abstract class _Venue extends Venue {
   @override
   @NullableTimestampConverter()
   DateTime? get subscriptionRenewsAt;
+
+  /// True for one of the first 1000 venues ever approved — see
+  /// `assignFoundingVenueIfEligible` (Cloud Function, functions/src/
+  /// index.ts), which sets this (with [freeOffersUsed]/
+  /// [freeOfferWindowEnd]) the moment [status] first reaches
+  /// 'approved', never at raw signup. Grant-of-trust — the owner can't
+  /// self-grant this (see firestore.rules). Drives the "Bu təklif
+  /// pulsuzdur" free-quota check in `submitOffer`/the offer create
+  /// form; `false` (the default) for every venue outside the first
+  /// 1000 and for any venue created before this field existed.
+  @override
+  bool get isFoundingVenue;
+
+  /// How many of [isFoundingVenue]'s 5 free offer placements this
+  /// venue has used — incremented atomically inside `submitOffer`'s
+  /// own transaction each time a free placement is granted, never by
+  /// a direct client write (see firestore.rules). Meaningless when
+  /// [isFoundingVenue] is false.
+  @override
+  int get freeOffersUsed;
+
+  /// The 1-month window [isFoundingVenue]'s free quota is valid
+  /// within — set once, alongside [isFoundingVenue], to
+  /// "first approval + 30 days". Null for a non-founding venue.
+  @override
+  @NullableTimestampConverter()
+  DateTime? get freeOfferWindowEnd;
 
   /// Only set while [status] is 'needs_revision' — the owner has this
   /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled

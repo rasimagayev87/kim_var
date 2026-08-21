@@ -385,6 +385,29 @@ class Venue with _$Venue {
     /// overdue date so those venues enter the cycle on its next run.
     @NullableTimestampConverter() DateTime? subscriptionRenewsAt,
 
+    /// True for one of the first 1000 venues ever approved — see
+    /// `assignFoundingVenueIfEligible` (Cloud Function, functions/src/
+    /// index.ts), which sets this (with [freeOffersUsed]/
+    /// [freeOfferWindowEnd]) the moment [status] first reaches
+    /// 'approved', never at raw signup. Grant-of-trust — the owner can't
+    /// self-grant this (see firestore.rules). Drives the "Bu təklif
+    /// pulsuzdur" free-quota check in `submitOffer`/the offer create
+    /// form; `false` (the default) for every venue outside the first
+    /// 1000 and for any venue created before this field existed.
+    @Default(false) bool isFoundingVenue,
+
+    /// How many of [isFoundingVenue]'s 5 free offer placements this
+    /// venue has used — incremented atomically inside `submitOffer`'s
+    /// own transaction each time a free placement is granted, never by
+    /// a direct client write (see firestore.rules). Meaningless when
+    /// [isFoundingVenue] is false.
+    @Default(0) int freeOffersUsed,
+
+    /// The 1-month window [isFoundingVenue]'s free quota is valid
+    /// within — set once, alongside [isFoundingVenue], to
+    /// "first approval + 30 days". Null for a non-founding venue.
+    @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
+
     /// Only set while [status] is 'needs_revision' — the owner has this
     /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
     /// Cloud Function) auto-rejects the venue and refunds the payment.

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -357,16 +358,9 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
     });
 
     final loc = AppLocalizations.of(context);
-    final venue = _selectedVenue;
 
-    final offerId = await ref.read(offerControllerProvider).createOffer(
-          venueId: venue?.id,
-          venueName: venue?.name ?? '',
-          venuePhotoUrl: venue?.photoUrl,
-          lat: venue?.lat,
-          lng: venue?.lng,
-          address: venue?.address ?? '',
-          country: venue?.country,
+    final result = await ref.read(offerControllerProvider).createOffer(
+          venueId: _selectedVenue?.id,
           title: _titleController.text,
           description: _descriptionController.text,
           category: _category,
@@ -406,10 +400,21 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
       _cancelUpload = null;
     });
 
-    if (offerId != null) {
+    if (result == null) return;
+
+    if (result.requiresPayment) {
+      final checkoutUrl = result.checkoutUrl;
+      if (checkoutUrl != null) {
+        await launchUrl(Uri.parse(checkoutUrl), mode: LaunchMode.externalApplication);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.offerAwaitingPaymentNotice((result.feeAmount ?? 0).round()))),
+      );
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerCreatedNotice)));
-      Navigator.pop(context);
     }
+    Navigator.pop(context);
   }
 
   Future<void> _submitEdit() async {
@@ -614,6 +619,10 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
                       hasError: _fieldErrors.contains(OfferFieldError.venue),
                       onTap: _pickVenue,
                     ),
+                  if (_selectedVenue != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    _PlacementFeeBanner(venue: _selectedVenue!, loc: loc),
+                  ],
                 ],
                 if (_isBirthdayOffer) ...[
                   const SizedBox(height: AppSpacing.xxl),
@@ -1204,6 +1213,53 @@ class _ActiveDaysSelector extends StatelessWidget {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// "Bu təklif pulsuzdur (qalıq: N/5)" / "Bu təklifin yerləşdirmə haqqı:
+/// X AZN" — a client-side ESTIMATE from [venue]'s own founding/quota
+/// fields (see [offerPlacementFeeForCategory]'s own doc comment); the
+/// real eligibility check and charge happen server-side in
+/// `submitOffer` at actual submit time, so this can drift by at most
+/// the gap between picking a venue and pressing submit (e.g. the free
+/// window expiring mid-form) — acceptable for a preview banner, not
+/// something this reads as a guarantee.
+class _PlacementFeeBanner extends StatelessWidget {
+  final Venue venue;
+  final AppLocalizations loc;
+
+  const _PlacementFeeBanner({required this.venue, required this.loc});
+
+  @override
+  Widget build(BuildContext context) {
+    final windowEnd = venue.freeOfferWindowEnd;
+    final isFreeEligible =
+        venue.isFoundingVenue && venue.freeOffersUsed < 5 && windowEnd != null && DateTime.now().isBefore(windowEnd);
+
+    final String text;
+    final IconData icon;
+    final Color color;
+    if (isFreeEligible) {
+      text = loc.offerPlacementFreeNotice(5 - venue.freeOffersUsed);
+      icon = Icons.card_giftcard_rounded;
+      color = AppColors.primary;
+    } else {
+      text = loc.offerPlacementFeeNotice(offerPlacementFeeForCategory(venue.category).round());
+      icon = Icons.payments_outlined;
+      color = ChatLightColors.inkSoft;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: color))),
+        ],
+      ),
     );
   }
 }

@@ -80,14 +80,8 @@ class OfferController {
 
   final Ref _ref;
 
-  Future<String?> createOffer({
+  Future<SubmitOfferResult?> createOffer({
     required String? venueId,
-    required String venueName,
-    String? venuePhotoUrl,
-    required double? lat,
-    required double? lng,
-    required String address,
-    String? country,
     required String title,
     required String description,
     required VenueCategory? category,
@@ -111,15 +105,8 @@ class OfferController {
     if (uid == null) return null;
 
     try {
-      final offerId = await _ref.read(createOfferUseCaseProvider).call(
-            ownerId: uid,
+      final result = await _ref.read(createOfferUseCaseProvider).call(
             venueId: venueId,
-            venueName: venueName,
-            venuePhotoUrl: venuePhotoUrl,
-            lat: lat,
-            lng: lng,
-            address: address,
-            country: country,
             title: title,
             description: description,
             category: category,
@@ -139,15 +126,27 @@ class OfferController {
           );
       // Same staleness gap as nearbyVenuesProvider — a one-shot
       // FutureProvider keyed off position/radius/category, not the
-      // offers collection itself.
+      // offers collection itself. A fee-required offer isn't visible
+      // here anyway (still `awaiting_payment`), but the free-quota path
+      // is already `pending` and should still trigger this the same
+      // way the old direct-write flow did.
       _ref.invalidate(nearbyOffersProvider);
-      return offerId;
+      return result;
     } on OfferValidationException catch (e) {
       onValidationError(e.missingFields);
       return null;
     } catch (e, st) {
       logError('offer_providers.createOffer', e, st);
       onError();
+      return null;
+    }
+  }
+
+  Future<({String checkoutUrl, double feeAmount})?> retryOfferPayment(String offerId) async {
+    try {
+      return await _ref.read(offerRepositoryProvider).retryOfferPayment(offerId);
+    } catch (e, st) {
+      logError('offer_providers.retryOfferPayment', e, st);
       return null;
     }
   }

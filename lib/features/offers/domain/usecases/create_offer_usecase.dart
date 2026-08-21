@@ -150,15 +150,15 @@ class CreateOfferUseCase {
 
   final OfferRepository _repository;
 
-  Future<String> call({
-    required String ownerId,
+  /// [category] is only used for this call's own client-side validation
+  /// (matching [OfferFieldError.category] to the UI's "pick a venue
+  /// first" state) — the actual offer's category, along with
+  /// venueName/venuePhotoUrl/lat/lng/address/country, is derived
+  /// server-side from the venue doc by `submitOffer` (Cloud Function),
+  /// never trusted from here. See [OfferRepository.createOffer]'s own
+  /// doc comment for why.
+  Future<SubmitOfferResult> call({
     required String? venueId,
-    required String venueName,
-    String? venuePhotoUrl,
-    required double? lat,
-    required double? lng,
-    required String address,
-    String? country,
     required String title,
     required String description,
     required VenueCategory? category,
@@ -194,15 +194,7 @@ class CreateOfferUseCase {
     await assertValidOfferPhoto(photo);
 
     return _repository.createOffer(
-      ownerId: ownerId,
       venueId: venueId!,
-      venueName: venueName,
-      venuePhotoUrl: venuePhotoUrl,
-      lat: lat!,
-      lng: lng!,
-      address: address,
-      country: country,
-      category: fields.category,
       title: fields.title,
       description: fields.description,
       offerType: fields.offerType,

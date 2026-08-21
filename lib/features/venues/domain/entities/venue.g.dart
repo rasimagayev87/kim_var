@@ -32,6 +32,11 @@ _$VenueImpl _$$VenueImplFromJson(Map<String, dynamic> json) => _$VenueImpl(
   subscriptionRenewsAt: const NullableTimestampConverter().fromJson(
     json['subscriptionRenewsAt'],
   ),
+  isFoundingVenue: json['isFoundingVenue'] as bool? ?? false,
+  freeOffersUsed: (json['freeOffersUsed'] as num?)?.toInt() ?? 0,
+  freeOfferWindowEnd: const NullableTimestampConverter().fromJson(
+    json['freeOfferWindowEnd'],
+  ),
   revisionDeadline: const NullableTimestampConverter().fromJson(
     json['revisionDeadline'],
   ),
@@ -79,6 +84,11 @@ Map<String, dynamic> _$$VenueImplToJson(
   'paymentId': instance.paymentId,
   'subscriptionRenewsAt': const NullableTimestampConverter().toJson(
     instance.subscriptionRenewsAt,
+  ),
+  'isFoundingVenue': instance.isFoundingVenue,
+  'freeOffersUsed': instance.freeOffersUsed,
+  'freeOfferWindowEnd': const NullableTimestampConverter().toJson(
+    instance.freeOfferWindowEnd,
   ),
   'revisionDeadline': const NullableTimestampConverter().toJson(
     instance.revisionDeadline,

@@ -22,7 +22,10 @@ const TYPE_LABELS: Record<string, string> = {
   // `FirebaseVenueRepository.createVenue`'s own doc comment.
   venue_listing: "Məkan elanı (köhnə)",
   venue_subscription: "Məkan abunəliyi",
-  offer_listing: "Təklif elanı",
+  // "offer_listing" stays mapped for payments written before the flat
+  // 3 AZN fee → category-tiered "offer_placement_fee" migration.
+  offer_listing: "Təklif elanı (köhnə)",
+  offer_placement_fee: "Təklif yerləşdirmə haqqı",
 };
 
 const LISTING_TYPE_PATH: Record<string, string> = {

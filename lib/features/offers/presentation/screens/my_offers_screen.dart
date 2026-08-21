@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -207,7 +208,7 @@ class _MyOfferCard extends ConsumerWidget {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              if (offer.status == 'pending' || needsRevision)
+                              if (offer.status == 'pending' || offer.status == 'awaiting_payment' || needsRevision)
                                 _ModerationStatusBadge(status: offer.status)
                               else
                                 _OfferStatusBadge(isExpired: offer.isExpired, happyHourInactive: happyHourInactive),
@@ -232,6 +233,7 @@ class _MyOfferCard extends ConsumerWidget {
                   revisionDeadline: offer.revisionDeadline,
                   onEdit: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreateOfferScreen(existingOffer: offer))),
                 ),
+              if (offer.status == 'awaiting_payment') _AwaitingPaymentBanner(offerId: offer.id),
             ],
           ),
           Positioned(
@@ -354,8 +356,74 @@ class _ModerationStatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
       child: Text(
-        status == 'needs_revision' ? loc.moderationStatusNeedsRevision : loc.moderationStatusPending,
+        switch (status) {
+          'needs_revision' => loc.moderationStatusNeedsRevision,
+          'awaiting_payment' => loc.moderationStatusAwaitingPayment,
+          _ => loc.moderationStatusPending,
+        },
         style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color),
+      ),
+    );
+  }
+}
+
+/// "Ödəniş gözlənilir" — shown while [Offer.status] is
+/// 'awaiting_payment', with a way back into the Epoint checkout for an
+/// owner who abandoned or whose previous attempt failed. Mirrors
+/// `_NeedsRevisionBanner`'s layout, distinct content/action.
+class _AwaitingPaymentBanner extends ConsumerStatefulWidget {
+  final String offerId;
+
+  const _AwaitingPaymentBanner({required this.offerId});
+
+  @override
+  ConsumerState<_AwaitingPaymentBanner> createState() => _AwaitingPaymentBannerState();
+}
+
+class _AwaitingPaymentBannerState extends ConsumerState<_AwaitingPaymentBanner> {
+  bool _loading = false;
+
+  Future<void> _retry() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    final loc = AppLocalizations.of(context);
+
+    final result = await ref.read(offerControllerProvider).retryOfferPayment(widget.offerId);
+
+    if (!mounted) return;
+    setState(() => _loading = false);
+
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerRetryPaymentErrorMessage)));
+      return;
+    }
+    await launchUrl(Uri.parse(result.checkoutUrl), mode: LaunchMode.externalApplication);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              loc.offerAwaitingPaymentBannerText,
+              style: const TextStyle(fontSize: 12.5, color: ChatLightColors.ink),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _loading ? null : _retry,
+            child: _loading
+                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                : Text(loc.offerRetryPaymentButton, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+          ),
+        ],
       ),
     );
   }

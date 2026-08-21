@@ -383,7 +383,10 @@ service cloud.firestore {
         request.resource.data.status == 'pending' &&
         !('reviewNote' in request.resource.data) &&
         !('reviewedBy' in request.resource.data) &&
-        !('reviewedAt' in request.resource.data);
+        !('reviewedAt' in request.resource.data) &&
+        !('isFoundingVenue' in request.resource.data) &&
+        !('freeOffersUsed' in request.resource.data) &&
+        !('freeOfferWindowEnd' in request.resource.data);
 
       // `ownerId` is immutable — an update can't reassign a venue to a
       // different owner, even the current owner's own write. `likeCount`/
@@ -415,11 +418,16 @@ service cloud.firestore {
       // the same again — only `renewVenueSubscriptions` (scheduled
       // Cloud Function) may push it forward, so the owner can't grant
       // themselves a free extra cycle by editing their own venue.
+      // `isFoundingVenue`/`freeOffersUsed`/`freeOfferWindowEnd` are the
+      // same again — only `assignFoundingVenueIfEligible` (on first
+      // approval) and `submitOffer`'s free-quota transaction (both
+      // functions/src/index.ts) may touch these, so an owner can't
+      // self-grant founding status or reset their own free-offer count.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['likeCount', 'rating', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt']);
+          .hasAny(['likeCount', 'rating', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
@@ -586,20 +594,16 @@ service cloud.firestore {
     match /offers/{offerId} {
       allow read: if request.auth != null;
 
-      // Same "must start pending, no forged review trail" rule as venues.
-      // `happyHourActive` is also blocked here — `maintainHappyHourActiveFlag`
-      // (Cloud Function) sets the real value right after create, so a
-      // client value here would just be overwritten anyway, but a raw
-      // API call shouldn't be able to make it start `true` and appear
-      // in Discover before that trigger runs.
-      allow create: if request.auth != null &&
-        request.auth.uid == request.resource.data.ownerId &&
-        isBusinessUser(request.auth.uid) &&
-        request.resource.data.status == 'pending' &&
-        !('reviewNote' in request.resource.data) &&
-        !('reviewedBy' in request.resource.data) &&
-        !('reviewedAt' in request.resource.data) &&
-        !('happyHourActive' in request.resource.data);
+      // Create is Cloud-Function-only (`submitOffer`, functions/src/
+      // index.ts, Admin SDK — bypasses this rule entirely) — the
+      // founding-venue free-quota decrement it does is a
+      // read-check-then-write across the offer AND its venue doc, which
+      // needs a real transaction to stay race-safe across two
+      // near-simultaneous submissions; a rules-only check here couldn't
+      // guarantee that the same way. `submitOffer` also derives
+      // `category`/`venueName`/etc. from the venue doc itself rather
+      // than trusting whatever the client sent.
+      allow create: if false;
 
       // `ownerId` is immutable, same reasoning as venues. `status`/
       // `reviewNote`/`reviewedBy`/`reviewedAt` are admin-panel-only —

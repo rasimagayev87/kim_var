@@ -9,21 +9,25 @@ import '../entities/offer.dart';
 /// centered on, in metres — mirrors `VenueWithDistance`.
 typedef OfferWithDistance = ({Offer offer, double distanceMeters});
 
+/// [requiresPayment] false means the offer was free (founding-venue
+/// quota) and is already `pending`, in normal moderation — nothing
+/// further to do. True means it's `awaiting_payment`, invisible to
+/// everyone until the owner completes [checkoutUrl] and
+/// `epointWebhook` (functions/src/index.ts) confirms the charge.
+typedef SubmitOfferResult = ({String offerId, bool requiresPayment, String? checkoutUrl, double? feeAmount});
+
 abstract class OfferRepository {
-  /// [venueName]/[venuePhotoUrl]/[lat]/[lng]/[address] come from the
-  /// already-selected [Venue] in the Create Offer form (see
-  /// [OfferRepository] doc) — this never re-fetches the venue doc
-  /// itself, the caller already has it.
-  Future<String> createOffer({
-    required String ownerId,
+  /// `venueName`/`venuePhotoUrl`/`lat`/`lng`/`address`/`category` are
+  /// no longer client-supplied — `submitOffer` (Cloud Function,
+  /// functions/src/index.ts) derives them from [venueId]'s own venue
+  /// doc server-side, same reasoning as the offer-category fix earlier
+  /// this project's history, just enforced one layer deeper now that
+  /// creation itself moved server-side (see this method's own
+  /// implementation doc comment for why: the founding-venue free-quota
+  /// decrement needs a real transaction, which firestore.rules alone
+  /// can't guarantee race-safety for).
+  Future<SubmitOfferResult> createOffer({
     required String venueId,
-    required String venueName,
-    String? venuePhotoUrl,
-    required double lat,
-    required double lng,
-    required String address,
-    String? country,
-    required VenueCategory category,
     required String title,
     required String description,
     required OfferType offerType,
@@ -40,6 +44,12 @@ abstract class OfferRepository {
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   });
+
+  /// Re-opens a checkout for an `awaiting_payment` offer whose previous
+  /// Epoint attempt failed or was abandoned — same `payments` doc, a
+  /// fresh checkout URL. Throws if the offer isn't actually awaiting
+  /// payment (already paid, or never needed to be).
+  Future<({String checkoutUrl, double feeAmount})> retryOfferPayment(String offerId);
 
   Future<void> updateOffer({
     required String offerId,

@@ -125,10 +125,17 @@ class Offer with _$Offer {
     /// Optional terms/eligibility text — free-form, shown as-is.
     String? terms,
 
-    /// 'pending' | 'approved' | 'needs_revision' | 'rejected' — same
+    /// 'awaiting_payment' | 'pending' | 'approved' | 'needs_revision' |
+    /// 'rejected'. 'awaiting_payment' is the one state [Venue.status]
+    /// has no equivalent for — a fee-required offer sits here,
+    /// invisible everywhere (including the admin moderation queue),
+    /// until `epointWebhook` (functions/src/index.ts) confirms the
+    /// charge and flips it to 'pending'; a free (founding-quota) offer
+    /// skips straight to 'pending'. From 'pending' on, this is the same
     /// moderation lifecycle as [Venue.status], including the
     /// firestore.rules restriction that only the admin panel's Server
-    /// Actions may change it.
+    /// Actions (or `submitOffer`/`epointWebhook`, the only other
+    /// Admin-SDK writers) may change it.
     @Default('pending') String status,
 
     /// Set by the reviewing admin/moderator when [status] is
@@ -216,4 +223,58 @@ class Offer with _$Offer {
   bool get isBoosted => boostedUntil != null && DateTime.now().isBefore(boostedUntil!);
 
   bool isOwnedBy(String uid) => ownerId == uid;
+}
+
+/// Client-side ESTIMATE only, for the "Bu təklifin yerləşdirmə haqqı: X
+/// AZN" banner in the create form — the real charge is always computed
+/// server-side by `submitOffer` (functions/src/index.ts) from the
+/// venue's own category at submit time, never trusted from here. A
+/// third hand-synced copy of the same 15/20/25/30 → 2/4/5/7 AZN tariff
+/// as `venueSubscriptionFeeByCategory`/`OFFER_PLACEMENT_FEE_BY_
+/// SUBSCRIPTION_TIER` there and `_venueListingFeeFor` in
+/// `FirebaseVenueRepository` — Cloud Functions can't import this file
+/// and this file has no reason to import a data-layer class, so all
+/// three stay independently declared, same reasoning as those two.
+double offerPlacementFeeForCategory(VenueCategory category) {
+  return switch (category) {
+    VenueCategory.restaurant => 7.0,
+    VenueCategory.pub => 7.0,
+    VenueCategory.coffeeShop => 5.0,
+    VenueCategory.fastFood => 5.0,
+    VenueCategory.teaHouse => 2.0,
+    VenueCategory.sweetsShop => 4.0,
+    VenueCategory.hotel => 7.0,
+    VenueCategory.motel => 4.0,
+    VenueCategory.cinema => 7.0,
+    VenueCategory.karaoke => 7.0,
+    VenueCategory.gameHall => 7.0,
+    VenueCategory.nightClub => 7.0,
+    VenueCategory.fitness => 7.0,
+    VenueCategory.gym => 7.0,
+    VenueCategory.spa => 7.0,
+    VenueCategory.footballField => 5.0,
+    VenueCategory.clinic => 7.0,
+    VenueCategory.beautySalon => 7.0,
+    VenueCategory.barbershop => 4.0,
+    VenueCategory.cosmetology => 7.0,
+    VenueCategory.tattoo => 4.0,
+    VenueCategory.photoStudio => 4.0,
+    VenueCategory.kidsEntertainment => 7.0,
+    VenueCategory.pharmacyOptics => 7.0,
+    VenueCategory.dentalClinic => 7.0,
+    VenueCategory.perfumeryCosmetics => 5.0,
+    VenueCategory.carWash => 4.0,
+    VenueCategory.carRepair => 4.0,
+    VenueCategory.supermarket => 7.0,
+    VenueCategory.bookstoreStationery => 4.0,
+    VenueCategory.petStore => 4.0,
+    VenueCategory.tailor => 2.0,
+    VenueCategory.dryCleaning => 5.0,
+    VenueCategory.applianceRepair => 4.0,
+    VenueCategory.tutoringCenter => 5.0,
+    VenueCategory.wineBar => 7.0,
+    VenueCategory.cleaningServices => 4.0,
+    VenueCategory.independentArtist => 7.0,
+    VenueCategory.other => 5.0,
+  };
 }

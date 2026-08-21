@@ -1,15 +1,17 @@
 import { initializeApp } from "firebase-admin/app";
-import { FieldValue, getFirestore, Timestamp } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, GeoPoint, Timestamp } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { getStorage } from "firebase-admin/storage";
 import { BatchResponse, getMessaging } from "firebase-admin/messaging";
-import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { beforeEmailSent } from "firebase-functions/v2/identity";
 import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 import { randomInt } from "crypto";
+import { createEpointCheckout, decodeEpointData, verifyEpointSignature } from "./epoint";
+import { geohashForLocation } from "geofire-common";
 
 initializeApp();
 
@@ -40,6 +42,16 @@ const cloudflareTurnApiToken = defineSecret("CLOUDFLARE_TURN_API_TOKEN");
 // reports to privacy@peakpin.app as they come in (that inbox otherwise has
 // no way to know about a report short of someone opening the admin panel).
 const resendApiKey = defineSecret("RESEND_API_KEY");
+
+// Epoint.az merchant credentials — set once via:
+//   firebase functions:secrets:set EPOINT_PUBLIC_KEY
+//   firebase functions:secrets:set EPOINT_PRIVATE_KEY
+// Issued by Epoint when a merchant account is opened (epoint.az) — until
+// then, submitOffer/retryOfferPayment below will fail at the Epoint HTTP
+// call (createEpointCheckout throws on a non-success response), leaving
+// the offer in 'awaiting_payment' rather than pretending to charge.
+const epointPublicKey = defineSecret("EPOINT_PUBLIC_KEY");
+const epointPrivateKey = defineSecret("EPOINT_PRIVATE_KEY");
 
 /**
  * Sends a plain notification email via Resend's REST API (not SMTP —
@@ -1286,8 +1298,54 @@ export const onVenueUpdated = onDocumentUpdated("venues/{venueId}", async (event
         targetType: "venue",
       });
     }
+
+    if (after.status === "approved" && !("isFoundingVenue" in after)) {
+      await assignFoundingVenueIfEligible(event.params.venueId);
+    }
   }
 });
+
+/** How many of the first FOUNDING_VENUE_LIMIT venues get free offer placements — see `assignFoundingVenueIfEligible`. */
+const FOUNDING_VENUE_LIMIT = 1000;
+const FOUNDING_VENUE_FREE_OFFERS = 5;
+const FOUNDING_VENUE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * "İlk 1000 abunə olan venue" — counted at first APPROVAL, not at raw
+ * signup: a rejected/spam registration never really became a
+ * subscriber (the recurring `subscriptionRenewsAt` billing itself only
+ * ever bills `status == 'approved'` venues — see
+ * `renewVenueSubscriptions`), so counting it against the founding pool
+ * would waste a slot on something that was never real revenue. Guarded
+ * by the caller (`!("isFoundingVenue" in after)`) so a later
+ * needs_revision → re-approved cycle on the SAME venue never re-enters
+ * this and never double-counts against the global limit.
+ *
+ * `config/foundingVenueCounter` is a single counter doc updated inside
+ * the same transaction as the venue write, so two venues approved in
+ * the same instant can't both slip in as the 1000th.
+ */
+async function assignFoundingVenueIfEligible(venueId: string): Promise<void> {
+  const counterRef = db.collection("config").doc("foundingVenueCounter");
+  const venueRef = db.collection("venues").doc(venueId);
+
+  await db.runTransaction(async (tx) => {
+    const counterSnap = await tx.get(counterRef);
+    const count = (counterSnap.data()?.count as number | undefined) ?? 0;
+
+    if (count >= FOUNDING_VENUE_LIMIT) {
+      tx.update(venueRef, { isFoundingVenue: false });
+      return;
+    }
+
+    tx.set(counterRef, { count: count + 1 }, { merge: true });
+    tx.update(venueRef, {
+      isFoundingVenue: true,
+      freeOffersUsed: 0,
+      freeOfferWindowEnd: Timestamp.fromDate(new Date(Date.now() + FOUNDING_VENUE_WINDOW_MS)),
+    });
+  });
+}
 
 /**
  * Same moderation-status notification as `onVenueUpdated`, for offers
@@ -3211,3 +3269,325 @@ export const computeMonthlyPinBoxPayouts = onSchedule(
     logger.info("computeMonthlyPinBoxPayouts: wrote payouts", { period, venueCount: written });
   },
 );
+
+// ---------------------------------------------------------------------------
+// Təklif yerləşdirmə haqqı (offer placement fee) — Epoint-backed, replaces
+// the old flat 3 AZN "offer_listing" fee `listing_payment.dart`'s
+// `createOffer` used to write straight to 'completed'. This is the first
+// REAL payment gate in the app: an offer that needs the fee sits in
+// `awaiting_payment` (invisible to everyone, including the admin queue)
+// until `epointWebhook` confirms the charge, only then does it become a
+// normal `pending` offer subject to the usual moderation review — payment
+// confirmation and content moderation are deliberately two separate gates.
+// ---------------------------------------------------------------------------
+
+/**
+ * Same subscription-tier AZN amount → placement-fee AZN amount mapping as
+ * the PeakPin pricing sheet: 15/20/25/30 AZN monthly categories → 2/4/5/7
+ * AZN per offer. Keyed off `venueSubscriptionFeeByCategory`'s own tier
+ * value rather than duplicating a second 39-entry category table, so the
+ * two can never drift against each other — a category's placement fee is
+ * always a function of its subscription tier, never set independently.
+ */
+const OFFER_PLACEMENT_FEE_BY_SUBSCRIPTION_TIER: Record<number, number> = { 15: 2, 20: 4, 25: 5, 30: 7 };
+
+function offerPlacementFeeForCategory(category: string): number | undefined {
+  const tier = venueSubscriptionFeeByCategory[category];
+  if (tier === undefined) return undefined;
+  return OFFER_PLACEMENT_FEE_BY_SUBSCRIPTION_TIER[tier];
+}
+
+/**
+ * Epoint's own hosted checkout page needs SOME URL to redirect the
+ * browser to once the card form is done — these are plain static pages
+ * (not part of this Cloud Functions deploy), separate from how the app
+ * actually learns payment succeeded. That real signal is always
+ * `epointWebhook` below flipping the `payments` doc to 'completed' and,
+ * from there, the offer doc's own `status` field — the Flutter side
+ * listens to that Firestore doc directly rather than trusting the
+ * redirect, since the redirect only fires if the user's browser is still
+ * open and connected, unlike the server-to-server webhook.
+ */
+const EPOINT_SUCCESS_REDIRECT_URL = "https://peakpin.app/payment/success";
+const EPOINT_ERROR_REDIRECT_URL = "https://peakpin.app/payment/error";
+
+/**
+ * Starts an Epoint checkout for one `payments` doc and returns the
+ * hosted-checkout URL — shared by `submitOffer`'s fee branch and
+ * `retryOfferPayment` so a failed/expired checkout can be re-started
+ * without re-deriving the fee or creating a second payment doc.
+ */
+async function startEpointCheckoutForPayment(
+  paymentId: string,
+  amount: number,
+  description: string,
+): Promise<string> {
+  const { redirectUrl } = await createEpointCheckout({
+    publicKey: epointPublicKey.value(),
+    privateKey: epointPrivateKey.value(),
+    orderId: paymentId,
+    amount,
+    description,
+    successRedirectUrl: EPOINT_SUCCESS_REDIRECT_URL,
+    errorRedirectUrl: EPOINT_ERROR_REDIRECT_URL,
+  });
+  return redirectUrl;
+}
+
+/**
+ * Replaces the client's old direct `offers.add(...)` write (see
+ * `FirebaseOfferRepository.createOffer`'s git history) — offer CREATE is
+ * now Cloud-Function-only (firestore.rules: `allow create: if false`),
+ * because the free-quota decrement below must be race-safe across two
+ * near-simultaneous submissions from the same founding venue, which a
+ * security-rules-only check can't guarantee the way a transaction can.
+ *
+ * `category`/`venueName`/`venuePhotoUrl`/`lat`/`lng`/`address`/`country`
+ * are all read from the venue doc server-side, never trusted from the
+ * client, same reasoning as this session's earlier "offer category must
+ * always be its venue's category" fix — just enforced one layer deeper
+ * now that creation itself moved server-side.
+ */
+export const submitOffer = onCall(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    const data = request.data as Record<string, unknown>;
+    const clientOfferId = data.offerId as string | undefined;
+    const venueId = data.venueId as string | undefined;
+    const title = (data.title as string | undefined)?.trim();
+    const description = (data.description as string | undefined)?.trim();
+    const offerType = data.offerType as string | undefined;
+    const startDateRaw = data.startDate as string | undefined;
+    const endDateRaw = data.endDate as string | undefined;
+    if (!clientOfferId || !venueId || !title || !description || !offerType || !startDateRaw || !endDateRaw) {
+      throw new HttpsError("invalid-argument", "Tələb olunan sahələr çatışmır.");
+    }
+
+    const venueSnap = await db.collection("venues").doc(venueId).get();
+    const venue = venueSnap.data();
+    if (!venue) throw new HttpsError("not-found", "Məkan tapılmadı.");
+    if (venue.ownerId !== uid) throw new HttpsError("permission-denied", "Bu məkanın sahibi deyilsiniz.");
+
+    const category = venue.category as string | undefined;
+    const fee = category ? offerPlacementFeeForCategory(category) : undefined;
+    if (fee === undefined) {
+      logger.error("submitOffer: no placement fee tier for category", { venueId, category });
+      throw new HttpsError("failed-precondition", "Bu məkan kateqoriyası üçün haqq cədvəli tapılmadı.");
+    }
+
+    const lat = venue.lat as number;
+    const lng = venue.lng as number;
+    // Pre-allocated by the client (`allocateOfferId`) so the photo it
+    // already uploaded to Storage under this id lands on the same
+    // document — same pattern as the old direct-write flow, just
+    // handed to this function instead of used in a client-side
+    // `.set()`. A collision with an existing doc would mean the client
+    // somehow replayed an id it already used, which allocateOfferId's
+    // own randomness makes practically impossible; guarded anyway
+    // rather than silently overwriting.
+    const offerRef = db.collection("offers").doc(clientOfferId);
+    if ((await offerRef.get()).exists) {
+      throw new HttpsError("already-exists", "Bu ID artıq istifadə olunub.");
+    }
+
+    const baseOfferData = {
+      ownerId: uid,
+      venueId,
+      venueName: (venue.name as string | undefined) ?? "",
+      venuePhotoUrl: (venue.photoUrl as string | undefined) ?? null,
+      lat,
+      lng,
+      position: { geopoint: new GeoPoint(lat, lng), geohash: geohashForLocation([lat, lng], 9) },
+      address: (venue.address as string | undefined) ?? "",
+      ...(venue.country ? { country: venue.country } : {}),
+      category,
+      title,
+      description,
+      offerType,
+      discountValue: (data.discountValue as number | undefined) ?? null,
+      startDate: Timestamp.fromDate(new Date(startDateRaw)),
+      endDate: Timestamp.fromDate(new Date(endDateRaw)),
+      imageUrl: (data.imageUrl as string | undefined) ?? null,
+      terms: (data.terms as string | undefined) ?? null,
+      activeHours: (data.activeHours as Record<string, unknown> | undefined) ?? null,
+      activeDays: (data.activeDays as string[] | undefined) ?? [],
+      ...(data.birthdayMatchId ? { birthdayMatchId: data.birthdayMatchId } : {}),
+      ...((data.targetUserIds as string[] | undefined)?.length ? { targetUserIds: data.targetUserIds } : {}),
+      ...(data.personalMessage ? { personalMessage: data.personalMessage } : {}),
+      reviewNote: null,
+      reviewedBy: null,
+      reviewedAt: null,
+      happyHourActive: true,
+      createdAt: FieldValue.serverTimestamp(),
+    };
+
+    const venueRef = db.collection("venues").doc(venueId);
+    const eligibility = await db.runTransaction(async (tx) => {
+      const freshVenueSnap = await tx.get(venueRef);
+      const freshVenue = freshVenueSnap.data() ?? {};
+      const isFoundingVenue = freshVenue.isFoundingVenue === true;
+      const freeOffersUsed = (freshVenue.freeOffersUsed as number | undefined) ?? 0;
+      const windowEnd = (freshVenue.freeOfferWindowEnd as Timestamp | undefined)?.toDate();
+      const isFree = isFoundingVenue && freeOffersUsed < FOUNDING_VENUE_FREE_OFFERS && !!windowEnd && new Date() < windowEnd;
+
+      if (isFree) {
+        tx.set(offerRef, { ...baseOfferData, status: "pending" });
+        tx.update(venueRef, { freeOffersUsed: freeOffersUsed + 1 });
+        return { isFree: true } as const;
+      }
+
+      tx.set(offerRef, { ...baseOfferData, status: "awaiting_payment" });
+      return { isFree: false } as const;
+    });
+
+    if (eligibility.isFree) {
+      return { offerId: offerRef.id, requiresPayment: false };
+    }
+
+    const paymentRef = db.collection("payments").doc();
+    await paymentRef.set({
+      ownerId: uid,
+      listingType: "offer",
+      listingId: offerRef.id,
+      type: "offer_placement_fee",
+      amount: fee,
+      currency: "AZN",
+      status: "pending",
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, fee, `Təklif yerləşdirmə haqqı — ${title}`);
+
+    return { offerId: offerRef.id, requiresPayment: true, checkoutUrl, feeAmount: fee };
+  },
+);
+
+/**
+ * Re-opens a checkout for an offer whose payment previously failed
+ * (Epoint returned an error status, or the owner never finished the
+ * card form) — same `payments` doc, a fresh Epoint request. Rejects
+ * anything not currently in a retryable state so this can't be used to
+ * re-charge an already-paid offer or conjure a checkout for one that
+ * never needed payment in the first place.
+ */
+export const retryOfferPayment = onCall(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    const offerId = request.data?.offerId as string | undefined;
+    if (!offerId) throw new HttpsError("invalid-argument", "offerId tələb olunur.");
+
+    const offerSnap = await db.collection("offers").doc(offerId).get();
+    const offer = offerSnap.data();
+    if (!offer) throw new HttpsError("not-found", "Təklif tapılmadı.");
+    if (offer.ownerId !== uid) throw new HttpsError("permission-denied", "Bu təklifin sahibi deyilsiniz.");
+    if (offer.status !== "awaiting_payment") {
+      throw new HttpsError("failed-precondition", "Bu təklif ödəniş gözləmir.");
+    }
+
+    const paymentsSnap = await db
+      .collection("payments")
+      .where("listingType", "==", "offer")
+      .where("listingId", "==", offerId)
+      .where("type", "==", "offer_placement_fee")
+      .orderBy("createdAt", "desc")
+      .limit(1)
+      .get();
+    const paymentDoc = paymentsSnap.docs[0];
+    if (!paymentDoc) throw new HttpsError("not-found", "Bu təklif üçün ödəniş qeydi tapılmadı.");
+    if (paymentDoc.data().status === "completed") {
+      throw new HttpsError("failed-precondition", "Bu ödəniş artıq tamamlanıb.");
+    }
+
+    await paymentDoc.ref.update({ status: "pending", updatedAt: FieldValue.serverTimestamp() });
+
+    const amount = paymentDoc.data().amount as number;
+    const checkoutUrl = await startEpointCheckoutForPayment(
+      paymentDoc.id,
+      amount,
+      `Təklif yerləşdirmə haqqı — ${(offer.title as string | undefined) ?? ""}`,
+    );
+
+    return { checkoutUrl, feeAmount: amount };
+  },
+);
+
+/**
+ * Epoint's server-to-server callback — an HTTP endpoint, not `onCall`,
+ * since Epoint has no Firebase Auth token to present. Trust comes
+ * entirely from `verifyEpointSignature` recomputing the signature with
+ * the same private key Epoint signed with; nothing here is trusted
+ * before that check passes. Idempotent by design (checks
+ * `payment.status === "pending"` before acting) so a webhook retry —
+ * Epoint, like most gateways, retries on anything but a 200 — can't
+ * double-fire the downstream effect.
+ */
+export const epointWebhook = onRequest({ region: "us-central1", secrets: [epointPrivateKey] }, async (req, res) => {
+  const body = req.body as Record<string, unknown>;
+  const data = body?.data as string | undefined;
+  const signature = body?.signature as string | undefined;
+  if (!data || !signature) {
+    res.status(400).send("missing data/signature");
+    return;
+  }
+
+  if (!verifyEpointSignature(epointPrivateKey.value(), data, signature)) {
+    logger.error("epointWebhook: signature mismatch");
+    res.status(400).send("invalid signature");
+    return;
+  }
+
+  const decoded = decodeEpointData(data);
+  const orderId = decoded.order_id as string | undefined;
+  const epointStatus = decoded.status as string | undefined;
+  if (!orderId) {
+    res.status(400).send("missing order_id");
+    return;
+  }
+
+  const paymentRef = db.collection("payments").doc(orderId);
+  const paymentSnap = await paymentRef.get();
+  const payment = paymentSnap.data();
+  if (!payment) {
+    logger.error("epointWebhook: unknown payment", { orderId });
+    res.status(404).send("unknown order_id");
+    return;
+  }
+
+  if (payment.status !== "pending") {
+    // Already processed — a retried webhook delivery, not an error.
+    res.status(200).send("already processed");
+    return;
+  }
+
+  const succeeded = epointStatus === "success";
+
+  await db.runTransaction(async (tx) => {
+    tx.update(paymentRef, {
+      status: succeeded ? "completed" : "failed",
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    if (payment.type === "offer_placement_fee" && payment.listingType === "offer") {
+      const offerRef = db.collection("offers").doc(payment.listingId as string);
+      if (succeeded) {
+        tx.update(offerRef, {
+          status: "pending",
+          paymentId: paymentRef.id,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+      // On failure the offer just stays `awaiting_payment` —
+      // `retryOfferPayment` is the owner's way back in; nothing to
+      // undo here since the offer was never made visible.
+    }
+  });
+
+  res.status(200).send("ok");
+});

@@ -3,9 +3,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
-import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
-import '../../../../core/data/listing_payment.dart';
 import '../../../../core/utils/firestore_retry.dart';
 import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../domain/entities/offer.dart';
@@ -21,21 +19,9 @@ class FirebaseOfferRepository implements OfferRepository {
   final OfferRemoteDatasource _datasource;
   final FirebaseFunctions _functions;
 
-  /// Placeholder listing fee — see `FirebaseVenueRepository._venueListingFeeAzn`
-  /// for the same "no provider wired yet" caveat.
-  static const double _offerListingFeeAzn = 3.0;
-
   @override
-  Future<String> createOffer({
-    required String ownerId,
+  Future<SubmitOfferResult> createOffer({
     required String venueId,
-    required String venueName,
-    String? venuePhotoUrl,
-    required double lat,
-    required double lng,
-    required String address,
-    String? country,
-    required VenueCategory category,
     required String title,
     required String description,
     required OfferType offerType,
@@ -63,31 +49,15 @@ class FirebaseOfferRepository implements OfferRepository {
       );
     }
 
-    final paymentId = await createListingPayment(
-      ownerId: ownerId,
-      listingType: 'offer',
-      listingId: offerId,
-      type: 'offer_listing',
-      amount: _offerListingFeeAzn,
-    );
-
-    await _datasource.setOffer(offerId, {
-      'ownerId': ownerId,
+    final result = await _functions.httpsCallable('submitOffer').call<Map<String, dynamic>>({
+      'offerId': offerId,
       'venueId': venueId,
-      'venueName': venueName,
-      'venuePhotoUrl': venuePhotoUrl,
-      'lat': lat,
-      'lng': lng,
-      kOfferGeoField: GeoFirePoint(GeoPoint(lat, lng)).data,
-      'address': address,
-      if (country != null) 'country': country,
-      'category': category.name,
       'title': title,
       'description': description,
       'offerType': offerType.name,
       'discountValue': discountValue,
-      'startDate': Timestamp.fromDate(startDate),
-      'endDate': Timestamp.fromDate(endDate),
+      'startDate': startDate.toIso8601String(),
+      'endDate': endDate.toIso8601String(),
       'imageUrl': imageUrl,
       'terms': terms,
       'activeHours': activeHours?.toMap(),
@@ -95,12 +65,22 @@ class FirebaseOfferRepository implements OfferRepository {
       if (birthdayMatchId != null) 'birthdayMatchId': birthdayMatchId,
       if (targetUserIds.isNotEmpty) 'targetUserIds': targetUserIds,
       if (personalMessage != null) 'personalMessage': personalMessage,
-      'status': 'pending',
-      'paymentId': paymentId,
-      'createdAt': FieldValue.serverTimestamp(),
     });
 
-    return offerId;
+    final data = result.data;
+    return (
+      offerId: offerId,
+      requiresPayment: data['requiresPayment'] as bool,
+      checkoutUrl: data['checkoutUrl'] as String?,
+      feeAmount: (data['feeAmount'] as num?)?.toDouble(),
+    );
+  }
+
+  @override
+  Future<({String checkoutUrl, double feeAmount})> retryOfferPayment(String offerId) async {
+    final result = await _functions.httpsCallable('retryOfferPayment').call<Map<String, dynamic>>({'offerId': offerId});
+    final data = result.data;
+    return (checkoutUrl: data['checkoutUrl'] as String, feeAmount: (data['feeAmount'] as num).toDouble());
   }
 
   @override
