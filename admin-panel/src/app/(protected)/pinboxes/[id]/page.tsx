@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -66,6 +67,18 @@ export default async function PinBoxDetailPage({ params }: { params: Promise<{ i
               {pinbox.reviewNote}
             </p>
           )}
+
+          {pinbox.imageUrl && (
+            <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
+              <Image src={pinbox.imageUrl} alt={pinbox.title} fill className="object-cover" unoptimized />
+            </div>
+          )}
+
+          <div>
+            <p className="text-sm text-muted-foreground">Təsvir</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm">{pinbox.description || "—"}</p>
+          </div>
+
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="text-muted-foreground">Sahib</dt>
@@ -74,6 +87,10 @@ export default async function PinBoxDetailPage({ params }: { params: Promise<{ i
                   {pinbox.ownerName}
                 </Link>
               </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Ünvan</dt>
+              <dd className="font-medium">{pinbox.address ?? "—"}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Yaradılma tarixi</dt>

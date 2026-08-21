@@ -5,9 +5,41 @@ import { getAdminDb } from "@/lib/firebase/admin";
 export type OfferStatus = "approved" | "pending" | "needs_revision" | "rejected";
 export type OfferStatusFilter = "all" | OfferStatus;
 
+export type OfferType = "discount" | "gift" | "buyOneGetOne" | "fixedPrice" | "happyHour" | "firstVisit" | "birthday";
+
+export const OFFER_TYPE_LABELS: Record<OfferType, string> = {
+  discount: "Endirim",
+  gift: "Hədiyyə",
+  buyOneGetOne: "1+1 Hədiyyə",
+  fixedPrice: "Sabit qiymət",
+  happyHour: "Happy Hour",
+  firstVisit: "İlk ziyarət",
+  birthday: "Doğum günü",
+};
+
 export interface AdminOfferRow {
   id: string;
   title: string;
+  /** The offer's own free-text description — the actual content a
+   * moderator needs to read, as distinct from `venueName` (who's
+   * posting it). This is exactly what was missing before: a reviewer
+   * had no way to see what the offer actually said. */
+  description: string;
+  /** The offer's own photo — was previously shadowed entirely by
+   * `venuePhotoUrl` on the detail page, so a moderator never saw what
+   * image the owner actually attached. */
+  imageUrl: string | null;
+  category: string;
+  offerType: OfferType;
+  /** Percentage for `discount`/`happyHour`, AZN amount for
+   * `fixedPrice`. Null for `gift`/`buyOneGetOne`/`firstVisit`/`birthday`. */
+  discountValue: number | null;
+  terms: string | null;
+  activeHoursStart: string | null;
+  activeHoursEnd: string | null;
+  activeDays: string[];
+  personalMessage: string | null;
+  address: string | null;
   venueId: string;
   venueName: string;
   venuePhotoUrl: string | null;
@@ -30,6 +62,17 @@ const FETCH_LIMIT = 200;
 
 function parseStatus(value: unknown): OfferStatus {
   return value === "pending" || value === "needs_revision" || value === "rejected" ? value : "approved";
+}
+
+function parseOfferType(value: unknown): OfferType {
+  return value === "gift" ||
+    value === "buyOneGetOne" ||
+    value === "fixedPrice" ||
+    value === "happyHour" ||
+    value === "firstVisit" ||
+    value === "birthday"
+    ? value
+    : "discount";
 }
 
 function toIso(value: unknown): string | null {
@@ -79,9 +122,21 @@ async function attachOwners(docs: FirebaseFirestore.QueryDocumentSnapshot[]): Pr
   return docs.map((doc) => {
     const data = doc.data();
     const owner = ownerByUid.get(data.ownerId as string);
+    const activeHours = data.activeHours as { start?: string; end?: string } | undefined;
     return {
       id: doc.id,
       title: (data.title as string) ?? "",
+      description: (data.description as string) ?? "",
+      imageUrl: (data.imageUrl as string) ?? null,
+      category: (data.category as string) ?? "other",
+      offerType: parseOfferType(data.offerType),
+      discountValue: (data.discountValue as number | undefined) ?? null,
+      terms: (data.terms as string) || null,
+      activeHoursStart: activeHours?.start ?? null,
+      activeHoursEnd: activeHours?.end ?? null,
+      activeDays: (data.activeDays as string[] | undefined) ?? [],
+      personalMessage: (data.personalMessage as string) || null,
+      address: (data.address as string) || null,
       venueId: data.venueId as string,
       venueName: (data.venueName as string) ?? "",
       venuePhotoUrl: (data.venuePhotoUrl as string) ?? null,

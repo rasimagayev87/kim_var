@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -20,6 +21,8 @@ function daysUntil(iso: string | null): number | null {
   if (!iso) return null;
   return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
 }
+
+const WEEKDAY_LABELS = ["Bazar ertəsi", "Çərşənbə axşamı", "Çərşənbə", "Cümə axşamı", "Cümə", "Şənbə", "Bazar"];
 
 export default async function VenueDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = await getCurrentAdmin();
@@ -61,6 +64,55 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ id
               {venue.reviewNote}
             </p>
           )}
+
+          {venue.photoUrl && (
+            <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
+              <Image src={venue.photoUrl} alt={venue.name} fill className="object-cover" unoptimized />
+            </div>
+          )}
+
+          <div>
+            <p className="text-sm text-muted-foreground">Ünvan</p>
+            <p className="mt-1 text-sm">
+              {venue.address ?? "—"}
+              {venue.country ? <span className="text-muted-foreground"> · {venue.country}</span> : null}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-sm text-muted-foreground">İş saatları</p>
+            {venue.openingHours?.is24h ? (
+              <p className="mt-1 text-sm">24 saat açıq</p>
+            ) : venue.openingHours && Object.values(venue.openingHours.schedule).some(Boolean) ? (
+              <ul className="mt-1 space-y-0.5 text-sm">
+                {WEEKDAY_LABELS.map((label, i) => {
+                  const hours = venue.openingHours!.schedule[String(i)];
+                  return (
+                    <li key={i} className="flex justify-between gap-4">
+                      <span className="text-muted-foreground">{label}</span>
+                      <span className={hours ? "font-medium" : "text-muted-foreground"}>
+                        {hours ? `${hours.open} - ${hours.close}` : "Bağlı"}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="mt-1 text-sm text-muted-foreground">—</p>
+            )}
+          </div>
+
+          {venue.socialLinks && (venue.socialLinks.whatsapp || venue.socialLinks.instagram || venue.socialLinks.tiktok) && (
+            <div>
+              <p className="text-sm text-muted-foreground">Sosial şəbəkələr</p>
+              <ul className="mt-1 space-y-0.5 text-sm">
+                {venue.socialLinks.whatsapp && <li>WhatsApp: {venue.socialLinks.whatsapp}</li>}
+                {venue.socialLinks.instagram && <li>Instagram: {venue.socialLinks.instagram}</li>}
+                {venue.socialLinks.tiktok && <li>TikTok: {venue.socialLinks.tiktok}</li>}
+              </ul>
+            </div>
+          )}
+
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="text-muted-foreground">Sahib</dt>

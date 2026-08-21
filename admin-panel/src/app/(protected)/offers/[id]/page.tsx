@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
@@ -8,7 +9,8 @@ import { StatusBadge } from "@/components/moderation/status-badge";
 import { OfferStatusActions } from "@/components/offers/offer-status-actions";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentAdmin } from "@/lib/auth/server";
-import { getOfferDetail } from "@/lib/data/offers";
+import { getOfferDetail, OFFER_TYPE_LABELS } from "@/lib/data/offers";
+import { VENUE_CATEGORY_LABELS } from "@/lib/data/venues";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "Naməlum";
@@ -20,6 +22,21 @@ function daysUntil(iso: string | null): number | null {
   return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
 }
 
+function formatDiscountValue(offerType: string, discountValue: number | null): string | null {
+  if (discountValue == null) return null;
+  return offerType === "fixedPrice" ? `${discountValue} AZN` : `${discountValue}%`;
+}
+
+const DAY_LABELS: Record<string, string> = {
+  mon: "B.e",
+  tue: "Ç.a",
+  wed: "Ç",
+  thu: "C.a",
+  fri: "C",
+  sat: "Ş",
+  sun: "B",
+};
+
 export default async function OfferDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = await getCurrentAdmin();
   if (!admin || !hasPermission(admin.role, "moderateOffers")) {
@@ -30,6 +47,8 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
   const offer = await getOfferDetail(id);
   if (!offer) notFound();
 
+  const discountLabel = formatDiscountValue(offer.offerType, offer.discountValue);
+
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <Link href="/offers" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -39,18 +58,30 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
+          <div className="flex items-start gap-4">
             <Avatar className="size-16 rounded-lg">
-              <AvatarImage src={offer.venuePhotoUrl ?? undefined} alt={offer.venueName} className="object-cover" />
+              <AvatarImage src={offer.imageUrl ?? undefined} alt={offer.title} className="object-cover" />
               <AvatarFallback className="rounded-lg text-lg">{offer.title.charAt(0).toUpperCase()}</AvatarFallback>
             </Avatar>
             <div>
               <CardTitle className="text-xl">{offer.title}</CardTitle>
-              <Link href={`/venues/${offer.venueId}`} className="text-sm text-muted-foreground hover:underline">
-                {offer.venueName}
-              </Link>
-              <div className="mt-2">
+              <div className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
+                <Avatar className="size-4 rounded">
+                  <AvatarImage src={offer.venuePhotoUrl ?? undefined} alt={offer.venueName} className="object-cover" />
+                  <AvatarFallback className="rounded text-[8px]">{offer.venueName.charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <Link href={`/venues/${offer.venueId}`} className="hover:underline">
+                  {offer.venueName}
+                </Link>
+                <span>·</span>
+                <span>{VENUE_CATEGORY_LABELS[offer.category] ?? offer.category}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 <StatusBadge status={offer.status} />
+                <span className="rounded-full border px-2.5 py-0.5 text-xs font-medium">
+                  {OFFER_TYPE_LABELS[offer.offerType]}
+                  {discountLabel ? ` · ${discountLabel}` : ""}
+                </span>
               </div>
             </div>
           </div>
@@ -62,6 +93,44 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
               {offer.reviewNote}
             </p>
           )}
+
+          {offer.imageUrl && (
+            <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
+              <Image src={offer.imageUrl} alt={offer.title} fill className="object-cover" unoptimized />
+            </div>
+          )}
+
+          <div>
+            <p className="text-sm text-muted-foreground">Təsvir</p>
+            <p className="mt-1 whitespace-pre-wrap text-sm">{offer.description || "—"}</p>
+          </div>
+
+          {offer.terms && (
+            <div>
+              <p className="text-sm text-muted-foreground">Şərtlər</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm">{offer.terms}</p>
+            </div>
+          )}
+
+          {offer.offerType === "happyHour" && (
+            <div>
+              <p className="text-sm text-muted-foreground">Happy Hour vaxtı</p>
+              <p className="mt-1 text-sm">
+                {offer.activeHoursStart && offer.activeHoursEnd ? `${offer.activeHoursStart} - ${offer.activeHoursEnd}` : "—"}
+                {offer.activeDays.length > 0 && (
+                  <span className="text-muted-foreground"> · {offer.activeDays.map((d) => DAY_LABELS[d] ?? d).join(", ")}</span>
+                )}
+              </p>
+            </div>
+          )}
+
+          {offer.offerType === "birthday" && offer.personalMessage && (
+            <div>
+              <p className="text-sm text-muted-foreground">Şəxsi mesaj</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm">{offer.personalMessage}</p>
+            </div>
+          )}
+
           <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <dt className="text-muted-foreground">Sahib</dt>
@@ -70,6 +139,10 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
                   {offer.ownerName}
                 </Link>
               </dd>
+            </div>
+            <div>
+              <dt className="text-muted-foreground">Ünvan</dt>
+              <dd className="font-medium">{offer.address ?? "—"}</dd>
             </div>
             <div>
               <dt className="text-muted-foreground">Yaradılma tarixi</dt>

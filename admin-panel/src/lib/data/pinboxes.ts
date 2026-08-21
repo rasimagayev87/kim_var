@@ -12,6 +12,11 @@ export type PinBoxStatusFilter = "all" | PinBoxStatus;
 export interface AdminPinBoxRow {
   id: string;
   title: string;
+  /** The box's own free-text description — the actual content a
+   * moderator needs to read. Previously missing from this row entirely,
+   * so the detail page had no way to show it. */
+  description: string;
+  address: string | null;
   venueId: string;
   venueName: string;
   venuePhotoUrl: string | null;
@@ -85,6 +90,8 @@ async function attachOwners(docs: FirebaseFirestore.QueryDocumentSnapshot[]): Pr
     return {
       id: doc.id,
       title: (data.title as string) ?? "",
+      description: (data.description as string) ?? "",
+      address: (data.address as string) || null,
       venueId: data.venueId as string,
       venueName: (data.venueName as string) ?? "",
       venuePhotoUrl: (data.venuePhotoUrl as string) ?? null,

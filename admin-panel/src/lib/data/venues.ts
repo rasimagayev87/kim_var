@@ -52,11 +52,34 @@ export const VENUE_CATEGORY_LABELS: Record<string, string> = {
 export type VenueStatus = "approved" | "pending" | "needs_revision" | "rejected" | "inactive";
 export type VenueStatusFilter = "all" | VenueStatus;
 
+export interface VenueDayHours {
+  open: string;
+  close: string;
+}
+
+export interface VenueOpeningHours {
+  is24h: boolean;
+  /** Keyed "0".."6" (Monday-first, matches the Flutter app's own
+   * `OpeningHours.schedule` weekday index) — a missing/null entry
+   * means closed that day. */
+  schedule: Record<string, VenueDayHours | null>;
+}
+
+export interface VenueSocialLinks {
+  whatsapp: string | null;
+  instagram: string | null;
+  tiktok: string | null;
+}
+
 export interface AdminVenueRow {
   id: string;
   name: string;
   category: string;
   photoUrl: string | null;
+  address: string | null;
+  country: string | null;
+  openingHours: VenueOpeningHours | null;
+  socialLinks: VenueSocialLinks | null;
   status: VenueStatus;
   reviewNote: string | null;
   verified: boolean;
@@ -136,6 +159,10 @@ async function attachOwners(
       name: (data.name as string) ?? "",
       category: (data.category as string) ?? "other",
       photoUrl: (data.photoUrl as string) ?? null,
+      address: (data.address as string) || null,
+      country: (data.country as string) || null,
+      openingHours: (data.openingHours as VenueOpeningHours | undefined) ?? null,
+      socialLinks: (data.socialLinks as VenueSocialLinks | undefined) ?? null,
       status: parseStatus(data.status),
       reviewNote: (data.reviewNote as string) || null,
       verified: (data.verified as boolean) ?? false,
