@@ -41,8 +41,6 @@ export const VENUE_CATEGORY_LABELS: Record<string, string> = {
   dryCleaning: "Quru təmizləmə – Camaşırxana",
   applianceRepair: "Məişət və texnika təmiri",
   tutoringCenter: "Məşğələ və kurs mərkəzləri",
-  wineBar: "Şərab evi",
-  cleaningServices: "Təmizlik və digər məişət xidmətləri",
   independentArtist: "Fərdi Prodakşn/Sənətçi",
   other: "Digər",
 };

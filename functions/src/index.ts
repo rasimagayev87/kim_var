@@ -2546,7 +2546,7 @@ const venueSubscriptionFeeByCategory: Record<string, number> = {
   barbershop: 20, cosmetology: 30, tattoo: 20, photoStudio: 20, kidsEntertainment: 30,
   pharmacyOptics: 30, dentalClinic: 30, perfumeryCosmetics: 25, carWash: 20, carRepair: 20,
   supermarket: 30, bookstoreStationery: 20, petStore: 20, tailor: 15, dryCleaning: 25,
-  applianceRepair: 20, tutoringCenter: 25, wineBar: 30, cleaningServices: 20,
+  applianceRepair: 20, tutoringCenter: 25,
   independentArtist: 30, other: 25,
 };
 

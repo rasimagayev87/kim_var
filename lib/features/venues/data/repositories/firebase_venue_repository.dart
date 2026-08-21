@@ -82,9 +82,7 @@ class FirebaseVenueRepository implements VenueRepository {
       VenueCategory.perfumeryCosmetics => 25.0,
       VenueCategory.other => 25.0,
       // Added after the tariff PDF — not on it, priced per the task
-      // that introduced them (session-approved, not director-signed).
-      VenueCategory.wineBar => 30.0,
-      VenueCategory.cleaningServices => 20.0,
+      // that introduced it (session-approved, not director-signed).
       VenueCategory.independentArtist => 30.0,
     };
   }

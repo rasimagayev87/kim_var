@@ -55,12 +55,12 @@ enum VenueCategory {
   dryCleaning,
   applianceRepair,
   tutoringCenter,
-  // 37-39, same "appended as its own block" convention as the 25-36
-  // batch above. [independentArtist] is the odd one out — the one
-  // category with its own venue-level "İzlə" (follow) feature, see
-  // `_VenueFollowButton` in venue_profile_screen.dart.
-  wineBar,
-  cleaningServices,
+  // [independentArtist] is the odd one out — the one category with its
+  // own venue-level "İzlə" (follow) feature, see `_VenueFollowButton`
+  // in venue_profile_screen.dart. `wineBar`/`cleaningServices` were
+  // removed from the product entirely (no venue ever used either —
+  // confirmed via a Firestore query before deletion) rather than kept
+  // as unused enum members.
   independentArtist,
   other,
 }
@@ -143,8 +143,6 @@ const _venueCategoryIcons = <VenueCategory, IconData>{
   VenueCategory.dryCleaning: Icons.local_laundry_service_outlined,
   VenueCategory.applianceRepair: Icons.handyman_outlined,
   VenueCategory.tutoringCenter: Icons.school_outlined,
-  VenueCategory.wineBar: Icons.wine_bar_outlined,
-  VenueCategory.cleaningServices: Icons.cleaning_services_outlined,
   VenueCategory.independentArtist: Icons.campaign_outlined,
   VenueCategory.other: Icons.category_outlined,
 };

@@ -681,8 +681,6 @@ String venueCategoryLabel(AppLocalizations loc, VenueCategory category) {
     VenueCategory.dryCleaning => loc.venueCategoryDryCleaning,
     VenueCategory.applianceRepair => loc.venueCategoryApplianceRepair,
     VenueCategory.tutoringCenter => loc.venueCategoryTutoringCenter,
-    VenueCategory.wineBar => loc.venueCategoryWineBar,
-    VenueCategory.cleaningServices => loc.venueCategoryCleaningServices,
     VenueCategory.independentArtist => loc.venueCategoryIndependentArtist,
     VenueCategory.other => loc.venueCategoryOther,
   };
