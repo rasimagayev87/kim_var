@@ -6,16 +6,18 @@
   },
   "main": "lib/index.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && mkdir -p lib/certs && cp src/certs/* lib/certs/",
     "build:watch": "tsc --watch",
     "serve": "npm run build && firebase emulators:start --only functions",
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log"
   },
   "dependencies": {
+    "@apple/app-store-server-library": "^3.1.0",
     "firebase-admin": "^12.6.0",
     "firebase-functions": "^6.0.1",
-    "geofire-common": "^6.0.0"
+    "geofire-common": "^6.0.0",
+    "googleapis": "^176.0.0"
   },
   "devDependencies": {
     "typescript": "^5.5.4"

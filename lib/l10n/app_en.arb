@@ -1353,6 +1353,8 @@
   "vipPeriodYearly": "Yearly",
   "vipBestValueBadge": "Best value",
   "vipPriceComingSoonNote": "Prices will appear here once the store connection is live.",
+  "vipPriceLabel": "{price} / period",
+  "vipPriceUnavailableNote": "This package isn't available in the store yet.",
   "vipSubscribeButton": "Subscribe",
   "vipAlreadySubscribedButton": "You're already VIP",
   "vipBillingComingSoonMessage": "Billing will be enabled soon.",

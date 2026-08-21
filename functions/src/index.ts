@@ -5,6 +5,7 @@ import { getStorage } from "firebase-admin/storage";
 import { BatchResponse, getMessaging } from "firebase-admin/messaging";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { beforeEmailSent } from "firebase-functions/v2/identity";
 import { defineSecret } from "firebase-functions/params";
@@ -12,6 +13,7 @@ import * as logger from "firebase-functions/logger";
 import { randomInt } from "crypto";
 import { createEpointCheckout, createEpointTokenWidget, decodeEpointData, verifyEpointSignature } from "./epoint";
 import { geohashForLocation } from "geofire-common";
+import { verifyAppleNotification, verifyAppleTransaction, verifyGoogleSubscription } from "./iap";
 
 initializeApp();
 
@@ -3883,3 +3885,273 @@ export const submitGooglePayToken = onCall(
     throw new HttpsError("unimplemented", "Google Pay token submission is not wired up yet.");
   },
 );
+
+// ---------------------------------------------------------------------------
+// VIP (`users/{uid}.premium`/`premiumExpiresAt`) — App Store/Play Store IAP,
+// entirely separate from Epoint above (see functions/src/iap.ts's own doc
+// comment). `premium` is the SAME field the admin panel's manual "VIP et"
+// toggle already writes (see `setUserPremium`/`onUserUpdated`) — a real
+// purchase is just another way that field reaches `true`, not a second
+// parallel VIP system, so every existing premium-gated screen picks this up
+// automatically with no changes on its end.
+// ---------------------------------------------------------------------------
+
+/** Public app identifiers — not secrets, just this app's own bundle/package id on each store. */
+const APPLE_BUNDLE_ID = "com.peakpin.app";
+const GOOGLE_PLAY_PACKAGE_NAME = "com.peakpin.app";
+
+/**
+ * The app's numeric App Store Connect id (found in its App Store
+ * Connect URL, e.g. apps/1234567890) — `SignedDataVerifier` requires
+ * this to validate a PRODUCTION transaction/notification actually
+ * belongs to this app, not just this bundle id. Not set yet (no value
+ * to put here) — Production verification will fail with
+ * INVALID_APP_IDENTIFIER until this is. See this app's own IAP setup
+ * instructions for where to find it.
+ */
+const APPLE_APP_STORE_ID = process.env.APPLE_APP_STORE_ID ? Number(process.env.APPLE_APP_STORE_ID) : undefined;
+
+/** Service-account JSON key for the Play Console service account with "View financial data" access — set via `firebase functions:secrets:set GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`. */
+const googlePlayServiceAccountJson = defineSecret("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON");
+
+/** [kVipPackages] (Flutter, vip_package.dart) — kept in sync by hand, same reasoning as the Epoint fee tables' own duplicate-table doc comments. Only used as a fallback when a transaction/subscription's own `expiresDate` is unavailable. */
+const VIP_PRODUCT_DURATIONS_MS: Record<string, number> = {
+  peakpin_vip_monthly: 30 * 24 * 60 * 60 * 1000,
+  peakpin_vip_quarterly: 90 * 24 * 60 * 60 * 1000,
+  peakpin_vip_yearly: 365 * 24 * 60 * 60 * 1000,
+};
+
+async function grantPremium(uid: string, expiresAtMs: number): Promise<void> {
+  await db.collection("users").doc(uid).update({
+    premium: true,
+    premiumExpiresAt: Timestamp.fromMillis(expiresAtMs),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/**
+ * Apple's and Google's renewal/cancellation notifications identify a
+ * subscription by `originalTransactionId`/`purchaseToken` — neither
+ * carries a Firebase uid. `verifyInAppPurchase` records the mapping
+ * the moment it first grants premium so `appStoreServerNotifications`/
+ * `googlePlayRtdn` can resolve who to update later; `platform`/
+ * `productId` ride along so those handlers don't have to re-derive
+ * them.
+ */
+async function recordIapSubscriptionOwner(
+  key: string,
+  uid: string,
+  platform: "ios" | "android",
+  productId: string,
+): Promise<void> {
+  await db.collection("iapSubscriptions").doc(key).set(
+    { uid, platform, productId, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true },
+  );
+}
+
+/**
+ * Client-initiated verification right after a purchase completes (see
+ * `vip_purchase_listener.dart`'s `_onPurchaseUpdate`) — the only place
+ * that ever grants premium from a fresh purchase; renewals after this
+ * are `appStoreServerNotifications`/`googlePlayRtdn`'s job. Always
+ * re-verifies against the actual store (Apple's signed transaction
+ * chain / Google's live subscription lookup) rather than trusting
+ * anything the client claims about its own purchase.
+ */
+export const verifyInAppPurchase = onCall(
+  { region: "us-central1", secrets: [googlePlayServiceAccountJson] },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    const productId = request.data?.productId as string | undefined;
+    const platform = request.data?.platform as string | undefined;
+    const receiptData = request.data?.receiptData as string | undefined;
+    if (!productId || !platform || !receiptData) {
+      throw new HttpsError("invalid-argument", "productId, platform və receiptData tələb olunur.");
+    }
+    if (!(productId in VIP_PRODUCT_DURATIONS_MS)) {
+      throw new HttpsError("invalid-argument", "Naməlum VIP product ID.");
+    }
+
+    if (platform === "ios") {
+      let verified;
+      try {
+        verified = await verifyAppleTransaction({
+          signedTransactionInfo: receiptData,
+          bundleId: APPLE_BUNDLE_ID,
+          environment: "Production",
+          appAppleId: APPLE_APP_STORE_ID,
+        });
+      } catch {
+        // A TestFlight/sandbox purchase fails Production verification
+        // by design (the transaction's own environment claim won't
+        // match) — retry once against Sandbox before giving up, the
+        // same fallback shape Apple's older verifyReceipt endpoint's
+        // status-21007 used to require by hand.
+        verified = await verifyAppleTransaction({
+          signedTransactionInfo: receiptData,
+          bundleId: APPLE_BUNDLE_ID,
+          environment: "Sandbox",
+          appAppleId: undefined,
+        });
+      }
+
+      if (verified.revoked) throw new HttpsError("failed-precondition", "Bu alış geri qaytarılıb.");
+      if (verified.productId !== productId) throw new HttpsError("failed-precondition", "Product ID uyğun gəlmir.");
+
+      const expiresAtMs = verified.expiresDateMs ?? Date.now() + VIP_PRODUCT_DURATIONS_MS[productId];
+      await grantPremium(uid, expiresAtMs);
+      await recordIapSubscriptionOwner(verified.originalTransactionId, uid, "ios", productId);
+      return { success: true, expiresAt: expiresAtMs };
+    }
+
+    if (platform === "android") {
+      const verified = await verifyGoogleSubscription({
+        serviceAccountJson: googlePlayServiceAccountJson.value(),
+        packageName: GOOGLE_PLAY_PACKAGE_NAME,
+        purchaseToken: receiptData,
+      });
+
+      if (verified.productId !== productId) throw new HttpsError("failed-precondition", "Product ID uyğun gəlmir.");
+      if (!["SUBSCRIPTION_STATE_ACTIVE", "SUBSCRIPTION_STATE_IN_GRACE_PERIOD"].includes(verified.subscriptionState)) {
+        throw new HttpsError("failed-precondition", "Abunəlik aktiv deyil.");
+      }
+
+      const expiresAtMs = verified.expiryTimeMs || Date.now() + VIP_PRODUCT_DURATIONS_MS[productId];
+      await grantPremium(uid, expiresAtMs);
+      await recordIapSubscriptionOwner(receiptData, uid, "android", productId);
+      return { success: true, expiresAt: expiresAtMs };
+    }
+
+    throw new HttpsError("invalid-argument", "Naməlum platform (ios/android olmalıdır).");
+  },
+);
+
+/**
+ * Apple's App Store Server Notifications V2 webhook — configure this
+ * URL in App Store Connect (Users and Access > Integrations > In-App
+ * Purchase > your key's app > App Store Server Notifications) for
+ * BOTH Production and Sandbox. Handles renewal/expiration/cancellation
+ * so `premium` stays correct even if the customer never reopens the
+ * app. Trust comes entirely from `verifyAppleNotification`'s signature
+ * check — nothing here is trusted before that passes.
+ */
+export const appStoreServerNotifications = onRequest({ region: "us-central1" }, async (req, res) => {
+  const signedPayload = req.body?.signedPayload as string | undefined;
+  if (!signedPayload) {
+    res.status(400).send("missing signedPayload");
+    return;
+  }
+
+  let notification;
+  try {
+    notification = await verifyAppleNotification({
+      signedPayload,
+      bundleId: APPLE_BUNDLE_ID,
+      environment: "Production",
+      appAppleId: APPLE_APP_STORE_ID,
+    });
+  } catch {
+    try {
+      notification = await verifyAppleNotification({
+        signedPayload,
+        bundleId: APPLE_BUNDLE_ID,
+        environment: "Sandbox",
+        appAppleId: undefined,
+      });
+    } catch (e2) {
+      logger.error("appStoreServerNotifications: signature verification failed", e2);
+      res.status(400).send("invalid signature");
+      return;
+    }
+  }
+
+  const signedTransactionInfo = notification.data?.signedTransactionInfo;
+  if (!signedTransactionInfo) {
+    // EXTERNAL_PURCHASE_TOKEN/RESCIND_CONSENT-style notifications carry
+    // no transaction info at all — nothing for VIP to react to.
+    res.status(200).send("no transaction info");
+    return;
+  }
+
+  const environment = notification.data?.environment === "Production" ? "Production" : "Sandbox";
+  const transaction = await verifyAppleTransaction({
+    signedTransactionInfo,
+    bundleId: APPLE_BUNDLE_ID,
+    environment,
+    appAppleId: environment === "Production" ? APPLE_APP_STORE_ID : undefined,
+  });
+
+  const ownerSnap = await db.collection("iapSubscriptions").doc(transaction.originalTransactionId).get();
+  const uid = ownerSnap.data()?.uid as string | undefined;
+  if (!uid) {
+    // A transaction verifyInAppPurchase never saw (e.g. a renewal that
+    // arrived before the very first purchase's own call finished) —
+    // nothing to update yet; the next renewal notification will find
+    // the mapping once it exists.
+    res.status(200).send("unknown transaction, no owner recorded yet");
+    return;
+  }
+
+  if (transaction.revoked || (transaction.expiresDateMs !== undefined && transaction.expiresDateMs <= Date.now())) {
+    await db.collection("users").doc(uid).update({ premium: false, updatedAt: FieldValue.serverTimestamp() });
+  } else if (transaction.expiresDateMs !== undefined) {
+    await grantPremium(uid, transaction.expiresDateMs);
+  }
+
+  res.status(200).send("ok");
+});
+
+/**
+ * Google Play's Real-time Developer Notifications arrive via Pub/Sub,
+ * not a plain HTTP POST — see this app's own setup instructions for
+ * creating the topic and linking it in Play Console. Every
+ * notification just re-fetches live status from
+ * `verifyGoogleSubscription` rather than trusting the notification
+ * payload's own claims (it only ever carries the purchase token,
+ * nothing about status Google wants trusted without a fresh lookup).
+ */
+export const googlePlayRtdn = onMessagePublished(
+  { topic: "peakpin-google-play-rtdn", region: "us-central1", secrets: [googlePlayServiceAccountJson] },
+  async (event) => {
+    const json = event.data.message.json as Record<string, unknown> | undefined;
+    const purchaseToken = (json?.subscriptionNotification as Record<string, unknown> | undefined)?.purchaseToken as
+      | string
+      | undefined;
+    if (!purchaseToken) return; // A test/one-time-product notification — nothing for VIP to react to.
+
+    const ownerSnap = await db.collection("iapSubscriptions").doc(purchaseToken).get();
+    const uid = ownerSnap.data()?.uid as string | undefined;
+    if (!uid) return; // Same "not seen by verifyInAppPurchase yet" case as the Apple handler.
+
+    const verified = await verifyGoogleSubscription({
+      serviceAccountJson: googlePlayServiceAccountJson.value(),
+      packageName: GOOGLE_PLAY_PACKAGE_NAME,
+      purchaseToken,
+    });
+
+    if (["SUBSCRIPTION_STATE_ACTIVE", "SUBSCRIPTION_STATE_IN_GRACE_PERIOD"].includes(verified.subscriptionState)) {
+      await grantPremium(uid, verified.expiryTimeMs);
+    } else {
+      await db.collection("users").doc(uid).update({ premium: false, updatedAt: FieldValue.serverTimestamp() });
+    }
+  },
+);
+
+/**
+ * Safety net for `appStoreServerNotifications`/`googlePlayRtdn` — a
+ * missed/failed webhook delivery would otherwise leave `premium: true`
+ * forever past its real expiry. Only ever touches users with a real
+ * `premiumExpiresAt` in the past; a manually-granted VIP (admin panel
+ * "VIP et", no `premiumExpiresAt` at all) is never touched by this.
+ */
+export const expireLapsedPremium = onSchedule({ schedule: "every 24 hours", region: "europe-west1" }, async () => {
+  const now = Timestamp.now();
+  const snap = await db.collection("users").where("premium", "==", true).where("premiumExpiresAt", "<=", now).get();
+  if (snap.empty) return;
+
+  await Promise.all(snap.docs.map((doc) => doc.ref.update({ premium: false, updatedAt: FieldValue.serverTimestamp() })));
+  logger.info("expireLapsedPremium: expired lapsed VIP subscriptions", { count: snap.docs.length });
+});

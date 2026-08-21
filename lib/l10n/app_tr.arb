@@ -1239,6 +1239,8 @@
   "vipPeriodYearly": "Yıllık",
   "vipBestValueBadge": "En avantajlı",
   "vipPriceComingSoonNote": "Mağaza bağlantısı aktif olduğunda fiyatlar burada gösterilecek.",
+  "vipPriceLabel": "{price} / dönem",
+  "vipPriceUnavailableNote": "Bu paket henüz mağazada mevcut değil.",
   "vipSubscribeButton": "Abone ol",
   "vipAlreadySubscribedButton": "Zaten VIP'siniz",
   "vipBillingComingSoonMessage": "Ödeme sistemi yakında etkinleştirilecek.",

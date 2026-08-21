@@ -58,15 +58,20 @@ service cloud.firestore {
       // at onboarding (see `completeOnboarding`), so it's free like any
       // other profile field; `isVerified` is unused dead data wherever
       // it still exists on old accounts.
+      // `premiumExpiresAt` is the same lock again — only
+      // `verifyInAppPurchase`/`appStoreServerNotifications`/
+      // `googlePlayRtdn`/`expireLapsedPremium` (functions/src/index.ts)
+      // ever write it, so a client can't extend its own VIP expiry.
       function touchesLockedUserFields() {
         return request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['premium', 'identityVerified']);
+          .hasAny(['premium', 'identityVerified', 'premiumExpiresAt']);
       }
 
       // A user can only create or delete their OWN document.
       allow create: if request.auth != null && request.auth.uid == userId &&
         !('premium' in request.resource.data) &&
-        !('identityVerified' in request.resource.data);
+        !('identityVerified' in request.resource.data) &&
+        !('premiumExpiresAt' in request.resource.data);
       allow delete: if request.auth != null && request.auth.uid == userId;
 
       // A user can update their own document freely (including their
@@ -452,6 +457,16 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.ownerId &&
         request.resource.data.status == 'completed';
       allow update, delete: if false;
+    }
+
+    // Maps an Apple `originalTransactionId`/Google purchase token back
+    // to the uid that purchased it — purely internal bookkeeping so
+    // `appStoreServerNotifications`/`googlePlayRtdn` (functions/src/
+    // index.ts) know whose `premium` to update on a renewal/
+    // cancellation notification, which arrives with no uid of its own.
+    // No client read/write path exists or should exist.
+    match /iapSubscriptions/{transactionKey} {
+      allow read, write: if false;
     }
 
     // "Kimlik doğrulama" (ID + selfie -> blue-check review), separate

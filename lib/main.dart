@@ -11,6 +11,7 @@ import 'core/navigation/deep_link_handler.dart';
 import 'core/theme/app_theme.dart';
 import 'features/calls/presentation/widgets/call_pip_overlay.dart';
 import 'features/onboarding/presentation/screens/splash_screen.dart';
+import 'features/premium/presentation/providers/vip_purchase_listener.dart';
 import 'firebase_options.dart';
 import 'l10n/app_localizations.dart';
 
@@ -66,6 +67,7 @@ void main() async {
   ));
 
   startDeepLinkListener();
+  startVipPurchaseListener();
 
   await FlutterBranchSdk.init(enableLogging: kDebugMode);
   startBranchDeepLinkListener();

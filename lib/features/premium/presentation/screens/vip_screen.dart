@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/animations/glow_logo.dart';
@@ -10,6 +11,7 @@ import '../../domain/entities/vip_feature.dart';
 import '../../domain/entities/vip_package.dart';
 import '../providers/premium_providers.dart';
 import '../providers/vip_providers.dart';
+import '../providers/vip_purchase_listener.dart';
 
 // Apple's and Google's own documented "manage subscriptions" deep
 // links — not app-specific, standard for every app on each platform.
@@ -26,12 +28,23 @@ class VipScreen extends ConsumerStatefulWidget {
 class _VipScreenState extends ConsumerState<VipScreen> {
   VipBillingPeriod _selected = VipBillingPeriod.yearly;
 
+  bool _purchasing = false;
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final isPremium = ref.watch(isPremiumProvider);
     final featuresAsync = ref.watch(vipFeaturesProvider);
     final features = (featuresAsync.valueOrNull?.isNotEmpty ?? false) ? featuresAsync.valueOrNull! : _defaultFeatures(loc);
+    final products = ref.watch(vipProductsProvider).valueOrNull ?? const <ProductDetails>[];
+    final selectedSku = kVipPackages.firstWhere((p) => p.period == _selected).skuId;
+    ProductDetails? selectedProduct;
+    for (final p in products) {
+      if (p.id == selectedSku) {
+        selectedProduct = p;
+        break;
+      }
+    }
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -109,7 +122,7 @@ class _VipScreenState extends ConsumerState<VipScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              loc.vipPriceComingSoonNote,
+              selectedProduct != null ? loc.vipPriceLabel(selectedProduct.price) : loc.vipPriceUnavailableNote,
               textAlign: TextAlign.center,
               style: AppTextStyles.caption.copyWith(fontSize: 12, color: AppColors.textMuted),
             ),
@@ -123,11 +136,19 @@ class _VipScreenState extends ConsumerState<VipScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 15),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                onPressed: isPremium ? null : () => _handleSubscribe(context, loc),
-                child: Text(
-                  isPremium ? loc.vipAlreadySubscribedButton : loc.vipSubscribeButton,
-                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5),
-                ),
+                onPressed: (isPremium || selectedProduct == null || _purchasing)
+                    ? null
+                    : () => _handleSubscribe(selectedProduct!),
+                child: _purchasing
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.2, color: Color(0xFF2B1D00)),
+                      )
+                    : Text(
+                        isPremium ? loc.vipAlreadySubscribedButton : loc.vipSubscribeButton,
+                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5),
+                      ),
               ),
             ),
           ],
@@ -136,15 +157,27 @@ class _VipScreenState extends ConsumerState<VipScreen> {
     );
   }
 
-  void _handleSubscribe(BuildContext context, AppLocalizations loc) {
-    if (kSubscriptionsNotYetLive) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.vipBillingComingSoonMessage)),
-      );
-      return;
+  /// Only starts the native purchase sheet — [product] came from
+  /// [vipProductsProvider], so it's already the store's own real
+  /// listing (a valid `ProductDetails` implies the SKU genuinely
+  /// exists in App Store Connect / Play Console). What happens after
+  /// the customer completes payment (verification, granting
+  /// `users/{uid}.premium`) is entirely `vip_purchase_listener.dart`'s
+  /// job, listening on `InAppPurchase.purchaseStream` — this screen
+  /// never grants premium itself, [isPremiumProvider] just reacts once
+  /// the server confirms it.
+  Future<void> _handleSubscribe(ProductDetails product) async {
+    if (_purchasing) return;
+    setState(() => _purchasing = true);
+    try {
+      await buyVipPackage(product);
+    } finally {
+      // The purchase sheet itself has been dismissed either way by the
+      // time this returns — `_purchasing` only needs to cover starting
+      // it, not the whole async verification that follows on the
+      // purchase stream (isPremiumProvider flipping is that signal).
+      if (mounted) setState(() => _purchasing = false);
     }
-    // Real purchase flow (RevenueCat) goes here once API keys and
-    // store subscription products exist.
   }
 
   void _openManageSubscription(BuildContext context, AppLocalizations loc) {

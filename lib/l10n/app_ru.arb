@@ -1239,6 +1239,8 @@
   "vipPeriodYearly": "Ежегодно",
   "vipBestValueBadge": "Выгоднее всего",
   "vipPriceComingSoonNote": "Цены появятся здесь после подключения магазина.",
+  "vipPriceLabel": "{price} / период",
+  "vipPriceUnavailableNote": "Этот пакет пока недоступен в магазине.",
   "vipSubscribeButton": "Оформить подписку",
   "vipAlreadySubscribedButton": "Вы уже VIP",
   "vipBillingComingSoonMessage": "Оплата будет доступна в ближайшее время.",
