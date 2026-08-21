@@ -157,6 +157,40 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: body + (boolVal('hasPayment') ? loc.notifRefundSuffix : ''),
       );
 
+    case NotificationType.pinboxAdded:
+      final pinboxTitle = str('pinboxTitle');
+      return LocalizedNotificationText(
+        title: loc.notifPinboxAddedTitle,
+        body: pinboxTitle.isEmpty ? loc.notifPinboxAddedBodyGeneric : loc.notifPinboxAddedBody(pinboxTitle),
+      );
+
+    case NotificationType.pinboxApproved:
+      return LocalizedNotificationText(
+        title: loc.notifPinboxApprovedTitle,
+        body: loc.notifPinboxApprovedBody(str('name')),
+      );
+
+    case NotificationType.pinboxRejected:
+      final body = bodyWithOptionalNote(
+        name: str('name'),
+        withNote: loc.notifPinboxRejectedBodyWithNote,
+        noNote: loc.notifPinboxRejectedBodyNoNote,
+      );
+      // No `hasPayment` suffix — PinBox has no flat listing fee (see
+      // `PinBox`'s own doc comment), so `moderationStatusNotification`
+      // always passes `hasPayment: false` for this kind.
+      return LocalizedNotificationText(title: loc.notifPinboxRejectedTitle, body: body);
+
+    case NotificationType.pinboxNearby:
+      final venueName = str('venueName');
+      return LocalizedNotificationText(
+        title: venueName.isEmpty ? loc.notifPinboxNearbyTitleGeneric : loc.notifPinboxNearbyTitle(venueName),
+        // The box's own title is raw owner content, never translated —
+        // only the surrounding "X yaxınlığınızda" shell above is, same
+        // reasoning as NotificationType.venueOffer.
+        body: str('pinboxTitle'),
+      );
+
     case NotificationType.birthdayOffer:
       final venueName = str('venueName');
       return LocalizedNotificationText(

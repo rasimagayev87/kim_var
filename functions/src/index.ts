@@ -1799,6 +1799,58 @@ async function notifyNearbyUsersOfNewOffer(
   );
 }
 
+/**
+ * PinBox equivalent of `notifyNearbyUsersOfNewOffer` — same candidate
+ * pool/radius/throttle rules, fired from `onPinBoxUpdated` the moment a
+ * box reaches `active` (PinBox's own "now visible to discovery"
+ * transition, same role `status === 'approved'` plays for offers).
+ * Shares the SAME per-(user, venue) throttle doc as offers — a venue
+ * that publishes an offer and a PinBox on the same day still only
+ * pings a given nearby user once, not once per listing type.
+ */
+async function notifyNearbyUsersOfNewPinBox(
+  pinboxId: string,
+  pinbox: FirebaseFirestore.DocumentData,
+  ownerId: string,
+): Promise<void> {
+  const venueId = pinbox.venueId as string | undefined;
+  if (!venueId) return;
+  const venueSnap = await db.collection("venues").doc(venueId).get();
+  const venue = venueSnap.data();
+  if (!venue) return;
+
+  const candidateDocs = await resolveNotifyCandidates(venueId, venue, OFFER_NOTIFY_CANDIDATE_LIMIT);
+  const venueName = (venue.name as string | undefined) ?? "";
+  const pinboxTitle = (pinbox.title as string | undefined) ?? "";
+
+  await Promise.all(
+    candidateDocs.map(async (userDoc) => {
+      const uid = userDoc.id;
+      const userData = userDoc.data();
+      if (!userData) return;
+      if (uid === ownerId) return;
+      if (userData.ghostModeEnabled) return;
+
+      const throttleRef = db.collection("users").doc(uid).collection("notifiedVenues").doc(venueId);
+      const throttleSnap = await throttleRef.get();
+      const lastNotifiedAt = (throttleSnap.data()?.lastNotifiedAt as Timestamp | undefined)?.toMillis() ?? 0;
+      if (Date.now() - lastNotifiedAt < OFFER_NOTIFY_THROTTLE_MS) return;
+
+      await notifyUser({
+        uid,
+        category: "venueOffers",
+        type: "pinboxNearby",
+        title: venueName ? `📦 ${venueName} yaxınlığınızda` : "Yaxınlığınızda yeni PinBox",
+        body: pinboxTitle,
+        params: { venueName, pinboxTitle },
+        targetId: pinboxId,
+        targetType: "pinbox",
+      });
+      await throttleRef.set({ lastNotifiedAt: FieldValue.serverTimestamp() }, { merge: true });
+    }),
+  );
+}
+
 // ── Venue events (auto-approved, no moderation gate) ─────────────────
 
 /** Same bound as `OFFER_NOTIFY_CANDIDATE_LIMIT` — how many `users` docs
@@ -1910,17 +1962,19 @@ export const advanceVenueEventStatuses = onSchedule(
  * `onVenueCreated`'s "your venue was added" notification instead).
  */
 function moderationStatusNotification(
-  kind: "venue" | "offer",
+  kind: "venue" | "offer" | "pinbox",
   name: string,
   status: unknown,
   reviewNote: unknown,
-  // Only ever true for venue listings today (offers have no payment
-  // concept yet) — appends the 7-day/refund-timeline wording that only
+  // Only ever true for venue listings today (offers/pinboxes have no
+  // payment concept tied to the LISTING itself — PinBox's revenue is
+  // the per-order commission, not a flat fee, see `PinBox`'s own doc
+  // comment) — appends the 7-day/refund-timeline wording that only
   // makes sense when a real `payments/{paymentId}` doc is attached.
   hasPayment = false,
 ): { type: string; title: string; body: string; params: Record<string, unknown> } | null {
-  const noun = kind === "venue" ? "Məkanınız" : "Təklifiniz";
-  const quoted = name ? `"${name}"` : kind === "venue" ? "Məkanınız" : "Təklifiniz";
+  const noun = kind === "venue" ? "Məkanınız" : kind === "offer" ? "Təklifiniz" : "Qutunuz";
+  const quoted = name ? `"${name}"` : noun;
   const note = typeof reviewNote === "string" && reviewNote.trim() ? reviewNote.trim() : undefined;
   // venue.name/offer.title are required fields — always non-empty by
   // the time a listing exists to be moderated, so the client-side
@@ -2095,6 +2149,66 @@ export const resubmitPinBox = onCall({ region: "us-central1" }, async (request) 
   });
 
   return { ok: true };
+});
+
+/**
+ * Confirms to the submitting owner that their PinBox was created —
+ * mirrors `onVenueCreated` exactly.
+ */
+export const onPinBoxCreated = onDocumentCreated("pinboxes/{pinboxId}", async (event) => {
+  const pinbox = event.data?.data();
+  if (!pinbox) return;
+  const ownerId = pinbox.ownerId as string | undefined;
+  if (!ownerId) return;
+  const title = (pinbox.title as string | undefined) ?? "";
+
+  await notifyUser({
+    uid: ownerId,
+    category: "venueOffers",
+    type: "pinboxAdded",
+    title: "Qutunuz əlavə edildi",
+    body: title ? `"${title}" uğurla yaradıldı, admin təsdiqini gözləyir.` : "Qutunuz uğurla yaradıldı.",
+    params: { pinboxTitle: title },
+    targetId: event.params.pinboxId,
+    targetType: "pinbox",
+  });
+});
+
+/**
+ * Same moderation-status notification as `onOfferUpdated`, for PinBox —
+ * this was missing entirely (see Faza 0's own audit: PinBox never had
+ * ANY owner-facing notification, not even a "created" confirmation),
+ * so an owner had no way to learn their box was approved/rejected
+ * short of manually reopening Qutularım. PinBox's live-equivalent
+ * status is `'active'`, not `'approved'` — normalized to `'approved'`
+ * before reaching `moderationStatusNotification` (which only knows the
+ * venue/offer vocabulary) so the same switch handles all three kinds.
+ */
+export const onPinBoxUpdated = onDocumentUpdated("pinboxes/{pinboxId}", async (event) => {
+  const before = event.data?.before.data();
+  const after = event.data?.after.data();
+  if (!before || !after) return;
+  if (before.status === after.status) return;
+
+  const ownerId = after.ownerId as string | undefined;
+  if (!ownerId) return;
+  const title = (after.title as string | undefined) ?? "";
+
+  const normalizedStatus = after.status === "active" ? "approved" : after.status;
+  const notification = moderationStatusNotification("pinbox", title, normalizedStatus, after.reviewNote, false);
+  if (notification) {
+    await notifyUser({
+      uid: ownerId,
+      category: "venueOffers",
+      ...notification,
+      targetId: event.params.pinboxId,
+      targetType: "pinbox",
+    });
+  }
+
+  if (after.status === "active") {
+    await notifyNearbyUsersOfNewPinBox(event.params.pinboxId, after, ownerId);
+  }
 });
 
 /**

@@ -106,6 +106,24 @@ enum NotificationType {
   /// this only exists to give the follow-based case its own icon/copy
   /// in the feed.
   productionPost,
+
+  /// PinBox equivalent of [venueAdded] — see `onPinBoxCreated` (Cloud
+  /// Function). `targetType: 'pinbox'`.
+  pinboxAdded,
+
+  /// Admin moderation decision on a PinBox — see
+  /// `moderationStatusNotification`'s `"pinbox"` branch,
+  /// `onPinBoxUpdated` (Cloud Function). PinBox has no `needs_revision`
+  /// state (see `PinBoxRepository`'s own doc comment), so unlike the
+  /// venue/offer pair above there's no third [pinboxNeedsRevision] type
+  /// — only these two.
+  pinboxApproved,
+  pinboxRejected,
+
+  /// A venue published a new PinBox within this user's radius — see
+  /// `notifyNearbyUsersOfNewPinBox` (Cloud Function). `targetType:
+  /// 'pinbox'`, deep-links to `PinBoxCheckoutScreen`.
+  pinboxNearby,
   system,
   security,
   promotion,

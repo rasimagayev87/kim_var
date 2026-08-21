@@ -5,6 +5,8 @@ import '../../events/presentation/screens/event_details_screen.dart';
 import '../../offers/presentation/providers/offer_providers.dart';
 import '../../offers/presentation/screens/create_offer_screen.dart';
 import '../../offers/presentation/screens/offer_details_screen.dart';
+import '../../pinbox/presentation/providers/pinbox_providers.dart';
+import '../../pinbox/presentation/screens/pinbox_checkout_screen.dart';
 import '../../post_share/presentation/screens/post_detail_screen.dart';
 import '../../profile/presentation/providers/profile_providers.dart';
 import '../../profile/presentation/screens/user_profile_screen.dart';
@@ -75,5 +77,14 @@ Future<void> openNotificationTarget(BuildContext context, WidgetRef ref, AppNoti
     // A venue event's own radius-fanout push (`notifyNearbyUsersOfNewEvent`).
     case 'event':
       Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailsScreen(eventId: targetId)));
+    // PinBox moderation decisions (`onPinBoxUpdated`) and the "new box
+    // near you" fanout (`notifyNearbyUsersOfNewPinBox`) both target the
+    // box itself — needs an async fetch first, same as birthday_match
+    // above, but small enough to stay inline here since this function
+    // is already async.
+    case 'pinbox':
+      final pinbox = await ref.read(pinboxByIdProvider(targetId).future);
+      if (!context.mounted || pinbox == null) return;
+      Navigator.push(context, MaterialPageRoute(builder: (_) => PinBoxCheckoutScreen(pinbox: pinbox)));
   }
 }
