@@ -291,6 +291,53 @@ class LiveFeedService {
     return items;
   }
 
+  /// "PinBox" — `pinboxes` docs currently `active`, excluding ones whose
+  /// same-day pickup window has already ended (same
+  /// `pickupWindowEnd.isAfter(now)` rule `FirebasePinBoxRepository`'s
+  /// discovery fetches apply — see that class's own doc comment for why
+  /// ordering after the window closes is meaningless, so the box
+  /// shouldn't be surfaced as "happening now" here either).
+  Future<List<LiveFeedItem>> fetchPinBoxItems({
+    required double lat,
+    required double lng,
+    required double radiusKm,
+    required Map<String, String?> photoUrlByVenueId,
+  }) async {
+    final now = DateTime.now();
+
+    final geoCollection = GeoCollectionReference<Map<String, dynamic>>(_firestore.collection('pinboxes'));
+    final results = await geoCollection.fetchWithinWithDistance(
+      center: GeoFirePoint(GeoPoint(lat, lng)),
+      radiusInKm: radiusKm,
+      field: _geoField,
+      geopointFrom: (data) => data[_geoField]['geopoint'] as GeoPoint,
+      queryBuilder: (query) => query.where('status', isEqualTo: 'active'),
+      strictMode: true,
+    );
+
+    final items = <LiveFeedItem>[];
+    for (final r in results) {
+      final data = r.documentSnapshot.data()!;
+      final pickupWindowEnd = (data['pickupWindowEnd'] as Timestamp?)?.toDate();
+      if (pickupWindowEnd == null || !pickupWindowEnd.isAfter(now)) continue;
+
+      final venueId = (data['venueId'] as String?) ?? '';
+      items.add(LiveFeedItem(
+        id: 'pinbox_${r.documentSnapshot.id}',
+        type: LiveFeedType.pinbox,
+        venueId: venueId,
+        targetId: r.documentSnapshot.id,
+        targetType: 'pinbox',
+        title: (data['title'] as String?) ?? '',
+        subtitle: (data['venueName'] as String?) ?? '',
+        distanceMeters: r.distanceFromCenterInKm * 1000,
+        timestamp: (data['createdAt'] as Timestamp?)?.toDate() ?? now,
+        photoUrl: photoUrlByVenueId[venueId],
+      ));
+    }
+    return items;
+  }
+
   /// Offers/events from venues the signed-in user follows via "İzlə"
   /// (`venue_follow` module — deliberately never imported here, same
   /// isolation rule as everything else in this class; [followedVenueIds]

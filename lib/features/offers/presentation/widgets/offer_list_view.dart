@@ -209,11 +209,13 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
       ]..sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
 
       if (items.isEmpty) {
-        body = _OfferStatusMessage(
-          icon: Icons.local_offer_outlined,
-          title: loc.offersEmptyTitle,
-          subtitle: loc.offersEmptySubtitle,
-        );
+        final (emptyIcon, emptyTitle, emptySubtitle) = switch (listingFilter) {
+          ListingFilter.all => (Icons.local_offer_outlined, loc.listingEmptyAllTitle, loc.listingEmptyAllSubtitle),
+          ListingFilter.offers => (Icons.local_offer_outlined, loc.offersEmptyTitle, loc.offersEmptySubtitle),
+          ListingFilter.events => (Icons.celebration_outlined, loc.listingEmptyEventsTitle, loc.listingEmptyEventsSubtitle),
+          ListingFilter.pinbox => (Icons.inventory_2_outlined, loc.listingEmptyPinboxTitle, loc.listingEmptyPinboxSubtitle),
+        };
+        body = _OfferStatusMessage(icon: emptyIcon, title: emptyTitle, subtitle: emptySubtitle);
       } else {
         body = ListView.separated(
           // Extra bottom padding so the last card doesn't sit under the

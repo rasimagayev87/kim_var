@@ -183,12 +183,13 @@ class PinBoxController {
 
 final pinboxControllerProvider = Provider<PinBoxController>((ref) => PinBoxController(ref));
 
-/// [PinBoxReserveOutcome.soldOut] is the one failure the UI needs to
-/// tell apart from a generic error — the box sold out to someone else
-/// between the buyer opening Checkout and pressing "Ödə" (the Cloud
-/// Function's own transaction is the actual race-condition guard; this
-/// is just surfacing its `failed-precondition` distinctly).
-enum PinBoxReserveOutcome { success, soldOut, error }
+/// [PinBoxReserveOutcome.soldOut]/[PinBoxReserveOutcome.expired] are the
+/// two failures the UI needs to tell apart from a generic error — sold
+/// out to someone else, or the pickup window closed, between the buyer
+/// opening Checkout and pressing "Ödə" (the Cloud Function's own
+/// transaction is the actual guard against both races; this just
+/// surfaces its `failed-precondition` reason distinctly).
+enum PinBoxReserveOutcome { success, soldOut, expired, error }
 
 typedef PinBoxReserveResult = ({PinBoxReserveOutcome outcome, String? orderId});
 
@@ -209,7 +210,12 @@ class PinBoxCheckoutController {
       final orderId = await _ref.read(pinboxRepositoryProvider).reservePinBoxOrder(pinboxId: pinboxId);
       return (outcome: PinBoxReserveOutcome.success, orderId: orderId);
     } on FirebaseFunctionsException catch (e, st) {
-      if (e.code == 'failed-precondition') return (outcome: PinBoxReserveOutcome.soldOut, orderId: null);
+      if (e.code == 'failed-precondition') {
+        return (
+          outcome: e.message == 'pickup-window-ended' ? PinBoxReserveOutcome.expired : PinBoxReserveOutcome.soldOut,
+          orderId: null,
+        );
+      }
       logError('pinbox_providers.reserveOrder', e, st);
       return (outcome: PinBoxReserveOutcome.error, orderId: null);
     } catch (e, st) {

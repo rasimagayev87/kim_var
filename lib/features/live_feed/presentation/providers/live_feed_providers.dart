@@ -180,7 +180,13 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
           freshWindow: liveFeedFreshWindow,
           photoUrlByVenueId: photoUrlByVenueId,
         );
-        geoItems = [...seatItems, ...eventItems, ...offerItems];
+        final pinboxItems = await service.fetchPinBoxItems(
+          lat: params.lat,
+          lng: params.lng,
+          radiusKm: params.radiusKm,
+          photoUrlByVenueId: photoUrlByVenueId,
+        );
+        geoItems = [...seatItems, ...eventItems, ...offerItems, ...pinboxItems];
       }
 
       var followedItems = <LiveFeedItem>[];

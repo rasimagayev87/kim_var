@@ -135,6 +135,15 @@ class FirebasePinBoxRepository implements PinBoxRepository {
         .map((snap) => snap.docs.map((doc) => PinBox.fromFirestore(doc.id, doc.data())).toList());
   }
 
+  /// Excludes a box whose same-day pickup window has already ended,
+  /// even if `status` is still `active` and stock remains — nothing
+  /// writes `status: 'expired'` on a schedule (unlike sold-out, which
+  /// `reservePinBoxOrder`'s own transaction flips synchronously), so
+  /// this client-side filter is the only thing hiding it from discovery
+  /// once ordering it would no longer make sense. Applied uniformly
+  /// across all 3 fetch methods below.
+  bool _isWithinPickupWindow(PinBox pinbox) => pinbox.pickupWindowEnd.isAfter(DateTime.now());
+
   @override
   Future<List<PinBoxWithDistance>> fetchPinBoxesWithinRadius({
     required double lat,
@@ -151,19 +160,20 @@ class FirebasePinBoxRepository implements PinBoxRepository {
 
     return results
         .map((r) => (pinbox: PinBox.fromFirestore(r.$1.id, r.$1.data()!), distanceMeters: r.$2 * 1000))
+        .where((r) => _isWithinPickupWindow(r.pinbox))
         .toList();
   }
 
   @override
   Future<List<PinBox>> fetchPinBoxesByCountry(String country, {VenueCategory? category}) async {
     final snap = await withPermissionRetry(() => _datasource.queryByCountry(country, category: category?.name));
-    return snap.docs.map((d) => PinBox.fromFirestore(d.id, d.data())).toList();
+    return snap.docs.map((d) => PinBox.fromFirestore(d.id, d.data())).where(_isWithinPickupWindow).toList();
   }
 
   @override
   Future<List<PinBox>> fetchAllActivePinBoxes({int limit = 300, VenueCategory? category}) async {
     final snap = await withPermissionRetry(() => _datasource.queryAllActive(limit: limit, category: category?.name));
-    return snap.docs.map((d) => PinBox.fromFirestore(d.id, d.data())).toList();
+    return snap.docs.map((d) => PinBox.fromFirestore(d.id, d.data())).where(_isWithinPickupWindow).toList();
   }
 
   @override

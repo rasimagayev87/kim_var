@@ -46,6 +46,8 @@ class _PinBoxCheckoutScreenState extends ConsumerState<PinBoxCheckoutScreen> {
         );
       case PinBoxReserveOutcome.soldOut:
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.pinboxSoldOutErrorMessage)));
+      case PinBoxReserveOutcome.expired:
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.pinboxPickupWindowEndedErrorMessage)));
       case PinBoxReserveOutcome.error:
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.pinboxCheckoutErrorMessage)));
     }
@@ -57,6 +59,10 @@ class _PinBoxCheckoutScreenState extends ConsumerState<PinBoxCheckoutScreen> {
     final pinbox = widget.pinbox;
     final pickupFormat = DateFormat('HH:mm');
     final soldOut = pinbox.isSoldOut;
+    // Belt-and-braces UI mirror of `reservePinBoxOrder`'s own guard — a
+    // buyer who had this screen open since before the window closed
+    // shouldn't see a live "Ödə" button that's guaranteed to fail.
+    final windowEnded = !pinbox.pickupWindowEnd.isAfter(DateTime.now());
 
     return Scaffold(
       backgroundColor: ChatLightColors.bg1,
@@ -201,7 +207,7 @@ class _PinBoxCheckoutScreenState extends ConsumerState<PinBoxCheckoutScreen> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: (_submitting || soldOut) ? null : _pay,
+                onPressed: (_submitting || soldOut || windowEnded) ? null : _pay,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
@@ -219,7 +225,9 @@ class _PinBoxCheckoutScreenState extends ConsumerState<PinBoxCheckoutScreen> {
                     : Text(
                         soldOut
                             ? loc.pinboxSoldOutLabel
-                            : '${loc.pinboxPayButtonLabel} · ${pinbox.pinboxPrice.toStringAsFixed(2)} AZN',
+                            : windowEnded
+                                ? loc.pinboxPickupWindowEndedLabel
+                                : '${loc.pinboxPayButtonLabel} · ${pinbox.pinboxPrice.toStringAsFixed(2)} AZN',
                       ),
               ),
             ),

@@ -214,18 +214,23 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
   }
 
   /// The Fürsətlər header's "manage" icon — target depends on which
-  /// [ListingFilter] chip is active. Kompaniya/Hamısı keeps the original
-  /// "Mənim təkliflərim" behavior unchanged; Tədbir reuses the EXISTING
-  /// per-venue `MyVenueEventsScreen` (not a new cross-venue screen, per
-  /// product decision) with a thin venue-routing layer on top; PinBox
-  /// opens Qutularım (PinBox Faza 11) — [myPinboxVenues] decides whether
-  /// its "Yaratdıqlarım" tab shows at all.
+  /// [ListingFilter] chip is active. Hamısı mixes all 3 listing types,
+  /// so there's no single "manage" screen that makes sense for it — no
+  /// icon shows there at all. Kompaniya keeps the original "Mənim
+  /// təkliflərim" behavior; Tədbir reuses the EXISTING per-venue
+  /// `MyVenueEventsScreen` (not a new cross-venue screen, per product
+  /// decision) with a thin venue-routing layer on top; PinBox opens
+  /// Qutularım (PinBox Faza 11) — [myPinboxVenues] decides whether its
+  /// "Yaratdıqlarım" tab shows at all.
   Widget _buildListingManageIcon(
     AppLocalizations loc,
     ListingFilter listingFilter,
     List<Venue> myEventVenues,
     List<Venue> myPinboxVenues,
   ) {
+    if (listingFilter == ListingFilter.all) {
+      return const SizedBox.shrink();
+    }
     if (listingFilter == ListingFilter.events) {
       if (myEventVenues.isEmpty) return const SizedBox.shrink();
       return IconButton(

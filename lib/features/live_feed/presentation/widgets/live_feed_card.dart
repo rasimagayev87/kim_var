@@ -14,6 +14,7 @@ IconData iconForLiveFeedType(LiveFeedType type) {
     LiveFeedType.offer => Icons.local_offer_rounded,
     LiveFeedType.seatAvailable => Icons.event_seat_rounded,
     LiveFeedType.birthday => Icons.cake_rounded,
+    LiveFeedType.pinbox => Icons.inventory_2_rounded,
   };
 }
 

@@ -2720,6 +2720,16 @@ export const reservePinBoxOrder = onCall({ region: "us-central1" }, async (reque
 
     if (data.status !== "active") throw new HttpsError("failed-precondition", "not-active");
 
+    // Belt-and-braces against a stale client list: the Flutter
+    // discovery fetches already exclude a box past its own
+    // `pickupWindowEnd` (see `FirebasePinBoxRepository`'s doc comment),
+    // but nothing flips `status` off `active` on a schedule the moment
+    // that happens, so this transaction is the actual enforcement point.
+    const pickupWindowEnd = (data.pickupWindowEnd as Timestamp | undefined)?.toDate();
+    if (!pickupWindowEnd || pickupWindowEnd.getTime() <= Date.now()) {
+      throw new HttpsError("failed-precondition", "pickup-window-ended");
+    }
+
     const stockRemaining = (data.stockRemaining as number | undefined) ?? 0;
     if (stockRemaining < quantity) throw new HttpsError("failed-precondition", "sold-out");
 

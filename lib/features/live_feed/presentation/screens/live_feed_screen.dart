@@ -6,6 +6,8 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../events/presentation/screens/event_details_screen.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../../offers/presentation/screens/offer_details_screen.dart';
+import '../../../pinbox/presentation/providers/pinbox_providers.dart';
+import '../../../pinbox/presentation/screens/pinbox_checkout_screen.dart';
 import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../../domain/entities/live_feed_item.dart';
@@ -78,6 +80,15 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
         await Navigator.push(context, MaterialPageRoute(builder: (_) => OfferDetailsScreen(offerId: item.targetId)));
       case 'event':
         await Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailsScreen(eventId: item.targetId)));
+      case 'pinbox':
+        // No standalone PinBox details screen exists — Checkout doubles
+        // as the detail view everywhere else PinBox is tapped from (see
+        // `offer_list_view.dart`'s `_PinBoxCard`), so this fetches the
+        // full entity once (unlike offer/event, which take a bare id)
+        // and lands on the same screen.
+        final pinbox = await ref.read(pinboxByIdProvider(item.targetId).future);
+        if (!mounted || pinbox == null) return;
+        await Navigator.push(context, MaterialPageRoute(builder: (_) => PinBoxCheckoutScreen(pinbox: pinbox)));
     }
   }
 
@@ -134,6 +145,7 @@ class _LiveFeedList extends StatelessWidget {
     LiveFeedType.audience,
     LiveFeedType.event,
     LiveFeedType.offer,
+    LiveFeedType.pinbox,
     LiveFeedType.seatAvailable,
     LiveFeedType.birthday,
   ];
@@ -143,6 +155,7 @@ class _LiveFeedList extends StatelessWidget {
       LiveFeedType.audience => loc.liveFeedSectionAudience,
       LiveFeedType.event => loc.liveFeedSectionEvent,
       LiveFeedType.offer => loc.liveFeedSectionOffer,
+      LiveFeedType.pinbox => loc.liveFeedSectionPinbox,
       LiveFeedType.seatAvailable => loc.liveFeedSectionSeatAvailable,
       LiveFeedType.birthday => loc.liveFeedSectionBirthday,
     };

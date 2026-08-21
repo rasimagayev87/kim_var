@@ -1,6 +1,6 @@
 /// Which existing module a [LiveFeedItem] was derived from — purely a
 /// presentation/grouping label, never written to Firestore.
-enum LiveFeedType { audience, event, offer, seatAvailable, birthday }
+enum LiveFeedType { audience, event, offer, seatAvailable, birthday, pinbox }
 
 /// One row in the "Canlı" tab — a normalized, read-only projection of
 /// a document that already lives in `venues`, `offers`, `venueEvents`,
@@ -14,13 +14,14 @@ class LiveFeedItem {
   final LiveFeedType type;
 
   /// The venue this item is about or belongs to — always set, even for
-  /// [LiveFeedType.event]/[LiveFeedType.offer]/[LiveFeedType.birthday]
-  /// (where it's the hosting/offering venue, not the tap target).
+  /// [LiveFeedType.event]/[LiveFeedType.offer]/[LiveFeedType.birthday]/
+  /// [LiveFeedType.pinbox] (where it's the hosting/offering venue, not
+  /// the tap target).
   final String venueId;
 
   /// Where tapping this card navigates — the venue itself for
   /// [LiveFeedType.audience]/[LiveFeedType.seatAvailable], or the
-  /// underlying offer/event id for the other three. [targetType]
+  /// underlying offer/event/pinbox id for the other types. [targetType]
   /// mirrors the same 'venue'/'offer'/'event' vocabulary
   /// `notification_navigation.dart` already uses for its own
   /// `targetType` switch, so a future "open this from a Canlı card"
