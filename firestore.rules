@@ -409,12 +409,15 @@ service cloud.firestore {
       // payment), and `revisionDeadline` is set/cleared only by the
       // admin panel and `resubmitVenue`/`expireVenueRevisionDeadlines`
       // (functions/src/index.ts), so the owner can't grant themselves
-      // extra time to fix a flagged listing.
+      // extra time to fix a flagged listing. `subscriptionRenewsAt` is
+      // the same again — only `renewVenueSubscriptions` (scheduled
+      // Cloud Function) may push it forward, so the owner can't grant
+      // themselves a free extra cycle by editing their own venue.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['likeCount', 'rating', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline']);
+          .hasAny(['likeCount', 'rating', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }

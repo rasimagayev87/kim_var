@@ -2304,6 +2304,98 @@ export const expireListingRevisionDeadlines = onSchedule(
 );
 
 /**
+ * Independently declared copy of `_venueListingFeeFor` in
+ * `lib/features/venues/data/repositories/firebase_venue_repository.dart`
+ * — Cloud Functions can't import that Dart file, so this table is kept
+ * in sync by hand. Exhaustive on purpose (see that file's own doc
+ * comment for why) — a `switch` with no default here would silently
+ * fall through to `undefined` for a category added on the Flutter side
+ * but forgotten here, so this uses a plain lookup object instead and
+ * `renewVenueSubscriptions` treats a missing entry as a bug to log, not
+ * a 0 AZN charge.
+ */
+const venueSubscriptionFeeByCategory: Record<string, number> = {
+  restaurant: 30, pub: 30, coffeeShop: 25, fastFood: 25, teaHouse: 15, sweetsShop: 20,
+  hotel: 30, motel: 20, cinema: 30, karaoke: 30, gameHall: 30, nightClub: 30,
+  fitness: 30, gym: 30, spa: 30, footballField: 25, clinic: 30, beautySalon: 30,
+  barbershop: 20, cosmetology: 30, tattoo: 20, photoStudio: 20, kidsEntertainment: 30,
+  pharmacyOptics: 30, dentalClinic: 30, perfumeryCosmetics: 25, carWash: 20, carRepair: 20,
+  supermarket: 30, bookstoreStationery: 20, petStore: 20, tailor: 15, dryCleaning: 25,
+  applianceRepair: 20, tutoringCenter: 25, wineBar: 30, cleaningServices: 20,
+  independentArtist: 30, other: 25,
+};
+
+const SUBSCRIPTION_CYCLE_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * "Məkanlar üzrə aylıq abunəlik" (see `_venueListingFeeFor`'s own doc
+ * comment for the signed tariff PDF this table mirrors) — the recurring
+ * half of venue billing. `createVenue` (Flutter client) writes the
+ * FIRST cycle's `subscriptionRenewsAt` + `payments` doc at creation
+ * time; this scheduled function is every cycle after that. No payment
+ * provider is wired yet (see this repo's own established "write
+ * straight to `completed`, no real charge" pattern — `listing_payment.
+ * dart`, `computeMonthlyPinBoxPayouts`), so this always "succeeds": it
+ * exists to produce a real, dated `payments/{id}` history per venue and
+ * to advance `subscriptionRenewsAt`, not to enforce non-payment yet.
+ * A venue whose category fell out of `venueSubscriptionFeeByCategory`
+ * (should never happen — see that table's own doc comment) is skipped
+ * and logged rather than charged 0 AZN.
+ */
+export const renewVenueSubscriptions = onSchedule(
+  { schedule: "every 24 hours", region: "europe-west1" },
+  async () => {
+    const now = new Date();
+    const snap = await db
+      .collection("venues")
+      .where("status", "==", "approved")
+      .where("subscriptionRenewsAt", "<=", Timestamp.fromDate(now))
+      .get();
+
+    if (snap.empty) return;
+
+    let renewed = 0;
+    for (const doc of snap.docs) {
+      const data = doc.data();
+      const category = data.category as string | undefined;
+      const amount = category ? venueSubscriptionFeeByCategory[category] : undefined;
+      if (amount === undefined) {
+        logger.error("renewVenueSubscriptions: no fee tier for category", { venueId: doc.id, category });
+        continue;
+      }
+
+      const ownerId = data.ownerId as string | undefined;
+      if (!ownerId) continue;
+
+      const prevRenewsAt = (data.subscriptionRenewsAt as Timestamp | undefined)?.toDate() ?? now;
+      const nextRenewsAt = new Date(prevRenewsAt.getTime() + SUBSCRIPTION_CYCLE_MS);
+
+      const paymentRef = db.collection("payments").doc();
+      await paymentRef.set({
+        ownerId,
+        listingType: "venue",
+        listingId: doc.id,
+        type: "venue_subscription",
+        amount,
+        currency: "AZN",
+        status: "completed",
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      await doc.ref.update({
+        paymentId: paymentRef.id,
+        subscriptionRenewsAt: Timestamp.fromDate(nextRenewsAt),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      renewed++;
+    }
+
+    if (renewed > 0) logger.info("renewVenueSubscriptions: renewed venue subscriptions", { renewed });
+  },
+);
+
+/**
  * Cleans up a deleted post's `likes`/`comments` subcollections —
  * Firestore doesn't cascade-delete them, and the client CAN'T (each
  * like/comment doc's own rule only lets its own author delete it, not

@@ -63,10 +63,25 @@ mixin _$Venue {
   @NullableTimestampConverter()
   DateTime? get reviewedAt => throw _privateConstructorUsedError;
 
-  /// The `payments/{paymentId}` doc backing this venue's listing fee —
-  /// see `PaymentRecord`/`functions/src/index.ts`'s payment-refund
-  /// state machine. Null on venues created before this field existed.
+  /// The `payments/{paymentId}` doc backing this venue's most recent
+  /// subscription charge — see `PaymentRecord`/`functions/src/
+  /// index.ts`'s payment-refund state machine. Null on venues created
+  /// before this field existed.
   String? get paymentId => throw _privateConstructorUsedError;
+
+  /// When the category-based listing fee (see `_venueListingFeeFor`)
+  /// next renews — set at creation to `createdAt + 30 days`, then
+  /// pushed forward another 30 days each cycle by
+  /// `renewVenueSubscriptions` (scheduled Cloud Function,
+  /// functions/src/index.ts), which also writes the corresponding
+  /// `payments/{id}` doc (`type: 'venue_subscription'`) for that
+  /// cycle. Grant-of-trust like [paymentId] — only that Cloud
+  /// Function may move it forward, never the owner's own client write
+  /// (see firestore.rules). Null on venues created before this field
+  /// existed — `renewVenueSubscriptions` treats a null the same as an
+  /// overdue date so those venues enter the cycle on its next run.
+  @NullableTimestampConverter()
+  DateTime? get subscriptionRenewsAt => throw _privateConstructorUsedError;
 
   /// Only set while [status] is 'needs_revision' — the owner has this
   /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
@@ -198,6 +213,7 @@ abstract class $VenueCopyWith<$Res> {
     String? reviewedBy,
     @NullableTimestampConverter() DateTime? reviewedAt,
     String? paymentId,
+    @NullableTimestampConverter() DateTime? subscriptionRenewsAt,
     @NullableTimestampConverter() DateTime? revisionDeadline,
     bool verified,
     int likeCount,
@@ -247,6 +263,7 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? reviewedBy = freezed,
     Object? reviewedAt = freezed,
     Object? paymentId = freezed,
+    Object? subscriptionRenewsAt = freezed,
     Object? revisionDeadline = freezed,
     Object? verified = null,
     Object? likeCount = null,
@@ -329,6 +346,10 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
                 ? _value.paymentId
                 : paymentId // ignore: cast_nullable_to_non_nullable
                       as String?,
+            subscriptionRenewsAt: freezed == subscriptionRenewsAt
+                ? _value.subscriptionRenewsAt
+                : subscriptionRenewsAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
             revisionDeadline: freezed == revisionDeadline
                 ? _value.revisionDeadline
                 : revisionDeadline // ignore: cast_nullable_to_non_nullable
@@ -420,6 +441,7 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     String? reviewedBy,
     @NullableTimestampConverter() DateTime? reviewedAt,
     String? paymentId,
+    @NullableTimestampConverter() DateTime? subscriptionRenewsAt,
     @NullableTimestampConverter() DateTime? revisionDeadline,
     bool verified,
     int likeCount,
@@ -468,6 +490,7 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? reviewedBy = freezed,
     Object? reviewedAt = freezed,
     Object? paymentId = freezed,
+    Object? subscriptionRenewsAt = freezed,
     Object? revisionDeadline = freezed,
     Object? verified = null,
     Object? likeCount = null,
@@ -550,6 +573,10 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.paymentId
             : paymentId // ignore: cast_nullable_to_non_nullable
                   as String?,
+        subscriptionRenewsAt: freezed == subscriptionRenewsAt
+            ? _value.subscriptionRenewsAt
+            : subscriptionRenewsAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
         revisionDeadline: freezed == revisionDeadline
             ? _value.revisionDeadline
             : revisionDeadline // ignore: cast_nullable_to_non_nullable
@@ -635,6 +662,7 @@ class _$VenueImpl extends _Venue {
     this.reviewedBy,
     @NullableTimestampConverter() this.reviewedAt,
     this.paymentId,
+    @NullableTimestampConverter() this.subscriptionRenewsAt,
     @NullableTimestampConverter() this.revisionDeadline,
     this.verified = false,
     this.likeCount = 0,
@@ -725,11 +753,27 @@ class _$VenueImpl extends _Venue {
   @NullableTimestampConverter()
   final DateTime? reviewedAt;
 
-  /// The `payments/{paymentId}` doc backing this venue's listing fee —
-  /// see `PaymentRecord`/`functions/src/index.ts`'s payment-refund
-  /// state machine. Null on venues created before this field existed.
+  /// The `payments/{paymentId}` doc backing this venue's most recent
+  /// subscription charge — see `PaymentRecord`/`functions/src/
+  /// index.ts`'s payment-refund state machine. Null on venues created
+  /// before this field existed.
   @override
   final String? paymentId;
+
+  /// When the category-based listing fee (see `_venueListingFeeFor`)
+  /// next renews — set at creation to `createdAt + 30 days`, then
+  /// pushed forward another 30 days each cycle by
+  /// `renewVenueSubscriptions` (scheduled Cloud Function,
+  /// functions/src/index.ts), which also writes the corresponding
+  /// `payments/{id}` doc (`type: 'venue_subscription'`) for that
+  /// cycle. Grant-of-trust like [paymentId] — only that Cloud
+  /// Function may move it forward, never the owner's own client write
+  /// (see firestore.rules). Null on venues created before this field
+  /// existed — `renewVenueSubscriptions` treats a null the same as an
+  /// overdue date so those venues enter the cycle on its next run.
+  @override
+  @NullableTimestampConverter()
+  final DateTime? subscriptionRenewsAt;
 
   /// Only set while [status] is 'needs_revision' — the owner has this
   /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
@@ -855,7 +899,7 @@ class _$VenueImpl extends _Venue {
 
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
   }
 
   @override
@@ -886,6 +930,8 @@ class _$VenueImpl extends _Venue {
                 other.reviewedAt == reviewedAt) &&
             (identical(other.paymentId, paymentId) ||
                 other.paymentId == paymentId) &&
+            (identical(other.subscriptionRenewsAt, subscriptionRenewsAt) ||
+                other.subscriptionRenewsAt == subscriptionRenewsAt) &&
             (identical(other.revisionDeadline, revisionDeadline) ||
                 other.revisionDeadline == revisionDeadline) &&
             (identical(other.verified, verified) ||
@@ -941,6 +987,7 @@ class _$VenueImpl extends _Venue {
     reviewedBy,
     reviewedAt,
     paymentId,
+    subscriptionRenewsAt,
     revisionDeadline,
     verified,
     likeCount,
@@ -990,6 +1037,7 @@ abstract class _Venue extends Venue {
     final String? reviewedBy,
     @NullableTimestampConverter() final DateTime? reviewedAt,
     final String? paymentId,
+    @NullableTimestampConverter() final DateTime? subscriptionRenewsAt,
     @NullableTimestampConverter() final DateTime? revisionDeadline,
     final bool verified,
     final int likeCount,
@@ -1067,11 +1115,27 @@ abstract class _Venue extends Venue {
   @NullableTimestampConverter()
   DateTime? get reviewedAt;
 
-  /// The `payments/{paymentId}` doc backing this venue's listing fee —
-  /// see `PaymentRecord`/`functions/src/index.ts`'s payment-refund
-  /// state machine. Null on venues created before this field existed.
+  /// The `payments/{paymentId}` doc backing this venue's most recent
+  /// subscription charge — see `PaymentRecord`/`functions/src/
+  /// index.ts`'s payment-refund state machine. Null on venues created
+  /// before this field existed.
   @override
   String? get paymentId;
+
+  /// When the category-based listing fee (see `_venueListingFeeFor`)
+  /// next renews — set at creation to `createdAt + 30 days`, then
+  /// pushed forward another 30 days each cycle by
+  /// `renewVenueSubscriptions` (scheduled Cloud Function,
+  /// functions/src/index.ts), which also writes the corresponding
+  /// `payments/{id}` doc (`type: 'venue_subscription'`) for that
+  /// cycle. Grant-of-trust like [paymentId] — only that Cloud
+  /// Function may move it forward, never the owner's own client write
+  /// (see firestore.rules). Null on venues created before this field
+  /// existed — `renewVenueSubscriptions` treats a null the same as an
+  /// overdue date so those venues enter the cycle on its next run.
+  @override
+  @NullableTimestampConverter()
+  DateTime? get subscriptionRenewsAt;
 
   /// Only set while [status] is 'needs_revision' — the owner has this
   /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled

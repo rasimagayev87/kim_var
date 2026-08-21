@@ -76,6 +76,10 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ id
               <dd className="font-medium">{formatDate(venue.createdAt)}</dd>
             </div>
             <div>
+              <dt className="text-muted-foreground">Növbəti abunə ödənişi</dt>
+              <dd className="font-medium">{formatDate(venue.subscriptionRenewsAt)}</dd>
+            </div>
+            <div>
               <dt className="text-muted-foreground">Venue ID</dt>
               <dd className="font-mono text-xs">{venue.id}</dd>
             </div>

@@ -29,6 +29,9 @@ _$VenueImpl _$$VenueImplFromJson(Map<String, dynamic> json) => _$VenueImpl(
   reviewedBy: json['reviewedBy'] as String?,
   reviewedAt: const NullableTimestampConverter().fromJson(json['reviewedAt']),
   paymentId: json['paymentId'] as String?,
+  subscriptionRenewsAt: const NullableTimestampConverter().fromJson(
+    json['subscriptionRenewsAt'],
+  ),
   revisionDeadline: const NullableTimestampConverter().fromJson(
     json['revisionDeadline'],
   ),
@@ -74,6 +77,9 @@ Map<String, dynamic> _$$VenueImplToJson(
   'reviewedBy': instance.reviewedBy,
   'reviewedAt': const NullableTimestampConverter().toJson(instance.reviewedAt),
   'paymentId': instance.paymentId,
+  'subscriptionRenewsAt': const NullableTimestampConverter().toJson(
+    instance.subscriptionRenewsAt,
+  ),
   'revisionDeadline': const NullableTimestampConverter().toJson(
     instance.revisionDeadline,
   ),

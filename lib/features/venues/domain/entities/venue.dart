@@ -366,10 +366,24 @@ class Venue with _$Venue {
     /// When [reviewedBy] last set [status]. Null until reviewed.
     @NullableTimestampConverter() DateTime? reviewedAt,
 
-    /// The `payments/{paymentId}` doc backing this venue's listing fee —
-    /// see `PaymentRecord`/`functions/src/index.ts`'s payment-refund
-    /// state machine. Null on venues created before this field existed.
+    /// The `payments/{paymentId}` doc backing this venue's most recent
+    /// subscription charge — see `PaymentRecord`/`functions/src/
+    /// index.ts`'s payment-refund state machine. Null on venues created
+    /// before this field existed.
     String? paymentId,
+
+    /// When the category-based listing fee (see `_venueListingFeeFor`)
+    /// next renews — set at creation to `createdAt + 30 days`, then
+    /// pushed forward another 30 days each cycle by
+    /// `renewVenueSubscriptions` (scheduled Cloud Function,
+    /// functions/src/index.ts), which also writes the corresponding
+    /// `payments/{id}` doc (`type: 'venue_subscription'`) for that
+    /// cycle. Grant-of-trust like [paymentId] — only that Cloud
+    /// Function may move it forward, never the owner's own client write
+    /// (see firestore.rules). Null on venues created before this field
+    /// existed — `renewVenueSubscriptions` treats a null the same as an
+    /// overdue date so those venues enter the cycle on its next run.
+    @NullableTimestampConverter() DateTime? subscriptionRenewsAt,
 
     /// Only set while [status] is 'needs_revision' — the owner has this
     /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled

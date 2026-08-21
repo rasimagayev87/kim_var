@@ -27,16 +27,22 @@ class FirebaseVenueRepository implements VenueRepository {
   final VenueRemoteDatasource _datasource;
   final FirebaseFunctions _functions;
 
-  /// Placeholder listing fee — no payment provider (Epoint/Payriff/
-  /// LEOpay) is wired yet, so this is never actually charged. Real
-  /// pricing arrives with that integration; until then this just gives
-  /// the `payments/{paymentId}` doc a plausible `amount` to carry.
+  /// The first cycle's charge is written at creation time (this class's
+  /// `createVenue`); every cycle after that is `renewVenueSubscriptions`
+  /// (scheduled Cloud Function, functions/src/index.ts) — no payment
+  /// provider (Epoint/Payriff/LEOpay) is wired yet, so neither one is
+  /// ever actually charged. Real billing arrives with that integration;
+  /// until then both just give each cycle's `payments/{paymentId}` doc
+  /// a plausible `amount` to carry.
   ///
   /// Official per-category tariff — "Məkanlar üzrə aylıq abunəlik
   /// tarifləri", signed by the company director (R. G. Ağayev),
   /// PeakPin_Mekan_Abunelik_Tarifleri.pdf. Exhaustive (no `_` catch-all
   /// on purpose) so adding a 40th category is a compile error here
-  /// until it's given a real tier, not a silent 5 AZN default.
+  /// until it's given a real tier, not a silent 5 AZN default. Kept in
+  /// sync by hand with the identical table in functions/src/index.ts
+  /// (`venueSubscriptionFeeFor`) — Cloud Functions can't import this
+  /// Dart file, so it's independently declared there, not shared code.
   static double _venueListingFeeFor(VenueCategory category) {
     return switch (category) {
       VenueCategory.restaurant => 30.0,
@@ -113,9 +119,16 @@ class FirebaseVenueRepository implements VenueRepository {
       ownerId: ownerId,
       listingType: 'venue',
       listingId: venueId,
-      type: 'venue_listing',
+      type: 'venue_subscription',
       amount: _venueListingFeeFor(category),
     );
+
+    // First cycle only — `renewVenueSubscriptions` takes over from here,
+    // pushing this forward another 30 days (and writing that cycle's own
+    // `payments` doc) each time it fires. Not `FieldValue.serverTimestamp()`
+    // plus a client-side add: computed from `DateTime.now()` so the 30-day
+    // offset is exact regardless of server-timestamp resolution latency.
+    final subscriptionRenewsAt = DateTime.now().add(const Duration(days: 30));
 
     await _datasource.setVenue(venueId, {
       'ownerId': ownerId,
@@ -130,6 +143,7 @@ class FirebaseVenueRepository implements VenueRepository {
       'openingHours': openingHours.toMap(),
       'status': 'pending',
       'paymentId': paymentId,
+      'subscriptionRenewsAt': Timestamp.fromDate(subscriptionRenewsAt),
       'verified': false,
       'likeCount': 0,
       'rating': 3.0,

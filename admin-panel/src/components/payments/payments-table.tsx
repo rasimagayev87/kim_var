@@ -17,7 +17,11 @@ const ERROR_MESSAGES: Record<string, string> = {
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  venue_listing: "Məkan elanı",
+  // "venue_listing" stays mapped for payments written before the
+  // one-time-fee → recurring-subscription migration — see
+  // `FirebaseVenueRepository.createVenue`'s own doc comment.
+  venue_listing: "Məkan elanı (köhnə)",
+  venue_subscription: "Məkan abunəliyi",
   offer_listing: "Təklif elanı",
 };
 

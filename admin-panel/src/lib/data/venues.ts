@@ -71,6 +71,11 @@ export interface AdminVenueRow {
    * in the Flutter app. Null for venues created before that field
    * existed. */
   paymentId: string | null;
+  /** Next `venue_subscription` billing date — see `Venue
+   * .subscriptionRenewsAt`'s own doc comment. Null for venues created
+   * before this field existed (not yet caught up by
+   * `backfill-venue-subscriptions`). */
+  subscriptionRenewsAt: string | null;
 }
 
 const FETCH_LIMIT = 200;
@@ -125,6 +130,7 @@ async function attachOwners(
     const owner = ownerByUid.get(data.ownerId as string);
     const createdAt = data.createdAt as FirebaseFirestore.Timestamp | undefined;
     const revisionDeadline = data.revisionDeadline as FirebaseFirestore.Timestamp | undefined;
+    const subscriptionRenewsAt = data.subscriptionRenewsAt as FirebaseFirestore.Timestamp | undefined;
     return {
       id: doc.id,
       name: (data.name as string) ?? "",
@@ -140,6 +146,7 @@ async function attachOwners(
       createdAt: createdAt ? createdAt.toDate().toISOString() : null,
       revisionDeadline: revisionDeadline ? revisionDeadline.toDate().toISOString() : null,
       paymentId: (data.paymentId as string) || null,
+      subscriptionRenewsAt: subscriptionRenewsAt ? subscriptionRenewsAt.toDate().toISOString() : null,
     };
   });
 }
