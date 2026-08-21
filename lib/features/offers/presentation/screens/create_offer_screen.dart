@@ -147,7 +147,12 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
     final venueId = widget.preselectedVenueId;
     if (venueId != null) {
       ref.read(venueRepositoryProvider).watchVenue(venueId).first.then((venue) {
-        if (mounted && venue != null) setState(() => _selectedVenue = venue);
+        if (mounted && venue != null) {
+          setState(() {
+            _selectedVenue = venue;
+            _category = venue.category;
+          });
+        }
       });
     }
   }
@@ -185,18 +190,12 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
       builder: (_) => const VenuePickerSheet(),
     );
-    if (venue != null) setState(() => _selectedVenue = venue);
-  }
-
-  Future<void> _pickCategory() async {
-    final selected = await showModalBottomSheet<VenueCategory>(
-      context: context,
-      backgroundColor: ChatLightColors.bg1,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
-      builder: (_) => _OfferCategoryPickerSheet(selected: _category),
-    );
-    if (selected != null) setState(() => _category = selected);
+    if (venue != null) {
+      setState(() {
+        _selectedVenue = venue;
+        _category = venue.category;
+      });
+    }
   }
 
   Future<void> _pickDate({required bool isStart}) async {
@@ -520,7 +519,6 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
                 _CategoryField(
                   category: _category,
                   hasError: _fieldErrors.contains(OfferFieldError.category),
-                  onTap: _pickCategory,
                 ),
                 const SizedBox(height: AppSpacing.xxl),
                 _FieldLabel(loc.offerTypeLabel),
@@ -747,12 +745,14 @@ class _LightTextField extends StatelessWidget {
   }
 }
 
+/// Read-only — an offer's category is always its venue's category (see
+/// [Offer]'s own doc comment), so this just mirrors whatever venue the
+/// owner picked instead of letting them choose a mismatched one.
 class _CategoryField extends StatelessWidget {
   final VenueCategory? category;
   final bool hasError;
-  final VoidCallback onTap;
 
-  const _CategoryField({required this.category, required this.hasError, required this.onTap});
+  const _CategoryField({required this.category, required this.hasError});
 
   @override
   Widget build(BuildContext context) {
@@ -761,38 +761,35 @@ class _CategoryField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(AppRadii.card),
-              border: hasError ? Border.all(color: AppColors.error, width: 1.2) : null,
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 3))],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
-                  child: Icon(
-                    category != null ? venueCategoryIcon(category!) : Icons.category_outlined,
-                    size: 20,
-                    color: AppColors.primary,
-                  ),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppRadii.card),
+            border: hasError ? Border.all(color: AppColors.error, width: 1.2) : null,
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 3))],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+                child: Icon(
+                  category != null ? venueCategoryIcon(category!) : Icons.category_outlined,
+                  size: 20,
+                  color: AppColors.primary,
                 ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    category != null ? venueCategoryLabel(loc, category!) : loc.venueCategoryUnselectedLabel,
-                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
-                  ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Text(
+                  category != null ? venueCategoryLabel(loc, category!) : loc.venueCategoryUnselectedLabel,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
                 ),
-                Icon(Icons.chevron_right, color: ChatLightColors.inkFaint, size: 20),
-              ],
-            ),
+              ),
+              const Icon(Icons.lock_outline_rounded, color: ChatLightColors.inkFaint, size: 18),
+            ],
           ),
         ),
         if (hasError) ...[
@@ -800,126 +797,6 @@ class _CategoryField extends StatelessWidget {
           Text(loc.venueFieldRequiredError, style: const TextStyle(fontSize: 12.5, color: AppColors.error)),
         ],
       ],
-    );
-  }
-}
-
-/// Search + flat filterable category list — same shape as Venues'
-/// `_CategoryPickerSheet`; duplicated rather than shared since that
-/// one is file-private and this is a small, self-contained widget.
-class _OfferCategoryPickerSheet extends StatefulWidget {
-  final VenueCategory? selected;
-
-  const _OfferCategoryPickerSheet({required this.selected});
-
-  @override
-  State<_OfferCategoryPickerSheet> createState() => _OfferCategoryPickerSheetState();
-}
-
-class _OfferCategoryPickerSheetState extends State<_OfferCategoryPickerSheet> {
-  String _query = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
-    final query = _query.trim().toLowerCase();
-    final categories =
-        VenueCategory.values.where((c) => query.isEmpty || venueCategoryLabel(loc, c).toLowerCase().contains(query)).toList();
-
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 14),
-                decoration: BoxDecoration(color: ChatLightColors.inkFaint.withValues(alpha: 0.35), borderRadius: BorderRadius.circular(2)),
-              ),
-            ),
-            Text(loc.offerCategoryFilterTitle, style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink)),
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(AppRadii.input),
-                border: Border.all(color: ChatLightColors.inkFaint.withValues(alpha: 0.18)),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                children: [
-                  Icon(Icons.search, size: 18, color: ChatLightColors.inkSoft),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      onChanged: (v) => setState(() => _query = v),
-                      style: const TextStyle(fontSize: 14.5, color: ChatLightColors.ink),
-                      decoration: InputDecoration(
-                        hintText: loc.venueCategorySearchHint,
-                        hintStyle: TextStyle(color: ChatLightColors.inkFaint, fontSize: 14.5),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        isDense: true,
-                        filled: false,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 11),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 8),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: const EdgeInsets.only(top: 4, bottom: 4),
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final category = categories[index];
-                  final isSelected = category == widget.selected;
-                  return Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: () => Navigator.pop(context, category),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 11),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: isSelected ? AppColors.primary.withValues(alpha: 0.14) : ChatLightColors.cardSurface,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(venueCategoryIcon(category), size: 18, color: isSelected ? AppColors.primary : ChatLightColors.ink),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                venueCategoryLabel(loc, category),
-                                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
-                              ),
-                            ),
-                            if (isSelected) const Icon(Icons.check, size: 18, color: AppColors.primary),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
