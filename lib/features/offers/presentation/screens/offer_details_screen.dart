@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
@@ -253,10 +254,12 @@ class _HeroImage extends ConsumerWidget {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
                   return;
                 }
-                await launchUrl(Uri.parse(result.checkoutUrl), mode: LaunchMode.externalApplication);
                 if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(loc.offerBoostAwaitingPaymentNotice(result.feeAmount.round()))),
+                await presentEpointCheckout(
+                  context,
+                  checkoutUrl: result.checkoutUrl,
+                  paymentId: result.paymentId,
+                  feeAmount: result.feeAmount,
                 );
               },
             );

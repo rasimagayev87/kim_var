@@ -39,6 +39,18 @@ export interface EpointCheckoutResult {
   epointTransaction?: string;
 }
 
+export interface EpointTokenWidgetRequest {
+  publicKey: string;
+  privateKey: string;
+  orderId: string;
+  amount: number;
+  description: string;
+}
+
+export interface EpointTokenWidgetResult {
+  widgetUrl: string;
+}
+
 function signPayload(privateKey: string, jsonData: Record<string, unknown>): { data: string; signature: string } {
   const data = Buffer.from(JSON.stringify(jsonData)).toString("base64");
   const signature = createHash("sha1").update(`${privateKey}${data}${privateKey}`).digest("base64");
@@ -88,4 +100,48 @@ export async function createEpointCheckout(req: EpointCheckoutRequest): Promise<
   }
 
   return { redirectUrl, epointTransaction: body.transaction as string | undefined };
+}
+
+/**
+ * The exact path Epoint's own docs (developer.epoint.az/token-payment/
+ * widget) redact behind a "click to authenticate and reveal" wall —
+ * everything else about this endpoint (request fields, GET-with-
+ * data/signature-as-query-params shape, response shape) is confirmed
+ * from their public sample code, only the literal path is not. This
+ * follows their own `/api/1/{action}` convention (matches `/request`,
+ * `/get-status`, etc.) as the most likely value, but MUST be verified
+ * against the real docs (log into developer.epoint.az) or Epoint
+ * support once real merchant credentials exist, before this is trusted
+ * in production — do not assume this is correct without checking.
+ */
+const EPOINT_TOKEN_WIDGET_PATH = "/token-widget";
+
+/**
+ * Requests an Apple Pay/Google Pay "Token Widget" URL for one order —
+ * the client embeds the returned `widgetUrl` in a WebView, the
+ * customer completes payment inside it, and the result reaches this
+ * app the same way a card checkout's does: Epoint calls `epointWebhook`
+ * with the same order_id/signature. See this file's own doc comment on
+ * `EPOINT_TOKEN_WIDGET_PATH` for the one unconfirmed part of this.
+ */
+export async function createEpointTokenWidget(req: EpointTokenWidgetRequest): Promise<EpointTokenWidgetResult> {
+  const { data, signature } = signPayload(req.privateKey, {
+    public_key: req.publicKey,
+    amount: req.amount.toFixed(2),
+    order_id: req.orderId,
+    description: req.description,
+  });
+
+  const url = new URL(`${EPOINT_BASE_URL}${EPOINT_TOKEN_WIDGET_PATH}`);
+  url.searchParams.set("data", data);
+  url.searchParams.set("signature", signature);
+
+  const response = await fetch(url.toString());
+  const body = (await response.json()) as Record<string, unknown>;
+  const widgetUrl = body.widget_url as string | undefined;
+  if (!response.ok || body.status !== "success" || !widgetUrl) {
+    throw new Error(`Epoint token widget request failed: ${response.status} ${JSON.stringify(body)}`);
+  }
+
+  return { widgetUrl };
 }

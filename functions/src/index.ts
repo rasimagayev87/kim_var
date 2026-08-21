@@ -10,7 +10,7 @@ import { beforeEmailSent } from "firebase-functions/v2/identity";
 import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 import { randomInt } from "crypto";
-import { createEpointCheckout, decodeEpointData, verifyEpointSignature } from "./epoint";
+import { createEpointCheckout, createEpointTokenWidget, decodeEpointData, verifyEpointSignature } from "./epoint";
 import { geohashForLocation } from "geofire-common";
 
 initializeApp();
@@ -2563,6 +2563,7 @@ async function ensurePendingSubscriptionPayment(
   venueId: string,
   ownerId: string,
   category: string,
+  venueName: string,
 ): Promise<{ ref: FirebaseFirestore.DocumentReference; amount: number; isNew: boolean }> {
   const existing = await db
     .collection("payments")
@@ -2587,6 +2588,7 @@ async function ensurePendingSubscriptionPayment(
     listingType: "venue",
     listingId: venueId,
     type: "venue_subscription",
+    description: `Məkan abunəliyi — ${venueName}`,
     amount,
     currency: "AZN",
     status: "pending",
@@ -2638,7 +2640,7 @@ export const renewVenueSubscriptions = onSchedule(
       if (!ownerId) continue;
 
       const venueName = (data.name as string | undefined) ?? "";
-      const { ref: paymentRef, amount, isNew } = await ensurePendingSubscriptionPayment(doc.id, ownerId, category);
+      const { ref: paymentRef, amount, isNew } = await ensurePendingSubscriptionPayment(doc.id, ownerId, category, venueName);
       if (!isNew) continue;
 
       try {
@@ -2695,14 +2697,11 @@ export const retryVenueSubscriptionPayment = onCall(
     const category = venue.category as string | undefined;
     if (!category) throw new HttpsError("failed-precondition", "Məkanın kateqoriyası tapılmadı.");
 
-    const { ref: paymentRef, amount } = await ensurePendingSubscriptionPayment(venueId, uid, category);
-    const checkoutUrl = await startEpointCheckoutForPayment(
-      paymentRef.id,
-      amount,
-      `Məkan abunəliyi — ${(venue.name as string | undefined) ?? ""}`,
-    );
+    const venueName = (venue.name as string | undefined) ?? "";
+    const { ref: paymentRef, amount } = await ensurePendingSubscriptionPayment(venueId, uid, category, venueName);
+    const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, amount, `Məkan abunəliyi — ${venueName}`);
 
-    return { checkoutUrl, feeAmount: amount };
+    return { checkoutUrl, feeAmount: amount, paymentId: paymentRef.id };
   },
 );
 
@@ -2734,6 +2733,7 @@ export const createBoostCheckout = onCall(
     if (offer.ownerId !== uid) throw new HttpsError("permission-denied", "Bu təklifin sahibi deyilsiniz.");
 
     const amount = BOOST_FEE_BY_HOURS[hours];
+    const description = `Təklifi önə çək — ${hours} saat`;
     const paymentRef = db.collection("payments").doc();
     await paymentRef.set({
       ownerId: uid,
@@ -2741,6 +2741,7 @@ export const createBoostCheckout = onCall(
       listingId: offerId,
       type: "boost_fee",
       boostHours: hours,
+      description,
       amount,
       currency: "AZN",
       status: "pending",
@@ -2748,8 +2749,8 @@ export const createBoostCheckout = onCall(
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, amount, `Təklifi önə çək — ${hours} saat`);
-    return { checkoutUrl, feeAmount: amount };
+    const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, amount, description);
+    return { checkoutUrl, feeAmount: amount, paymentId: paymentRef.id };
   },
 );
 
@@ -3582,12 +3583,14 @@ export const submitOffer = onCall(
       return { offerId: offerRef.id, requiresPayment: false };
     }
 
+    const feeDescription = `Təklif yerləşdirmə haqqı — ${title}`;
     const paymentRef = db.collection("payments").doc();
     await paymentRef.set({
       ownerId: uid,
       listingType: "offer",
       listingId: offerRef.id,
       type: "offer_placement_fee",
+      description: feeDescription,
       amount: fee,
       currency: "AZN",
       status: "pending",
@@ -3595,9 +3598,9 @@ export const submitOffer = onCall(
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, fee, `Təklif yerləşdirmə haqqı — ${title}`);
+    const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, fee, feeDescription);
 
-    return { offerId: offerRef.id, requiresPayment: true, checkoutUrl, feeAmount: fee };
+    return { offerId: offerRef.id, requiresPayment: true, checkoutUrl, feeAmount: fee, paymentId: paymentRef.id };
   },
 );
 
@@ -3646,10 +3649,10 @@ export const retryOfferPayment = onCall(
     const checkoutUrl = await startEpointCheckoutForPayment(
       paymentDoc.id,
       amount,
-      `Təklif yerləşdirmə haqqı — ${(offer.title as string | undefined) ?? ""}`,
+      (paymentDoc.data().description as string | undefined) ?? `Təklif yerləşdirmə haqqı — ${(offer.title as string | undefined) ?? ""}`,
     );
 
-    return { checkoutUrl, feeAmount: amount };
+    return { checkoutUrl, feeAmount: amount, paymentId: paymentDoc.id };
   },
 );
 
@@ -3663,45 +3666,29 @@ export const retryOfferPayment = onCall(
  * Epoint, like most gateways, retries on anything but a 200 — can't
  * double-fire the downstream effect.
  */
-export const epointWebhook = onRequest({ region: "us-central1", secrets: [epointPrivateKey] }, async (req, res) => {
-  const body = req.body as Record<string, unknown>;
-  const data = body?.data as string | undefined;
-  const signature = body?.signature as string | undefined;
-  if (!data || !signature) {
-    res.status(400).send("missing data/signature");
-    return;
-  }
-
-  if (!verifyEpointSignature(epointPrivateKey.value(), data, signature)) {
-    logger.error("epointWebhook: signature mismatch");
-    res.status(400).send("invalid signature");
-    return;
-  }
-
-  const decoded = decodeEpointData(data);
-  const orderId = decoded.order_id as string | undefined;
-  const epointStatus = decoded.status as string | undefined;
-  if (!orderId) {
-    res.status(400).send("missing order_id");
-    return;
-  }
-
+/**
+ * The one place that turns a resolved Epoint outcome (success/failure)
+ * into the actual Firestore side effects — shared by `epointWebhook`
+ * (card checkout AND the Apple Pay/Google Pay token widget, which both
+ * resolve through this same webhook) and `submitGooglePayToken`
+ * (native Google Pay's synchronous token-submit response). Per this
+ * task's own "don't build a second webhook path" requirement: no
+ * payment method gets its own copy of this dispatch, only its own way
+ * of arriving at `succeeded`.
+ *
+ * Idempotent — returns `false` (no-op) for a payment that's already
+ * past `pending`, so a retried webhook delivery or a duplicate token
+ * submission can't double-fire the downstream effect.
+ */
+async function applyPaymentOutcome(orderId: string, succeeded: boolean): Promise<boolean> {
   const paymentRef = db.collection("payments").doc(orderId);
   const paymentSnap = await paymentRef.get();
   const payment = paymentSnap.data();
   if (!payment) {
-    logger.error("epointWebhook: unknown payment", { orderId });
-    res.status(404).send("unknown order_id");
-    return;
+    logger.error("applyPaymentOutcome: unknown payment", { orderId });
+    return false;
   }
-
-  if (payment.status !== "pending") {
-    // Already processed — a retried webhook delivery, not an error.
-    res.status(200).send("already processed");
-    return;
-  }
-
-  const succeeded = epointStatus === "success";
+  if (payment.status !== "pending") return false;
 
   await db.runTransaction(async (tx) => {
     // Firestore transactions need every read before any write — the
@@ -3756,5 +3743,143 @@ export const epointWebhook = onRequest({ region: "us-central1", secrets: [epoint
     }
   });
 
-  res.status(200).send("ok");
+  return true;
+}
+
+/**
+ * Epoint's server-to-server callback for every card-based checkout —
+ * the standard redirect flow AND the Apple Pay/Google Pay Token Widget
+ * both resolve through this SAME endpoint (Epoint's widget posts its
+ * result back the identical way a card checkout does), so no separate
+ * webhook was needed for either. Not `onCall`, since Epoint has no
+ * Firebase Auth token to present — trust comes entirely from
+ * `verifyEpointSignature` recomputing the signature with the same
+ * private key Epoint signed with; nothing here is trusted before that
+ * check passes.
+ */
+export const epointWebhook = onRequest({ region: "us-central1", secrets: [epointPrivateKey] }, async (req, res) => {
+  const body = req.body as Record<string, unknown>;
+  const data = body?.data as string | undefined;
+  const signature = body?.signature as string | undefined;
+  if (!data || !signature) {
+    res.status(400).send("missing data/signature");
+    return;
+  }
+
+  if (!verifyEpointSignature(epointPrivateKey.value(), data, signature)) {
+    logger.error("epointWebhook: signature mismatch");
+    res.status(400).send("invalid signature");
+    return;
+  }
+
+  const decoded = decodeEpointData(data);
+  const orderId = decoded.order_id as string | undefined;
+  const epointStatus = decoded.status as string | undefined;
+  if (!orderId) {
+    res.status(400).send("missing order_id");
+    return;
+  }
+
+  const applied = await applyPaymentOutcome(orderId, epointStatus === "success");
+  res.status(200).send(applied ? "ok" : "already processed or unknown order_id");
 });
+
+// ---------------------------------------------------------------------------
+// Apple Pay / Google Pay — one shared entry point per method, reused by every
+// Epoint checkout flow above (offer placement fee, boost, venue subscription)
+// via `paymentId` rather than each flow growing its own copy. Both still
+// resolve through `applyPaymentOutcome`/`epointWebhook` — no second webhook
+// path, per this task's own requirement.
+// ---------------------------------------------------------------------------
+
+/** Loads a `payments/{paymentId}` doc the CALLING user actually owns, or throws. Shared by both methods below. */
+async function loadOwnedPendingPayment(uid: string, paymentId: string): Promise<FirebaseFirestore.DocumentData> {
+  const snap = await db.collection("payments").doc(paymentId).get();
+  const payment = snap.data();
+  if (!payment) throw new HttpsError("not-found", "Ödəniş tapılmadı.");
+  if (payment.ownerId !== uid) throw new HttpsError("permission-denied", "Bu ödənişin sahibi deyilsiniz.");
+  if (payment.status !== "pending") throw new HttpsError("failed-precondition", "Bu ödəniş artıq emal olunub.");
+  return payment;
+}
+
+/**
+ * Apple Pay — the client asks for a Token Widget URL for a payment it
+ * (or `retryOfferPayment`/`retryVenueSubscriptionPayment`/
+ * `createBoostCheckout`) already created, then embeds it in a WKWebView
+ * (see `EpointTokenWidgetView` in the Flutter app). The customer pays
+ * inside that widget; Epoint reports the result to `epointWebhook`
+ * exactly like a card checkout does — this function only ever hands
+ * back a URL, it never itself decides success/failure.
+ */
+export const createApplePayCheckout = onCall(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    const paymentId = request.data?.paymentId as string | undefined;
+    if (!paymentId) throw new HttpsError("invalid-argument", "paymentId tələb olunur.");
+
+    const payment = await loadOwnedPendingPayment(uid, paymentId);
+    const { widgetUrl } = await createEpointTokenWidget({
+      publicKey: epointPublicKey.value(),
+      privateKey: epointPrivateKey.value(),
+      orderId: paymentId,
+      amount: payment.amount as number,
+      description: (payment.description as string | undefined) ?? "PeakPin",
+    });
+
+    return { widgetUrl };
+  },
+);
+
+/**
+ * Google Pay — native mobile integration, per Epoint's own docs
+ * (developer.epoint.az/token-payment/google-pay), is NOT the widget:
+ * the app itself shows Google's native Pay sheet (Flutter `pay`
+ * package) and gets back an encrypted payment token, which this
+ * function forwards to Epoint to actually charge. Resolves
+ * synchronously (unlike the widget/redirect flows, which wait on
+ * `epointWebhook`) — but still finishes through the exact same
+ * `applyPaymentOutcome` dispatch, so nothing downstream needs to know
+ * which payment method was used.
+ *
+ * NOT YET FUNCTIONAL: per Epoint's docs, native Google Pay requires
+ * them to review screenshots of this app's own Google Pay button and
+ * issue a `gatewayMerchantId` before any of this can really charge —
+ * until that arrives (see EPOINT_GOOGLE_PAY_MERCHANT_ID below) this
+ * throws rather than pretending to succeed.
+ */
+const EPOINT_GOOGLE_PAY_MERCHANT_ID = process.env.EPOINT_GOOGLE_PAY_MERCHANT_ID;
+
+export const submitGooglePayToken = onCall(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    if (!EPOINT_GOOGLE_PAY_MERCHANT_ID) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Google Pay hələ aktivləşdirilməyib — Epoint-dən gatewayMerchantId gözlənilir.",
+      );
+    }
+
+    const paymentId = request.data?.paymentId as string | undefined;
+    const googlePayToken = request.data?.googlePayToken as string | undefined;
+    if (!paymentId || !googlePayToken) {
+      throw new HttpsError("invalid-argument", "paymentId və googlePayToken tələb olunur.");
+    }
+
+    await loadOwnedPendingPayment(uid, paymentId);
+
+    // TODO: once EPOINT_GOOGLE_PAY_MERCHANT_ID is real, POST googlePayToken
+    // to whatever endpoint Epoint documents for native Google Pay token
+    // submission (not yet public — confirm with Epoint support alongside
+    // the merchant ID itself), then:
+    //   const succeeded = <that response indicates success>;
+    //   await applyPaymentOutcome(paymentId, succeeded);
+    //   return { succeeded };
+    throw new HttpsError("unimplemented", "Google Pay token submission is not wired up yet.");
+  },
+);

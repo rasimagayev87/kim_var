@@ -122,7 +122,7 @@ abstract class VenueRepository {
   /// subscription cycle — backs the "Ödə" button on `MyVenuesScreen`'s
   /// overdue banner. Throws if the venue isn't actually overdue yet
   /// (see `retryVenueSubscriptionPayment`, functions/src/index.ts).
-  Future<({String checkoutUrl, double feeAmount})> retryVenueSubscriptionPayment(String venueId);
+  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueSubscriptionPayment(String venueId);
 
   /// Standalone write for [Venue.availableSeats] — deliberately NOT
   /// part of [updateVenue]'s full edit flow, since this is meant for

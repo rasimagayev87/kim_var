@@ -142,7 +142,7 @@ class OfferController {
     }
   }
 
-  Future<({String checkoutUrl, double feeAmount})?> retryOfferPayment(String offerId) async {
+  Future<({String checkoutUrl, double feeAmount, String paymentId})?> retryOfferPayment(String offerId) async {
     try {
       return await _ref.read(offerRepositoryProvider).retryOfferPayment(offerId);
     } catch (e, st) {
@@ -250,7 +250,7 @@ class OfferController {
   /// anything itself — `Offer.boostedUntil` only moves once
   /// `epointWebhook` confirms the charge, so there's nothing to
   /// invalidate here the way the old direct-write version had to.
-  Future<({String checkoutUrl, double feeAmount})?> createBoostCheckout(String offerId, int hours) async {
+  Future<({String checkoutUrl, double feeAmount, String paymentId})?> createBoostCheckout(String offerId, int hours) async {
     try {
       return await _ref.read(offerRepositoryProvider).createBoostCheckout(offerId, hours);
     } catch (e, st) {

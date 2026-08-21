@@ -652,6 +652,14 @@
   "@offerAwaitingPaymentNotice": {
     "placeholders": { "amount": { "type": "int" } }
   },
+  "epointCheckoutTitle": "Payment method",
+  "epointCheckoutAmountLabel": "Amount: {amount} AZN",
+  "@epointCheckoutAmountLabel": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
+  "epointCardOption": "Pay by card",
+  "epointApplePayOption": "Apple Pay",
+  "epointCheckoutErrorMessage": "Couldn't start payment, please try again shortly.",
   "offerAwaitingPaymentBannerText": "Payment is required to publish this offer.",
   "offerRetryPaymentButton": "Complete payment",
   "offerRetryPaymentErrorMessage": "Couldn't get a payment link, please try again shortly.",

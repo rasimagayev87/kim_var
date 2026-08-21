@@ -12,9 +12,17 @@ typedef OfferWithDistance = ({Offer offer, double distanceMeters});
 /// [requiresPayment] false means the offer was free (founding-venue
 /// quota) and is already `pending`, in normal moderation — nothing
 /// further to do. True means it's `awaiting_payment`, invisible to
-/// everyone until the owner completes [checkoutUrl] and
-/// `epointWebhook` (functions/src/index.ts) confirms the charge.
-typedef SubmitOfferResult = ({String offerId, bool requiresPayment, String? checkoutUrl, double? feeAmount});
+/// everyone until the owner completes checkout ([paymentId] identifies
+/// which `payments` doc — pass it, along with [checkoutUrl]/[feeAmount],
+/// to `presentEpointCheckout` (lib/core/payments/epoint_checkout.dart))
+/// and `epointWebhook` (functions/src/index.ts) confirms the charge.
+typedef SubmitOfferResult = ({
+  String offerId,
+  bool requiresPayment,
+  String? checkoutUrl,
+  double? feeAmount,
+  String? paymentId,
+});
 
 abstract class OfferRepository {
   /// `venueName`/`venuePhotoUrl`/`lat`/`lng`/`address`/`category` are
@@ -49,7 +57,7 @@ abstract class OfferRepository {
   /// Epoint attempt failed or was abandoned — same `payments` doc, a
   /// fresh checkout URL. Throws if the offer isn't actually awaiting
   /// payment (already paid, or never needed to be).
-  Future<({String checkoutUrl, double feeAmount})> retryOfferPayment(String offerId);
+  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryOfferPayment(String offerId);
 
   Future<void> updateOffer({
     required String offerId,
@@ -112,7 +120,7 @@ abstract class OfferRepository {
   /// çək" tiers — `Offer.boostedUntil` is set only by `epointWebhook`
   /// (functions/src/index.ts) once the charge is confirmed, never
   /// directly from here (see firestore.rules' offers update rule).
-  Future<({String checkoutUrl, double feeAmount})> createBoostCheckout(String offerId, int hours);
+  Future<({String checkoutUrl, double feeAmount, String paymentId})> createBoostCheckout(String offerId, int hours);
 
   /// Backs the `birthday_match` push's deep link
   /// (`notification_navigation.dart`) — reads the venue + matched uids

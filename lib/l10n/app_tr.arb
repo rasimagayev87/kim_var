@@ -587,6 +587,14 @@
   "@offerAwaitingPaymentNotice": {
     "placeholders": { "amount": { "type": "int" } }
   },
+  "epointCheckoutTitle": "Ödeme yöntemi",
+  "epointCheckoutAmountLabel": "Tutar: {amount} AZN",
+  "@epointCheckoutAmountLabel": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
+  "epointCardOption": "Kartla öde",
+  "epointApplePayOption": "Apple Pay",
+  "epointCheckoutErrorMessage": "Ödeme başlatılamadı, lütfen kısa süre sonra tekrar deneyin.",
   "offerAwaitingPaymentBannerText": "Bu teklifin yayınlanması için ödeme gerekiyor.",
   "offerRetryPaymentButton": "Ödemeyi tamamla",
   "offerRetryPaymentErrorMessage": "Ödeme linki alınamadı, lütfen kısa süre sonra tekrar deneyin.",

@@ -5,8 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -404,16 +404,15 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
 
     if (result.requiresPayment) {
       final checkoutUrl = result.checkoutUrl;
-      if (checkoutUrl != null) {
-        await launchUrl(Uri.parse(checkoutUrl), mode: LaunchMode.externalApplication);
+      final paymentId = result.paymentId;
+      if (checkoutUrl != null && paymentId != null) {
+        await presentEpointCheckout(context, checkoutUrl: checkoutUrl, paymentId: paymentId, feeAmount: result.feeAmount ?? 0);
       }
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.offerAwaitingPaymentNotice((result.feeAmount ?? 0).round()))),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerCreatedNotice)));
+      Navigator.pop(context);
+      return;
     }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerCreatedNotice)));
     Navigator.pop(context);
   }
 

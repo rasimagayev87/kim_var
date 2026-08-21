@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
@@ -595,7 +595,7 @@ class _SubscriptionOverdueBannerState extends ConsumerState<_SubscriptionOverdue
     try {
       final result = await ref.read(venueRepositoryProvider).retryVenueSubscriptionPayment(widget.venueId);
       if (!mounted) return;
-      await launchUrl(Uri.parse(result.checkoutUrl), mode: LaunchMode.externalApplication);
+      await presentEpointCheckout(context, checkoutUrl: result.checkoutUrl, paymentId: result.paymentId, feeAmount: result.feeAmount);
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.venueSubscriptionRetryErrorMessage)));

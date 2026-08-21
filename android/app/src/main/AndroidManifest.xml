@@ -25,6 +25,12 @@
              Secret" -> Branch Key. Do NOT put the Branch Secret here
              or anywhere client-side — it's server-only. -->
         <meta-data android:name="io.branch.sdk.BranchKey" android:value="key_live_gvCTsTZgmBWo3ILjha8wuacaqFfXTcrJ"/>
+        <!-- Required by the `pay` package for Google Pay (Boost/subscription/
+             offer-fee checkout, see lib/core/payments/) — declares the app as
+             a Google Pay API user. Still gated on Epoint approving the
+             merchant account before it can actually charge anything (see
+             assets/payments/google_pay_config.json's own comment). -->
+        <meta-data android:name="com.google.android.gms.wallet.api.enabled" android:value="true"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

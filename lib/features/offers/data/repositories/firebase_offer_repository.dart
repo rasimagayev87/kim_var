@@ -73,14 +73,19 @@ class FirebaseOfferRepository implements OfferRepository {
       requiresPayment: data['requiresPayment'] as bool,
       checkoutUrl: data['checkoutUrl'] as String?,
       feeAmount: (data['feeAmount'] as num?)?.toDouble(),
+      paymentId: data['paymentId'] as String?,
     );
   }
 
   @override
-  Future<({String checkoutUrl, double feeAmount})> retryOfferPayment(String offerId) async {
+  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryOfferPayment(String offerId) async {
     final result = await _functions.httpsCallable('retryOfferPayment').call<Map<String, dynamic>>({'offerId': offerId});
     final data = result.data;
-    return (checkoutUrl: data['checkoutUrl'] as String, feeAmount: (data['feeAmount'] as num).toDouble());
+    return (
+      checkoutUrl: data['checkoutUrl'] as String,
+      feeAmount: (data['feeAmount'] as num).toDouble(),
+      paymentId: data['paymentId'] as String,
+    );
   }
 
   @override
@@ -211,13 +216,17 @@ class FirebaseOfferRepository implements OfferRepository {
   }
 
   @override
-  Future<({String checkoutUrl, double feeAmount})> createBoostCheckout(String offerId, int hours) async {
+  Future<({String checkoutUrl, double feeAmount, String paymentId})> createBoostCheckout(String offerId, int hours) async {
     final result = await _functions.httpsCallable('createBoostCheckout').call<Map<String, dynamic>>({
       'offerId': offerId,
       'hours': hours,
     });
     final data = result.data;
-    return (checkoutUrl: data['checkoutUrl'] as String, feeAmount: (data['feeAmount'] as num).toDouble());
+    return (
+      checkoutUrl: data['checkoutUrl'] as String,
+      feeAmount: (data['feeAmount'] as num).toDouble(),
+      paymentId: data['paymentId'] as String,
+    );
   }
 
   @override
