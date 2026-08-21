@@ -6,6 +6,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
 import '../../../venues/domain/entities/venue.dart';
+import '../../../venues/presentation/providers/venue_providers.dart';
 import '../../domain/entities/waitlist_entry.dart';
 import '../providers/waitlist_providers.dart';
 
@@ -88,6 +89,16 @@ class _EnabledToggleRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final eligibleCategories = ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
+    // [venue] is a snapshot passed once at navigation time (from
+    // `MyVenuesScreen`'s 3-dot menu) — it never updates on its own, so
+    // reading `venue.waitlistEnabled` directly made the Switch snap
+    // back to the stale value on the very next rebuild this screen
+    // triggers (e.g. `venueWaitingListProvider`'s stream re-emitting),
+    // even though `setEnabled` below had already written the new value
+    // to Firestore. Watching the live doc keeps the Switch in sync with
+    // what was actually just written, same fix shape as any other
+    // "toggle a field, then watch it snap back" bug in this codebase.
+    final liveVenue = ref.watch(venueByIdProvider(venue.id)).valueOrNull ?? venue;
     // Reachable for a venue with existing entries even after its
     // category stops being eligible (see MyVenuesScreen's menu-item
     // gate) — but the toggle itself stays off and non-interactive in
@@ -95,7 +106,7 @@ class _EnabledToggleRow extends ConsumerWidget {
     // an ineligible category. `disableVenueTooOldCategory` (Cloud
     // Function) has already forced it false server-side by the time
     // anyone could see this.
-    final canToggle = eligibleCategories.contains(venue.category);
+    final canToggle = eligibleCategories.contains(liveVenue.category);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -109,7 +120,7 @@ class _EnabledToggleRow extends ConsumerWidget {
             ),
           ),
           Switch(
-            value: venue.waitlistEnabled,
+            value: liveVenue.waitlistEnabled,
             activeThumbColor: AppColors.primary,
             onChanged: canToggle ? (value) => ref.read(waitlistControllerProvider).setEnabled(venueId: venue.id, enabled: value) : null,
           ),
