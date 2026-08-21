@@ -13,7 +13,21 @@ export interface ActionResult {
 }
 
 export type BroadcastSegment = "all" | "vip" | "verified";
-export type BroadcastType = "announcement" | "promotion";
+export type BroadcastType = "announcement" | "promotion" | "system";
+
+/** Mirrors `notifyUser`'s own `prefs[category] === false` gate in
+ * functions/src/index.ts — a broadcast is admin-authored, not
+ * per-recipient, so there's no single Cloud Function call site to
+ * inherit that gate from; `sendBroadcast` re-implements it here
+ * instead of silently ignoring `NotificationPreferences.marketing`/
+ * `systemNotifications` (both real, user-facing toggles in Settings —
+ * see `notification_preferences.dart`), which would otherwise be dead
+ * switches for every broadcast specifically. */
+const PREFERENCE_KEY_BY_TYPE: Record<BroadcastType, string> = {
+  promotion: "marketing",
+  announcement: "systemNotifications",
+  system: "systemNotifications",
+};
 
 async function requireBroadcastPermission(): Promise<{ admin: AdminSession } | { denied: ActionResult }> {
   const admin = await getCurrentAdmin();
@@ -75,8 +89,14 @@ export async function sendBroadcast({
     if (segment === "vip") query = query.where("premium", "==", true);
     if (segment === "verified") query = query.where("identityVerified", "==", true);
 
-    const snap = await query.select().get();
+    const snap = await query.select("notificationPreferences").get();
     if (snap.empty) {
+      return { ok: false, error: "empty-audience" };
+    }
+
+    const prefKey = PREFERENCE_KEY_BY_TYPE[type];
+    const targetDocs = snap.docs.filter((doc) => doc.data().notificationPreferences?.[prefKey] !== false);
+    if (targetDocs.length === 0) {
       return { ok: false, error: "empty-audience" };
     }
 
@@ -91,7 +111,7 @@ export async function sendBroadcast({
       return error.failedAttempts < 3;
     });
 
-    for (const doc of snap.docs) {
+    for (const doc of targetDocs) {
       const notificationRef = doc.ref.collection("notifications").doc();
       writer.create(notificationRef, {
         type,
@@ -104,7 +124,7 @@ export async function sendBroadcast({
 
     await writer.close();
 
-    const sentCount = snap.size - failureCount;
+    const sentCount = targetDocs.length - failureCount;
 
     await logModerationAction({
       actor: check.admin,

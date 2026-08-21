@@ -97,6 +97,7 @@ export function BroadcastForm() {
               <SelectContent>
                 <SelectItem value="announcement">Elan (announcement)</SelectItem>
                 <SelectItem value="promotion">Təklif (promotion)</SelectItem>
+                <SelectItem value="system">Sistem mesajı (system)</SelectItem>
               </SelectContent>
             </Select>
           </div>

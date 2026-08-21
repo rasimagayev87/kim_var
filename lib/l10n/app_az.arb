@@ -1114,6 +1114,7 @@
   "notifBirthdayMatchBody": "Bugün yaxınlığınızda {count} PeakPin istifadəçisinin doğum günüdür. Onlara xüsusi təklif yarat!",
   "notifReplyCommentBodyGeneric": "Şərhinizə cavab yazdı",
   "notifCommentPostBodyGeneric": "Paylaşımına şərh yazdı",
+  "notifMentionBodyGeneric": "Sizi bir paylaşımda etiketlədi",
   "notifVenueAddedTitle": "Məkanınız əlavə edildi",
   "notifVenueAddedBody": "\"{venueName}\" uğurla yaradıldı.",
   "notifVenueAddedBodyGeneric": "Məkanınız uğurla yaradıldı.",

@@ -210,7 +210,6 @@ class _GlassHeader extends StatelessWidget {
 }
 
 const Map<NotificationType, IconData> _notificationIcons = {
-  NotificationType.follow: Icons.person_add_alt_1,
   NotificationType.newFollower: Icons.person_add_alt_1,
   NotificationType.followRequest: Icons.person_add_alt,
   NotificationType.followAccepted: Icons.how_to_reg_outlined,

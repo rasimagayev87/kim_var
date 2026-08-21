@@ -1228,6 +1228,7 @@
   "notifBirthdayMatchBody": "It's the birthday of {count} PeakPin users near you today. Create a special offer for them!",
   "notifReplyCommentBodyGeneric": "Replied to your comment",
   "notifCommentPostBodyGeneric": "Commented on your post",
+  "notifMentionBodyGeneric": "Tagged you in a post",
   "notifVenueAddedTitle": "Your venue was added",
   "notifVenueAddedBody": "\"{venueName}\" was created successfully.",
   "notifVenueAddedBodyGeneric": "Your venue was created successfully.",

@@ -1148,6 +1148,80 @@ export const computeBirthdayMatches = onSchedule(
   },
 );
 
+/** Same charset the register screen enforces (`_usernamePattern` in
+ * onboarding_screen.dart: `[a-zA-Z0-9._]{3,20}`) — matching anything
+ * wider would just pick up false positives (emails, decorative
+ * "@@@"s) that could never resolve to a real handle anyway. */
+const MENTION_PATTERN = /@([a-zA-Z0-9._]{3,20})/g;
+
+function extractMentionedUsernames(text: string): string[] {
+  const usernames = new Set<string>();
+  for (const match of text.matchAll(MENTION_PATTERN)) {
+    // `usernames/{usernameId}` doc ids are always lowercased (see that
+    // collection's own firestore.rules doc comment) — a mention is
+    // case-insensitive against whatever case the handle owner
+    // actually registered with.
+    usernames.add(match[1].toLowerCase());
+  }
+  return Array.from(usernames);
+}
+
+/**
+ * Resolves @-mentions in [text] (a post caption or comment) to uids —
+ * via the public `usernames/{usernameId}` lookup collection, the same
+ * one the register screen's availability check and login use — and
+ * sends each a [mention] notification. Shared by `onPostCreated`
+ * (caption) and `onPostCommentCreated` (comment text) below. Silently
+ * skips a token that doesn't resolve to any account (typo, or
+ * genuinely no such handle) and never notifies the author about
+ * mentioning themselves.
+ */
+async function notifyMentionedUsers(params: { text: string; authorId: string; postId: string }): Promise<void> {
+  const usernames = extractMentionedUsernames(params.text);
+  if (usernames.length === 0) return;
+
+  const resolvedSnaps = await Promise.all(usernames.map((u) => db.collection("usernames").doc(u).get()));
+  const mentionedUids = new Set<string>();
+  for (const snap of resolvedSnaps) {
+    const uid = snap.data()?.uid as string | undefined;
+    if (uid && uid !== params.authorId) mentionedUids.add(uid);
+  }
+  if (mentionedUids.size === 0) return;
+
+  const author = await getUserDisplayInfo(params.authorId);
+  const preview = params.text.length > 80 ? `${params.text.slice(0, 80)}…` : params.text;
+
+  await Promise.all(
+    Array.from(mentionedUids).map((uid) =>
+      notifyUser({
+        uid,
+        category: "comments",
+        type: "mention",
+        title: author.name,
+        body: preview || "Sizi bir paylaşımda etiketlədi",
+        params: { preview },
+        senderId: params.authorId,
+        senderName: author.name,
+        senderPhoto: author.photoUrl,
+        targetId: params.postId,
+        targetType: "post",
+      }),
+    ),
+  );
+}
+
+/** Confirms to nobody, notifies only whoever the caption @-mentions —
+ * the post owner obviously already knows they posted. */
+export const onPostCreated = onDocumentCreated("posts/{postId}", async (event) => {
+  const post = event.data?.data();
+  if (!post) return;
+  const authorId = post.userId as string | undefined;
+  const caption = post.caption as string | undefined;
+  if (!authorId || !caption) return;
+
+  await notifyMentionedUsers({ text: caption, authorId, postId: event.params.postId });
+});
+
 export const onPostCommentCreated = onDocumentCreated("posts/{postId}/comments/{commentId}", async (event) => {
   await bumpPostCounter(event.params.postId, "commentsCount", 1);
 
@@ -1157,8 +1231,12 @@ export const onPostCommentCreated = onDocumentCreated("posts/{postId}/comments/{
   const replyToCommentId = comment.replyToCommentId as string | undefined;
   if (!commenterId) return;
 
-  const commenter = await getUserDisplayInfo(commenterId);
   const commentText = (comment.text as string | undefined) ?? "";
+  if (commentText) {
+    await notifyMentionedUsers({ text: commentText, authorId: commenterId, postId: event.params.postId });
+  }
+
+  const commenter = await getUserDisplayInfo(commenterId);
   const preview = commentText.length > 80 ? `${commentText.slice(0, 80)}…` : commentText;
 
   // A reply notifies the parent comment's author (replyComment); a

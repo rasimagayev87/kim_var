@@ -9,14 +9,8 @@
 /// instead of crashing, so adding a new type server-side never requires
 /// a synchronized app release.
 enum NotificationType {
-  follow,
-
   /// The server's actual type string for an instant follow of a
-  /// `public` account (see `onFollowCreated` in functions/src/index.ts)
-  /// — [follow] above was never produced by anything and doesn't
-  /// match, so a follow notification silently fell through to [other]
-  /// until this was added. [follow] is kept only as the forward-compat
-  /// name, unused by any current producer.
+  /// `public` account (see `onFollowCreated` in functions/src/index.ts).
   newFollower,
 
   /// A follow REQUEST against a `private` account — see "Hesab

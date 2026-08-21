@@ -87,6 +87,13 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: preview.isEmpty ? loc.notifCommentPostBodyGeneric : preview,
       );
 
+    case NotificationType.mention:
+      final preview = str('preview');
+      return LocalizedNotificationText(
+        title: notification.senderName ?? '',
+        body: preview.isEmpty ? loc.notifMentionBodyGeneric : preview,
+      );
+
     case NotificationType.venueAdded:
       final venueName = str('venueName');
       return LocalizedNotificationText(
@@ -269,14 +276,12 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: note.isEmpty ? loc.notifIdentityVerificationRejectedBodyNoNote : loc.notifIdentityVerificationRejectedBodyWithNote(note),
       );
 
-    // Every other type either has no producer at all yet (mention,
-    // system, security, warning — see notification.dart's own doc
-    // comments), is an admin-authored broadcast with its own verbatim
-    // title/body and no params contract (promotion, announcement — see
-    // `sendBroadcast`), or is a forward-compat fallback (other/follow)
-    // — none of these render from a params contract here.
-    case NotificationType.follow:
-    case NotificationType.mention:
+    // `security`/`warning` have no producer at all yet (see
+    // notification.dart's own doc comments); `promotion`/`announcement`
+    // are admin-authored broadcasts with their own verbatim title/body
+    // and no params contract (see `sendBroadcast`); `other` is the
+    // forward-compat fallback — none of these render from a params
+    // contract here.
     case NotificationType.system:
     case NotificationType.security:
     case NotificationType.promotion:

@@ -1114,6 +1114,7 @@
   "notifBirthdayMatchBody": "Сегодня день рождения у {count} пользователей PeakPin рядом с вами. Создайте для них специальное предложение!",
   "notifReplyCommentBodyGeneric": "Ответил(а) на ваш комментарий",
   "notifCommentPostBodyGeneric": "Прокомментировал(а) вашу публикацию",
+  "notifMentionBodyGeneric": "Отметил(а) вас в публикации",
   "notifVenueAddedTitle": "Ваше заведение добавлено",
   "notifVenueAddedBody": "\"{venueName}\" успешно создано.",
   "notifVenueAddedBodyGeneric": "Ваше заведение успешно создано.",
