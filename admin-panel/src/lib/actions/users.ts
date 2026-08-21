@@ -74,6 +74,48 @@ export async function setUserPremium(uid: string, premium: boolean): Promise<Act
   }
 }
 
+/**
+ * Sends a formal moderation warning — a step short of a ban, for a
+ * user whose behavior needs addressing without disabling their
+ * account outright. Writes straight to `users/{uid}/notifications`
+ * (Admin SDK, same as `sendBroadcast`) with structured `metadata`
+ * rather than raw `title`/`body`, so the mobile client's
+ * `notification_localizer.dart` renders it in the recipient's own
+ * app language instead of frozen Azerbaijani text — same contract
+ * `notifyUser` (functions/src/index.ts) uses for every other
+ * server-authored notification. Deliberately NOT gated behind any
+ * `notificationPreferences` toggle (unlike `sendBroadcast`'s
+ * `system`/`promotion`/`announcement`) — a moderation warning isn't
+ * opt-in content, same stance as e.g. `venueRejected`/`pinboxRejected`.
+ */
+export async function sendUserWarning(uid: string, reason: string): Promise<ActionResult> {
+  const check = await requireUserManagement();
+  if ("denied" in check) return check.denied;
+
+  const trimmedReason = reason.trim();
+  if (!trimmedReason) return { ok: false, error: "invalid-input" };
+
+  try {
+    await getAdminDb().collection("users").doc(uid).collection("notifications").add({
+      type: "warning",
+      metadata: { reason: trimmedReason },
+      isRead: false,
+      createdAt: new Date(),
+    });
+    await logModerationAction({
+      actor: check.admin,
+      action: "user.warned",
+      targetType: "user",
+      targetId: uid,
+      note: trimmedReason,
+    });
+    revalidatePath(`/users/${uid}`);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "unknown-error" };
+  }
+}
+
 export async function setUserBanned(uid: string, banned: boolean): Promise<ActionResult> {
   const check = await requireUserManagement();
   if ("denied" in check) return check.denied;

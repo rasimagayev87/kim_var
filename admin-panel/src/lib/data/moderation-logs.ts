@@ -21,6 +21,7 @@ export type ModerationAction =
   | "pinbox.rejected"
   | "user.banned"
   | "user.unbanned"
+  | "user.warned"
   | "user.verified"
   | "user.unverified"
   | "user.vipGranted"

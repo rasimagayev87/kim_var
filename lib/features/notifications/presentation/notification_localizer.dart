@@ -276,16 +276,29 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: note.isEmpty ? loc.notifIdentityVerificationRejectedBodyNoNote : loc.notifIdentityVerificationRejectedBodyWithNote(note),
       );
 
-    // `security`/`warning` have no producer at all yet (see
-    // notification.dart's own doc comments); `promotion`/`announcement`
-    // are admin-authored broadcasts with their own verbatim title/body
-    // and no params contract (see `sendBroadcast`); `other` is the
-    // forward-compat fallback — none of these render from a params
-    // contract here.
-    case NotificationType.system:
     case NotificationType.security:
-    case NotificationType.promotion:
+      if (str('kind') == 'email_changed') {
+        final newEmail = str('newEmail');
+        return LocalizedNotificationText(
+          title: loc.notifSecurityEmailChangedTitle,
+          body: newEmail.isEmpty ? loc.notifSecurityEmailChangedBodyGeneric : loc.notifSecurityEmailChangedBody(newEmail),
+        );
+      }
+      return LocalizedNotificationText(title: loc.notifSecurityNewDeviceTitle, body: loc.notifSecurityNewDeviceBody);
+
     case NotificationType.warning:
+      final reason = str('reason');
+      return LocalizedNotificationText(
+        title: loc.notifWarningTitle,
+        body: reason.isEmpty ? loc.notifWarningBodyGeneric : loc.notifWarningBody(reason),
+      );
+
+    // `promotion`/`announcement`/`system` are admin-authored broadcasts
+    // with their own verbatim title/body and no params contract (see
+    // `sendBroadcast`); `other` is the forward-compat fallback —
+    // neither renders from a params contract here.
+    case NotificationType.system:
+    case NotificationType.promotion:
     case NotificationType.announcement:
     case NotificationType.other:
       return null;

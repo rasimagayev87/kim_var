@@ -134,35 +134,43 @@ enum NotificationType {
   /// 'pinbox'`, deep-links to `PinBoxCheckoutScreen`.
   pinboxNearby,
 
-  /// Reserved for future use, not yet active — no producer anywhere
-  /// today (no generic "system message" concept exists in the product,
-  /// e.g. maintenance notices or policy updates).
-  system,
-
-  /// Reserved for future use, not yet active — no producer anywhere
-  /// today (no security-alert feature exists, e.g. "new device login"
-  /// or "password changed" notices).
-  security,
-
   /// Admin-authored, sent via the admin panel's broadcast tool
   /// (`sendBroadcast` in `admin-panel/src/lib/actions/broadcast.ts`,
   /// `/notifications` page) — targets a segment (all/VIP/verified
   /// users), writes `title`/`body` verbatim (admin-typed, already in
   /// Azerbaijani) with no params contract, unlike every other type
-  /// above. [promotion] and [announcement] are the same mechanism, two
-  /// distinct types only so the admin can label intent (marketing push
-  /// vs a general notice) and so the feed can give them separate
-  /// icons/copy.
+  /// above. [promotion]/[announcement]/[system] are the same
+  /// mechanism, three distinct types only so the admin can label
+  /// intent (marketing push vs. a general notice vs. an official
+  /// system message) and so the feed can give them separate
+  /// icons/copy. Gated behind `NotificationPreferences.marketing` for
+  /// [promotion], `.systemNotifications` for the other two.
+  system,
+
+  /// Two producers, both in functions/src/index.ts: (1)
+  /// `notifyOnNewDeviceSignIn` (Identity Platform Blocking Function) —
+  /// a sign-in whose `userAgent` doesn't match any of the account's
+  /// recent `knownDeviceSignatures`, `params: {kind: 'new_device'}`;
+  /// (2) `onUserUpdated` (Cloud Function) — the account's contact
+  /// `email` field actually changing (not being set for the first
+  /// time), `params: {kind: 'email_changed', newEmail}`.
+  security,
+
+  /// Admin-authored broadcast — see [system]'s doc comment, the same
+  /// `sendBroadcast` mechanism.
   promotion,
 
-  /// Reserved for future use, not yet active — no producer anywhere
-  /// today (no "official warning" moderation action exists in the
-  /// admin panel; a ban/reject is the only account-level moderation
-  /// outcome today).
+  /// Admin-authored, sent via the admin panel's `sendUserWarning`
+  /// (`admin-panel/src/lib/actions/users.ts`, the user detail page's
+  /// "Xəbərdarlıq göndər" button) — a moderation action a step short
+  /// of a ban, `params: {reason}`. Unlike [promotion]/[announcement]/
+  /// [system], NOT gated behind any notification preference — same
+  /// stance as every other moderation-outcome type
+  /// ([venueRejected]/[pinboxRejected]/etc.).
   warning,
 
-  /// Admin-authored broadcast — see [promotion]'s doc comment, the
-  /// same `sendBroadcast` mechanism.
+  /// Admin-authored broadcast — see [system]'s doc comment, the same
+  /// `sendBroadcast` mechanism.
   announcement,
   other,
 }

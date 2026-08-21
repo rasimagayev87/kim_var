@@ -7,10 +7,10 @@ import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { beforeEmailSent } from "firebase-functions/v2/identity";
+import { beforeEmailSent, beforeUserSignedIn } from "firebase-functions/v2/identity";
 import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
-import { randomInt } from "crypto";
+import { createHash, randomInt } from "crypto";
 import { createEpointCheckout, createEpointTokenWidget, decodeEpointData, verifyEpointSignature } from "./epoint";
 import { geohashForLocation } from "geofire-common";
 import { verifyAppleNotification, verifyAppleTransaction, verifyGoogleSubscription } from "./iap";
@@ -647,16 +647,39 @@ export const onUserUpdated = onDocumentUpdated("users/{userId}", async (event) =
   const before = event.data?.before.data();
   const after = event.data?.after.data();
   if (!before || !after) return;
-  if (before.premium === true || after.premium !== true) return;
 
-  await notifyUser({
-    uid: event.params.userId,
-    category: "venueUpdates",
-    type: "vipGranted",
-    title: "VIP statusu aktivləşdi",
-    body: "Siz artıq VIP istifadəçi statusundasınız.",
-    params: {},
-  });
+  if (before.premium !== true && after.premium === true) {
+    await notifyUser({
+      uid: event.params.userId,
+      category: "venueUpdates",
+      type: "vipGranted",
+      title: "VIP statusu aktivləşdi",
+      body: "Siz artıq VIP istifadəçi statusundasınız.",
+      params: {},
+    });
+  }
+
+  // `security` — the app's "email" field is a contact address on
+  // `users/{uid}` (see `FirebaseAccountRepository.updateEmail`), not
+  // the actual Firebase Auth sign-in credential (that's a synthetic,
+  // never-shown address derived from the username, unrelated to this
+  // field — see that repository's own doc comment), so this is a
+  // plain Firestore field watch, not an Auth-level hook. `before.email
+  // !== undefined` excludes setting it for the very first time
+  // (onboarding) — that's not a "change" to alert about, there was
+  // nothing to compare against yet.
+  const beforeEmail = before.email as string | undefined;
+  const afterEmail = after.email as string | undefined;
+  if (beforeEmail !== undefined && afterEmail && beforeEmail !== afterEmail) {
+    await notifyUser({
+      uid: event.params.userId,
+      category: "security",
+      type: "security",
+      title: "E-poçt ünvanı dəyişdirildi",
+      body: `Hesabınızın əlaqə e-poçtu ${afterEmail} ünvanına dəyişdirildi. Bu siz deyilsinizsə, dərhal dəstəklə əlaqə saxlayın.`,
+      params: { kind: "email_changed", newEmail: afterEmail },
+    });
+  }
 });
 
 export const onPostLikeCreated = onDocumentCreated("posts/{postId}/likes/{uid}", async (event) => {
@@ -3226,6 +3249,69 @@ export const enforceEmailLinkRateLimit = beforeEmailSent(
     });
   }
 );
+
+/** How many recent device signatures to remember per account — an
+ * older one just quietly ages out (LRU-ish, most-recent-first) rather
+ * than growing the array forever. */
+const KNOWN_DEVICE_SIGNATURE_LIMIT = 8;
+
+/**
+ * Fires before every sign-in, across every provider/platform — same
+ * "no client-side change needed" Blocking Function pattern as
+ * `enforceEmailLinkRateLimit` above, and (unlike that one) purely
+ * observational: this NEVER throws, so a bug here can never lock
+ * anyone out of their own account — the entire body is wrapped in
+ * try/catch specifically because blocking a sign-in is a far worse
+ * failure mode than silently missing one security alert.
+ *
+ * Keys a "known devices" list on `users/{uid}.knownDeviceSignatures`
+ * off a hash of the sign-in's `userAgent` (Identity Platform provides
+ * this on the event directly — no client-side device-fingerprinting
+ * code needed). A signature not already in that list means: notify
+ * (`security`, `kind: 'new_device'`) and remember it; one that's
+ * already there is an ordinary repeat sign-in from the same
+ * app/OS/browser combination — nothing to say. An account with an
+ * EMPTY list (brand new, or every prior sign-in predates this
+ * function) just silently records its first signature instead of
+ * alerting — there's no earlier device to compare against yet, so a
+ * "new device" notice on someone's very first-ever sign-in would be
+ * meaningless noise, not a security signal.
+ *
+ * Must run in us-central1 — same Identity Platform region restriction
+ * `enforceEmailLinkRateLimit` documents.
+ */
+export const notifyOnNewDeviceSignIn = beforeUserSignedIn({ region: "us-central1" }, async (event) => {
+  try {
+    const uid = event.data?.uid;
+    if (!uid) return;
+
+    const signature = createHash("sha256").update(event.userAgent || "unknown").digest("hex").slice(0, 16);
+
+    const userRef = db.collection("users").doc(uid);
+    const userSnap = await userRef.get();
+    const known = (userSnap.data()?.knownDeviceSignatures as string[] | undefined) ?? [];
+
+    if (known.includes(signature)) return;
+
+    if (known.length > 0) {
+      await notifyUser({
+        uid,
+        category: "security",
+        type: "security",
+        title: "Yeni cihazdan giriş",
+        body: "Hesabınıza tanış olmayan bir cihazdan daxil olundu. Bu siz deyilsinizsə, dərhal dəstəklə əlaqə saxlayın.",
+        params: { kind: "new_device" },
+      });
+    }
+
+    await userRef.set(
+      { knownDeviceSignatures: [signature, ...known.filter((s) => s !== signature)].slice(0, KNOWN_DEVICE_SIGNATURE_LIMIT) },
+      { merge: true },
+    );
+  } catch (e) {
+    logger.error("notifyOnNewDeviceSignIn failed", e);
+  }
+});
 
 /**
  * PinBox Faza 7 — the ONLY path that ever creates a `pinboxOrders` doc

@@ -21,6 +21,7 @@ const ACTION_LABELS: Record<string, string> = {
   "pinbox.rejected": "PinBox rədd edildi",
   "user.banned": "İstifadəçi ban edildi",
   "user.unbanned": "Ban aradan qaldırıldı",
+  "user.warned": "İstifadəçiyə xəbərdarlıq göndərildi",
   "user.verified": "İstifadəçi verified edildi",
   "user.unverified": "Verified ləğv edildi",
   "user.vipGranted": "VIP verildi",

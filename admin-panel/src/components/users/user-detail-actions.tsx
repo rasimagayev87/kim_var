@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { setUserBanned, setUserIdentityVerified, setUserPremium } from "@/lib/actions/users";
+import { ModerationNoteDialog } from "@/components/moderation/moderation-note-dialog";
+import { sendUserWarning, setUserBanned, setUserIdentityVerified, setUserPremium } from "@/lib/actions/users";
 import type { AdminUserRow } from "@/lib/data/users";
 
 export function UserDetailActions({ user }: { user: AdminUserRow }) {
@@ -21,6 +22,16 @@ export function UserDetailActions({ user }: { user: AdminUserRow }) {
         toast.error(result.error === "forbidden" ? "Bu əməliyyat üçün icazəniz yoxdur." : "Əməliyyat uğursuz oldu.");
       }
     });
+  }
+
+  async function warn(reason: string): Promise<boolean> {
+    const result = await sendUserWarning(user.uid, reason);
+    if (result.ok) {
+      toast.success("Xəbərdarlıq göndərildi.");
+    } else {
+      toast.error(result.error === "forbidden" ? "Bu əməliyyat üçün icazəniz yoxdur." : "Xəbərdarlıq göndərilmədi.");
+    }
+    return result.ok;
   }
 
   return (
@@ -57,6 +68,17 @@ export function UserDetailActions({ user }: { user: AdminUserRow }) {
           }
         />
       </div>
+
+      <ModerationNoteDialog
+        triggerLabel="Xəbərdarlıq göndər"
+        triggerVariant="outline"
+        disabled={pending}
+        title="İstifadəçiyə xəbərdarlıq göndər"
+        description="Bu, ban deyil — istifadəçi bildiriş kimi görəcək. Səbəbi aydın yazın."
+        noteRequired
+        submitLabel="Göndər"
+        onSubmit={warn}
+      />
 
       <Button
         variant={user.banned ? "outline" : "destructive"}
