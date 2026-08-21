@@ -211,10 +211,13 @@ class FirebaseOfferRepository implements OfferRepository {
   }
 
   @override
-  Future<void> boostOffer(String offerId, Duration duration) async {
-    await _datasource.updateOffer(offerId, {
-      'boostedUntil': Timestamp.fromDate(DateTime.now().add(duration)),
+  Future<({String checkoutUrl, double feeAmount})> createBoostCheckout(String offerId, int hours) async {
+    final result = await _functions.httpsCallable('createBoostCheckout').call<Map<String, dynamic>>({
+      'offerId': offerId,
+      'hours': hours,
     });
+    final data = result.data;
+    return (checkoutUrl: data['checkoutUrl'] as String, feeAmount: (data['feeAmount'] as num).toDouble());
   }
 
   @override

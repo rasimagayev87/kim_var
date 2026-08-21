@@ -10,6 +10,7 @@ import '../../pinbox/presentation/screens/pinbox_checkout_screen.dart';
 import '../../post_share/presentation/screens/post_detail_screen.dart';
 import '../../profile/presentation/providers/profile_providers.dart';
 import '../../profile/presentation/screens/user_profile_screen.dart';
+import '../../venues/presentation/screens/my_venues_screen.dart';
 import '../../venues/presentation/screens/venue_profile_screen.dart';
 import '../domain/entities/notification.dart';
 
@@ -86,5 +87,10 @@ Future<void> openNotificationTarget(BuildContext context, WidgetRef ref, AppNoti
       final pinbox = await ref.read(pinboxByIdProvider(targetId).future);
       if (!context.mounted || pinbox == null) return;
       Navigator.push(context, MaterialPageRoute(builder: (_) => PinBoxCheckoutScreen(pinbox: pinbox)));
+    // Overdue subscription cycle (`renewVenueSubscriptions`) — the
+    // owner's own venue list shows the "Ödə" banner on whichever
+    // venue(s) are actually overdue, no need to single one out here.
+    case 'venue_subscription_due':
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const MyVenuesScreen()));
   }
 }

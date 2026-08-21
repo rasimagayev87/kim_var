@@ -220,28 +220,16 @@ class _HeroImage extends ConsumerWidget {
 
   const _HeroImage({required this.offer, required this.isFavorite, required this.onToggleFavorite});
 
-  /// Owner-only — "Təklifi önə çək". Real, working boost: picking a
-  /// tier writes `Offer.boostedUntil` (see `OfferController.boostOffer`),
-  /// which sorts this offer ahead of non-boosted ones in
-  /// `nearbyOffersProvider` for the picked duration. Unlike venues
-  /// (governed purely by user likes — see `discover_tab.dart`'s
-  /// `_VenueCard`, which deliberately has no owner-only menu here at
-  /// all), a time-boxed paid boost is the actual product decision for
-  /// offers specifically.
-  // Boost is a PAID feature — see the price shown next to each tier
-  // below. `OfferController.boostOffer` (which sets
-  // `Offer.boostedUntil` directly) exists and is fully wired, but it
-  // is DELIBERATELY never called from here right now: no payment
-  // provider (Epoint/Payriff/LEOpay) is connected yet, so there is no
-  // real payment to gate it behind, and setting `boosted=true` for
-  // free would just be giving the paid feature away. Every tap below
-  // shows the "coming soon" message instead.
-  //
-  // TODO: Epoint/Payriff inteqrasiyası tamamlananda bu bloku real
-  // webhook-təsdiqli axınla əvəz et (bax: payments module) — ödəniş
-  // provayderinə yönləndirmə + `payments/{paymentId}` sənədi +
-  // webhook-təsdiqindən sonra `ref.read(offerControllerProvider)
-  // .boostOffer(offer.id, Duration(hours: hours))` çağırışı.
+  /// Owner-only — "Təklifi önə çək". Picking a tier opens an Epoint
+  /// checkout (`OfferController.createBoostCheckout`); `Offer.boostedUntil`
+  /// (which sorts this offer ahead of non-boosted ones in
+  /// `nearbyOffersProvider`) is only ever set by `epointWebhook`
+  /// (functions/src/index.ts) once that charge is confirmed — never
+  /// directly from here, and firestore.rules blocks a direct client
+  /// write to it too. Unlike venues (governed purely by user likes —
+  /// see `discover_tab.dart`'s `_VenueCard`, which deliberately has no
+  /// owner-only menu here at all), a time-boxed paid boost is the
+  /// actual product decision for offers specifically.
   Future<void> _openBoostMenu(BuildContext context, WidgetRef ref) async {
     final loc = AppLocalizations.of(context);
     await showModalBottomSheet<void>(
@@ -250,17 +238,25 @@ class _HeroImage extends ConsumerWidget {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (sheetContext) {
         final sheetLoc = AppLocalizations.of(sheetContext);
-        Widget tier(String label, int priceAzn) => ListTile(
+        Widget tier(String label, int hours, int priceAzn) => ListTile(
               leading: const Icon(Icons.trending_up_rounded, color: ChatLightColors.ink),
               title: Text(label, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
               trailing: Text(
                 sheetLoc.offerBoostPriceSuffix(priceAzn),
                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary),
               ),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(sheetContext);
+                final result = await ref.read(offerControllerProvider).createBoostCheckout(offer.id, hours);
+                if (result == null) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+                  return;
+                }
+                await launchUrl(Uri.parse(result.checkoutUrl), mode: LaunchMode.externalApplication);
+                if (!context.mounted) return;
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text(loc.offerBoostComingSoonMessage)),
+                  SnackBar(content: Text(loc.offerBoostAwaitingPaymentNotice(result.feeAmount.round()))),
                 );
               },
             );
@@ -280,9 +276,9 @@ class _HeroImage extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 4),
-              tier(sheetLoc.offerBoost6h, 2),
-              tier(sheetLoc.offerBoost12h, 4),
-              tier(sheetLoc.offerBoost18h, 6),
+              tier(sheetLoc.offerBoost6h, 6, 2),
+              tier(sheetLoc.offerBoost12h, 12, 4),
+              tier(sheetLoc.offerBoost18h, 18, 6),
               const SizedBox(height: 8),
             ],
           ),

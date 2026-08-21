@@ -569,6 +569,10 @@
     }
   },
   "offerBoostComingSoonMessage": "Ödeme sistemi hazırlanma aşamasındadır, yakında etkinleşecek.",
+  "offerBoostAwaitingPaymentNotice": "Ödeme sayfasına yönlendirildiniz ({amount} AZN). Ödeme onaylanınca teklifiniz öne çıkarılacak.",
+  "@offerBoostAwaitingPaymentNotice": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "offerSubmitButton": "Teklifi oluştur",
   "offerCreatedNotice": "Teklif oluşturuldu",
   "offerPlacementFreeNotice": "Bu teklif ücretsizdir (kalan: {count}/5)",
@@ -840,6 +844,9 @@
   "moderationResubmitError": "Yeniden gönderilemedi. Lütfen birazdan tekrar deneyin.",
   "venueDeletedNotice": "Mekan silindi",
   "venueSentForReReviewNotice": "Değişiklikler kaydedildi, mekan yeniden admin onayını bekliyor",
+  "venueSubscriptionOverdueBannerText": "Bu mekanın abonelik ödemesi gecikti.",
+  "venueSubscriptionPayButton": "Öde",
+  "venueSubscriptionRetryErrorMessage": "Ödeme linki alınamadı, lütfen kısa süre sonra tekrar deneyin.",
   "venueOpenNowLabel": "Açık",
   "venueClosedNowLabel": "Kapalı",
   "profileTitle": "Profil",
@@ -1104,6 +1111,15 @@
   "notifVenueVerifiedTitle": "Mekanınız onaylandı",
   "notifVenueVerifiedBody": "\"{venueName}\" artık onaylı bir mekan.",
   "notifVenueVerifiedBodyGeneric": "Mekanınız artık onaylı.",
+  "notifVenueSubscriptionDueTitle": "Mekan abonelik ödemesi gerekiyor",
+  "notifVenueSubscriptionDueBody": "\"{venueName}\" için abonelik ödemesi ({amount} AZN) gerekiyor.",
+  "@notifVenueSubscriptionDueBody": {
+    "placeholders": { "venueName": { "type": "String" }, "amount": { "type": "int" } }
+  },
+  "notifVenueSubscriptionDueBodyGeneric": "Abonelik ödemesi ({amount} AZN) gerekiyor.",
+  "@notifVenueSubscriptionDueBodyGeneric": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "notifVenueApprovedTitle": "Mekanınız onaylandı",
   "notifVenueApprovedBody": "\"{name}\" onaylandı ve artık herkes tarafından görülebilir.",
   "notifOfferApprovedTitle": "Teklifiniz onaylandı",

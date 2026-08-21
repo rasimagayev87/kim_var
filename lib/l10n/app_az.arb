@@ -569,6 +569,10 @@
     }
   },
   "offerBoostComingSoonMessage": "Ödəniş sistemi hazırlanma mərhələsindədir, tezliklə aktivləşəcək.",
+  "offerBoostAwaitingPaymentNotice": "Ödəniş səhifəsinə yönləndirildiniz ({amount} AZN). Ödəniş təsdiqlənən kimi təklifiniz önə çəkiləcək.",
+  "@offerBoostAwaitingPaymentNotice": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "offerSubmitButton": "Təklifi yarat",
   "offerCreatedNotice": "Təklif yaradıldı",
   "offerPlacementFreeNotice": "Bu təklif pulsuzdur (qalıq: {count}/5)",
@@ -834,6 +838,9 @@
   "venueDeleteConfirmMessage": "Bu məkanı silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.",
   "venueDeletedNotice": "Məkan silindi",
   "venueSentForReReviewNotice": "Dəyişikliklər saxlanıldı, məkan yenidən admin təsdiqini gözləyir",
+  "venueSubscriptionOverdueBannerText": "Bu məkanın abunəlik ödənişi gecikib.",
+  "venueSubscriptionPayButton": "Ödə",
+  "venueSubscriptionRetryErrorMessage": "Ödəniş linki alınmadı, bir az sonra yenidən cəhd edin.",
   "moderationStatusPending": "Yoxlanılır",
   "moderationStatusAwaitingPayment": "Ödəniş gözlənilir",
   "moderationStatusNeedsRevision": "Düzəliş tələb olunur",
@@ -1104,6 +1111,15 @@
   "notifVenueVerifiedTitle": "Məkanınız təsdiqləndi",
   "notifVenueVerifiedBody": "\"{venueName}\" artıq təsdiqlənmiş məkandır.",
   "notifVenueVerifiedBodyGeneric": "Məkanınız təsdiqləndi.",
+  "notifVenueSubscriptionDueTitle": "Məkan abunəliyi ödənişi tələb olunur",
+  "notifVenueSubscriptionDueBody": "\"{venueName}\" üçün abunəlik ödənişi ({amount} AZN) tələb olunur.",
+  "@notifVenueSubscriptionDueBody": {
+    "placeholders": { "venueName": { "type": "String" }, "amount": { "type": "int" } }
+  },
+  "notifVenueSubscriptionDueBodyGeneric": "Abunəlik ödənişi ({amount} AZN) tələb olunur.",
+  "@notifVenueSubscriptionDueBodyGeneric": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "notifVenueApprovedTitle": "Məkanınız təsdiqləndi",
   "notifVenueApprovedBody": "\"{name}\" təsdiqləndi və artıq hər kəsə görünür.",
   "notifOfferApprovedTitle": "Təklifiniz təsdiqləndi",

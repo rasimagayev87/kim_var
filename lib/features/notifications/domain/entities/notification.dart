@@ -34,6 +34,13 @@ enum NotificationType {
   venueAdded,
   venueVerified,
 
+  /// A venue's subscription cycle is due and needs a fresh Epoint
+  /// payment — see `renewVenueSubscriptions` (scheduled Cloud
+  /// Function). Owner-only. `targetType: 'venue_subscription_due'`,
+  /// opens `MyVenuesScreen` where the overdue venue shows its own
+  /// "Ödə" banner (`retryVenueSubscriptionPayment`).
+  venueSubscriptionDue,
+
   /// Admin moderation decisions on a venue/offer — see
   /// `moderationStatusNotification` in functions/src/index.ts, which is
   /// the single producer for all 6 of these.

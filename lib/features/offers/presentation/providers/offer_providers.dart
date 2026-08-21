@@ -243,18 +243,19 @@ class OfferController {
     }
   }
 
-  /// "Təklifi önə çək" — the owner-only boost action on Offer Details
+  /// "Təklifi önə çək" — the owner-only boost checkout on Offer Details
   /// (see `_HeroImage` in `offer_details_screen.dart`). No client-side
   /// ownership re-check here; the UI only ever exposes this control to
-  /// `offer.isOwnedBy(currentUid)` in the first place.
-  Future<bool> boostOffer(String offerId, Duration duration) async {
+  /// `offer.isOwnedBy(currentUid)` in the first place. Doesn't set
+  /// anything itself — `Offer.boostedUntil` only moves once
+  /// `epointWebhook` confirms the charge, so there's nothing to
+  /// invalidate here the way the old direct-write version had to.
+  Future<({String checkoutUrl, double feeAmount})?> createBoostCheckout(String offerId, int hours) async {
     try {
-      await _ref.read(offerRepositoryProvider).boostOffer(offerId, duration);
-      _ref.invalidate(nearbyOffersProvider);
-      return true;
+      return await _ref.read(offerRepositoryProvider).createBoostCheckout(offerId, hours);
     } catch (e, st) {
-      logError('offer_providers.boostOffer', e, st);
-      return false;
+      logError('offer_providers.createBoostCheckout', e, st);
+      return null;
     }
   }
 
@@ -313,7 +314,7 @@ List<OfferWithDistance> _withDistanceFrom(List<Offer> offers, Position position)
       .toList();
 }
 
-/// "Təklifi önə çək" (`OfferController.boostOffer`) has one real,
+/// "Təklifi önə çək" (`OfferController.createBoostCheckout`) has one real,
 /// visible effect: while `Offer.isBoosted`, it sorts ahead of every
 /// non-boosted offer, ties broken by distance — same nearest-first
 /// ordering as before this existed. Currently-boosted offers among

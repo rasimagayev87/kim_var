@@ -319,6 +319,15 @@ class FirebaseVenueRepository implements VenueRepository {
   }
 
   @override
+  Future<({String checkoutUrl, double feeAmount})> retryVenueSubscriptionPayment(String venueId) async {
+    final result = await _functions.httpsCallable('retryVenueSubscriptionPayment').call<Map<String, dynamic>>({
+      'venueId': venueId,
+    });
+    final data = result.data;
+    return (checkoutUrl: data['checkoutUrl'] as String, feeAmount: (data['feeAmount'] as num).toDouble());
+  }
+
+  @override
   Future<void> updateAvailableSeats({required String venueId, required int availableSeats}) {
     return _datasource.updateVenue(venueId, {
       'availableSeats': availableSeats,

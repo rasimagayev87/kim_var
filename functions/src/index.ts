@@ -2551,22 +2551,70 @@ const venueSubscriptionFeeByCategory: Record<string, number> = {
 const SUBSCRIPTION_CYCLE_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
+ * Finds this venue's most recent `venue_subscription` payment and
+ * reuses it if it's still `pending` (so a second call — the daily
+ * schedule catching up, or the owner tapping "Ödə" — never double-
+ * invoices the same overdue cycle); otherwise creates a fresh pending
+ * one. Shared by `renewVenueSubscriptions` (which only acts when this
+ * actually creates a new doc) and `retryVenueSubscriptionPayment`
+ * (which always wants a checkout for whatever's pending, new or not).
+ */
+async function ensurePendingSubscriptionPayment(
+  venueId: string,
+  ownerId: string,
+  category: string,
+): Promise<{ ref: FirebaseFirestore.DocumentReference; amount: number; isNew: boolean }> {
+  const existing = await db
+    .collection("payments")
+    .where("listingType", "==", "venue")
+    .where("listingId", "==", venueId)
+    .where("type", "==", "venue_subscription")
+    .orderBy("createdAt", "desc")
+    .limit(1)
+    .get();
+
+  const latest = existing.docs[0];
+  if (latest && latest.data().status === "pending") {
+    return { ref: latest.ref, amount: latest.data().amount as number, isNew: false };
+  }
+
+  const amount = venueSubscriptionFeeByCategory[category];
+  if (amount === undefined) throw new Error(`no subscription fee tier for category ${category}`);
+
+  const ref = db.collection("payments").doc();
+  await ref.set({
+    ownerId,
+    listingType: "venue",
+    listingId: venueId,
+    type: "venue_subscription",
+    amount,
+    currency: "AZN",
+    status: "pending",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return { ref, amount, isNew: true };
+}
+
+/**
  * "Məkanlar üzrə aylıq abunəlik" (see `_venueListingFeeFor`'s own doc
  * comment for the signed tariff PDF this table mirrors) — the recurring
- * half of venue billing. `createVenue` (Flutter client) writes the
- * FIRST cycle's `subscriptionRenewsAt` + `payments` doc at creation
- * time; this scheduled function is every cycle after that. No payment
- * provider is wired yet (see this repo's own established "write
- * straight to `completed`, no real charge" pattern — `listing_payment.
- * dart`, `computeMonthlyPinBoxPayouts`), so this always "succeeds": it
- * exists to produce a real, dated `payments/{id}` history per venue and
- * to advance `subscriptionRenewsAt`, not to enforce non-payment yet.
- * A venue whose category fell out of `venueSubscriptionFeeByCategory`
- * (should never happen — see that table's own doc comment) is skipped
- * and logged rather than charged 0 AZN.
+ * half of venue billing. Used to write straight to `'completed'` with
+ * no real charge (see `listing_payment.dart`/`computeMonthlyPinBoxPayouts`'s
+ * own still-current doc comments for that same stand-in pattern
+ * elsewhere); THIS collection point now requires a real Epoint payment
+ * each cycle, same as `submitOffer`'s fee path — `subscriptionRenewsAt`
+ * only advances once `epointWebhook` confirms the charge, not here.
+ *
+ * Invoices at most once per overdue cycle (via
+ * `ensurePendingSubscriptionPayment`'s `isNew` check) — a venue that
+ * stays unpaid keeps showing the same pending payment/checkout rather
+ * than getting re-invoiced every time this runs. A venue whose category
+ * fell out of `venueSubscriptionFeeByCategory` (should never happen —
+ * see that table's own doc comment) is skipped and logged.
  */
 export const renewVenueSubscriptions = onSchedule(
-  { schedule: "every 24 hours", region: "europe-west1" },
+  { schedule: "every 24 hours", region: "europe-west1", secrets: [epointPublicKey, epointPrivateKey] },
   async () => {
     const now = new Date();
     const snap = await db
@@ -2577,12 +2625,11 @@ export const renewVenueSubscriptions = onSchedule(
 
     if (snap.empty) return;
 
-    let renewed = 0;
+    let invoiced = 0;
     for (const doc of snap.docs) {
       const data = doc.data();
       const category = data.category as string | undefined;
-      const amount = category ? venueSubscriptionFeeByCategory[category] : undefined;
-      if (amount === undefined) {
+      if (!category || venueSubscriptionFeeByCategory[category] === undefined) {
         logger.error("renewVenueSubscriptions: no fee tier for category", { venueId: doc.id, category });
         continue;
       }
@@ -2590,31 +2637,119 @@ export const renewVenueSubscriptions = onSchedule(
       const ownerId = data.ownerId as string | undefined;
       if (!ownerId) continue;
 
-      const prevRenewsAt = (data.subscriptionRenewsAt as Timestamp | undefined)?.toDate() ?? now;
-      const nextRenewsAt = new Date(prevRenewsAt.getTime() + SUBSCRIPTION_CYCLE_MS);
+      const venueName = (data.name as string | undefined) ?? "";
+      const { ref: paymentRef, amount, isNew } = await ensurePendingSubscriptionPayment(doc.id, ownerId, category);
+      if (!isNew) continue;
 
-      const paymentRef = db.collection("payments").doc();
-      await paymentRef.set({
-        ownerId,
-        listingType: "venue",
-        listingId: doc.id,
-        type: "venue_subscription",
-        amount,
-        currency: "AZN",
-        status: "completed",
-        createdAt: FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
+      try {
+        await startEpointCheckoutForPayment(paymentRef.id, amount, `Məkan abunəliyi — ${venueName}`);
+      } catch (e) {
+        logger.error("renewVenueSubscriptions: Epoint checkout failed", { venueId: doc.id, error: e });
+        // Payment doc stays 'pending' regardless — the owner's own
+        // "Ödə" button (retryVenueSubscriptionPayment) tries again.
+      }
 
-      await doc.ref.update({
-        paymentId: paymentRef.id,
-        subscriptionRenewsAt: Timestamp.fromDate(nextRenewsAt),
-        updatedAt: FieldValue.serverTimestamp(),
+      await notifyUser({
+        uid: ownerId,
+        category: "venueUpdates",
+        type: "venueSubscriptionDue",
+        title: "Məkan abunəliyi ödənişi tələb olunur",
+        body: venueName ? `"${venueName}" üçün abunəlik ödənişini tamamlayın.` : "Abunəlik ödənişini tamamlayın.",
+        params: { venueName, amount },
+        targetId: doc.id,
+        targetType: "venue_subscription_due",
       });
-      renewed++;
+      invoiced++;
     }
 
-    if (renewed > 0) logger.info("renewVenueSubscriptions: renewed venue subscriptions", { renewed });
+    if (invoiced > 0) logger.info("renewVenueSubscriptions: invoiced venue subscriptions", { invoiced });
+  },
+);
+
+/**
+ * Owner-initiated "Ödə" button on `MyVenuesScreen`'s overdue banner —
+ * re-opens (or, if the daily schedule hasn't caught up to this venue
+ * yet, creates) a checkout for the current cycle. Requires the venue
+ * to actually BE overdue server-side (not just client-computed) so
+ * this can't be used to prepay/skip ahead of the real due date.
+ */
+export const retryVenueSubscriptionPayment = onCall(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    const venueId = request.data?.venueId as string | undefined;
+    if (!venueId) throw new HttpsError("invalid-argument", "venueId tələb olunur.");
+
+    const venueSnap = await db.collection("venues").doc(venueId).get();
+    const venue = venueSnap.data();
+    if (!venue) throw new HttpsError("not-found", "Məkan tapılmadı.");
+    if (venue.ownerId !== uid) throw new HttpsError("permission-denied", "Bu məkanın sahibi deyilsiniz.");
+
+    const renewsAt = (venue.subscriptionRenewsAt as Timestamp | undefined)?.toDate();
+    if (!renewsAt || renewsAt > new Date()) {
+      throw new HttpsError("failed-precondition", "Bu məkanın abunəlik ödənişi hələ gecikməyib.");
+    }
+
+    const category = venue.category as string | undefined;
+    if (!category) throw new HttpsError("failed-precondition", "Məkanın kateqoriyası tapılmadı.");
+
+    const { ref: paymentRef, amount } = await ensurePendingSubscriptionPayment(venueId, uid, category);
+    const checkoutUrl = await startEpointCheckoutForPayment(
+      paymentRef.id,
+      amount,
+      `Məkan abunəliyi — ${(venue.name as string | undefined) ?? ""}`,
+    );
+
+    return { checkoutUrl, feeAmount: amount };
+  },
+);
+
+/** 6/12/18 saat → 2/4/6 AZN — same tiers as the create form's own tier picker (`offer_details_screen.dart`). */
+const BOOST_FEE_BY_HOURS: Record<number, number> = { 6: 2, 12: 4, 18: 6 };
+
+/**
+ * "Təklifi önə çək" checkout — replaces the old direct client write to
+ * `Offer.boostedUntil` (blocked now in firestore.rules' offers update
+ * rule) with the same pending-payment-then-webhook shape as
+ * `submitOffer`'s fee path. `boostedUntil` is set ONLY by
+ * `epointWebhook` on a confirmed charge, never here.
+ */
+export const createBoostCheckout = onCall(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    const offerId = request.data?.offerId as string | undefined;
+    const hours = request.data?.hours as number | undefined;
+    if (!offerId || hours === undefined || !(hours in BOOST_FEE_BY_HOURS)) {
+      throw new HttpsError("invalid-argument", "Düzgün offerId/hours tələb olunur.");
+    }
+
+    const offerSnap = await db.collection("offers").doc(offerId).get();
+    const offer = offerSnap.data();
+    if (!offer) throw new HttpsError("not-found", "Təklif tapılmadı.");
+    if (offer.ownerId !== uid) throw new HttpsError("permission-denied", "Bu təklifin sahibi deyilsiniz.");
+
+    const amount = BOOST_FEE_BY_HOURS[hours];
+    const paymentRef = db.collection("payments").doc();
+    await paymentRef.set({
+      ownerId: uid,
+      listingType: "offer",
+      listingId: offerId,
+      type: "boost_fee",
+      boostHours: hours,
+      amount,
+      currency: "AZN",
+      status: "pending",
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, amount, `Təklifi önə çək — ${hours} saat`);
+    return { checkoutUrl, feeAmount: amount };
   },
 );
 
@@ -3569,6 +3704,16 @@ export const epointWebhook = onRequest({ region: "us-central1", secrets: [epoint
   const succeeded = epointStatus === "success";
 
   await db.runTransaction(async (tx) => {
+    // Firestore transactions need every read before any write — the
+    // venue_subscription branch needs the venue's current
+    // subscriptionRenewsAt to compute the next cycle, so that read
+    // happens up front regardless of which payment type this is.
+    const venueRef =
+      succeeded && payment.type === "venue_subscription" && payment.listingType === "venue"
+        ? db.collection("venues").doc(payment.listingId as string)
+        : null;
+    const venueSnap = venueRef ? await tx.get(venueRef) : null;
+
     tx.update(paymentRef, {
       status: succeeded ? "completed" : "failed",
       updatedAt: FieldValue.serverTimestamp(),
@@ -3586,6 +3731,28 @@ export const epointWebhook = onRequest({ region: "us-central1", secrets: [epoint
       // On failure the offer just stays `awaiting_payment` —
       // `retryOfferPayment` is the owner's way back in; nothing to
       // undo here since the offer was never made visible.
+    } else if (payment.type === "venue_subscription" && payment.listingType === "venue" && venueRef) {
+      if (succeeded) {
+        const prevRenewsAt = (venueSnap?.data()?.subscriptionRenewsAt as Timestamp | undefined)?.toDate() ?? new Date();
+        const nextRenewsAt = new Date(prevRenewsAt.getTime() + SUBSCRIPTION_CYCLE_MS);
+        tx.update(venueRef, {
+          paymentId: paymentRef.id,
+          subscriptionRenewsAt: Timestamp.fromDate(nextRenewsAt),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+      // On failure subscriptionRenewsAt stays in the past — the venue
+      // simply stays overdue, `retryVenueSubscriptionPayment` is the
+      // owner's way back in. Nothing about the venue's own status/
+      // visibility changes just because a payment attempt failed.
+    } else if (payment.type === "boost_fee" && payment.listingType === "offer") {
+      if (succeeded) {
+        const hours = payment.boostHours as number;
+        tx.update(db.collection("offers").doc(payment.listingId as string), {
+          boostedUntil: Timestamp.fromDate(new Date(Date.now() + hours * 60 * 60 * 1000)),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
     }
   });
 

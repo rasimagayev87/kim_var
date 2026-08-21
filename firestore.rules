@@ -615,11 +615,15 @@ service cloud.firestore {
       // above and `maintainHappyHourActiveFlag`/`refreshHappyHourOfferStatus`
       // in functions/src/index.ts) — a client write here could show a
       // Happy Hour discount as active outside its real window.
+      // `boostedUntil` is the same again — only `epointWebhook` sets it,
+      // and only after a confirmed `boost_fee` charge (`createBoostCheckout`,
+      // functions/src/index.ts); a client write here would be a free,
+      // unpaid boost.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'paymentId', 'revisionDeadline', 'happyHourActive']);
+          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'paymentId', 'revisionDeadline', 'happyHourActive', 'boostedUntil']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }

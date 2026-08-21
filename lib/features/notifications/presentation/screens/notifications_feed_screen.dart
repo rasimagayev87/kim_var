@@ -221,6 +221,7 @@ const Map<NotificationType, IconData> _notificationIcons = {
   NotificationType.venueOffer: Icons.local_offer,
   NotificationType.venueAdded: Icons.storefront,
   NotificationType.venueVerified: Icons.verified,
+  NotificationType.venueSubscriptionDue: Icons.payments_outlined,
   NotificationType.venuePeakHour: Icons.local_fire_department_rounded,
   NotificationType.birthdayMatch: Icons.cake_rounded,
   NotificationType.birthdayOffer: Icons.card_giftcard_rounded,

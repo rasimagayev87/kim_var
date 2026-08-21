@@ -108,12 +108,11 @@ abstract class OfferRepository {
   /// has edited it — mirrors `VenueRepository.resubmitVenue`.
   Future<void> resubmitOffer(String offerId);
 
-  /// Sets `Offer.boostedUntil` to now + [duration] — the owner-only
-  /// "Təklifi önə çək" action on Offer Details. No proximity/ownership
-  /// check here; the caller (`OfferController.boostOffer`) is the only
-  /// client path to this, gated by the UI only showing the boost
-  /// control to `offer.isOwnedBy(currentUid)`.
-  Future<void> boostOffer(String offerId, Duration duration);
+  /// Starts an Epoint checkout for one of the 6/12/18-hour "Təklifi önə
+  /// çək" tiers — `Offer.boostedUntil` is set only by `epointWebhook`
+  /// (functions/src/index.ts) once the charge is confirmed, never
+  /// directly from here (see firestore.rules' offers update rule).
+  Future<({String checkoutUrl, double feeAmount})> createBoostCheckout(String offerId, int hours);
 
   /// Backs the `birthday_match` push's deep link
   /// (`notification_navigation.dart`) — reads the venue + matched uids

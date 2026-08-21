@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -283,6 +284,9 @@ class _MyVenueCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final needsRevision = venue.status == 'needs_revision';
+    final isOverdue = venue.status == 'approved' &&
+        venue.subscriptionRenewsAt != null &&
+        venue.subscriptionRenewsAt!.isBefore(DateTime.now());
 
     return Material(
       color: Colors.white,
@@ -402,6 +406,7 @@ class _MyVenueCard extends ConsumerWidget {
                     ),
                   ),
                 ),
+              if (isOverdue) _SubscriptionOverdueBanner(venueId: venue.id),
             ],
           ),
           Positioned(
@@ -559,6 +564,69 @@ class _NeedsRevisionBanner extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown when [Venue.subscriptionRenewsAt] is in the past — the owner's
+/// way to complete the overdue Epoint checkout `renewVenueSubscriptions`
+/// (scheduled Cloud Function) already created, or to get a fresh one if
+/// that link expired/was abandoned. Same layout/pattern as offers' own
+/// `_AwaitingPaymentBanner`.
+class _SubscriptionOverdueBanner extends ConsumerStatefulWidget {
+  final String venueId;
+
+  const _SubscriptionOverdueBanner({required this.venueId});
+
+  @override
+  ConsumerState<_SubscriptionOverdueBanner> createState() => _SubscriptionOverdueBannerState();
+}
+
+class _SubscriptionOverdueBannerState extends ConsumerState<_SubscriptionOverdueBanner> {
+  bool _loading = false;
+
+  Future<void> _pay() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    final loc = AppLocalizations.of(context);
+
+    try {
+      final result = await ref.read(venueRepositoryProvider).retryVenueSubscriptionPayment(widget.venueId);
+      if (!mounted) return;
+      await launchUrl(Uri.parse(result.checkoutUrl), mode: LaunchMode.externalApplication);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.venueSubscriptionRetryErrorMessage)));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              loc.venueSubscriptionOverdueBannerText,
+              style: const TextStyle(fontSize: 12.5, color: ChatLightColors.ink),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _loading ? null : _pay,
+            child: _loading
+                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                : Text(loc.venueSubscriptionPayButton, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+          ),
         ],
       ),
     );

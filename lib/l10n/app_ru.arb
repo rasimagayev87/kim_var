@@ -569,6 +569,10 @@
     }
   },
   "offerBoostComingSoonMessage": "Платёжная система находится в разработке и скоро станет доступна.",
+  "offerBoostAwaitingPaymentNotice": "Вы перенаправлены на страницу оплаты ({amount} AZN). После подтверждения оплаты предложение будет продвинуто.",
+  "@offerBoostAwaitingPaymentNotice": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "offerSubmitButton": "Создать предложение",
   "offerCreatedNotice": "Предложение создано",
   "offerPlacementFreeNotice": "Это предложение бесплатно (осталось: {count}/5)",
@@ -840,6 +844,9 @@
   "moderationResubmitError": "Не удалось отправить повторно. Попробуйте ещё раз чуть позже.",
   "venueDeletedNotice": "Заведение удалено",
   "venueSentForReReviewNotice": "Изменения сохранены — заведение снова ожидает проверки администратора",
+  "venueSubscriptionOverdueBannerText": "Платёж по подписке этого заведения просрочен.",
+  "venueSubscriptionPayButton": "Оплатить",
+  "venueSubscriptionRetryErrorMessage": "Не удалось получить ссылку на оплату, попробуйте немного позже.",
   "venueOpenNowLabel": "Открыто",
   "venueClosedNowLabel": "Закрыто",
   "profileTitle": "Профиль",
@@ -1104,6 +1111,15 @@
   "notifVenueVerifiedTitle": "Ваше заведение подтверждено",
   "notifVenueVerifiedBody": "\"{venueName}\" теперь подтверждённое заведение.",
   "notifVenueVerifiedBodyGeneric": "Ваше заведение теперь подтверждено.",
+  "notifVenueSubscriptionDueTitle": "Требуется оплата подписки заведения",
+  "notifVenueSubscriptionDueBody": "Требуется оплата подписки ({amount} AZN) для \"{venueName}\".",
+  "@notifVenueSubscriptionDueBody": {
+    "placeholders": { "venueName": { "type": "String" }, "amount": { "type": "int" } }
+  },
+  "notifVenueSubscriptionDueBodyGeneric": "Требуется оплата подписки ({amount} AZN).",
+  "@notifVenueSubscriptionDueBodyGeneric": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "notifVenueApprovedTitle": "Ваше заведение одобрено",
   "notifVenueApprovedBody": "\"{name}\" одобрено и теперь видно всем.",
   "notifOfferApprovedTitle": "Ваше предложение одобрено",

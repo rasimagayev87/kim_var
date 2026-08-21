@@ -101,6 +101,16 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: venueName.isEmpty ? loc.notifVenueVerifiedBodyGeneric : loc.notifVenueVerifiedBody(venueName),
       );
 
+    case NotificationType.venueSubscriptionDue:
+      final venueName = str('venueName');
+      final amount = intVal('amount');
+      return LocalizedNotificationText(
+        title: loc.notifVenueSubscriptionDueTitle,
+        body: venueName.isEmpty
+            ? loc.notifVenueSubscriptionDueBodyGeneric(amount)
+            : loc.notifVenueSubscriptionDueBody(venueName, amount),
+      );
+
     case NotificationType.venueApproved:
       return LocalizedNotificationText(
         title: loc.notifVenueApprovedTitle,

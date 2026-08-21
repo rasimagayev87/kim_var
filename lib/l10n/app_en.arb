@@ -634,6 +634,10 @@
     }
   },
   "offerBoostComingSoonMessage": "The payment system is being set up and will be available soon.",
+  "offerBoostAwaitingPaymentNotice": "You've been redirected to payment ({amount} AZN). Once confirmed, your offer will be boosted.",
+  "@offerBoostAwaitingPaymentNotice": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "offerSubmitButton": "Create offer",
   "offerCreatedNotice": "Offer created",
   "offerPlacementFreeNotice": "This offer is free ({count}/5 remaining)",
@@ -905,6 +909,9 @@
   "moderationResubmitError": "Couldn't resubmit. Please try again in a moment.",
   "venueDeletedNotice": "Venue deleted",
   "venueSentForReReviewNotice": "Changes saved — the venue is awaiting admin review again",
+  "venueSubscriptionOverdueBannerText": "This venue's subscription payment is overdue.",
+  "venueSubscriptionPayButton": "Pay",
+  "venueSubscriptionRetryErrorMessage": "Couldn't get a payment link, please try again shortly.",
   "venueOpenNowLabel": "Open",
   "venueClosedNowLabel": "Closed",
   "profileTitle": "Profile",
@@ -1218,6 +1225,15 @@
   "notifVenueVerifiedTitle": "Your venue is verified",
   "notifVenueVerifiedBody": "\"{venueName}\" is now a verified venue.",
   "notifVenueVerifiedBodyGeneric": "Your venue is now verified.",
+  "notifVenueSubscriptionDueTitle": "Venue subscription payment due",
+  "notifVenueSubscriptionDueBody": "Subscription payment ({amount} AZN) is due for \"{venueName}\".",
+  "@notifVenueSubscriptionDueBody": {
+    "placeholders": { "venueName": { "type": "String" }, "amount": { "type": "int" } }
+  },
+  "notifVenueSubscriptionDueBodyGeneric": "Subscription payment ({amount} AZN) is due.",
+  "@notifVenueSubscriptionDueBodyGeneric": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "notifVenueApprovedTitle": "Your venue was approved",
   "notifVenueApprovedBody": "\"{name}\" was approved and is now visible to everyone.",
   "notifOfferApprovedTitle": "Your offer was approved",
