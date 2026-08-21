@@ -179,6 +179,19 @@ class PinBoxController {
       return false;
     }
   }
+
+  /// Called right after a successful [updatePinBox] on an `active`
+  /// PinBox — mirrors `VenueController.resubmitVenue`'s "best-effort,
+  /// don't fail the whole save" contract.
+  Future<bool> resubmitPinBox(String pinboxId) async {
+    try {
+      await _ref.read(pinboxRepositoryProvider).resubmitPinBox(pinboxId);
+      return true;
+    } catch (e, st) {
+      logError('pinbox_providers.resubmitPinBox', e, st);
+      return false;
+    }
+  }
 }
 
 final pinboxControllerProvider = Provider<PinBoxController>((ref) => PinBoxController(ref));

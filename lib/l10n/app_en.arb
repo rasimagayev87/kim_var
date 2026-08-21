@@ -637,6 +637,7 @@
   "offerSubmitButton": "Create offer",
   "offerCreatedNotice": "Offer created",
   "offerUpdatedNotice": "Offer updated",
+  "offerSentForReReviewNotice": "Changes saved — the offer is awaiting admin review again",
   "offerRequiredFieldsMissing": "Please fill in all the required fields.",
   "offerDatesInvalidError": "The end date must be after the start date.",
   "offerDeleteMenuOption": "Delete offer",
@@ -669,6 +670,7 @@
   "pinboxCreatedNotice": "Box published, awaiting admin approval",
   "pinboxEditTitle": "Edit box",
   "pinboxUpdatedNotice": "Box updated",
+  "pinboxSentForReReviewNotice": "Changes saved — the box is awaiting admin review again",
   "pinboxStockLockedNote": "{remaining}/{total} left — can't be changed after creation",
   "@pinboxStockLockedNote": {
     "placeholders": {
@@ -886,6 +888,7 @@
   "moderationResubmitSuccess": "Resubmitted — back in the review queue.",
   "moderationResubmitError": "Couldn't resubmit. Please try again in a moment.",
   "venueDeletedNotice": "Venue deleted",
+  "venueSentForReReviewNotice": "Changes saved — the venue is awaiting admin review again",
   "venueOpenNowLabel": "Open",
   "venueClosedNowLabel": "Closed",
   "profileTitle": "Profile",

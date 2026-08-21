@@ -572,6 +572,7 @@
   "offerSubmitButton": "Teklifi oluştur",
   "offerCreatedNotice": "Teklif oluşturuldu",
   "offerUpdatedNotice": "Teklif güncellendi",
+  "offerSentForReReviewNotice": "Değişiklikler kaydedildi, teklif yeniden admin onayını bekliyor",
   "offerRequiredFieldsMissing": "Lütfen tüm zorunlu alanları doldurun.",
   "offerDatesInvalidError": "Bitiş tarihi başlangıç tarihinden sonra olmalıdır.",
   "offerDeleteMenuOption": "Teklifi sil",
@@ -604,6 +605,7 @@
   "pinboxCreatedNotice": "Kutu yayınlandı, admin onayı bekleniyor",
   "pinboxEditTitle": "Kutuyu düzenle",
   "pinboxUpdatedNotice": "Kutu güncellendi",
+  "pinboxSentForReReviewNotice": "Değişiklikler kaydedildi, kutu yeniden admin onayını bekliyor",
   "pinboxStockLockedNote": "{remaining}/{total} kaldı — oluşturulduktan sonra değiştirilemez",
   "@pinboxStockLockedNote": {
     "placeholders": {
@@ -821,6 +823,7 @@
   "moderationResubmitSuccess": "Yeniden gönderildi, inceleme sırasında.",
   "moderationResubmitError": "Yeniden gönderilemedi. Lütfen birazdan tekrar deneyin.",
   "venueDeletedNotice": "Mekan silindi",
+  "venueSentForReReviewNotice": "Değişiklikler kaydedildi, mekan yeniden admin onayını bekliyor",
   "venueOpenNowLabel": "Açık",
   "venueClosedNowLabel": "Kapalı",
   "profileTitle": "Profil",

@@ -454,10 +454,12 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
           onUploadTaskReady: (cancel) => _cancelUpload = cancel,
         );
 
-    // Same "editing a needs_revision offer resubmits it automatically"
-    // behavior as CreateVenueScreen._submitEdit — see that method's
-    // comment for the reasoning.
-    if (success && widget.existingOffer?.status == 'needs_revision') {
+    // Same "editing a needs_revision OR already-approved offer
+    // resubmits it automatically" behavior as CreateVenueScreen
+    // ._submitEdit — see `resubmitOffer`'s own doc comment for why an
+    // approved offer is included now too.
+    final wasApproved = widget.existingOffer?.status == 'approved';
+    if (success && (widget.existingOffer?.status == 'needs_revision' || wasApproved)) {
       await ref.read(offerControllerProvider).resubmitOffer(widget.existingOffer!.id);
     }
 
@@ -469,7 +471,8 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
     });
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerUpdatedNotice)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(wasApproved ? loc.offerSentForReReviewNotice : loc.offerUpdatedNotice)));
       Navigator.pop(context);
     }
   }

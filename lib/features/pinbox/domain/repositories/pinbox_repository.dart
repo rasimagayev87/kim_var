@@ -66,6 +66,15 @@ abstract class PinBoxRepository {
   /// removes the Storage photo, since nothing else deletes it).
   Future<void> deletePinBox(String pinboxId);
 
+  /// Called right after a successful [updatePinBox] on an `active`
+  /// PinBox — moves it back to `pending` via the `resubmitPinBox` Cloud
+  /// Function (the only client path there, see firestore.rules) so an
+  /// edited, already-live listing re-enters moderation instead of
+  /// silently publishing whatever the owner just changed it to.
+  /// Mirrors `VenueRepository.resubmitVenue`/`OfferRepository
+  /// .resubmitOffer`.
+  Future<void> resubmitPinBox(String pinboxId);
+
   Stream<PinBox?> watchPinBox(String pinboxId);
 
   /// Every PinBox this uid has published, regardless of status — backs

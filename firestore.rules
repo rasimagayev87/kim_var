@@ -399,7 +399,9 @@ service cloud.firestore {
       // an owner editing their own venue (name/photo/hours/etc.) can
       // never touch its moderation state, including moving it back to
       // 'pending' themselves — that's `resubmitVenue` (Cloud Function,
-      // functions/src/index.ts)'s job, gated on `needs_revision`.
+      // functions/src/index.ts)'s job, gated on `needs_revision` OR
+      // `approved` (editing an already-live venue re-enters moderation
+      // too, so a swapped-in photo/description can't go live unreviewed).
       // `lastPeakNotifiedAt` is the same kind of grant-of-trust field —
       // only `computeVenueAudienceHistory` (scheduled Cloud Function,
       // functions/src/index.ts) sets it, so the owner can't reset their

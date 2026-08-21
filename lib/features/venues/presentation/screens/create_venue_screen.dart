@@ -422,13 +422,17 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
           onUploadTaskReady: (cancel) => _cancelUpload = cancel,
         );
 
-    // A needs_revision venue moves back to pending as a direct
-    // consequence of the owner editing it — no separate "resubmit"
-    // step for them to remember. Best-effort: the field edit above
-    // already succeeded either way, so a resubmit failure here isn't
-    // surfaced as the whole save failing, just silently left for the
-    // next edit (or a manual retry) to move it back to pending.
-    if (success && widget.existingVenue?.status == 'needs_revision') {
+    // A needs_revision OR already-approved venue moves back to pending
+    // as a direct consequence of the owner editing it — no separate
+    // "resubmit" step for them to remember, and no way for an owner to
+    // silently swap in different content on a venue that already
+    // cleared review (see `resubmitVenue`'s own doc comment).
+    // Best-effort: the field edit above already succeeded either way,
+    // so a resubmit failure here isn't surfaced as the whole save
+    // failing, just silently left for the next edit (or a manual
+    // retry) to move it back to pending.
+    final wasLiveBeforeEdit = widget.existingVenue?.status == 'needs_revision' || widget.existingVenue?.status == 'approved';
+    if (success && wasLiveBeforeEdit) {
       await ref
           .read(venueControllerProvider)
           .resubmitVenue(widget.existingVenue!.id);
@@ -441,7 +445,16 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
       _cancelUpload = null;
     });
 
-    if (success) Navigator.pop(context);
+    if (success) {
+      // Only the "was already approved, now back under review" case
+      // gets a notice — needs_revision resubmission and a plain
+      // pending-listing edit both already had no confirmation toast,
+      // and shouldn't gain one just from this change.
+      if (widget.existingVenue?.status == 'approved') {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.venueSentForReReviewNotice)));
+      }
+      Navigator.pop(context);
+    }
   }
 
   @override

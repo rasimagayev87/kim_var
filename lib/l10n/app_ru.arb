@@ -572,6 +572,7 @@
   "offerSubmitButton": "Создать предложение",
   "offerCreatedNotice": "Предложение создано",
   "offerUpdatedNotice": "Предложение обновлено",
+  "offerSentForReReviewNotice": "Изменения сохранены — предложение снова ожидает проверки администратора",
   "offerRequiredFieldsMissing": "Пожалуйста, заполните все обязательные поля.",
   "offerDatesInvalidError": "Дата окончания должна быть позже даты начала.",
   "offerDeleteMenuOption": "Удалить предложение",
@@ -604,6 +605,7 @@
   "pinboxCreatedNotice": "Коробка опубликована, ожидает одобрения администратора",
   "pinboxEditTitle": "Редактировать коробку",
   "pinboxUpdatedNotice": "Коробка обновлена",
+  "pinboxSentForReReviewNotice": "Изменения сохранены — коробка снова ожидает проверки администратора",
   "pinboxStockLockedNote": "Осталось {remaining}/{total} — нельзя изменить после создания",
   "@pinboxStockLockedNote": {
     "placeholders": {
@@ -821,6 +823,7 @@
   "moderationResubmitSuccess": "Отправлено повторно, ожидает проверки.",
   "moderationResubmitError": "Не удалось отправить повторно. Попробуйте ещё раз чуть позже.",
   "venueDeletedNotice": "Заведение удалено",
+  "venueSentForReReviewNotice": "Изменения сохранены — заведение снова ожидает проверки администратора",
   "venueOpenNowLabel": "Открыто",
   "venueClosedNowLabel": "Закрыто",
   "profileTitle": "Профиль",

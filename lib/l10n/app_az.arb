@@ -572,6 +572,7 @@
   "offerSubmitButton": "Təklifi yarat",
   "offerCreatedNotice": "Təklif yaradıldı",
   "offerUpdatedNotice": "Təklif yeniləndi",
+  "offerSentForReReviewNotice": "Dəyişikliklər saxlanıldı, təklif yenidən admin təsdiqini gözləyir",
   "offerRequiredFieldsMissing": "Zəhmət olmasa bütün məcburi sahələri doldurun.",
   "offerDatesInvalidError": "Bitmə tarixi başlanğıcdan sonra olmalıdır.",
   "offerDeleteMenuOption": "Təklifi sil",
@@ -604,6 +605,7 @@
   "pinboxCreatedNotice": "Qutu dərc edildi, admin təsdiqini gözləyir",
   "pinboxEditTitle": "Qutuya düzəliş et",
   "pinboxUpdatedNotice": "Qutu yeniləndi",
+  "pinboxSentForReReviewNotice": "Dəyişikliklər saxlanıldı, qutu yenidən admin təsdiqini gözləyir",
   "pinboxStockLockedNote": "{remaining}/{total} qalıb — yaradıldıqdan sonra dəyişdirilə bilməz",
   "@pinboxStockLockedNote": {
     "placeholders": {
@@ -816,6 +818,7 @@
   "venueDeleteMenuOption": "Məkanı sil",
   "venueDeleteConfirmMessage": "Bu məkanı silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.",
   "venueDeletedNotice": "Məkan silindi",
+  "venueSentForReReviewNotice": "Dəyişikliklər saxlanıldı, məkan yenidən admin təsdiqini gözləyir",
   "moderationStatusPending": "Yoxlanılır",
   "moderationStatusNeedsRevision": "Düzəliş tələb olunur",
   "moderationReviewNotePrefix": "Səbəb",

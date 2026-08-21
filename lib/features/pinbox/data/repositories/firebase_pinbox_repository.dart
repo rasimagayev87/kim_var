@@ -124,6 +124,13 @@ class FirebasePinBoxRepository implements PinBoxRepository {
   }
 
   @override
+  Future<void> resubmitPinBox(String pinboxId) async {
+    await _functions.httpsCallable('resubmitPinBox').call<Map<String, dynamic>>({
+      'pinboxId': pinboxId,
+    });
+  }
+
+  @override
   Stream<PinBox?> watchPinBox(String pinboxId) {
     return _datasource.watchPinBox(pinboxId).map((doc) => doc.exists ? PinBox.fromFirestore(doc.id, doc.data()!) : null);
   }

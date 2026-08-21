@@ -1979,12 +1979,21 @@ function revertRevisionPayment(tx: FirebaseFirestore.Transaction, paymentId: str
 }
 
 /**
- * Owner resubmits a `needs_revision` venue after editing it — the only
- * way `status` can move back to `pending` once reviewed, since
- * firestore.rules blocks the owner from writing `status` directly.
- * Client flow: `updateVenue` (normal field edit, owner-permitted) then
- * this callable. Rejects anything not currently `needs_revision` so a
- * stray call can't un-reject or re-pending an already-approved venue.
+ * Owner resubmits a venue after editing it — the only way `status` can
+ * move back to `pending`, since firestore.rules blocks the owner from
+ * writing `status` directly. Client flow: `updateVenue` (normal field
+ * edit, owner-permitted) then this callable. Two distinct callers:
+ *   - `needs_revision` → the existing "fix what the admin flagged and
+ *     resubmit" flow.
+ *   - `approved` → an owner editing an ALREADY-LIVE venue. Nothing about
+ *     firestore.rules stops an owner from silently swapping in different
+ *     (or inappropriate) photos/text on a venue that already cleared
+ *     review, so every edit of a live venue re-enters the moderation
+ *     queue exactly like a brand-new one — see `CreateVenueScreen
+ *     ._submitEdit`'s call site.
+ * Rejects anything else (`pending`/`rejected`) so a stray call can't
+ * pull a listing still awaiting its first review, or a rejected one,
+ * into 'pending' through this side door.
  */
 export const resubmitVenue = onCall({ region: "us-central1" }, async (request) => {
   const uid = request.auth?.uid;
@@ -1999,7 +2008,9 @@ export const resubmitVenue = onCall({ region: "us-central1" }, async (request) =
     if (!snap.exists) throw new HttpsError("not-found", "Məkan tapılmadı.");
     const data = snap.data()!;
     if (data.ownerId !== uid) throw new HttpsError("permission-denied", "Bu məkanın sahibi deyilsiniz.");
-    if (data.status !== "needs_revision") throw new HttpsError("failed-precondition", "not-needs-revision");
+    if (data.status !== "needs_revision" && data.status !== "approved") {
+      throw new HttpsError("failed-precondition", "not-eligible");
+    }
 
     tx.update(ref, {
       status: "pending",
@@ -2016,7 +2027,8 @@ export const resubmitVenue = onCall({ region: "us-central1" }, async (request) =
   return { ok: true };
 });
 
-/** Offer equivalent of `resubmitVenue` — same contract, same rules. */
+/** Offer equivalent of `resubmitVenue` — same contract (`needs_revision`
+ * OR `approved` → `pending`), same reasoning. */
 export const resubmitOffer = onCall({ region: "us-central1" }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -2030,7 +2042,9 @@ export const resubmitOffer = onCall({ region: "us-central1" }, async (request) =
     if (!snap.exists) throw new HttpsError("not-found", "Təklif tapılmadı.");
     const data = snap.data()!;
     if (data.ownerId !== uid) throw new HttpsError("permission-denied", "Bu təklifin sahibi deyilsiniz.");
-    if (data.status !== "needs_revision") throw new HttpsError("failed-precondition", "not-needs-revision");
+    if (data.status !== "needs_revision" && data.status !== "approved") {
+      throw new HttpsError("failed-precondition", "not-eligible");
+    }
 
     tx.update(ref, {
       status: "pending",
@@ -2041,6 +2055,43 @@ export const resubmitOffer = onCall({ region: "us-central1" }, async (request) =
       updatedAt: FieldValue.serverTimestamp(),
     });
     revertRevisionPayment(tx, data.paymentId as string | undefined);
+  });
+
+  return { ok: true };
+});
+
+/**
+ * PinBox equivalent of `resubmitVenue`/`resubmitOffer` — PinBox never
+ * had a `needs_revision` flow to begin with (see Faza 0's own audit:
+ * no resubmit path existed anywhere for it), so this callable's only
+ * job is the new one: an owner editing an already-`active` PinBox
+ * re-enters moderation, same "no silent content swap on a live
+ * listing" reasoning. No `revisionDeadline`/`paymentId` fields exist
+ * on PinBox (no flat listing fee — see `PinBox`'s own doc comment), so
+ * there's nothing equivalent to `revertRevisionPayment` to call here.
+ */
+export const resubmitPinBox = onCall({ region: "us-central1" }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+  const pinboxId = request.data?.pinboxId as string | undefined;
+  if (!pinboxId) throw new HttpsError("invalid-argument", "pinboxId tələb olunur.");
+
+  const ref = db.collection("pinboxes").doc(pinboxId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) throw new HttpsError("not-found", "PinBox tapılmadı.");
+    const data = snap.data()!;
+    if (data.ownerId !== uid) throw new HttpsError("permission-denied", "Bu qutunun sahibi deyilsiniz.");
+    if (data.status !== "active") throw new HttpsError("failed-precondition", "not-eligible");
+
+    tx.update(ref, {
+      status: "pending",
+      reviewNote: null,
+      reviewedBy: null,
+      reviewedAt: null,
+      updatedAt: FieldValue.serverTimestamp(),
+    });
   });
 
   return { ok: true };

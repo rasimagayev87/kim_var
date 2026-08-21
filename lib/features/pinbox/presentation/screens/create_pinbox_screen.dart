@@ -234,6 +234,15 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
           onUploadTaskReady: (cancel) => _cancelUpload = cancel,
         );
 
+    // An `active` PinBox re-enters moderation on edit, same "no silent
+    // content swap on a live listing" reasoning as venues/offers — see
+    // `resubmitPinBox`'s own doc comment. Best-effort, same contract as
+    // `VenueController.resubmitVenue`.
+    final wasActive = widget.existingPinBox?.status == 'active';
+    if (success && wasActive) {
+      await ref.read(pinboxControllerProvider).resubmitPinBox(widget.existingPinBox!.id);
+    }
+
     if (!mounted) return;
     setState(() {
       _submitting = false;
@@ -242,7 +251,8 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     });
 
     if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.pinboxUpdatedNotice)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(wasActive ? loc.pinboxSentForReReviewNotice : loc.pinboxUpdatedNotice)));
       Navigator.pop(context);
     }
   }
