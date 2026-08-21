@@ -129,7 +129,9 @@ class _OrderCard extends ConsumerWidget {
       data: (pinbox) {
         if (pinbox == null) return const SizedBox.shrink();
         final (statusLabel, statusColor) = switch (order.status) {
+          PinBoxOrderStatus.awaitingPayment => (loc.pinboxOrderStatusAwaitingPayment, AppColors.gold),
           PinBoxOrderStatus.reserved => (loc.pinboxOrderStatusReserved, AppColors.primary),
+          PinBoxOrderStatus.paymentFailed => (loc.pinboxOrderStatusPaymentFailed, AppColors.error),
           PinBoxOrderStatus.completed => (loc.pinboxOrderStatusCompleted, AppColors.gold),
           PinBoxOrderStatus.expired => (loc.pinboxOrderStatusExpired, AppColors.error),
         };

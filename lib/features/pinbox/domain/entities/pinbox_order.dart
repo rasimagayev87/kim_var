@@ -12,17 +12,52 @@ part 'pinbox_order.g.dart';
 /// collection's firestore.rules — `allow write: if false`). Per the
 /// product's explicit "ləğv edilə bilməz" rule, there is no
 /// 'cancelled'/'refunded' status here.
-enum PinBoxOrderStatus { reserved, completed, expired }
+/// [awaitingPayment]/[paymentFailed] bracket the Epoint checkout gate
+/// (see `reservePinBoxOrder`/`applyPaymentOutcome` in
+/// functions/src/index.ts) — stock is already held the moment an order
+/// is created, but it only becomes an actual, redeemable [reserved]
+/// ticket once the webhook confirms the charge; a declined/abandoned
+/// payment moves it to [paymentFailed] instead and gives the held stock
+/// back. Neither is server-default-reachable by name (see the
+/// converter below), so a legacy/malformed doc without those two
+/// statuses still falls back to [reserved] exactly as before.
+enum PinBoxOrderStatus { awaitingPayment, reserved, paymentFailed, completed, expired }
 
 class PinBoxOrderStatusConverter implements JsonConverter<PinBoxOrderStatus, String?> {
   const PinBoxOrderStatusConverter();
 
   @override
-  PinBoxOrderStatus fromJson(String? json) =>
-      PinBoxOrderStatus.values.firstWhere((s) => s.name == json, orElse: () => PinBoxOrderStatus.reserved);
+  PinBoxOrderStatus fromJson(String? json) {
+    switch (json) {
+      case 'awaiting_payment':
+        return PinBoxOrderStatus.awaitingPayment;
+      case 'payment_failed':
+        return PinBoxOrderStatus.paymentFailed;
+      case 'completed':
+        return PinBoxOrderStatus.completed;
+      case 'expired':
+        return PinBoxOrderStatus.expired;
+      case 'reserved':
+      default:
+        return PinBoxOrderStatus.reserved;
+    }
+  }
 
   @override
-  String toJson(PinBoxOrderStatus status) => status.name;
+  String toJson(PinBoxOrderStatus status) {
+    switch (status) {
+      case PinBoxOrderStatus.awaitingPayment:
+        return 'awaiting_payment';
+      case PinBoxOrderStatus.paymentFailed:
+        return 'payment_failed';
+      case PinBoxOrderStatus.reserved:
+        return 'reserved';
+      case PinBoxOrderStatus.completed:
+        return 'completed';
+      case PinBoxOrderStatus.expired:
+        return 'expired';
+    }
+  }
 }
 
 @freezed

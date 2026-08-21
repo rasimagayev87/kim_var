@@ -93,21 +93,53 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
   String? _qrToken;
   DateTime? _qrExpiresAt;
   Duration _countdown = _kQrRefreshInterval;
-  bool _qrLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _refreshQrToken();
-    _refreshTimer = Timer.periodic(_kQrRefreshInterval, (_) => _refreshQrToken());
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => _tickCountdown());
-  }
+  bool _qrLoading = false;
+  bool _pollingActive = false;
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
     _countdownTimer?.cancel();
     super.dispose();
+  }
+
+  /// Order arrives as `awaiting_payment` (Faza B — checkout has to open
+  /// before the webhook can confirm anything), so polling can't just
+  /// start unconditionally on mount the way it used to: a fetch before
+  /// the order is actually [PinBoxOrderStatus.reserved] would fail once,
+  /// permanently cancel the timer, and leave the ticket with no QR even
+  /// after payment succeeds. Instead this is driven by the order stream
+  /// itself (see the `ref.listen(..., fireImmediately: true)` call in
+  /// [build]) — starts the moment [status] first becomes [reserved],
+  /// whether that's on first load or after the webhook flips it live.
+  void _startPollingIfNeeded(PinBoxOrderStatus status) {
+    // `ref.listen(..., fireImmediately: true)` invokes this synchronously
+    // from within `build`, where `setState` would throw — deferring every
+    // state change to the next frame keeps this safe there AND on every
+    // later, genuinely-async call (a harmless one-frame delay).
+    if (status != PinBoxOrderStatus.reserved) {
+      if (!_pollingActive) return;
+      _pollingActive = false;
+      _refreshTimer?.cancel();
+      _countdownTimer?.cancel();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _qrToken = null;
+          _qrLoading = false;
+        });
+      });
+      return;
+    }
+    if (_pollingActive) return;
+    _pollingActive = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() => _qrLoading = true);
+    });
+    _refreshQrToken();
+    _refreshTimer = Timer.periodic(_kQrRefreshInterval, (_) => _refreshQrToken());
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => _tickCountdown());
   }
 
   Future<void> _refreshQrToken() async {
@@ -139,6 +171,20 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final orderAsync = ref.watch(pinboxOrderByIdProvider(widget.orderId));
+
+    // `WidgetRef.listen` (unlike the generator's `Ref.listen`) has no
+    // `fireImmediately` — the `ref.watch` above already delivers the
+    // current value on this build, so that's what covers "already
+    // reserved on first load"; `listen` only needs to catch it moving
+    // there LATER (e.g. the webhook confirming payment while this
+    // screen is open).
+    final currentStatus = orderAsync.valueOrNull?.status;
+    if (currentStatus != null) _startPollingIfNeeded(currentStatus);
+
+    ref.listen<AsyncValue<PinBoxOrder?>>(pinboxOrderByIdProvider(widget.orderId), (previous, next) {
+      final status = next.valueOrNull?.status;
+      if (status != null) _startPollingIfNeeded(status);
+    });
 
     return Scaffold(
       backgroundColor: ChatLightColors.bg1,
@@ -387,7 +433,9 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
+      PinBoxOrderStatus.awaitingPayment => (loc.pinboxOrderStatusAwaitingPayment, AppColors.gold),
       PinBoxOrderStatus.reserved => (loc.pinboxOrderStatusReserved, AppColors.primary),
+      PinBoxOrderStatus.paymentFailed => (loc.pinboxOrderStatusPaymentFailed, AppColors.error),
       PinBoxOrderStatus.completed => (loc.pinboxOrderStatusCompleted, AppColors.gold),
       PinBoxOrderStatus.expired => (loc.pinboxOrderStatusExpired, AppColors.error),
     };

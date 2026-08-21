@@ -691,6 +691,8 @@
   "pinboxTicketAmountPaidLabel": "Оплаченная сумма",
   "pinboxTicketSavingsLabel": "Ваша экономия",
   "pinboxTicketOpenRouteButton": "Проложить маршрут",
+  "pinboxOrderStatusAwaitingPayment": "Ожидается оплата",
+  "pinboxOrderStatusPaymentFailed": "Оплата не прошла",
   "pinboxOrderStatusReserved": "Готово к выдаче",
   "pinboxOrderStatusCompleted": "Выдано",
   "pinboxOrderStatusExpired": "Истёк срок",

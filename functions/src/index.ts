@@ -3152,64 +3152,97 @@ export const enforceEmailLinkRateLimit = beforeEmailSent(
  * corresponding "cancel/refund" callable — a reservation is final the
  * moment this function returns.
  */
-export const reservePinBoxOrder = onCall({ region: "us-central1" }, async (request) => {
-  const uid = request.auth?.uid;
-  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+export const reservePinBoxOrder = onCall(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
 
-  const pinboxId = request.data?.pinboxId as string | undefined;
-  if (!pinboxId) throw new HttpsError("invalid-argument", "pinboxId tələb olunur.");
-  const quantity = (request.data?.quantity as number | undefined) ?? 1;
-  if (!Number.isInteger(quantity) || quantity < 1) {
-    throw new HttpsError("invalid-argument", "quantity müsbət tam ədəd olmalıdır.");
-  }
-
-  const pinboxRef = db.collection("pinboxes").doc(pinboxId);
-  const orderRef = db.collection("pinboxOrders").doc();
-
-  await db.runTransaction(async (tx) => {
-    const snap = await tx.get(pinboxRef);
-    if (!snap.exists) throw new HttpsError("not-found", "PinBox tapılmadı.");
-    const data = snap.data()!;
-
-    if (data.status !== "active") throw new HttpsError("failed-precondition", "not-active");
-
-    // Belt-and-braces against a stale client list: the Flutter
-    // discovery fetches already exclude a box past its own
-    // `pickupWindowEnd` (see `FirebasePinBoxRepository`'s doc comment),
-    // but nothing flips `status` off `active` on a schedule the moment
-    // that happens, so this transaction is the actual enforcement point.
-    const pickupWindowEnd = (data.pickupWindowEnd as Timestamp | undefined)?.toDate();
-    if (!pickupWindowEnd || pickupWindowEnd.getTime() <= Date.now()) {
-      throw new HttpsError("failed-precondition", "pickup-window-ended");
+    const pinboxId = request.data?.pinboxId as string | undefined;
+    if (!pinboxId) throw new HttpsError("invalid-argument", "pinboxId tələb olunur.");
+    const quantity = (request.data?.quantity as number | undefined) ?? 1;
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      throw new HttpsError("invalid-argument", "quantity müsbət tam ədəd olmalıdır.");
     }
 
-    const stockRemaining = (data.stockRemaining as number | undefined) ?? 0;
-    if (stockRemaining < quantity) throw new HttpsError("failed-precondition", "sold-out");
+    const pinboxRef = db.collection("pinboxes").doc(pinboxId);
+    const orderRef = db.collection("pinboxOrders").doc();
 
-    const newRemaining = stockRemaining - quantity;
-    tx.update(pinboxRef, {
-      stockRemaining: newRemaining,
-      ...(newRemaining <= 0 ? { status: "soldOut" } : {}),
+    // Stock is held (decremented) right away, same as before — only the
+    // order's own status changes, sitting in `awaiting_payment` until
+    // the Epoint webhook confirms the charge. This keeps the box's
+    // displayed stock accurate the instant checkout starts, and a
+    // declined/abandoned payment gives the held unit back via
+    // `applyPaymentOutcome`'s failure branch above.
+    const { venueId, pinboxTitle, amount } = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(pinboxRef);
+      if (!snap.exists) throw new HttpsError("not-found", "PinBox tapılmadı.");
+      const data = snap.data()!;
+
+      if (data.status !== "active") throw new HttpsError("failed-precondition", "not-active");
+
+      // Belt-and-braces against a stale client list: the Flutter
+      // discovery fetches already exclude a box past its own
+      // `pickupWindowEnd` (see `FirebasePinBoxRepository`'s doc comment),
+      // but nothing flips `status` off `active` on a schedule the moment
+      // that happens, so this transaction is the actual enforcement point.
+      const pickupWindowEnd = (data.pickupWindowEnd as Timestamp | undefined)?.toDate();
+      if (!pickupWindowEnd || pickupWindowEnd.getTime() <= Date.now()) {
+        throw new HttpsError("failed-precondition", "pickup-window-ended");
+      }
+
+      const stockRemaining = (data.stockRemaining as number | undefined) ?? 0;
+      if (stockRemaining < quantity) throw new HttpsError("failed-precondition", "sold-out");
+
+      const newRemaining = stockRemaining - quantity;
+      tx.update(pinboxRef, {
+        stockRemaining: newRemaining,
+        ...(newRemaining <= 0 ? { status: "soldOut" } : {}),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      const pinboxPrice = (data.pinboxPrice as number | undefined) ?? 0;
+      const orderAmount = pinboxPrice * quantity;
+      tx.set(orderRef, {
+        pinboxId,
+        venueId: data.venueId,
+        buyerId: uid,
+        quantity,
+        amountPaid: orderAmount,
+        status: "awaiting_payment",
+        qrToken: null,
+        qrTokenExpiresAt: null,
+        createdAt: FieldValue.serverTimestamp(),
+        redeemedAt: null,
+      });
+
+      return {
+        venueId: data.venueId as string,
+        pinboxTitle: (data.title as string | undefined) ?? "",
+        amount: orderAmount,
+      };
+    });
+
+    const description = `PinBox — ${pinboxTitle}`;
+    const paymentRef = db.collection("payments").doc();
+    await paymentRef.set({
+      ownerId: uid,
+      listingType: "pinboxOrder",
+      listingId: orderRef.id,
+      type: "pinbox_order",
+      description,
+      amount,
+      currency: "AZN",
+      status: "pending",
+      venueId,
+      createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    const pinboxPrice = (data.pinboxPrice as number | undefined) ?? 0;
-    tx.set(orderRef, {
-      pinboxId,
-      venueId: data.venueId,
-      buyerId: uid,
-      quantity,
-      amountPaid: pinboxPrice * quantity,
-      status: "reserved",
-      qrToken: null,
-      qrTokenExpiresAt: null,
-      createdAt: FieldValue.serverTimestamp(),
-      redeemedAt: null,
-    });
-  });
-
-  return { orderId: orderRef.id };
-});
+    const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, amount, description);
+    return { orderId: orderRef.id, checkoutUrl, feeAmount: amount, paymentId: paymentRef.id };
+  },
+);
 
 /**
  * PinBox Faza 8 — QR bilet təhlükəsizliyi. Deliberately NOT a stateless
@@ -3695,13 +3728,29 @@ async function applyPaymentOutcome(orderId: string, succeeded: boolean): Promise
   await db.runTransaction(async (tx) => {
     // Firestore transactions need every read before any write — the
     // venue_subscription branch needs the venue's current
-    // subscriptionRenewsAt to compute the next cycle, so that read
-    // happens up front regardless of which payment type this is.
+    // subscriptionRenewsAt to compute the next cycle, and a FAILED
+    // pinbox_order needs its own order doc (for pinboxId/quantity, to
+    // release the stock it held) — both reads happen up front
+    // regardless of which payment type this actually is.
     const venueRef =
       succeeded && payment.type === "venue_subscription" && payment.listingType === "venue"
         ? db.collection("venues").doc(payment.listingId as string)
         : null;
     const venueSnap = venueRef ? await tx.get(venueRef) : null;
+
+    const pinboxOrderRef =
+      payment.type === "pinbox_order" && payment.listingType === "pinboxOrder"
+        ? db.collection("pinboxOrders").doc(payment.listingId as string)
+        : null;
+    const pinboxOrderSnap = pinboxOrderRef ? await tx.get(pinboxOrderRef) : null;
+    // Only needed to decide whether restoring stock on a FAILED
+    // payment should also reopen a box this exact order sold out —
+    // reading it unconditionally on success would be a wasted read.
+    const pinboxRef =
+      !succeeded && pinboxOrderSnap?.exists
+        ? db.collection("pinboxes").doc(pinboxOrderSnap.data()!.pinboxId as string)
+        : null;
+    const pinboxSnap = pinboxRef ? await tx.get(pinboxRef) : null;
 
     tx.update(paymentRef, {
       status: succeeded ? "completed" : "failed",
@@ -3739,6 +3788,36 @@ async function applyPaymentOutcome(orderId: string, succeeded: boolean): Promise
         const hours = payment.boostHours as number;
         tx.update(db.collection("offers").doc(payment.listingId as string), {
           boostedUntil: Timestamp.fromDate(new Date(Date.now() + hours * 60 * 60 * 1000)),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+    } else if (pinboxOrderRef && pinboxOrderSnap?.exists) {
+      if (succeeded) {
+        // `reservePinBoxOrder` already decremented stock and created
+        // this order as `awaiting_payment` — a confirmed charge just
+        // flips it to the state `generatePinBoxQrToken`/
+        // `redeemPinBoxOrder` already expect, nothing else changes.
+        tx.update(pinboxOrderRef, {
+          status: "reserved",
+          paymentId: paymentRef.id,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      } else if (pinboxRef && pinboxSnap) {
+        // Payment declined/abandoned — the held stock was never
+        // actually sold, so give it back (atomic increment, safe
+        // against concurrent activity on the same box) rather than
+        // losing a unit to every failed checkout attempt. Also reopens
+        // the box if THIS reservation was what sold it out in the
+        // first place — otherwise the restored unit would sit
+        // invisible behind a stale `soldOut` status forever.
+        const order = pinboxOrderSnap.data()!;
+        const quantity = order.quantity as number;
+        const currentRemaining = (pinboxSnap.data()?.stockRemaining as number | undefined) ?? 0;
+        const restoredRemaining = currentRemaining + quantity;
+        tx.update(pinboxOrderRef, { status: "payment_failed", updatedAt: FieldValue.serverTimestamp() });
+        tx.update(pinboxRef, {
+          stockRemaining: FieldValue.increment(quantity),
+          ...(pinboxSnap.data()?.status === "soldOut" && restoredRemaining > 0 ? { status: "active" } : {}),
           updatedAt: FieldValue.serverTimestamp(),
         });
       }

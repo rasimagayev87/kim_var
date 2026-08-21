@@ -691,6 +691,8 @@
   "pinboxTicketAmountPaidLabel": "Ödenen tutar",
   "pinboxTicketSavingsLabel": "Tasarrufunuz",
   "pinboxTicketOpenRouteButton": "Yol Tarifi Al",
+  "pinboxOrderStatusAwaitingPayment": "Ödeme bekleniyor",
+  "pinboxOrderStatusPaymentFailed": "Ödeme başarısız oldu",
   "pinboxOrderStatusReserved": "Teslim için hazır",
   "pinboxOrderStatusCompleted": "Teslim edildi",
   "pinboxOrderStatusExpired": "Süresi doldu",

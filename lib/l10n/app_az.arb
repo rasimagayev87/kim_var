@@ -691,6 +691,8 @@
   "pinboxTicketAmountPaidLabel": "Ödənilən məbləğ",
   "pinboxTicketSavingsLabel": "Qənaətiniz",
   "pinboxTicketOpenRouteButton": "Marşrut Aç",
+  "pinboxOrderStatusAwaitingPayment": "Ödəniş gözlənilir",
+  "pinboxOrderStatusPaymentFailed": "Ödəniş uğursuz oldu",
   "pinboxOrderStatusReserved": "Təhvil üçün hazırdır",
   "pinboxOrderStatusCompleted": "Təhvil verildi",
   "pinboxOrderStatusExpired": "Vaxtı bitib",

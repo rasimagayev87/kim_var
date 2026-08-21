@@ -184,12 +184,20 @@ class FirebasePinBoxRepository implements PinBoxRepository {
   }
 
   @override
-  Future<String> reservePinBoxOrder({required String pinboxId, int quantity = 1}) async {
+  Future<({String orderId, String checkoutUrl, double feeAmount, String paymentId})> reservePinBoxOrder({
+    required String pinboxId,
+    int quantity = 1,
+  }) async {
     final result = await _functions.httpsCallable('reservePinBoxOrder').call<Map<String, dynamic>>({
       'pinboxId': pinboxId,
       'quantity': quantity,
     });
-    return result.data['orderId'] as String;
+    return (
+      orderId: result.data['orderId'] as String,
+      checkoutUrl: result.data['checkoutUrl'] as String,
+      feeAmount: (result.data['feeAmount'] as num).toDouble(),
+      paymentId: result.data['paymentId'] as String,
+    );
   }
 
   @override

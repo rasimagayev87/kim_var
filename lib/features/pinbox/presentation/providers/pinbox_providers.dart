@@ -205,7 +205,17 @@ final pinboxControllerProvider = Provider<PinBoxController>((ref) => PinBoxContr
 /// surfaces its `failed-precondition` reason distinctly).
 enum PinBoxReserveOutcome { success, soldOut, expired, error }
 
-typedef PinBoxReserveResult = ({PinBoxReserveOutcome outcome, String? orderId});
+/// On [PinBoxReserveOutcome.success], the order is `awaiting_payment` —
+/// stock is already held, but [orderId] only becomes redeemable once
+/// [checkoutUrl] (via `presentEpointCheckout`, keyed by [paymentId]) is
+/// completed and `epointWebhook` confirms the charge.
+typedef PinBoxReserveResult = ({
+  PinBoxReserveOutcome outcome,
+  String? orderId,
+  String? checkoutUrl,
+  double? feeAmount,
+  String? paymentId,
+});
 
 /// Drives PinBox Faza 7 checkout — a thin wrapper over the
 /// `reservePinBoxOrder` Cloud Function (see that function's own doc
@@ -218,23 +228,34 @@ class PinBoxCheckoutController {
 
   Future<PinBoxReserveResult> reserveOrder(String pinboxId) async {
     final uid = _currentUid();
-    if (uid == null) return (outcome: PinBoxReserveOutcome.error, orderId: null);
+    if (uid == null) {
+      return (outcome: PinBoxReserveOutcome.error, orderId: null, checkoutUrl: null, feeAmount: null, paymentId: null);
+    }
 
     try {
-      final orderId = await _ref.read(pinboxRepositoryProvider).reservePinBoxOrder(pinboxId: pinboxId);
-      return (outcome: PinBoxReserveOutcome.success, orderId: orderId);
+      final result = await _ref.read(pinboxRepositoryProvider).reservePinBoxOrder(pinboxId: pinboxId);
+      return (
+        outcome: PinBoxReserveOutcome.success,
+        orderId: result.orderId,
+        checkoutUrl: result.checkoutUrl,
+        feeAmount: result.feeAmount,
+        paymentId: result.paymentId,
+      );
     } on FirebaseFunctionsException catch (e, st) {
       if (e.code == 'failed-precondition') {
         return (
           outcome: e.message == 'pickup-window-ended' ? PinBoxReserveOutcome.expired : PinBoxReserveOutcome.soldOut,
           orderId: null,
+          checkoutUrl: null,
+          feeAmount: null,
+          paymentId: null,
         );
       }
       logError('pinbox_providers.reserveOrder', e, st);
-      return (outcome: PinBoxReserveOutcome.error, orderId: null);
+      return (outcome: PinBoxReserveOutcome.error, orderId: null, checkoutUrl: null, feeAmount: null, paymentId: null);
     } catch (e, st) {
       logError('pinbox_providers.reserveOrder', e, st);
-      return (outcome: PinBoxReserveOutcome.error, orderId: null);
+      return (outcome: PinBoxReserveOutcome.error, orderId: null, checkoutUrl: null, feeAmount: null, paymentId: null);
     }
   }
 }

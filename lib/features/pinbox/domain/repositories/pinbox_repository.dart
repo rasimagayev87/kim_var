@@ -111,11 +111,19 @@ abstract class PinBoxRepository {
   /// created or `stockRemaining` ever decremented (see the
   /// `reservePinBoxOrder` Cloud Function's own doc comment: atomic
   /// stock-check-and-decrement + order creation in one transaction,
-  /// never a raw client write). Returns the new order's id. Throws on
-  /// failure (sold out / not active / not signed in) — the caller
+  /// never a raw client write). The order comes back `awaiting_payment`
+  /// — stock is already held, but the box only becomes redeemable
+  /// (`status: reserved`) once the caller completes [checkoutUrl] via
+  /// `presentEpointCheckout` (lib/core/payments/epoint_checkout.dart)
+  /// and `epointWebhook` confirms the charge; a declined/abandoned
+  /// payment restores the held stock instead. Throws on failure (sold
+  /// out / not active / not signed in) — the caller
   /// (`PinBoxController.reserveOrder`) is what turns that into a typed
   /// UI outcome, same contract as every other controller in this app.
-  Future<String> reservePinBoxOrder({required String pinboxId, int quantity = 1});
+  Future<({String orderId, String checkoutUrl, double feeAmount, String paymentId})> reservePinBoxOrder({
+    required String pinboxId,
+    int quantity = 1,
+  });
 
   /// PinBox Faza 8 ticket screen — live order status/QR fields.
   Stream<PinBoxOrder?> watchPinBoxOrder(String orderId);

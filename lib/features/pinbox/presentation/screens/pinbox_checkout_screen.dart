@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -11,10 +12,13 @@ import '../providers/pinbox_providers.dart';
 import 'pinbox_ticket_screen.dart';
 
 /// PinBox Faza 7 — "Sifarişi Təsdiqlə". Order summary + pickup
-/// terms/address + payment method (visual only — no real gateway, see
-/// `reservePinBoxOrder`'s own doc comment in functions/src/index.ts) +
-/// price breakdown + the non-cancellable notice (reused verbatim from
-/// the Create form, `loc.pinboxNonRefundableNotice`) + one pay button.
+/// terms/address + payment method + price breakdown + the
+/// non-cancellable notice (reused verbatim from the Create form,
+/// `loc.pinboxNonRefundableNotice`) + one pay button. "Ödə" reserves
+/// the stock and opens the real Epoint checkout (Kart/Apple Pay/Google
+/// Pay, via `presentEpointCheckout`) — the order only becomes a
+/// redeemable ticket once `epointWebhook` confirms the charge (see
+/// `reservePinBoxOrder`'s own doc comment in functions/src/index.ts).
 class PinBoxCheckoutScreen extends ConsumerStatefulWidget {
   final PinBox pinbox;
 
@@ -39,7 +43,12 @@ class _PinBoxCheckoutScreenState extends ConsumerState<PinBoxCheckoutScreen> {
 
     switch (result.outcome) {
       case PinBoxReserveOutcome.success:
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.pinboxOrderCreatedNotice)));
+        final checkoutUrl = result.checkoutUrl;
+        final paymentId = result.paymentId;
+        if (checkoutUrl != null && paymentId != null) {
+          await presentEpointCheckout(context, checkoutUrl: checkoutUrl, paymentId: paymentId, feeAmount: result.feeAmount ?? 0);
+        }
+        if (!mounted) return;
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (_) => PinBoxTicketScreen(orderId: result.orderId!)),
@@ -141,25 +150,6 @@ class _PinBoxCheckoutScreenState extends ConsumerState<PinBoxCheckoutScreen> {
                     ],
                   ),
                 ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xxl),
-            _SectionLabel(loc.pinboxPaymentMethodLabel),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(AppRadii.card),
-                border: Border.all(color: AppColors.primary, width: 1.4),
-              ),
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.credit_card, color: AppColors.primary),
-                title: Text(
-                  loc.pinboxPaymentMethodOption,
-                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
-                ),
-                trailing: const Icon(Icons.check_circle, color: AppColors.primary),
               ),
             ),
             const SizedBox(height: AppSpacing.xxl),

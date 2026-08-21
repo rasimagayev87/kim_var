@@ -756,6 +756,8 @@
   "pinboxTicketAmountPaidLabel": "Amount paid",
   "pinboxTicketSavingsLabel": "Your savings",
   "pinboxTicketOpenRouteButton": "Get Directions",
+  "pinboxOrderStatusAwaitingPayment": "Awaiting payment",
+  "pinboxOrderStatusPaymentFailed": "Payment failed",
   "pinboxOrderStatusReserved": "Ready for pickup",
   "pinboxOrderStatusCompleted": "Picked up",
   "pinboxOrderStatusExpired": "Expired",
