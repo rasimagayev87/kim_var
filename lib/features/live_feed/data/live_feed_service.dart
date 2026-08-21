@@ -343,18 +343,21 @@ class LiveFeedService {
   /// isolation rule as everything else in this class; [followedVenueIds]
   /// arrives from the caller already resolved). Unlike every other
   /// fetch method above, this ignores the VIEWER's own selected Kəşf/
-  /// Canlı radius entirely — that's the whole point of following. The
-  /// only ceiling left is each venue's OWN `audienceRadiusMode`/
-  /// `audienceRadiusKm`/`country` (see [_withinVenueRadius]) — the
-  /// exact same rule `resolveNotifyCandidates` enforces server-side in
-  /// functions/src/index.ts for push notifications, mirrored here so
-  /// Canlı and notifications never disagree about who a followed venue
-  /// reaches.
+  /// Canlı radius entirely, AND applies no ceiling from the venue's
+  /// side either — that's the whole point of following. (A venue's
+  /// `audienceRadiusMode`/`audienceRadiusKm` used to be read here as a
+  /// ceiling; that field is scoped to the owner-only "Ətrafda N
+  /// istifadəçi" live counter only, unrelated to reach, so treating it
+  /// as one was the bug — a follower's own visibility silently
+  /// depended on a setting they never even saw.) Mirrors
+  /// `resolveNotifyCandidates` server-side in functions/src/index.ts,
+  /// which notifies the same followers unconditionally for the exact
+  /// same reason, so Canlı and push notifications never disagree about
+  /// who a followed venue reaches.
   Future<List<LiveFeedItem>> fetchFollowedVenueItems({
     required List<String> followedVenueIds,
     required double viewerLat,
     required double viewerLng,
-    String? viewerCountry,
   }) async {
     if (followedVenueIds.isEmpty) return [];
 
@@ -379,9 +382,7 @@ class LiveFeedService {
         if (lat != null && lng != null) {
           venueDistanceById[doc.id] = _haversineMeters(lat, lng, viewerLat, viewerLng);
         }
-        if (_withinVenueRadius(data, viewerLat, viewerLng, viewerCountry)) {
-          eligibleIds.add(doc.id);
-        }
+        eligibleIds.add(doc.id);
       }
       if (eligibleIds.isEmpty) continue;
 
@@ -440,24 +441,6 @@ class LiveFeedService {
       }
     }
     return items;
-  }
-
-  /// Mirrors `resolveNotifyCandidates`'s ceiling check in
-  /// functions/src/index.ts exactly (mode default, country match,
-  /// haversine-vs-radiusKm) — independently declared, not shared code,
-  /// per this module's own isolation rule.
-  bool _withinVenueRadius(Map<String, dynamic> venueData, double viewerLat, double viewerLng, String? viewerCountry) {
-    final mode = (venueData['audienceRadiusMode'] as String?) ?? 'distance';
-    if (mode == 'world') return true;
-    if (mode == 'country') {
-      final venueCountry = venueData['country'] as String?;
-      return venueCountry != null && viewerCountry != null && venueCountry == viewerCountry;
-    }
-    final lat = (venueData['lat'] as num?)?.toDouble();
-    final lng = (venueData['lng'] as num?)?.toDouble();
-    final radiusKm = (venueData['audienceRadiusKm'] as num?)?.toDouble() ?? 1.0;
-    if (lat == null || lng == null) return false;
-    return _haversineMeters(lat, lng, viewerLat, viewerLng) <= radiusKm * 1000;
   }
 
   double _haversineMeters(double lat1, double lng1, double lat2, double lng2) {

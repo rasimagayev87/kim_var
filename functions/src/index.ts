@@ -1033,13 +1033,12 @@ interface BirthdayUserDoc {
  * final notification.
  *
  * For every approved venue with `birthdayNotificationsEnabled`, checks
- * which of those birthday users fall within THAT venue's own audience
- * radius — the exact same mode-aware distance/country/world logic
- * `computeAudienceCount` already uses for the live audience counter,
- * reused here rather than duplicated (a venue set to "Dünya üzrə"
- * matches every opted-in birthday user worldwide, "Ölkə üzrə" matches
- * same-country ones, "məsafə üzrə" matches ones within
- * `audienceRadiusKm`). One `birthdayMatches/{date}_{venueId}` doc per
+ * which of those birthday users fall within EACH birthday user's OWN
+ * chosen Discover radius (see [isWithinRecipientDiscoverRadius]) — NOT
+ * the venue's `audienceRadiusMode`/`audienceRadiusKm`, which is scoped
+ * to the owner-only "Ətrafda N istifadəçi" live counter
+ * (`computeAudienceCount`) only, unrelated to reach. One
+ * `birthdayMatches/{date}_{venueId}` doc per
  * venue that matched at least one user, plus a push nudging the owner
  * to create a birthday offer (`targetType: 'birthday_match'` — the
  * pre-filled Create Offer deep link itself lands with that flow, see
@@ -1099,32 +1098,17 @@ export const computeBirthdayMatches = onSchedule(
 
     for (const venueDoc of eligibleVenuesSnap.docs) {
       const venue = venueDoc.data();
-      const mode = (venue.audienceRadiusMode as string | undefined) ?? "distance";
       const venueLat = venue.lat as number | undefined;
       const venueLng = venue.lng as number | undefined;
       const venueCountry = venue.country as string | undefined;
-      let venueMatched: BirthdayUserDoc[];
 
-      if (mode === "country") {
-        venueMatched = venueCountry ? birthdayUsers.filter((u) => u.country === venueCountry) : [];
-      } else if (mode === "world") {
-        venueMatched = birthdayUsers;
-      } else {
-        const radiusKm = (venue.audienceRadiusKm as number | undefined) ?? 1;
-        venueMatched =
-          venueLat === undefined || venueLng === undefined
-            ? []
-            : birthdayUsers
-                .filter((u) => u.lat !== undefined && u.lng !== undefined)
-                .filter((u) => haversineMeters(venueLat, venueLng, u.lat!, u.lng!) <= radiusKm * 1000);
-      }
-
-      // Same recipient-radius rule as `resolveNotifyCandidates` — the
-      // venue's own audience radius is a ceiling, not the only gate.
-      // No independentArtist-follow exception here: birthday matching
-      // isn't follow-based, every candidate above is a generic
-      // opted-in user, not someone who chose to follow this venue.
-      const matchedUserIds = venueMatched
+      // Same recipient-radius rule as `resolveNotifyCandidates` — each
+      // birthday user's OWN chosen Discover radius is the only
+      // geographic gate. No independentArtist-follow exception here:
+      // birthday matching isn't follow-based, every candidate above is
+      // a generic opted-in user, not someone who chose to follow this
+      // venue.
+      const matchedUserIds = birthdayUsers
         .filter((u) => isWithinRecipientDiscoverRadius(u, venueLat, venueLng, venueCountry))
         .map((u) => u.uid);
 
@@ -1794,81 +1778,51 @@ const OFFER_NOTIFY_CANDIDATE_LIMIT = 1000;
 /**
  * Candidate `users` docs to notify about a new offer/event from
  * [venueId] — shared by `notifyNearbyUsersOfNewOffer` and
- * `...NewEvent`. The venue's own `audienceRadiusMode`/`audienceRadiusKm`/
- * `country` is ALWAYS the final filter (the ceiling), but the SOURCE
- * pool differs by category, per "Fərdi Prodakşn/Sənətçi"'s own
- * venue-level follow feature ("İzlə"): an `independentArtist` venue
- * notifies ONLY its followers (`venues/{venueId}/followers`) — never
- * the app-wide `users` scan every other category still uses. Either
- * way, a candidate outside the venue's radius/country/mode gets
- * nothing — an `independentArtist` follower who lives outside the
- * radius the owner chose is excluded exactly like a random stranger
- * would be.
+ * `...NewEvent`. The SOURCE pool AND the geographic gate both differ
+ * by category, per "Fərdi Prodakşn/Sənətçi"'s own venue-level follow
+ * feature ("İzlə"): an `independentArtist` venue notifies its
+ * followers (`venues/{venueId}/followers`) unconditionally — no
+ * geographic gate at all, matching `LiveFeedService.
+ * fetchFollowedVenueItems`, which shows a followed venue's items the
+ * exact same way. Every other category draws from the app-wide
+ * `users` scan and is gated by each recipient's OWN chosen Discover
+ * radius (see [isWithinRecipientDiscoverRadius]).
  *
- * For every category EXCEPT `independentArtist`, a candidate must
- * ALSO fall within their OWN chosen Discover radius (see
- * [isWithinRecipientDiscoverRadius]) — the venue's radius is a
- * ceiling, not the only gate. `independentArtist` followers are the
- * one deliberate exception: following a venue means wanting its posts
- * regardless of distance, matching how `LiveFeedService.
- * fetchFollowedVenueItems` already bypasses the viewer's own radius
- * for the exact same category/reason.
+ * `venue.audienceRadiusMode`/`audienceRadiusKm` is deliberately NOT
+ * read by either branch — that field is scoped to the owner-only
+ * "Ətrafda N istifadəçi" live counter (`computeAudienceCount`) ONLY,
+ * not a reach ceiling. Reusing it as one here was the actual bug: an
+ * `independentArtist` follower's notification eligibility used to
+ * depend on a setting they never saw and that means something else
+ * entirely, and for every other category it silently let an owner's
+ * counter-radius choice exclude a recipient who'd otherwise have been
+ * within their OWN chosen Discover radius.
  */
 async function resolveNotifyCandidates(
   venueId: string,
   venue: FirebaseFirestore.DocumentData,
   limit: number,
 ): Promise<FirebaseFirestore.DocumentSnapshot[]> {
-  const mode = (venue.audienceRadiusMode as string | undefined) ?? "distance";
-  const isFollowBased = venue.category === "independentArtist";
-
-  if (isFollowBased) {
-    // Faza 3 (bildiriş sistemi tamamlanması): "Fərdi Prodakşn/Sənətçi"
-    // is pure follow, no radius ceiling at all — a follower who lives
-    // outside the venue's own audienceRadiusKm used to be excluded
-    // just like a random stranger, which defeated the point of
-    // choosing to follow a specific artist/production account.
+  if (venue.category === "independentArtist") {
     const followerSnaps = await db.collection("venues").doc(venueId).collection("followers").limit(limit).get();
     const followerDocs = await Promise.all(followerSnaps.docs.map((d) => db.collection("users").doc(d.id).get()));
     return followerDocs.filter((d) => d.exists);
   }
 
   const sourceDocs = (await db.collection("users").limit(limit).get()).docs;
-
-  let venueFiltered: FirebaseFirestore.DocumentSnapshot[];
-  if (mode === "country") {
-    const country = venue.country as string | undefined;
-    venueFiltered = country ? sourceDocs.filter((d) => d.data()?.country === country) : [];
-  } else if (mode === "world") {
-    venueFiltered = sourceDocs;
-  } else {
-    const lat = venue.lat as number | undefined;
-    const lng = venue.lng as number | undefined;
-    const radiusKm = (venue.audienceRadiusKm as number | undefined) ?? 1;
-    venueFiltered =
-      lat === undefined || lng === undefined
-        ? []
-        : sourceDocs.filter((d) => {
-            const userLat = d.data()?.lat as number | undefined;
-            const userLng = d.data()?.lng as number | undefined;
-            if (userLat === undefined || userLng === undefined) return false;
-            return haversineMeters(lat, lng, userLat, userLng) <= radiusKm * 1000;
-          });
-  }
-
   const venueLat = venue.lat as number | undefined;
   const venueLng = venue.lng as number | undefined;
   const venueCountry = venue.country as string | undefined;
-  return venueFiltered.filter((d) => isWithinRecipientDiscoverRadius(d.data() ?? {}, venueLat, venueLng, venueCountry));
+  return sourceDocs.filter((d) => isWithinRecipientDiscoverRadius(d.data() ?? {}, venueLat, venueLng, venueCountry));
 }
 
 /**
  * Push + in-app notification when one of the venue's offers goes
  * live — see `resolveNotifyCandidates` for exactly who that reaches
- * (everyone within the venue's own audience radius/mode for most
- * categories, only `independentArtist` followers within that same
- * radius for that one category). Deliberately does NOT filter by
- * recent activity the way the audience counter does — reaching
+ * (everyone within their OWN chosen Discover radius for most
+ * categories, all followers unconditionally for `independentArtist`).
+ * Deliberately does NOT filter by recent activity the way the
+ * audience counter does — reaching
  * someone who isn't currently in the app is the entire point of a
  * push notification. Throttled per (user, venue) at 24h via
  * `users/{uid}/notifiedVenues/{venueId}`.

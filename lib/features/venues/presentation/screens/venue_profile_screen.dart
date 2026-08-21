@@ -410,11 +410,11 @@ class _HeroImage extends StatelessWidget {
 /// "İzlə" — venue-level follow, only ever shown for
 /// [VenueCategory.independentArtist] (see `_HeroImage`'s own gate).
 /// Tapping while not following opens a confirm dialog explaining what
-/// following actually changes (radius-independent notifications +
-/// Canlı visibility, still capped by the venue's OWN
-/// `audienceRadiusMode` — see `VenueFollowRepository`'s doc comment);
-/// tapping while already following unfollows immediately, no confirm
-/// needed (mirrors every other unfollow-style action in this app).
+/// following actually changes (fully radius-independent notifications
+/// + Canlı visibility, no geographic gate at all — see
+/// `VenueFollowRepository`'s doc comment); tapping while already
+/// following unfollows immediately, no confirm needed (mirrors every
+/// other unfollow-style action in this app).
 class _VenueFollowButton extends ConsumerWidget {
   final String venueId;
 

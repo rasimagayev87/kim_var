@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../location/presentation/providers/location_providers.dart';
-import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../venue_follow/presentation/providers/venue_follow_providers.dart';
 import '../../data/live_feed_service.dart';
 import '../../domain/entities/live_feed_item.dart';
@@ -196,7 +195,6 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
           followedVenueIds: followedVenueIds,
           viewerLat: viewerPosition.lat,
           viewerLng: viewerPosition.lng,
-          viewerCountry: _ref.read(profileControllerProvider).country,
         );
       }
 
