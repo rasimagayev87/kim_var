@@ -1510,6 +1510,70 @@ export const refreshHappyHourOfferStatus = onSchedule(
 
 // ── Waitlist ──────────────────────────────────────────────────────────
 
+/**
+ * Server-side "join the walk-in waitlist" — the ONLY path that may
+ * create a `venues/{venueId}/waitlist` doc (firestore.rules' own
+ * `allow create` on that collection is `if false`; this function uses
+ * the Admin SDK, which bypasses rules entirely). A direct client write
+ * validated only by rules could check the NEW document's own shape,
+ * but never "does this exact phone number already have a `waiting`
+ * entry at this venue" — that requires reading OTHER documents at
+ * commit time, which is exactly what the transaction below does. A
+ * `tx.get(query)` read is committed atomically together with the
+ * following write, so two joins for the same phone number arriving at
+ * the same instant can't both slip through — the second one's query
+ * read gets invalidated by the first's write and the transaction
+ * retries, seeing the just-created entry.
+ */
+export const joinWaitlist = onCall({ region: "us-central1" }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+  const venueId = request.data?.venueId as string | undefined;
+  if (!venueId) throw new HttpsError("invalid-argument", "venueId tələb olunur.");
+
+  const partySize = request.data?.partySize as number | undefined;
+  if (!Number.isInteger(partySize) || (partySize as number) < 1 || (partySize as number) > 10) {
+    throw new HttpsError("invalid-argument", "partySize 1-10 aralığında tam ədəd olmalıdır.");
+  }
+
+  const phoneNumber = (request.data?.phoneNumber as string | undefined)?.trim();
+  if (!phoneNumber) throw new HttpsError("invalid-argument", "phoneNumber tələb olunur.");
+
+  const note = request.data?.note as string | undefined;
+  if (note !== undefined && typeof note !== "string") {
+    throw new HttpsError("invalid-argument", "note sətir olmalıdır.");
+  }
+
+  const venueSnap = await db.collection("venues").doc(venueId).get();
+  if (!venueSnap.exists) throw new HttpsError("not-found", "Məkan tapılmadı.");
+
+  const waitlistRef = db.collection("venues").doc(venueId).collection("waitlist");
+  const newEntryRef = waitlistRef.doc();
+
+  await db.runTransaction(async (tx) => {
+    const existingSnap = await tx.get(
+      waitlistRef.where("phoneNumber", "==", phoneNumber).where("status", "==", "waiting").limit(1)
+    );
+    // `already-exists` (not `failed-precondition`) — this isn't a state
+    // the CALLER can fix by retrying, it's a genuine duplicate-resource
+    // rejection, same HTTP-status-code intent as e.g. a unique-username
+    // conflict.
+    if (!existingSnap.empty) throw new HttpsError("already-exists", "already-waiting");
+
+    tx.set(newEntryRef, {
+      userId: uid,
+      partySize,
+      phoneNumber,
+      ...(note ? { note } : {}),
+      status: "waiting",
+      joinedAt: FieldValue.serverTimestamp(),
+    });
+  });
+
+  return { entryId: newEntryRef.id };
+});
+
 /** A `called` entry auto-reverts to `no_show` if the owner never marks
  * it seated within this long — mirrors the "5 dəqiqəyə gəlin" push
  * copy with some slack for the sweep's own 5-minute cadence. */

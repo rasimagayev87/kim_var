@@ -469,6 +469,7 @@
   "waitlistLeaveButton": "Покинуть очередь",
   "waitlistLeaveConfirmMessage": "Вы уверены, что хотите покинуть очередь?",
   "waitlistCalledBanner": "Ваша очередь! Приходите через 5 минут",
+  "waitlistAlreadyWaitingErrorMessage": "Этот номер телефона уже в очереди этого заведения.",
   "waitlistGenericErrorMessage": "Произошла ошибка. Повторите попытку.",
   "waitlistSectionTitle": "Очередь",
   "waitlistEnableToggleLabel": "Включить очередь",

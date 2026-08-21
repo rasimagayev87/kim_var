@@ -574,16 +574,14 @@ service cloud.firestore {
       allow read: if request.auth != null &&
         (resource.data.userId == request.auth.uid || isVenueOwner());
 
-      allow create: if request.auth != null &&
-        request.auth.uid == request.resource.data.userId &&
-        request.resource.data.status == 'waiting' &&
-        request.resource.data.partySize is int &&
-        request.resource.data.partySize >= 1 && request.resource.data.partySize <= 10 &&
-        request.resource.data.phoneNumber is string &&
-        request.resource.data.phoneNumber.size() > 0 &&
-        (!('note' in request.resource.data) || request.resource.data.note is string) &&
-        !('queuePosition' in request.resource.data) &&
-        !('calledAt' in request.resource.data);
+      // A rule here could validate this NEW document's own shape, but
+      // never "does this phone number already have a `waiting` entry
+      // at this venue" — that needs a read of OTHER documents at
+      // commit time, which only a transaction can do atomically. So
+      // creation moved server-side entirely: `joinWaitlist` (Cloud
+      // Function, functions/src/index.ts) is now the only path, using
+      // the Admin SDK, which bypasses this rule.
+      allow create: if false;
 
       // Either the entry's own user cancelling their still-waiting
       // spot, or the venue owner driving the rest of the lifecycle

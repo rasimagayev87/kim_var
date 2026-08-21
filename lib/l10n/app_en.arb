@@ -534,6 +534,7 @@
   "waitlistLeaveButton": "Leave waitlist",
   "waitlistLeaveConfirmMessage": "Are you sure you want to leave the waitlist?",
   "waitlistCalledBanner": "It's your turn! Come in 5 minutes",
+  "waitlistAlreadyWaitingErrorMessage": "This phone number is already on this venue\u2019s waitlist.",
   "waitlistGenericErrorMessage": "Something went wrong. Please try again.",
   "waitlistSectionTitle": "Waitlist",
   "waitlistEnableToggleLabel": "Enable waitlist",

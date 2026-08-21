@@ -1,12 +1,16 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../../domain/entities/waitlist_entry.dart';
 import '../../domain/repositories/waitlist_repository.dart';
 
 class FirebaseWaitlistRepository implements WaitlistRepository {
-  FirebaseWaitlistRepository({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirebaseWaitlistRepository({FirebaseFirestore? firestore, FirebaseFunctions? functions})
+      : _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions = functions ?? FirebaseFunctions.instance;
 
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
 
   CollectionReference<Map<String, dynamic>> _waitlist(String venueId) {
     return _firestore.collection('venues').doc(venueId).collection('waitlist');
@@ -15,20 +19,17 @@ class FirebaseWaitlistRepository implements WaitlistRepository {
   @override
   Future<String> joinWaitlist({
     required String venueId,
-    required String userId,
     required int partySize,
     required String phoneNumber,
     String? note,
   }) async {
-    final ref = await _waitlist(venueId).add({
-      'userId': userId,
+    final result = await _functions.httpsCallable('joinWaitlist').call<Map<String, dynamic>>({
+      'venueId': venueId,
       'partySize': partySize,
       'phoneNumber': phoneNumber,
       if (note != null) 'note': note,
-      'status': WaitlistEntryStatus.waiting.name,
-      'joinedAt': FieldValue.serverTimestamp(),
     });
-    return ref.id;
+    return result.data['entryId'] as String;
   }
 
   @override

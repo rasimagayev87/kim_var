@@ -1,12 +1,18 @@
 import '../entities/waitlist_entry.dart';
 
 abstract class WaitlistRepository {
-  /// Joins [venueId]'s waitlist as [userId] — starts `waiting` with no
-  /// `queuePosition` (server-computed, see `WaitlistEntry`'s doc
-  /// comment). Returns the new entry's id.
+  /// Joins [venueId]'s waitlist as the signed-in user — starts `waiting`
+  /// with no `queuePosition` (server-computed, see `WaitlistEntry`'s
+  /// doc comment). Backed by the `joinWaitlist` Cloud Function, not a
+  /// raw Firestore write (see `firestore.rules`' own doc comment on
+  /// this collection's `allow create: if false`) — only a server-side
+  /// transaction can atomically reject a second `waiting` entry for the
+  /// same [phoneNumber] at this venue, which a rules-only check never
+  /// could. Returns the new entry's id; throws (a `FirebaseFunctionsException`
+  /// with code `already-exists`) if [phoneNumber] already has a
+  /// `waiting` entry here.
   Future<String> joinWaitlist({
     required String venueId,
-    required String userId,
     required int partySize,
     required String phoneNumber,
     String? note,

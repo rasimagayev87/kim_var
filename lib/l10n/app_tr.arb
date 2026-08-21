@@ -469,6 +469,7 @@
   "waitlistLeaveButton": "Sıradan çık",
   "waitlistLeaveConfirmMessage": "Sıradan çıkmak istediğinizden emin misiniz?",
   "waitlistCalledBanner": "Sıra sizde! 5 dakika içinde gelin",
+  "waitlistAlreadyWaitingErrorMessage": "Bu telefon numarası zaten bu mekanın sırasında.",
   "waitlistGenericErrorMessage": "Bir hata oluştu. Tekrar deneyin.",
   "waitlistSectionTitle": "Sıra",
   "waitlistEnableToggleLabel": "Sırayı etkinleştir",

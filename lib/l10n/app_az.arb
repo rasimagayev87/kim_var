@@ -469,6 +469,7 @@
   "waitlistLeaveButton": "Sıradan çıx",
   "waitlistLeaveConfirmMessage": "Sıradan çıxmaq istədiyinizə əminsiniz?",
   "waitlistCalledBanner": "Sıra sizindir! 5 dəqiqəyə gəlin",
+  "waitlistAlreadyWaitingErrorMessage": "Bu telefon nömrəsi artıq bu məkanın növbəsindədir.",
   "waitlistGenericErrorMessage": "Bir xəta baş verdi. Yenidən cəhd edin.",
   "waitlistSectionTitle": "Növbə",
   "waitlistEnableToggleLabel": "Növbəni aktivləşdir",

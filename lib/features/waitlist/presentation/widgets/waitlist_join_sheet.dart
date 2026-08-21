@@ -119,7 +119,7 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
     });
 
     final note = _noteController.text.trim();
-    final ok = await ref.read(waitlistControllerProvider).join(
+    final outcome = await ref.read(waitlistControllerProvider).join(
           venueId: widget.venueId,
           partySize: _partySize,
           // Same naive concatenation `PhoneNumberEntryStep` uses —
@@ -128,11 +128,15 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
           note: note.isEmpty ? null : note,
         );
     if (!mounted) return;
-    if (ok) {
-      Navigator.pop(context, true);
-    } else {
-      setState(() => _joining = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.waitlistGenericErrorMessage)));
+    switch (outcome) {
+      case WaitlistJoinOutcome.success:
+        Navigator.pop(context, true);
+      case WaitlistJoinOutcome.alreadyWaiting:
+        setState(() => _joining = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.waitlistAlreadyWaitingErrorMessage)));
+      case WaitlistJoinOutcome.error:
+        setState(() => _joining = false);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.waitlistGenericErrorMessage)));
     }
   }
 

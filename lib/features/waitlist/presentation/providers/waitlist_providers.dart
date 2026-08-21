@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -45,31 +46,41 @@ final venueWaitingListProvider = StreamProvider.autoDispose.family<List<Waitlist
   return ref.watch(waitlistRepositoryProvider).watchWaitingList(venueId);
 });
 
+/// [alreadyWaiting] is the one failure the UI needs to tell apart from
+/// a generic error — the `joinWaitlist` Cloud Function's own
+/// transaction rejected a second `waiting` entry for the same phone
+/// number at this venue (see its own doc comment in
+/// functions/src/index.ts).
+enum WaitlistJoinOutcome { success, alreadyWaiting, error }
+
 class WaitlistController {
   WaitlistController(this._ref);
 
   final Ref _ref;
 
-  Future<bool> join({
+  Future<WaitlistJoinOutcome> join({
     required String venueId,
     required int partySize,
     required String phoneNumber,
     String? note,
   }) async {
     final uid = fb.FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return false;
+    if (uid == null) return WaitlistJoinOutcome.error;
     try {
       await _ref.read(waitlistRepositoryProvider).joinWaitlist(
             venueId: venueId,
-            userId: uid,
             partySize: partySize,
             phoneNumber: phoneNumber,
             note: note,
           );
-      return true;
+      return WaitlistJoinOutcome.success;
+    } on FirebaseFunctionsException catch (e, st) {
+      if (e.code == 'already-exists') return WaitlistJoinOutcome.alreadyWaiting;
+      logError('waitlist_providers.join', e, st);
+      return WaitlistJoinOutcome.error;
     } catch (e, st) {
       logError('waitlist_providers.join', e, st);
-      return false;
+      return WaitlistJoinOutcome.error;
     }
   }
 
