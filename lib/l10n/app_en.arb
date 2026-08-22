@@ -1061,6 +1061,7 @@
   "postGalleryVideoOption": "Choose a video",
   "postShareButton": "Share",
   "postShareErrorMessage": "The post couldn't be shared. Please try again shortly.",
+  "postVideoTooLargeMessage": "Video can't be larger than 50MB. Choose a smaller video.",
   "postSharePreparingMessage": "Preparing...",
   "postFeedEmptyMessage": "No posts yet",
   "postCommentsSheetTitle": "Comments",

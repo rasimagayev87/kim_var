@@ -982,6 +982,7 @@
   "postGalleryVideoOption": "Выбрать видео",
   "postShareButton": "Опубликовать",
   "postShareErrorMessage": "Не удалось опубликовать. Повторите попытку позже.",
+  "postVideoTooLargeMessage": "Видео не должно превышать 50 МБ. Выберите видео меньшего размера.",
   "postSharePreparingMessage": "Подготовка...",
   "postFeedEmptyMessage": "Пока нет публикаций",
   "postCommentsSheetTitle": "Комментарии",

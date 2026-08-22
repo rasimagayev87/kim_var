@@ -982,6 +982,7 @@
   "postGalleryVideoOption": "Video seç",
   "postShareButton": "Paylaş",
   "postShareErrorMessage": "Gönderi paylaşılamadı. Lütfen daha sonra tekrar deneyin.",
+  "postVideoTooLargeMessage": "Video 50 MB'dan büyük olamaz. Daha küçük bir video seçin.",
   "postSharePreparingMessage": "Hazırlanıyor...",
   "postFeedEmptyMessage": "Henüz gönderi yok",
   "postCommentsSheetTitle": "Yorumlar",

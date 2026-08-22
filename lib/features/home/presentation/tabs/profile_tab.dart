@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_logger.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../core/widgets/premium_upsell_sheet.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -230,7 +231,16 @@ class ProfileTab extends ConsumerWidget {
                             ? const PostFeedEmptyState()
                             : PostGrid(posts: posts),
                         loading: () => const PostGridLoading(),
-                        error: (_, _) => const PostFeedEmptyState(),
+                        // Previously rendered the exact same empty state as
+                        // "you truly have zero posts", with nothing logged —
+                        // a genuine stream failure (permission hiccup,
+                        // transient `unavailable`) was then indistinguishable
+                        // from an empty profile, and left no trace to
+                        // diagnose a "my post never showed up" report with.
+                        error: (error, stackTrace) {
+                          logError('profile_tab.userPostsProvider', error, stackTrace);
+                          return const PostFeedEmptyState();
+                        },
                       ),
                     ],
                   ),

@@ -11,6 +11,12 @@ import '../screens/post_preview_screen.dart';
 
 enum _PostCaptureOption { camera, galleryPhoto, galleryVideo }
 
+/// Matches `storage.rules`' own `posts/{userId}/{fileName}` video cap
+/// exactly — checking client-side against a DIFFERENT number would
+/// either reject something the server would've accepted, or (worse)
+/// accept something the server then rejects after a full upload.
+const _kMaxVideoBytes = 50 * 1024 * 1024;
+
 /// Entry point for the repurposed "+" nav button: choose a source →
 /// pick/capture → push [PostPreviewScreen]. Mirrors the same
 /// sheet/pick/preview shape as `startCreateStoryFlow` (stories
@@ -71,9 +77,25 @@ Future<bool> startCreatePostFlow(BuildContext context) async {
   };
   if (picked == null || !context.mounted) return false;
 
+  final file = File(picked.path);
+
+  // `pickVideo` has no duration/size cap of its own, unlike the photo
+  // branches' `maxWidth`/`imageQuality` — without this check, a long
+  // gallery video uploads in full (spinner running the whole time)
+  // before `storage.rules`' 50MB cap rejects it at commit time, which
+  // reads as "stuck forever, then a generic failure" with no clue why.
+  // Checking the size up front turns that into an immediate, clear
+  // message instead of a wasted multi-minute upload.
+  if (mediaType == PostMediaType.video && await file.length() > _kMaxVideoBytes) {
+    if (!context.mounted) return false;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.postVideoTooLargeMessage)));
+    return false;
+  }
+  if (!context.mounted) return false;
+
   final shared = await Navigator.push<bool>(
     context,
-    MaterialPageRoute(builder: (_) => PostPreviewScreen(file: File(picked.path), mediaType: mediaType)),
+    MaterialPageRoute(builder: (_) => PostPreviewScreen(file: file, mediaType: mediaType)),
   );
   return shared ?? false;
 }
