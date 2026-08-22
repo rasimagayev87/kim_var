@@ -7,6 +7,7 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/relative_time_formatter.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
+import '../../../profile/presentation/screens/user_profile_screen.dart';
 import '../../domain/entities/post_comment.dart';
 import '../providers/post_providers.dart';
 
@@ -15,7 +16,9 @@ void showCommentsSheet(BuildContext context, String postId) {
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.surface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (_) => _CommentsSheet(postId: postId),
   );
 }
@@ -79,8 +82,16 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
     setState(() => _sending = true);
 
     final ok = editing != null
-        ? await ref.read(postControllerProvider).updateComment(widget.postId, editing.id, text)
-        : await ref.read(postControllerProvider).addComment(widget.postId, text, replyToCommentId: _replyingTo?.id);
+        ? await ref
+              .read(postControllerProvider)
+              .updateComment(widget.postId, editing.id, text)
+        : await ref
+              .read(postControllerProvider)
+              .addComment(
+                widget.postId,
+                text,
+                replyToCommentId: _replyingTo?.id,
+              );
 
     if (!mounted) return;
     setState(() => _sending = false);
@@ -93,8 +104,12 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
       });
       FocusScope.of(context).unfocus();
     } else {
-      final message = editing != null ? loc.postCommentEditErrorMessage : loc.postCommentErrorMessage;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      final message = editing != null
+          ? loc.postCommentEditErrorMessage
+          : loc.postCommentErrorMessage;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     }
   }
 
@@ -102,10 +117,15 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final commentsAsync = ref.watch(postCommentsProvider(widget.postId));
-    final postOwnerId = ref.watch(postByIdProvider(widget.postId)).valueOrNull?.userId;
+    final postOwnerId = ref
+        .watch(postByIdProvider(widget.postId))
+        .valueOrNull
+        ?.userId;
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: SafeArea(
         top: false,
         child: SizedBox(
@@ -113,22 +133,39 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
           child: Column(
             children: [
               const SizedBox(height: 12),
-              Text(loc.postCommentsSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                loc.postCommentsSheetTitle,
+                style: AppTextStyles.cardTitle.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 8),
               const Divider(height: 1),
               Expanded(
                 child: commentsAsync.when(
                   data: (comments) {
                     if (comments.isEmpty) {
-                      return Center(child: Text(loc.postCommentsEmptyMessage, style: AppTextStyles.caption));
+                      return Center(
+                        child: Text(
+                          loc.postCommentsEmptyMessage,
+                          style: AppTextStyles.caption,
+                        ),
+                      );
                     }
-                    final topLevel = comments.where((c) => c.replyToCommentId == null).toList();
+                    final topLevel = comments
+                        .where((c) => c.replyToCommentId == null)
+                        .toList();
                     return ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
                       itemCount: topLevel.length,
                       itemBuilder: (context, index) {
                         final comment = topLevel[index];
-                        final replies = comments.where((c) => c.replyToCommentId == comment.id).toList();
+                        final replies = comments
+                            .where((c) => c.replyToCommentId == comment.id)
+                            .toList();
                         return _CommentThread(
                           postId: widget.postId,
                           comment: comment,
@@ -140,27 +177,45 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                       },
                     );
                   },
-                  loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                  error: (_, _) => Center(child: Text(loc.postCommentsEmptyMessage, style: AppTextStyles.caption)),
+                  loading: () => const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+                  error: (_, _) => Center(
+                    child: Text(
+                      loc.postCommentsEmptyMessage,
+                      style: AppTextStyles.caption,
+                    ),
+                  ),
                 ),
               ),
               if (_replyingTo != null || _editingComment != null)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 6,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
                         child: Text(
                           _editingComment != null
                               ? loc.postMenuEdit
-                              : loc.postReplyingToLabel(_ReplyTargetName(userId: _replyingTo!.userId).resolve(ref)),
+                              : loc.postReplyingToLabel(
+                                  _ReplyTargetName(
+                                    userId: _replyingTo!.userId,
+                                  ).resolve(ref),
+                                ),
                           style: AppTextStyles.caption.copyWith(fontSize: 12.5),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       GestureDetector(
                         onTap: _cancelComposeMode,
-                        child: const Icon(Icons.close, size: 16, color: AppColors.textMuted),
+                        child: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: AppColors.textMuted,
+                        ),
                       ),
                     ],
                   ),
@@ -177,8 +232,14 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                           hintText: loc.postCommentHint,
                           filled: true,
                           fillColor: AppColors.card,
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(24),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
                       ),
                     ),
@@ -189,9 +250,15 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.primary,
+                              ),
                             )
-                          : const Icon(Icons.send_outlined, color: AppColors.primary),
+                          : const Icon(
+                              Icons.send_outlined,
+                              color: AppColors.primary,
+                            ),
                     ),
                   ],
                 ),
@@ -288,73 +355,131 @@ class _CommentRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
-    final profile = ref.watch(publicProfileProvider(comment.userId)).valueOrNull;
-    final name = (profile?.name.isNotEmpty ?? false) ? profile!.name : loc.defaultUserName;
-    final isLiked = ref.watch(isCommentLikedByMeProvider((postId, comment.id))).valueOrNull ?? false;
+    final profile = ref
+        .watch(publicProfileProvider(comment.userId))
+        .valueOrNull;
+    final name = (profile?.name.isNotEmpty ?? false)
+        ? profile!.name
+        : loc.defaultUserName;
+    final isLiked =
+        ref
+            .watch(isCommentLikedByMeProvider((postId, comment.id)))
+            .valueOrNull ??
+        false;
 
     final canEdit = myUid != null && myUid == comment.userId;
-    final canDelete = myUid != null && (myUid == comment.userId || myUid == postOwnerId);
+    final canDelete =
+        myUid != null && (myUid == comment.userId || myUid == postOwnerId);
+
+    void openCommenterProfile() {
+      final navigator = Navigator.of(context);
+      navigator.pop();
+      navigator.push(
+        MaterialPageRoute(
+          builder: (_) => UserProfileScreen(uid: comment.userId),
+        ),
+      );
+    }
 
     Future<void> onLikeTap() async {
       if (!context.mounted) return;
-      final ok = await ref.read(postControllerProvider).toggleCommentLike(postId, comment.id, !isLiked);
+      final ok = await ref
+          .read(postControllerProvider)
+          .toggleCommentLike(postId, comment.id, !isLiked);
       if (!ok && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.postLikeErrorMessage)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.postLikeErrorMessage)));
       }
     }
 
     return Padding(
       padding: EdgeInsets.only(left: isReply ? 40 : 0, top: 10, bottom: 2),
       child: GestureDetector(
-        onLongPress: (canEdit || canDelete) ? () => _showMenu(context, ref, loc, canEdit, canDelete) : null,
+        // Opaque, not the default deferToChild — otherwise a hold
+        // anywhere that isn't directly on painted content (the gap
+        // right of the small like icon, in particular) misses the long
+        // press entirely, since deferToChild only counts hits where a
+        // descendant actually paints something.
+        behavior: HitTestBehavior.opaque,
+        onLongPress: (canEdit || canDelete)
+            ? () => _showMenu(context, ref, loc, canEdit, canDelete)
+            : null,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: isReply ? 14 : 16,
-              backgroundColor: AppColors.card,
-              backgroundImage: profile?.photoUrl != null ? NetworkImage(profile!.photoUrl!) : null,
-              child: profile?.photoUrl == null
-                  ? Icon(Icons.person_outline, color: AppColors.textSecondary, size: isReply ? 14 : 16)
-                  : null,
+            GestureDetector(
+              onTap: openCommenterProfile,
+              child: CircleAvatar(
+                radius: isReply ? 14 : 16,
+                backgroundColor: AppColors.card,
+                backgroundImage: profile?.photoUrl != null
+                    ? NetworkImage(profile!.photoUrl!)
+                    : null,
+                child: profile?.photoUrl == null
+                    ? Icon(
+                        Icons.person_outline,
+                        color: AppColors.textSecondary,
+                        size: isReply ? 14 : 16,
+                      )
+                    : null,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          name,
-                          style: AppTextStyles.body.copyWith(fontSize: 13.5, fontWeight: FontWeight.w600),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (profile?.username != null && profile!.username!.isNotEmpty) ...[
-                        const SizedBox(width: 5),
+                  GestureDetector(
+                    onTap: openCommenterProfile,
+                    child: Row(
+                      children: [
                         Flexible(
                           child: Text(
-                            '@${profile.username}',
-                            style: AppTextStyles.caption.copyWith(fontSize: 11.5),
+                            name,
+                            style: AppTextStyles.body.copyWith(
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
+                        if (profile?.username != null &&
+                            profile!.username!.isNotEmpty) ...[
+                          const SizedBox(width: 5),
+                          Flexible(
+                            child: Text(
+                              '@${profile.username}',
+                              style: AppTextStyles.caption.copyWith(
+                                fontSize: 11.5,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(width: 6),
+                        Text(
+                          formatRelativeTime(comment.createdAt, loc),
+                          style: AppTextStyles.caption.copyWith(fontSize: 11),
+                        ),
                       ],
-                      const SizedBox(width: 6),
-                      Text(formatRelativeTime(comment.createdAt, loc), style: AppTextStyles.caption.copyWith(fontSize: 11)),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 2),
-                  Text(comment.text, style: AppTextStyles.body.copyWith(fontSize: 14)),
+                  Text(
+                    comment.text,
+                    style: AppTextStyles.body.copyWith(fontSize: 14),
+                  ),
                   const SizedBox(height: 4),
                   Row(
                     children: [
                       if (comment.likesCount > 0) ...[
                         Text(
                           '${comment.likesCount}',
-                          style: AppTextStyles.caption.copyWith(fontSize: 11.5, fontWeight: FontWeight.w600),
+                          style: AppTextStyles.caption.copyWith(
+                            fontSize: 11.5,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         const SizedBox(width: 12),
                       ],
@@ -363,7 +488,10 @@ class _CommentRow extends ConsumerWidget {
                           onTap: () => onReply!(comment),
                           child: Text(
                             loc.postReplyAction,
-                            style: AppTextStyles.caption.copyWith(fontSize: 11.5, fontWeight: FontWeight.w600),
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                     ],
@@ -386,11 +514,19 @@ class _CommentRow extends ConsumerWidget {
     );
   }
 
-  void _showMenu(BuildContext context, WidgetRef ref, AppLocalizations loc, bool canEdit, bool canDelete) {
+  void _showMenu(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations loc,
+    bool canEdit,
+    bool canDelete,
+  ) {
     showModalBottomSheet<_CommentMenuAction>(
       context: context,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) {
         return SafeArea(
           top: false,
@@ -400,15 +536,32 @@ class _CommentRow extends ConsumerWidget {
               const SizedBox(height: 8),
               if (canEdit)
                 ListTile(
-                  leading: const Icon(Icons.edit_outlined, color: AppColors.textSecondary),
-                  title: Text(loc.postMenuEdit, style: AppTextStyles.body.copyWith(fontSize: 15)),
-                  onTap: () => Navigator.pop(sheetContext, _CommentMenuAction.edit),
+                  leading: const Icon(
+                    Icons.edit_outlined,
+                    color: AppColors.textSecondary,
+                  ),
+                  title: Text(
+                    loc.postMenuEdit,
+                    style: AppTextStyles.body.copyWith(fontSize: 15),
+                  ),
+                  onTap: () =>
+                      Navigator.pop(sheetContext, _CommentMenuAction.edit),
                 ),
               if (canDelete)
                 ListTile(
-                  leading: const Icon(Icons.delete_outline, color: AppColors.error),
-                  title: Text(loc.postMenuDelete, style: AppTextStyles.body.copyWith(fontSize: 15, color: AppColors.error)),
-                  onTap: () => Navigator.pop(sheetContext, _CommentMenuAction.delete),
+                  leading: const Icon(
+                    Icons.delete_outline,
+                    color: AppColors.error,
+                  ),
+                  title: Text(
+                    loc.postMenuDelete,
+                    style: AppTextStyles.body.copyWith(
+                      fontSize: 15,
+                      color: AppColors.error,
+                    ),
+                  ),
+                  onTap: () =>
+                      Navigator.pop(sheetContext, _CommentMenuAction.delete),
                 ),
               const SizedBox(height: 8),
             ],
@@ -426,28 +579,48 @@ class _CommentRow extends ConsumerWidget {
     });
   }
 
-  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, AppLocalizations loc) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations loc,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(loc.postCommentDeleteConfirmTitle, style: AppTextStyles.cardTitle.copyWith(fontSize: 17)),
-        content: Text(loc.postDeleteConfirmMessage, style: AppTextStyles.body.copyWith(fontSize: 14.5)),
+        title: Text(
+          loc.postCommentDeleteConfirmTitle,
+          style: AppTextStyles.cardTitle.copyWith(fontSize: 17),
+        ),
+        content: Text(
+          loc.postDeleteConfirmMessage,
+          style: AppTextStyles.body.copyWith(fontSize: 14.5),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(loc.postMenuDelete, style: const TextStyle(color: AppColors.error)),
+            child: Text(
+              loc.postMenuDelete,
+              style: const TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),
     );
     if (confirmed != true || !context.mounted) return;
 
-    final ok = await ref.read(postControllerProvider).deleteComment(postId, comment.id);
+    final ok = await ref
+        .read(postControllerProvider)
+        .deleteComment(postId, comment.id);
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.postCommentDeleteErrorMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.postCommentDeleteErrorMessage)),
+      );
     }
   }
 }
