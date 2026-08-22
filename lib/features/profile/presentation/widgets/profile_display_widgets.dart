@@ -178,11 +178,13 @@ class _PostGridTile extends StatelessWidget {
             // .mp4 itself) — thumbnailUrl is the JPEG cover frame
             // generated at upload time. Falls back to the raw mediaUrl
             // only for posts shared before that field existed, which
-            // then hits errorBuilder below like today. `thumbnail: true`
-            // is what actually fixes image posts loading full-size in
-            // this 3-up grid (video posts already had thumbnailUrl).
+            // then hits errorBuilder below like today. No `thumbnail:
+            // true` here — a 3-up grid tile is ~130 logical px, which at
+            // 3x device pixel ratio needs ~390 physical px; the
+            // extension's 200x200 derivative would be visibly upscaled
+            // and blurry at that size, so this loads the full-size
+            // thumbnailUrl/mediaUrl directly instead.
             post.thumbnailUrl ?? post.mediaUrl,
-            thumbnail: true,
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => const PhotoPlaceholderPattern(),
           ),

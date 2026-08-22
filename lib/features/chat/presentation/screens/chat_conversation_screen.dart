@@ -1074,7 +1074,6 @@ class _MessageBubble extends ConsumerWidget {
           borderRadius: BorderRadius.circular(12),
           child: AppImage(
             message.mediaUrl!,
-            thumbnail: true,
             fit: BoxFit.cover,
             width: 220,
             height: 220,

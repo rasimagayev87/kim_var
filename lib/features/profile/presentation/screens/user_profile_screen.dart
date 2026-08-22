@@ -304,7 +304,7 @@ class _OtherAvatarWithRing extends ConsumerWidget {
             child: Hero(
               tag: heroTag,
               child: photoUrl != null
-                  ? AppImage(photoUrl!, thumbnail: true, fit: BoxFit.cover)
+                  ? AppImage(photoUrl!, fit: BoxFit.cover)
                   : const PhotoPlaceholderPattern(),
             ),
           ),

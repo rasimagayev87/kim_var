@@ -323,7 +323,7 @@ class _AvatarWithRing extends ConsumerWidget {
                 child: Hero(
                   tag: 'own-profile-avatar',
                   child: photoUrl != null
-                      ? AppImage(photoUrl!, thumbnail: true, fit: BoxFit.cover)
+                      ? AppImage(photoUrl!, fit: BoxFit.cover)
                       : const PhotoPlaceholderPattern(),
                 ),
               ),

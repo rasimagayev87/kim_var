@@ -195,10 +195,17 @@ class _PostReelItemState extends ConsumerState<PostReelItem> {
 
   Widget _buildMedia() {
     if (widget.post.mediaType == PostMediaType.photo) {
-      return AppImage(
-        widget.post.mediaUrl,
-        fit: BoxFit.cover,
-        errorBuilder: (_, _, _) => const PhotoPlaceholderPattern(),
+      // `contain` on a black background, never `cover` — a rectangular
+      // (non-square) photo must show in full, matching how the video
+      // branch below already letterboxes landscape/square clips
+      // instead of cropping them.
+      return Container(
+        color: Colors.black,
+        child: AppImage(
+          widget.post.mediaUrl,
+          fit: BoxFit.contain,
+          errorBuilder: (_, _, _) => const PhotoPlaceholderPattern(),
+        ),
       );
     }
 

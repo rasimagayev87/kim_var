@@ -42,7 +42,6 @@ class PostMessageBubble extends StatelessWidget {
                 child: (!isVideo && thumbnailUrl != null)
                     ? AppImage(
                         thumbnailUrl!,
-                        thumbnail: true,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => _ThumbnailFallback(isVideo: isVideo),
                       )
