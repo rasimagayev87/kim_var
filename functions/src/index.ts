@@ -2931,6 +2931,20 @@ export const onCommentDeleted = onDocumentDeleted("posts/{postId}/comments/{comm
   if (commentRef) {
     const likesSnap = await commentRef.collection("likes").get();
     await Promise.all(likesSnap.docs.map((doc) => doc.ref.delete()));
+
+    // A deleted top-level comment's own replies don't cascade-delete on
+    // their own — Firestore has no such relationship, they're just
+    // sibling docs in the same flat `comments` subcollection with a
+    // `replyToCommentId` pointer (see `PostComment`'s doc comment).
+    // Left alone, a reply becomes an orphan: invisible in the UI
+    // (`comments_sheet.dart` only ever renders a reply nested under its
+    // parent, which is now gone) but still counted in `commentsCount`.
+    // Deleting them here re-triggers this same function for each —
+    // which handles their own `likes` cleanup and counter decrement
+    // with no special-casing needed, since a reply never has replies of
+    // its own, so this can't recurse further than one level.
+    const repliesSnap = await commentRef.parent.where("replyToCommentId", "==", commentRef.id).get();
+    await Promise.all(repliesSnap.docs.map((doc) => doc.ref.delete()));
   }
   await bumpPostCounter(event.params.postId, "commentsCount", -1);
 });
