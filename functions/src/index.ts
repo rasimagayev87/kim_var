@@ -227,20 +227,27 @@ export const getDiscoverCandidates = onCall({ region: "us-central1", enforceAppC
 });
 
 /** Chat messages this user sent — replaced, not deleted, so the other
- * participant's chat history stays intact. */
+ * participant's chat history stays intact. Same scope also owns Storage
+ * cleanup: each message's own `mediaUrl` (image/video/audio) is deleted
+ * from Storage right before the field itself is cleared, using the exact
+ * `senderId == uid` set already being queried here — never the whole
+ * `{chatId}` folder, since that would also delete the OTHER
+ * participant's media. */
 async function replaceMessagesWithPlaceholder(uid: string): Promise<void> {
   const chatsSnap = await db.collection("chats").where("participants", "array-contains", uid).get();
 
   for (const chatDoc of chatsSnap.docs) {
     const messagesSnap = await chatDoc.ref.collection("messages").where("senderId", "==", uid).get();
     await Promise.all(
-      messagesSnap.docs.map((messageDoc) =>
-        messageDoc.ref.update({
+      messagesSnap.docs.map(async (messageDoc) => {
+        const mediaUrl = messageDoc.data().mediaUrl as string | undefined;
+        if (mediaUrl) await deleteStorageObjectByUrl(mediaUrl);
+        await messageDoc.ref.update({
           text: DELETED_SENDER_PLACEHOLDER,
           mediaUrl: FieldValue.delete(),
           deletedSender: true,
-        })
-      )
+        });
+      })
     );
   }
 }
@@ -367,6 +374,25 @@ async function deleteStorageFile(path: string): Promise<void> {
   } catch {
     // Best-effort — no file at this path (e.g. never uploaded) isn't a failure.
   }
+}
+
+/** Resolves a Firebase Storage download URL
+ * (`.../o/{encodedPath}?alt=media&token=...`) back to its bucket object
+ * path and deletes it. The Admin SDK has no `refFromURL` — that's a
+ * client-SDK-only convenience — so this mirrors what the Flutter client's
+ * own `deleteMessageForEveryone` already does with
+ * `_storage.refFromURL(mediaUrl).delete()`. A URL that doesn't match the
+ * expected `/o/` shape is silently skipped; an already-missing object is
+ * handled by `deleteStorageFile`'s own best-effort catch. */
+async function deleteStorageObjectByUrl(url: string): Promise<void> {
+  const marker = "/o/";
+  const markerIndex = url.indexOf(marker);
+  if (markerIndex === -1) return;
+
+  const pathStart = markerIndex + marker.length;
+  const queryIndex = url.indexOf("?", pathStart);
+  const encodedPath = queryIndex === -1 ? url.substring(pathStart) : url.substring(pathStart, queryIndex);
+  await deleteStorageFile(decodeURIComponent(encodedPath));
 }
 
 async function deleteStoragePrefix(prefix: string): Promise<void> {
