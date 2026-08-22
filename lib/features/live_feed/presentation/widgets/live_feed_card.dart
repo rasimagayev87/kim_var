@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../domain/entities/live_feed_item.dart';
 import 'live_feed_palette.dart';
 
@@ -74,8 +75,9 @@ class LiveFeedCard extends StatelessWidget {
               _showVenuePhoto
                   ? ClipRRect(
                       borderRadius: BorderRadius.circular(11),
-                      child: Image.network(
+                      child: AppImage(
                         item.photoUrl!,
+                        thumbnail: true,
                         width: 34,
                         height: 34,
                         fit: BoxFit.cover,

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/relative_time_formatter.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/post.dart';
@@ -56,7 +57,7 @@ class PostDetailScreen extends ConsumerWidget {
                   AspectRatio(
                     aspectRatio: 1,
                     child: post.mediaType == PostMediaType.photo
-                        ? Image.network(
+                        ? AppImage(
                             post.mediaUrl,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => const PhotoPlaceholderPattern(),

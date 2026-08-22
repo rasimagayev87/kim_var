@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../core/widgets/premium_upsell_sheet.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -322,7 +323,7 @@ class _AvatarWithRing extends ConsumerWidget {
                 child: Hero(
                   tag: 'own-profile-avatar',
                   child: photoUrl != null
-                      ? Image.network(photoUrl!, fit: BoxFit.cover)
+                      ? AppImage(photoUrl!, thumbnail: true, fit: BoxFit.cover)
                       : const PhotoPlaceholderPattern(),
                 ),
               ),

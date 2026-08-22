@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
@@ -162,7 +163,7 @@ class _EventCard extends ConsumerWidget {
               width: 64,
               height: 64,
               child: event.coverImageUrl != null
-                  ? Image.network(event.coverImageUrl!, fit: BoxFit.cover)
+                  ? AppImage(event.coverImageUrl!, thumbnail: true, fit: BoxFit.cover)
                   : Container(color: ChatLightColors.cardSurface, child: const Icon(Icons.celebration_outlined, color: ChatLightColors.inkSoft)),
             ),
           ),

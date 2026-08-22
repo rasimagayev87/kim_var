@@ -8,6 +8,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/distance_formatter.dart';
 import '../../../../core/utils/distance_unit.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/premium_upsell_sheet.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../widgets/avatar_pin_marker.dart';
@@ -1565,7 +1566,7 @@ class _VenueCard extends ConsumerWidget {
                       width: 76,
                       height: 76,
                       child: venue.photoUrl != null
-                          ? Image.network(venue.photoUrl!, fit: BoxFit.cover)
+                          ? AppImage(venue.photoUrl!, thumbnail: true, fit: BoxFit.cover)
                           : Container(
                               color: ChatLightColors.cardSurface,
                               alignment: Alignment.center,

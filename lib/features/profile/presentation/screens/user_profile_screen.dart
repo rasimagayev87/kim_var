@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/providers/chat_providers.dart';
@@ -302,7 +303,9 @@ class _OtherAvatarWithRing extends ConsumerWidget {
           child: ClipOval(
             child: Hero(
               tag: heroTag,
-              child: photoUrl != null ? Image.network(photoUrl!, fit: BoxFit.cover) : const PhotoPlaceholderPattern(),
+              child: photoUrl != null
+                  ? AppImage(photoUrl!, thumbnail: true, fit: BoxFit.cover)
+                  : const PhotoPlaceholderPattern(),
             ),
           ),
         ),
@@ -398,7 +401,7 @@ class _ZoomedAvatarScreen extends StatelessWidget {
                 width: 280,
                 height: 280,
                 child: photoUrl != null
-                    ? Image.network(photoUrl!, fit: BoxFit.cover)
+                    ? AppImage(photoUrl!, fit: BoxFit.cover)
                     : const ColoredBox(color: Colors.white, child: PhotoPlaceholderPattern()),
               ),
             ),

@@ -7,6 +7,7 @@ import 'package:video_player/video_player.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/relative_time_formatter.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
 import '../../../profile/presentation/screens/user_profile_screen.dart';
@@ -214,7 +215,7 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
             child: Center(
               child: story.mediaType == StoryMediaType.image
                   ? (_mediaReady
-                      ? Image.network(story.mediaUrl, fit: BoxFit.contain)
+                      ? AppImage(story.mediaUrl, fit: BoxFit.contain)
                       : const CircularProgressIndicator(color: AppColors.primary))
                   : (_videoController?.value.isInitialized ?? false)
                       ? AspectRatio(

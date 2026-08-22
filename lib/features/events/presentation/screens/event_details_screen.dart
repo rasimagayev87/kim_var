@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/presentation/screens/venue_profile_screen.dart';
@@ -76,7 +77,7 @@ class _EventDetailsContent extends StatelessWidget {
             height: 240,
             width: double.infinity,
             child: event.coverImageUrl != null
-                ? Image.network(event.coverImageUrl!, fit: BoxFit.cover)
+                ? AppImage(event.coverImageUrl!, fit: BoxFit.cover)
                 : Container(color: ChatLightColors.cardSurface, child: const Icon(Icons.celebration_outlined, size: 56, color: ChatLightColors.inkFaint)),
           ),
         ),

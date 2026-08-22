@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/distance_formatter.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../core/utils/distance_unit.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
@@ -498,7 +499,7 @@ class _OfferVenueLogo extends StatelessWidget {
         width: 52,
         height: 52,
         child: offer.venuePhotoUrl != null
-            ? Image.network(offer.venuePhotoUrl!, fit: BoxFit.cover)
+            ? AppImage(offer.venuePhotoUrl!, thumbnail: true, fit: BoxFit.cover)
             : Container(
                 color: ChatLightColors.cardSurface,
                 alignment: Alignment.center,
@@ -660,7 +661,7 @@ class _PinBoxCard extends StatelessWidget {
                     width: 52,
                     height: 52,
                     child: pinbox.imageUrl != null
-                        ? Image.network(pinbox.imageUrl!, fit: BoxFit.cover)
+                        ? AppImage(pinbox.imageUrl!, thumbnail: true, fit: BoxFit.cover)
                         : Container(
                             color: ChatLightColors.cardSurface,
                             alignment: Alignment.center,

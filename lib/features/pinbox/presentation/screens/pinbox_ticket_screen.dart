@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../domain/entities/pinbox_order.dart';
@@ -261,7 +262,7 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                                   width: 44,
                                   height: 44,
                                   child: pinbox.imageUrl != null
-                                      ? Image.network(pinbox.imageUrl!, fit: BoxFit.cover)
+                                      ? AppImage(pinbox.imageUrl!, thumbnail: true, fit: BoxFit.cover)
                                       : Container(
                                           color: ChatLightColors.cardSurface,
                                           alignment: Alignment.center,

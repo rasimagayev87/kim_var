@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
@@ -150,7 +151,7 @@ class _OrderCard extends ConsumerWidget {
                     width: 64,
                     height: 64,
                     child: pinbox.imageUrl != null
-                        ? Image.network(pinbox.imageUrl!, fit: BoxFit.cover)
+                        ? AppImage(pinbox.imageUrl!, thumbnail: true, fit: BoxFit.cover)
                         : Container(
                             color: ChatLightColors.cardSurface,
                             alignment: Alignment.center,
@@ -339,7 +340,7 @@ class _ListingCard extends ConsumerWidget {
                     width: 64,
                     height: 64,
                     child: pinbox.imageUrl != null
-                        ? Image.network(pinbox.imageUrl!, fit: BoxFit.cover)
+                        ? AppImage(pinbox.imageUrl!, thumbnail: true, fit: BoxFit.cover)
                         : Container(
                             color: ChatLightColors.cardSurface,
                             alignment: Alignment.center,

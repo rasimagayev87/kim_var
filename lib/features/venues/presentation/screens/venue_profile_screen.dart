@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../location/presentation/providers/location_providers.dart';
@@ -318,7 +319,7 @@ class _VenueEventRow extends StatelessWidget {
                   width: 48,
                   height: 48,
                   child: event.coverImageUrl != null
-                      ? Image.network(event.coverImageUrl!, fit: BoxFit.cover)
+                      ? AppImage(event.coverImageUrl!, thumbnail: true, fit: BoxFit.cover)
                       : Container(color: Colors.white, child: const Icon(Icons.celebration_outlined, color: ChatLightColors.inkSoft)),
                 ),
               ),
@@ -368,7 +369,7 @@ class _HeroImage extends StatelessWidget {
           height: 280,
           width: double.infinity,
           child: venue.photoUrl != null
-              ? Image.network(venue.photoUrl!, fit: BoxFit.cover)
+              ? AppImage(venue.photoUrl!, fit: BoxFit.cover)
               : Container(
                   color: ChatLightColors.cardSurface,
                   alignment: Alignment.center,

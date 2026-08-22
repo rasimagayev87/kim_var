@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/utils/distance_formatter.dart';
 import '../../../../core/utils/distance_unit.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../domain/entities/venue_event.dart';
@@ -50,7 +51,7 @@ class VenueEventCard extends StatelessWidget {
                   width: 52,
                   height: 52,
                   child: event.coverImageUrl != null
-                      ? Image.network(event.coverImageUrl!, fit: BoxFit.cover)
+                      ? AppImage(event.coverImageUrl!, thumbnail: true, fit: BoxFit.cover)
                       : Container(
                           color: ChatLightColors.cardSurface,
                           alignment: Alignment.center,

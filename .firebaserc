@@ -1,5 +1,13 @@
 {
   "projects": {
     "default": "kim-var-73ce9"
+  },
+  "targets": {},
+  "etags": {
+    "kim-var-73ce9": {
+      "extensionInstances": {
+        "storage-resize-images": "d9bc795b8a766ce49ec1f84bfeedf7604b28e60c7c5ffafa25b263a0ee2c2a21"
+      }
+    }
   }
 }

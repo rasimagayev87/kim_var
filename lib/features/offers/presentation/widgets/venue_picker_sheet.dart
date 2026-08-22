@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
@@ -106,7 +107,7 @@ class _VenueRow extends StatelessWidget {
                   width: 44,
                   height: 44,
                   child: venue.photoUrl != null
-                      ? Image.network(venue.photoUrl!, fit: BoxFit.cover)
+                      ? AppImage(venue.photoUrl!, thumbnail: true, fit: BoxFit.cover)
                       : Container(
                           color: ChatLightColors.cardSurface,
                           alignment: Alignment.center,

@@ -10,6 +10,7 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
@@ -194,7 +195,7 @@ class _PostReelItemState extends ConsumerState<PostReelItem> {
 
   Widget _buildMedia() {
     if (widget.post.mediaType == PostMediaType.photo) {
-      return Image.network(
+      return AppImage(
         widget.post.mediaUrl,
         fit: BoxFit.cover,
         errorBuilder: (_, _, _) => const PhotoPlaceholderPattern(),
@@ -553,7 +554,7 @@ class _RightActionRail extends ConsumerWidget {
                 ),
                 child: ClipOval(
                   child: profile?.photoUrl != null
-                      ? Image.network(profile!.photoUrl!, fit: BoxFit.cover)
+                      ? AppImage(profile!.photoUrl!, thumbnail: true, fit: BoxFit.cover)
                       : const Icon(Icons.person_outline, color: Colors.white70),
                 ),
               ),

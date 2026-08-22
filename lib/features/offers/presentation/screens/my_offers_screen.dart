@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
@@ -174,7 +175,7 @@ class _MyOfferCard extends ConsumerWidget {
                         width: 64,
                         height: 64,
                         child: offer.imageUrl != null
-                            ? Image.network(offer.imageUrl!, fit: BoxFit.cover)
+                            ? AppImage(offer.imageUrl!, thumbnail: true, fit: BoxFit.cover)
                             : Container(
                                 color: ChatLightColors.cardSurface,
                                 alignment: Alignment.center,

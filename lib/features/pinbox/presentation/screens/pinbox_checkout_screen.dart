@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../domain/entities/pinbox.dart';
@@ -247,7 +248,7 @@ class _SummaryCard extends StatelessWidget {
               width: 56,
               height: 56,
               child: pinbox.imageUrl != null
-                  ? Image.network(pinbox.imageUrl!, fit: BoxFit.cover)
+                  ? AppImage(pinbox.imageUrl!, thumbnail: true, fit: BoxFit.cover)
                   : Container(
                       color: ChatLightColors.cardSurface,
                       alignment: Alignment.center,

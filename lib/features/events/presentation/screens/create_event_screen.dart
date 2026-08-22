@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
@@ -267,7 +268,7 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> with Widg
                 child: _coverImage != null
                     ? Image.file(_coverImage!, fit: BoxFit.cover)
                     : widget.existingEvent?.coverImageUrl != null
-                    ? Image.network(widget.existingEvent!.coverImageUrl!, fit: BoxFit.cover)
+                    ? AppImage(widget.existingEvent!.coverImageUrl!, fit: BoxFit.cover)
                     : Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,

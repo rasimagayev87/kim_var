@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../pinbox/presentation/screens/pinbox_redeem_screen.dart';
@@ -307,7 +308,7 @@ class _MyVenueCard extends ConsumerWidget {
                         width: 64,
                         height: 64,
                         child: venue.photoUrl != null
-                            ? Image.network(venue.photoUrl!, fit: BoxFit.cover)
+                            ? AppImage(venue.photoUrl!, thumbnail: true, fit: BoxFit.cover)
                             : Container(
                                 color: ChatLightColors.cardSurface,
                                 alignment: Alignment.center,

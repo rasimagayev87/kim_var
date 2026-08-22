@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/relative_time_formatter.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../settings/notifications/presentation/screens/notifications_screen.dart' as settings;
@@ -341,8 +342,9 @@ class _NotificationAvatar extends StatelessWidget {
         // was deleted) — without errorBuilder, Image.network falls back
         // to Flutter's raw broken-image error rendering instead of this
         // screen's own icon placeholder.
-        child: Image.network(
+        child: AppImage(
           photo,
+          thumbnail: true,
           width: 44,
           height: 44,
           fit: BoxFit.cover,

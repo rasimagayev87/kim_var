@@ -828,7 +828,37 @@ service cloud.firestore {
     // the owner may only ever update the `caption` field client-side,
     // matching the "no client-side manual counting" requirement.
     match /posts/{postId} {
-      allow read: if request.auth != null && canReadPost(postId);
+      // The direct `resource.data.userId == request.auth.uid` branch
+      // is NOT redundant with `canReadPost`'s own owner check — it's
+      // what makes `watchUserPosts`'s LIST query (`where('userId', '==',
+      // myUid)`) work at all. Firestore only allows a list/collection
+      // query when it can statically prove every possible result
+      // satisfies the rule; a `get()`-based function like `canReadPost`
+      // can't be proven that way (Firestore has to actually run it per
+      // document, which it won't do speculatively for a query), so a
+      // rule of *only* `canReadPost(postId)` makes Cloud Firestore
+      // reject the owner's own "my posts" query outright with
+      // `permission-denied` — silently, from this app's perspective,
+      // since `userPostsProvider`'s stream error was never surfaced
+      // (see profile_tab.dart's own fix for that). A direct
+      // `resource.data.field == request.auth.uid` comparison, however,
+      // IS something Firestore can match against a `where` clause on
+      // that same field, so it recognizes this exact query shape as
+      // provably safe.
+      //
+      // KNOWN REMAINING GAP: `userPostsProvider`/`watchUserPosts` is
+      // also how `user_profile_screen.dart` lists someone ELSE's
+      // posts (`where('userId', '==', otherUid)`) — that query still
+      // can't be proven safe (the privacy/follower check needs a
+      // `get()` Firestore won't evaluate speculatively for a `list`),
+      // so it's rejected outright and that screen's post grid is
+      // currently broken too, same root cause, not yet fixed. Fixing
+      // it properly needs the list moved server-side (Cloud Function,
+      // Admin SDK) rather than another rules-only patch — rules
+      // fundamentally can't make a privacy-conditional `list` query
+      // provable this way.
+      allow read: if request.auth != null &&
+        (resource.data.userId == request.auth.uid || canReadPost(postId));
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update: if request.auth != null
         && request.auth.uid == resource.data.userId

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/widgets/app_image.dart';
 
 /// Compact play/pause + progress + duration player embedded directly in
 /// a voice-message bubble. Colors are passed in rather than hardcoded so
@@ -122,8 +123,9 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
                 children: [
                   ClipOval(
                     child: (widget.avatarUrl?.isNotEmpty ?? false)
-                        ? Image.network(
+                        ? AppImage(
                             widget.avatarUrl!,
+                            thumbnail: true,
                             fit: BoxFit.cover,
                             errorBuilder: (_, _, _) => _fallbackAvatar(),
                           )

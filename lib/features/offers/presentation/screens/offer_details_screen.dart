@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../settings/map_location/domain/entities/map_location_settings.dart';
@@ -301,7 +302,7 @@ class _HeroImage extends ConsumerWidget {
           height: 240,
           width: double.infinity,
           child: offer.imageUrl != null
-              ? Image.network(offer.imageUrl!, fit: BoxFit.cover)
+              ? AppImage(offer.imageUrl!, fit: BoxFit.cover)
               : Container(
                   color: ChatLightColors.cardSurface,
                   alignment: Alignment.center,
@@ -371,7 +372,7 @@ class _VenueRow extends StatelessWidget {
             width: 28,
             height: 28,
             child: offer.venuePhotoUrl != null
-                ? Image.network(offer.venuePhotoUrl!, fit: BoxFit.cover)
+                ? AppImage(offer.venuePhotoUrl!, thumbnail: true, fit: BoxFit.cover)
                 : Container(
                     color: ChatLightColors.cardSurface,
                     alignment: Alignment.center,
@@ -690,7 +691,7 @@ class _OtherOfferRow extends StatelessWidget {
                   width: 40,
                   height: 40,
                   child: offer.imageUrl != null
-                      ? Image.network(offer.imageUrl!, fit: BoxFit.cover)
+                      ? AppImage(offer.imageUrl!, thumbnail: true, fit: BoxFit.cover)
                       : Container(
                           color: ChatLightColors.cardSurface,
                           alignment: Alignment.center,

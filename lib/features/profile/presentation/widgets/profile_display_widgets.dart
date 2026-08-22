@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
@@ -172,13 +173,16 @@ class _PostGridTile extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
+          AppImage(
             // Videos have no directly-decodable mediaUrl here (it's the
             // .mp4 itself) — thumbnailUrl is the JPEG cover frame
             // generated at upload time. Falls back to the raw mediaUrl
             // only for posts shared before that field existed, which
-            // then hits errorBuilder below like today.
+            // then hits errorBuilder below like today. `thumbnail: true`
+            // is what actually fixes image posts loading full-size in
+            // this 3-up grid (video posts already had thumbnailUrl).
             post.thumbnailUrl ?? post.mediaUrl,
+            thumbnail: true,
             fit: BoxFit.cover,
             errorBuilder: (_, _, _) => const PhotoPlaceholderPattern(),
           ),

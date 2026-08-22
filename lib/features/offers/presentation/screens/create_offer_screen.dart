@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
@@ -1295,7 +1296,7 @@ class _VenuePickerField extends StatelessWidget {
                     width: 40,
                     height: 40,
                     child: venue?.photoUrl != null
-                        ? Image.network(venue!.photoUrl!, fit: BoxFit.cover)
+                        ? AppImage(venue!.photoUrl!, thumbnail: true, fit: BoxFit.cover)
                         : Container(
                             color: ChatLightColors.cardSurface,
                             alignment: Alignment.center,

@@ -9,6 +9,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/chat_message.dart';
 
@@ -117,7 +118,7 @@ class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
             ? InteractiveViewer(
                 minScale: 1,
                 maxScale: 4,
-                child: Image.network(widget.mediaUrl, fit: BoxFit.contain),
+                child: AppImage(widget.mediaUrl, fit: BoxFit.contain),
               )
             : _buildVideo(),
       ),

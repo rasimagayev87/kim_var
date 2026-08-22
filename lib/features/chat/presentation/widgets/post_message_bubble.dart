@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 
 /// In-bubble preview for a shared "Lent" post — a static thumbnail
@@ -39,8 +40,9 @@ class PostMessageBubble extends StatelessWidget {
                 width: 180,
                 height: 180,
                 child: (!isVideo && thumbnailUrl != null)
-                    ? Image.network(
+                    ? AppImage(
                         thumbnailUrl!,
+                        thumbnail: true,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => _ThumbnailFallback(isVideo: isVideo),
                       )

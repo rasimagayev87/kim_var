@@ -17,6 +17,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/relative_time_formatter.dart';
+import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/friendly_error_state.dart';
 import '../../../../core/widgets/marquee_text.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -1071,8 +1072,9 @@ class _MessageBubble extends ConsumerWidget {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: Image.network(
+          child: AppImage(
             message.mediaUrl!,
+            thumbnail: true,
             fit: BoxFit.cover,
             width: 220,
             height: 220,
