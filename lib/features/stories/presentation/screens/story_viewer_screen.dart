@@ -15,11 +15,18 @@ import '../../domain/entities/story.dart';
 import '../../domain/entities/story_view.dart';
 import '../providers/story_providers.dart';
 
-/// How long an image story stays up before auto-advancing — matches
-/// the Instagram/TikTok convention this screen otherwise follows. A
-/// video story instead runs for its own actual duration (see
-/// [_StoryViewerScreenState._startProgress]), same as those apps.
-const _kImageStoryDuration = Duration(seconds: 5);
+/// How long an image story stays up before auto-advancing. A video
+/// story instead runs for its own actual duration (see
+/// [_StoryViewerScreenState._startProgress]), same as those apps. Long
+/// enough for a text-heavy image to actually be read — press-and-hold
+/// (see [_StoryViewerScreenState._onTapDown]) covers anyone who still
+/// needs more time.
+const _kImageStoryDuration = Duration(seconds: 30);
+
+/// Below this hold duration, a tap-down/tap-up pair is treated as a
+/// plain navigation tap (skip back/forward) rather than a pause — long
+/// enough that a real hold-to-pause gesture never gets misread as a tap.
+const _kTapVsHoldThreshold = Duration(milliseconds: 200);
 
 /// Full-screen viewer for a user's active stories — auto-advances
 /// through [stories] as each one's progress bar finishes (Instagram/
@@ -55,6 +62,12 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
   /// not start until this flips, otherwise it can run out before the
   /// media is even visible on a slow connection.
   bool _mediaReady = false;
+
+  /// Set on [_onTapDown], cleared on release/cancel — both how the
+  /// press-and-hold pause is driven and how a quick tap (navigation) is
+  /// told apart from a hold (pause/resume), by comparing wall-clock time
+  /// between the two.
+  DateTime? _pressStartTime;
 
   @override
   void initState() {
@@ -116,6 +129,51 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
       ..duration = duration
       ..value = 0
       ..forward();
+  }
+
+  /// Pauses immediately on press-down — a hold shouldn't wait for a
+  /// long-press timeout before the progress bar (and video, if that's
+  /// the current story) actually stops, or the read/watch time it's
+  /// meant to buy is already half gone by the time it kicks in.
+  /// Whether this turns out to be a hold or a quick navigation tap is
+  /// only decided on release, in [_onTapUp].
+  void _onTapDown(TapDownDetails details) {
+    if (!_mediaReady) return;
+    _pressStartTime = DateTime.now();
+    _progressController.stop();
+    _videoController?.pause();
+  }
+
+  void _onTapUp(TapUpDetails details) {
+    final pressStart = _pressStartTime;
+    _pressStartTime = null;
+    if (pressStart == null) return;
+
+    // A quick tap navigates, same as before this gesture existed — the
+    // brief pause it caused on the way down is invisible at that speed
+    // and _goTo restarts progress for whichever story it lands on anyway.
+    if (DateTime.now().difference(pressStart) < _kTapVsHoldThreshold) {
+      final width = MediaQuery.of(context).size.width;
+      if (details.globalPosition.dx < width / 2) {
+        _goTo(_index - 1);
+      } else {
+        _goTo(_index + 1);
+      }
+      return;
+    }
+
+    _progressController.forward();
+    _videoController?.play();
+  }
+
+  /// The gesture can be cancelled without a matching tap-up (e.g. the
+  /// press turns into a scroll/drag) — must still resume, or the story
+  /// stays stuck paused with no way to continue.
+  void _onTapCancel() {
+    if (_pressStartTime == null) return;
+    _pressStartTime = null;
+    _progressController.forward();
+    _videoController?.play();
   }
 
   /// Viewing your OWN story never counts as a "view" — only records
@@ -204,14 +262,9 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
         fit: StackFit.expand,
         children: [
           GestureDetector(
-            onTapUp: (details) {
-              final width = MediaQuery.of(context).size.width;
-              if (details.globalPosition.dx < width / 2) {
-                _goTo(_index - 1);
-              } else {
-                _goTo(_index + 1);
-              }
-            },
+            onTapDown: _onTapDown,
+            onTapUp: _onTapUp,
+            onTapCancel: _onTapCancel,
             child: Center(
               child: story.mediaType == StoryMediaType.image
                   ? (_mediaReady
