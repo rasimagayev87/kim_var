@@ -19,23 +19,25 @@ import { addAdmin } from "@/lib/actions/admins";
 import type { AdminRole } from "@/lib/auth/session";
 
 const ERROR_MESSAGES: Record<string, string> = {
-  "user-not-found": "Bu email ünvanı ilə PeakPin hesabı tapılmadı. Əvvəlcə həmin şəxs adi istifadəçi kimi qeydiyyatdan keçməlidir.",
-  "invalid-input": "Email boş ola bilməz.",
+  "email-taken": "Bu email ünvanı artıq mövcud bir hesaba aiddir (mobil istifadəçi ola bilər) — admin hesabları tam ayrı email istifadə etməlidir.",
+  "invalid-input": "Email boş, parol isə ən azı 6 simvol olmalıdır.",
   forbidden: "Bu əməliyyat üçün icazəniz yoxdur.",
 };
 
 export function AddAdminDialog() {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [role, setRole] = useState<AdminRole>("moderator");
   const [pending, startTransition] = useTransition();
 
   function handleSubmit() {
     startTransition(async () => {
-      const result = await addAdmin(email, role);
+      const result = await addAdmin(email, password, role);
       if (result.ok) {
         toast.success(`${email} — ${role} olaraq əlavə edildi.`);
         setEmail("");
+        setPassword("");
         setRole("moderator");
         setOpen(false);
       } else {
@@ -51,7 +53,7 @@ export function AddAdminDialog() {
         <DialogHeader>
           <DialogTitle>Yeni admin/moderator əlavə et</DialogTitle>
           <DialogDescription>
-            Email mövcud bir PeakPin hesabına aid olmalıdır — həmin hesaba admin panelə giriş rolu təyin ediləcək.
+            Tam yeni, admin-only hesab yaradılacaq — mobil tətbiqdə istifadə olunan heç bir email ilə üst-üstə düşə bilməz.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -62,7 +64,17 @@ export function AddAdminDialog() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="istifadeci@example.com"
+              placeholder="admin@peakpin.app"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="admin-password">Parol</Label>
+            <Input
+              id="admin-password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Ən azı 6 simvol"
             />
           </div>
           <div className="space-y-2">
@@ -82,7 +94,7 @@ export function AddAdminDialog() {
           <Button variant="outline" onClick={() => setOpen(false)}>
             Ləğv et
           </Button>
-          <Button onClick={handleSubmit} disabled={pending || !email.trim()}>
+          <Button onClick={handleSubmit} disabled={pending || !email.trim() || password.length < 6}>
             {pending ? "Əlavə edilir..." : "Əlavə et"}
           </Button>
         </DialogFooter>

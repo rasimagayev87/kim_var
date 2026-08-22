@@ -22,32 +22,40 @@ async function requireAdminManagement(): Promise<{ admin: AdminSession } | { den
 }
 
 /**
- * Promotes an EXISTING PeakPin account to admin/moderator by email.
- * Deliberately does not create a brand-new Firebase Auth user the way
- * scripts/bootstrap-admin.ts can — that script exists specifically for
- * standing up the very first admin when nobody can click a button yet;
- * doing the same from a web form would mean handling a password inside
- * a plain input, which is exactly the pattern worth avoiding. If the
- * email doesn't match an existing account, this returns a clear error
- * telling the caller to use the bootstrap script instead.
+ * Creates a brand-new, admin-only Firebase Auth account and grants it
+ * [role] — deliberately NEVER promotes an existing account, the same
+ * "fully isolated from the mobile app's user pool" rule
+ * `scripts/bootstrap-admin.ts` enforces for the CLI path. Same
+ * Firebase project, same Auth namespace as mobile-app end users, but
+ * an admin's email must never double as one an end user could also
+ * sign in with: if [email] already belongs to ANY account — a
+ * mobile-app user or another admin/moderator — this returns
+ * `email-taken` instead of silently attaching the role claim to that
+ * account.
  */
-export async function addAdmin(email: string, role: AdminRole): Promise<ActionResult> {
+export async function addAdmin(email: string, password: string, role: AdminRole): Promise<ActionResult> {
   const check = await requireAdminManagement();
   if ("denied" in check) return check.denied;
 
   const trimmedEmail = email.trim().toLowerCase();
-  if (!trimmedEmail) {
+  if (!trimmedEmail || password.length < 6) {
     return { ok: false, error: "invalid-input" };
   }
 
   try {
     const auth = getAdminAuth();
-    let user;
+
     try {
-      user = await auth.getUserByEmail(trimmedEmail);
-    } catch {
-      return { ok: false, error: "user-not-found" };
+      await auth.getUserByEmail(trimmedEmail);
+      return { ok: false, error: "email-taken" };
+    } catch (error) {
+      // `auth/user-not-found` is the expected, good-path outcome here
+      // — anything else (network error, malformed query) should still
+      // surface instead of being silently treated as "email free".
+      if ((error as { code?: string }).code !== "auth/user-not-found") throw error;
     }
+
+    const user = await auth.createUser({ email: trimmedEmail, password, emailVerified: true });
 
     await auth.setCustomUserClaims(user.uid, { role });
 

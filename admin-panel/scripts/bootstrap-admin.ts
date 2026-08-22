@@ -1,10 +1,10 @@
 /**
- * One-time CLI script to create (or promote) an admin/moderator
- * account by setting its `role` custom claim directly via the Admin
- * SDK — the same trust boundary every other claim-setting path in
- * this app uses (see src/lib/auth/session.ts's doc comments), just
- * run by hand instead of through a screen, since there's no signed-in
- * admin yet to click a button the first time.
+ * One-time CLI script to create a brand-new admin/moderator account
+ * and set its `role` custom claim directly via the Admin SDK — the
+ * same trust boundary every other claim-setting path in this app uses
+ * (see src/lib/auth/session.ts's doc comments), just run by hand
+ * instead of through a screen, since there's no signed-in admin yet
+ * to click a button the first time.
  *
  * Usage:
  *   npm run bootstrap-admin -- <email> <password> [admin|moderator]
@@ -14,6 +14,16 @@
  * standing up the very first admin (nobody can click a button yet) or
  * recovering a locked-out project (e.g. every admin account got
  * deleted).
+ *
+ * ALWAYS creates a fresh Auth user — never promotes an existing one.
+ * Admin identity is deliberately fully isolated from the mobile app's
+ * own user pool (same Firebase project, same Auth namespace, but an
+ * admin email must never be an email a mobile-app end user could also
+ * sign in with): if [email] already belongs to ANY existing account
+ * (a mobile-app user or another admin/moderator), this fails loudly
+ * instead of silently attaching the role claim to that account. See
+ * `src/lib/actions/admins.ts`'s `addAdmin()` for the same rule
+ * enforced from the "Admin əlavə et" screen.
  *
  * Also upserts the `admins/{uid}` roster doc (see firestore.rules'
  * doc comment on that collection) — otherwise an admin bootstrapped
@@ -65,16 +75,24 @@ async function main() {
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  let uid: string;
   try {
     const existing = await auth.getUserByEmail(email);
-    uid = existing.uid;
-    console.log(`Mövcud istifadəçi tapıldı: ${email} (${uid}) — rol təyin edilir...`);
-  } catch {
-    const created = await auth.createUser({ email, password, emailVerified: true });
-    uid = created.uid;
-    console.log(`Yeni admin hesabı yaradıldı: ${email} (${uid})`);
+    console.error(
+      `Xəta: "${email}" artıq mövcud bir hesaba aiddir (${existing.uid}) — bu, mobil tətbiq ` +
+        "istifadəçisi ola bilər. Admin hesabları mobil istifadəçilərdən tam təcrid olunmalıdır, " +
+        "ona görə bu email YENİDƏN İSTİFADƏ EDİLƏ BİLMƏZ. Fərqli bir email seçin.",
+    );
+    process.exit(1);
+  } catch (error) {
+    // `auth-user-not-found` is the expected, good-path outcome here —
+    // anything else (network error, malformed credentials) should
+    // still surface instead of being silently treated as "email free".
+    if ((error as { code?: string }).code !== "auth/user-not-found") throw error;
   }
+
+  const created = await auth.createUser({ email, password, emailVerified: true });
+  const uid = created.uid;
+  console.log(`Yeni admin hesabı yaradıldı: ${email} (${uid})`);
 
   await auth.setCustomUserClaims(uid, { role });
   await db.collection("admins").doc(uid).set({
