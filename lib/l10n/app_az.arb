@@ -603,12 +603,15 @@
     "placeholders": { "amount": { "type": "int" } }
   },
   "epointCheckoutTitle": "Ödəniş üsulu",
-  "epointCheckoutAmountLabel": "Məbləğ: {amount} AZN",
-  "@epointCheckoutAmountLabel": {
-    "placeholders": { "amount": { "type": "int" } }
-  },
   "epointCardOption": "Kart ilə ödə",
+  "epointCardSubtitle": "Visa, Mastercard və digər kartlar",
   "epointApplePayOption": "Apple Pay",
+  "epointApplePaySubtitle": "Toxunuşla sürətli və təhlükəsiz ödəniş",
+  "epointCheckoutSecurityNote": "256-bit SSL Təhlükəsiz Ödəniş Sistemi",
+  "epointCheckoutPayButton": "{amount} AZN Ödə",
+  "@epointCheckoutPayButton": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "epointCheckoutErrorMessage": "Ödəniş başlada bilmədik, bir az sonra yenidən cəhd edin.",
   "offerAwaitingPaymentBannerText": "Bu təklifin yerləşdirilməsi üçün ödəniş tələb olunur.",
   "offerRetryPaymentButton": "Ödənişi tamamla",

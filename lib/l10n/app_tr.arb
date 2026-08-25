@@ -603,12 +603,15 @@
     "placeholders": { "amount": { "type": "int" } }
   },
   "epointCheckoutTitle": "Ödeme yöntemi",
-  "epointCheckoutAmountLabel": "Tutar: {amount} AZN",
-  "@epointCheckoutAmountLabel": {
-    "placeholders": { "amount": { "type": "int" } }
-  },
   "epointCardOption": "Kartla öde",
+  "epointCardSubtitle": "Visa, Mastercard ve diğer kartlar",
   "epointApplePayOption": "Apple Pay",
+  "epointApplePaySubtitle": "Dokunuşla hızlı ve güvenli ödeme",
+  "epointCheckoutSecurityNote": "256-bit SSL Güvenli Ödeme Sistemi",
+  "epointCheckoutPayButton": "{amount} AZN Öde",
+  "@epointCheckoutPayButton": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "epointCheckoutErrorMessage": "Ödeme başlatılamadı, lütfen kısa süre sonra tekrar deneyin.",
   "offerAwaitingPaymentBannerText": "Bu teklifin yayınlanması için ödeme gerekiyor.",
   "offerRetryPaymentButton": "Ödemeyi tamamla",

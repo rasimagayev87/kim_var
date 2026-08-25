@@ -603,12 +603,15 @@
     "placeholders": { "amount": { "type": "int" } }
   },
   "epointCheckoutTitle": "Способ оплаты",
-  "epointCheckoutAmountLabel": "Сумма: {amount} AZN",
-  "@epointCheckoutAmountLabel": {
-    "placeholders": { "amount": { "type": "int" } }
-  },
   "epointCardOption": "Оплатить картой",
+  "epointCardSubtitle": "Visa, Mastercard и другие карты",
   "epointApplePayOption": "Apple Pay",
+  "epointApplePaySubtitle": "Быстрая и безопасная оплата одним касанием",
+  "epointCheckoutSecurityNote": "256-битная SSL защита платежей",
+  "epointCheckoutPayButton": "Оплатить {amount} AZN",
+  "@epointCheckoutPayButton": {
+    "placeholders": { "amount": { "type": "String" } }
+  },
   "epointCheckoutErrorMessage": "Не удалось начать оплату, попробуйте немного позже.",
   "offerAwaitingPaymentBannerText": "Для публикации этого предложения требуется оплата.",
   "offerRetryPaymentButton": "Завершить оплату",

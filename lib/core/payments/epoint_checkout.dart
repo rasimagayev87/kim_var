@@ -8,7 +8,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../features/chat/presentation/theme/chat_light_theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
-import '../theme/app_spacing.dart';
 import 'epoint_token_widget_screen.dart';
 
 /// The ONE place every Epoint-backed checkout (offer placement fee,
@@ -30,12 +29,13 @@ Future<void> presentEpointCheckout(
 }) async {
   await showModalBottomSheet<void>(
     context: context,
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
     builder: (sheetContext) => _EpointCheckoutSheet(checkoutUrl: checkoutUrl, paymentId: paymentId, feeAmount: feeAmount),
   );
 }
+
+enum _Method { card, applePay }
 
 class _EpointCheckoutSheet extends StatefulWidget {
   final String checkoutUrl;
@@ -49,7 +49,8 @@ class _EpointCheckoutSheet extends StatefulWidget {
 }
 
 class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
-  bool _loading = false;
+  _Method _selected = _Method.card;
+  bool _confirming = false;
 
   Future<void> _payByCard() async {
     Navigator.pop(context);
@@ -58,7 +59,7 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
 
   Future<void> _payByApplePay() async {
     final loc = AppLocalizations.of(context);
-    setState(() => _loading = true);
+    setState(() => _confirming = true);
     try {
       final result = await FirebaseFunctions.instance
           .httpsCallable('createApplePayCheckout')
@@ -69,14 +70,24 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
       await Navigator.push(context, MaterialPageRoute(builder: (_) => EpointTokenWidgetScreen(widgetUrl: widgetUrl)));
     } catch (_) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() => _confirming = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
+    }
+  }
+
+  Future<void> _confirm() async {
+    if (_confirming) return;
+    switch (_selected) {
+      case _Method.card:
+        await _payByCard();
+      case _Method.applePay:
+        await _payByApplePay();
     }
   }
 
   Future<void> _onGooglePayResult(Map<String, dynamic> paymentResult) async {
     final loc = AppLocalizations.of(context);
-    setState(() => _loading = true);
+    setState(() => _confirming = true);
     try {
       final token = paymentResult['paymentMethodData']?['tokenizationData']?['token'] as String?;
       if (token == null) throw StateError('missing Google Pay token');
@@ -88,7 +99,7 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
       Navigator.pop(context);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _loading = false);
+      setState(() => _confirming = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
     }
   }
@@ -96,50 +107,99 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
+    final amountText = widget.feeAmount.toStringAsFixed(2);
 
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      child: SafeArea(
+        top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
               child: Container(
-                width: 36,
+                width: 40,
                 height: 4,
-                margin: const EdgeInsets.only(bottom: 14),
-                decoration: BoxDecoration(color: ChatLightColors.inkFaint.withValues(alpha: 0.35), borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(color: ChatLightColors.cardSurface, borderRadius: BorderRadius.circular(10)),
               ),
             ),
-            Text(loc.epointCheckoutTitle, style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink)),
+            const SizedBox(height: 18),
+            Text(loc.epointCheckoutTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
             const SizedBox(height: 4),
-            Text(
-              loc.epointCheckoutAmountLabel(widget.feeAmount.round()),
-              style: const TextStyle(fontSize: 13, color: ChatLightColors.inkSoft),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                Text(
+                  amountText,
+                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.primary, letterSpacing: -0.5),
+                ),
+                const SizedBox(width: 6),
+                const Text('AZN', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: ChatLightColors.ink)),
+              ],
             ),
-            const SizedBox(height: AppSpacing.lg),
-            if (_loading)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 24),
-                child: Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-              )
-            else ...[
-              _CheckoutMethodTile(
-                icon: Icons.credit_card_rounded,
-                label: loc.epointCardOption,
-                onTap: _payByCard,
+            const SizedBox(height: 20),
+            _PaymentMethodCard(
+              selected: _selected == _Method.card,
+              icon: Icons.credit_card_rounded,
+              iconColor: AppColors.primary,
+              title: loc.epointCardOption,
+              subtitle: loc.epointCardSubtitle,
+              onTap: () => setState(() => _selected = _Method.card),
+            ),
+            if (Platform.isIOS)
+              _PaymentMethodCard(
+                selected: _selected == _Method.applePay,
+                icon: Icons.apple,
+                iconColor: Colors.black,
+                title: loc.epointApplePayOption,
+                subtitle: loc.epointApplePaySubtitle,
+                onTap: () => setState(() => _selected = _Method.applePay),
               ),
-              if (Platform.isIOS) ...[
-                const SizedBox(height: 10),
-                _CheckoutMethodTile(icon: Icons.apple, label: loc.epointApplePayOption, onTap: _payByApplePay),
+            const SizedBox(height: 2),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline_rounded, size: 14, color: ChatLightColors.inkFaint),
+                const SizedBox(width: 6),
+                Text(
+                  loc.epointCheckoutSecurityNote,
+                  style: TextStyle(fontSize: 12, color: ChatLightColors.inkFaint, fontWeight: FontWeight.w500),
+                ),
               ],
-              if (Platform.isAndroid) ...[
-                const SizedBox(height: 10),
-                _GooglePayTile(feeAmount: widget.feeAmount, onResult: _onGooglePayResult),
-              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 52,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: AppColors.onAccent,
+                  disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                ),
+                onPressed: _confirming ? null : _confirm,
+                child: _confirming
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.onAccent),
+                      )
+                    : Text(
+                        loc.epointCheckoutPayButton(amountText),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.onAccent),
+                      ),
+              ),
+            ),
+            if (Platform.isAndroid) ...[
+              const SizedBox(height: 10),
+              _GooglePayTile(feeAmount: widget.feeAmount, onResult: _onGooglePayResult),
             ],
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -147,45 +207,81 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
   }
 }
 
-class _CheckoutMethodTile extends StatelessWidget {
+class _PaymentMethodCard extends StatelessWidget {
+  final bool selected;
   final IconData icon;
-  final String label;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
   final VoidCallback onTap;
 
-  const _CheckoutMethodTile({required this.icon, required this.label, required this.onTap});
+  const _PaymentMethodCard({
+    required this.selected,
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: ChatLightColors.cardSurface,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Icon(icon, size: 22, color: ChatLightColors.ink),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(label, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: selected ? AppColors.primary.withValues(alpha: 0.06) : ChatLightColors.bg1,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: selected ? AppColors.primary : ChatLightColors.cardSurface, width: selected ? 1.8 : 1),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
               ),
-              const Icon(Icons.chevron_right, color: ChatLightColors.inkFaint, size: 20),
-            ],
-          ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: ChatLightColors.ink)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: const TextStyle(fontSize: 12, color: ChatLightColors.inkSoft)),
+                ],
+              ),
+            ),
+            Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: selected ? AppColors.primary : ChatLightColors.inkFaint, width: 2),
+                color: selected ? AppColors.primary : Colors.transparent,
+              ),
+              child: selected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-/// Wraps the `pay` package's own `GooglePayButton` — kept in this
-/// module's own tile shape so the sheet's layout stays consistent
-/// between the card/Apple Pay rows (custom-drawn to match this app's
-/// design system) and Google Pay (which, per Google's own brand
-/// guidelines, must render its OFFICIAL button rather than a
-/// reskinned one).
+/// Wraps the `pay` package's own `GooglePayButton` — kept in its own
+/// bordered row rather than folded into [_PaymentMethodCard]'s
+/// select-then-confirm flow because, per Google's own brand
+/// guidelines, it must render its OFFICIAL button (its own tap IS the
+/// payment action) rather than a reskinned selectable tile.
 class _GooglePayTile extends StatelessWidget {
   final double feeAmount;
   final ValueChanged<Map<String, dynamic>> onResult;
