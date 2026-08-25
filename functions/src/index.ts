@@ -69,6 +69,20 @@ const resendApiKey = defineSecret("RESEND_API_KEY");
 const epointPublicKey = defineSecret("EPOINT_PUBLIC_KEY");
 const epointPrivateKey = defineSecret("EPOINT_PRIVATE_KEY");
 
+// `.value()` is used raw everywhere below — Secret Manager (and
+// `firebase functions:secrets:set` piping a value in non-interactively)
+// can silently carry a trailing newline the merchant's real key never
+// had, which Epoint's exact-match lookup on `public_key` then rejects
+// as an unrecognized merchant. Trimming once here, rather than at each
+// of the 4 call sites, is what actually guarantees every one of them
+// gets the same clean value.
+function epointPublicKeyValue(): string {
+  return epointPublicKey.value().trim();
+}
+function epointPrivateKeyValue(): string {
+  return epointPrivateKey.value().trim();
+}
+
 /**
  * Sends a plain notification email via Resend's REST API (not SMTP —
  * this is app-triggered mail, unrelated to Firebase Auth's own
@@ -3747,8 +3761,8 @@ async function startEpointCheckoutForPayment(
   description: string,
 ): Promise<string> {
   const { redirectUrl } = await createEpointCheckout({
-    publicKey: epointPublicKey.value(),
-    privateKey: epointPrivateKey.value(),
+    publicKey: epointPublicKeyValue(),
+    privateKey: epointPrivateKeyValue(),
     orderId: paymentId,
     amount,
     description,
@@ -4102,7 +4116,7 @@ export const epointWebhook = onRequest({ region: "us-central1", secrets: [epoint
     return;
   }
 
-  if (!verifyEpointSignature(epointPrivateKey.value(), data, signature)) {
+  if (!verifyEpointSignature(epointPrivateKeyValue(), data, signature)) {
     logger.error("epointWebhook: signature mismatch");
     res.status(400).send("invalid signature");
     return;
@@ -4158,8 +4172,8 @@ export const createApplePayCheckout = onCall(
 
     const payment = await loadOwnedPendingPayment(uid, paymentId);
     const { widgetUrl } = await createEpointTokenWidget({
-      publicKey: epointPublicKey.value(),
-      privateKey: epointPrivateKey.value(),
+      publicKey: epointPublicKeyValue(),
+      privateKey: epointPrivateKeyValue(),
       orderId: paymentId,
       amount: payment.amount as number,
       description: (payment.description as string | undefined) ?? "PeakPin",
