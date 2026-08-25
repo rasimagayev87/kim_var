@@ -20,6 +20,16 @@ export { PENDING_SECTION_META } from "@/lib/pending-sections";
  * (see `event-reports.ts`), so "open" is what "still needs review"
  * means there.
  *
+ * `payments` is deliberately `status == "refund_pending"`, NOT
+ * `"pending"` — every checkout starts life as `"pending"` for the few
+ * seconds/minutes until Epoint's webhook resolves it, so that status
+ * is a normal transient state, not a queue needing admin action (an
+ * abandoned checkout just sits there forever with no admin workflow to
+ * clear it). `refund_pending` is what the Payments page's own default
+ * view and its "Geri qaytarıldı kimi işarələ" button actually act on —
+ * this badge has to match that or it never reflects what the admin
+ * just resolved.
+ *
  * The `PendingCounts` shape and `PENDING_SECTION_META` display labels
  * live in `@/lib/pending-sections` (no `"server-only"`) so client
  * components like `NotificationBell` can import them without pulling
@@ -37,7 +47,7 @@ export async function getPendingCounts(): Promise<PendingCounts> {
       db.collection("identityVerifications").where("status", "==", "pending").count().get(),
       db.collection("reports").where("status", "==", "pending").count().get(),
       db.collection("eventReports").where("status", "==", "open").count().get(),
-      db.collection("payments").where("status", "==", "pending").count().get(),
+      db.collection("payments").where("status", "==", "refund_pending").count().get(),
       db.collection("venuePayouts").where("status", "==", "pending").count().get(),
     ]);
 

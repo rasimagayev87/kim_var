@@ -12,8 +12,9 @@ import type { AdminPinBoxPayoutRow } from "@/lib/data/pinbox-payouts";
 
 const ERROR_MESSAGES: Record<string, string> = {
   forbidden: "Bu əməliyyat üçün icazəniz yoxdur.",
-  "not-found": "Ödəniş tapılmadı.",
-  "not-pending": "Bu ödəniş artıq ödənilib.",
+  "not-found": "Öhdəlik tapılmadı.",
+  "not-pending": "Bu öhdəlik artıq ödənilib.",
+  "not-last-day": "\"Ödənildi\" düyməsi yalnız ayın son günü aktivdir.",
 };
 
 function formatDate(iso: string | null): string {
@@ -25,14 +26,20 @@ function formatAmount(amount: number, currency: string): string {
   return `${amount.toLocaleString("az-AZ", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
 }
 
-export function PinBoxPayoutsTable({ payouts }: { payouts: AdminPinBoxPayoutRow[] }) {
+export function PinBoxPayoutsTable({
+  payouts,
+  canMarkPaid,
+}: {
+  payouts: AdminPinBoxPayoutRow[];
+  canMarkPaid: boolean;
+}) {
   const [pending, startTransition] = useTransition();
 
   function handleMarkPaid(id: string) {
     startTransition(async () => {
       const result = await markPinBoxPayoutPaid(id);
       if (result.ok) {
-        toast.success("Ödəniş ödənildi kimi işarələndi.");
+        toast.success("Öhdəlik ödənilmiş kimi işarələndi.");
       } else {
         toast.error(ERROR_MESSAGES[result.error ?? ""] ?? "Əməliyyat uğursuz oldu.");
       }
@@ -42,7 +49,7 @@ export function PinBoxPayoutsTable({ payouts }: { payouts: AdminPinBoxPayoutRow[
   if (payouts.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center rounded-lg border border-dashed text-sm text-muted-foreground">
-        Bu filtrə uyğun ödəniş tapılmadı.
+        Bu filtrə uyğun öhdəlik tapılmadı.
       </div>
     );
   }
@@ -53,13 +60,12 @@ export function PinBoxPayoutsTable({ payouts }: { payouts: AdminPinBoxPayoutRow[
         <TableHeader>
           <TableRow>
             <TableHead>Məkan</TableHead>
+            <TableHead>PinBox</TableHead>
             <TableHead>Sahib</TableHead>
-            <TableHead>Dövr</TableHead>
-            <TableHead>Sifariş sayı</TableHead>
             <TableHead>Ümumi məbləğ</TableHead>
             <TableHead>Komissiya (15%)</TableHead>
             <TableHead>Ödəniləcək</TableHead>
-            <TableHead>Yaradılıb</TableHead>
+            <TableHead>Tarix</TableHead>
             <TableHead>Status</TableHead>
             <TableHead />
           </TableRow>
@@ -73,6 +79,10 @@ export function PinBoxPayoutsTable({ payouts }: { payouts: AdminPinBoxPayoutRow[
                 </Link>
               </TableCell>
               <TableCell className="text-sm">
+                {payout.pinboxTitle}
+                {payout.quantity > 1 ? <span className="text-muted-foreground"> × {payout.quantity}</span> : null}
+              </TableCell>
+              <TableCell className="text-sm">
                 {payout.ownerId ? (
                   <Link href={`/users/${payout.ownerId}`} className="hover:underline">
                     {payout.ownerName}
@@ -82,8 +92,6 @@ export function PinBoxPayoutsTable({ payouts }: { payouts: AdminPinBoxPayoutRow[
                   <span className="text-muted-foreground">—</span>
                 )}
               </TableCell>
-              <TableCell className="text-sm text-muted-foreground">{payout.period}</TableCell>
-              <TableCell className="text-sm">{payout.orderCount}</TableCell>
               <TableCell className="text-sm">{formatAmount(payout.grossAmount, payout.currency)}</TableCell>
               <TableCell className="text-sm text-muted-foreground">
                 {formatAmount(payout.commissionAmount, payout.currency)}
@@ -95,8 +103,14 @@ export function PinBoxPayoutsTable({ payouts }: { payouts: AdminPinBoxPayoutRow[
               </TableCell>
               <TableCell>
                 {payout.status === "pending" && (
-                  <Button size="sm" variant="outline" disabled={pending} onClick={() => handleMarkPaid(payout.id)}>
-                    Ödənildi kimi işarələ
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pending || !canMarkPaid}
+                    title={canMarkPaid ? undefined : "Yalnız ayın son günü aktivdir"}
+                    onClick={() => handleMarkPaid(payout.id)}
+                  >
+                    Ödənildi
                   </Button>
                 )}
               </TableCell>

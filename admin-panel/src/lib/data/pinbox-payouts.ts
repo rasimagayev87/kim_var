@@ -7,13 +7,15 @@ export type PinBoxPayoutStatusFilter = "all" | PinBoxPayoutStatus;
 
 export interface AdminPinBoxPayoutRow {
   id: string;
+  orderId: string;
   venueId: string;
   venueName: string;
   ownerId: string | null;
   ownerName: string | null;
   ownerUsername: string | null;
-  period: string;
-  orderCount: number;
+  pinboxId: string;
+  pinboxTitle: string;
+  quantity: number;
   grossAmount: number;
   commissionRate: number;
   commissionAmount: number;
@@ -30,12 +32,12 @@ function parseStatus(value: unknown): PinBoxPayoutStatus {
 }
 
 /**
- * Backs the "PinBox Ödənişləri" page — one row per `venuePayouts` doc,
- * each written monthly by `computeMonthlyPinBoxPayouts` (see that
- * function's own doc comment: venue/owner denormalized at write time,
- * so this is a single collection read, no join against `venues` for
- * those two fields). Owner display name still needs a `users` lookup,
- * same pattern as `listPayments`.
+ * Backs the "PinBox Öhdəlikləri" page — one row per `venuePayouts` doc.
+ * Each doc is written the moment a PinBox order's payment succeeds
+ * (`applyPaymentOutcome`, functions/src/index.ts), not batched monthly —
+ * doc id is the order id, venue/pinbox/owner denormalized at write time,
+ * so this is a single collection read plus a `users` lookup for owner
+ * display name, same pattern as `listPayments`.
  */
 export async function listPinBoxPayouts({ status }: { status: PinBoxPayoutStatusFilter }): Promise<AdminPinBoxPayoutRow[]> {
   const db = getAdminDb();
@@ -57,13 +59,15 @@ export async function listPinBoxPayouts({ status }: { status: PinBoxPayoutStatus
     const createdAt = data.createdAt as FirebaseFirestore.Timestamp | undefined;
     return {
       id: doc.id,
+      orderId: (data.orderId as string) ?? doc.id,
       venueId: data.venueId as string,
       venueName: (data.venueName as string) ?? "Naməlum",
       ownerId,
       ownerName: owner ? `${owner.firstName ?? ""} ${owner.lastName ?? ""}`.trim() || "Naməlum" : null,
       ownerUsername: (owner?.username as string) ?? null,
-      period: (data.period as string) ?? "",
-      orderCount: (data.orderCount as number) ?? 0,
+      pinboxId: (data.pinboxId as string) ?? "",
+      pinboxTitle: (data.pinboxTitle as string) ?? "Naməlum",
+      quantity: (data.quantity as number) ?? 1,
       grossAmount: (data.grossAmount as number) ?? 0,
       commissionRate: (data.commissionRate as number) ?? 0,
       commissionAmount: (data.commissionAmount as number) ?? 0,

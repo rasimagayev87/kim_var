@@ -10,7 +10,7 @@ const STATUS_LABELS: Record<string, string> = {
   actioned: "Əməliyyat edilib",
   dismissed: "Rədd edilib",
   completed: "Ödənilib",
-  paid: "Ödənilib",
+  paid: "Ödənilmiş",
   failed: "Uğursuz",
   revision_pending: "Düzəliş gözlənilir",
   refund_pending: "Geri qaytarılmalı",

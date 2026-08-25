@@ -81,6 +81,34 @@ export async function getOnlineUsersCount(): Promise<number> {
 }
 
 /**
+ * Sum of `amount` on every `payments` doc that completed today (server
+ * local time) — backs the "Gəlir (Bugün)" KPI and the Revenue analytics
+ * card. Only `status === "completed"` counts; `pending`/`failed`/
+ * `refund_pending` payments never contributed real revenue.
+ *
+ * Reuses the same `payments` composite index (`status` ASC, `createdAt`
+ * DESC) as `listPayments` (lib/data/payments.ts) — a range filter with no
+ * explicit `orderBy` still needs its sort direction to match an index
+ * exactly, so this mirrors that same `.orderBy("createdAt", "desc")`
+ * rather than requiring a second, ASC-only index for the same fields.
+ */
+export async function getTodayRevenue(): Promise<number> {
+  const db = getAdminDb();
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const snap = await db
+    .collection("payments")
+    .where("status", "==", "completed")
+    .where("createdAt", ">=", todayStart)
+    .orderBy("createdAt", "desc")
+    .select("amount")
+    .get();
+
+  return snap.docs.reduce((sum, doc) => sum + ((doc.get("amount") as number | undefined) ?? 0), 0);
+}
+
+/**
  * New-account count per day for the last 7 days (today inclusive),
  * oldest first — backs the dashboard's registration chart.
  *

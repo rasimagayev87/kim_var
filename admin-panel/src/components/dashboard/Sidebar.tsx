@@ -53,7 +53,7 @@ const EXISTING_NAV: {
   { href: "/payments", label: "Ödənişlər", icon: CreditCard, permission: "moderateVenues", countKey: "payments" },
   {
     href: "/pinbox-payouts",
-    label: "PinBox ödənişləri",
+    label: "PinBox öhdəlikləri",
     icon: CreditCard,
     permission: "moderateVenues",
     countKey: "pinboxPayouts",

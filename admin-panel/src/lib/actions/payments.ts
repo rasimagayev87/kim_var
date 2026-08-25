@@ -10,12 +10,15 @@ import type { ActionResult } from "./venues";
 
 /**
  * Closes out a `refund_pending` payment once the admin has actually
- * sent the money back manually (bank transfer, etc.) — no payment
- * provider is wired yet, so nothing here calls a real refund API; this
- * is purely the admin confirming "I did it" so the payment stops
- * showing up in the manual-tracking queue. Same `moderateVenues`
- * permission as venue moderation, since every payment here today
- * originates from a venue-listing decision.
+ * sent the money back manually (bank transfer, etc.). Most payments
+ * never reach here any more — `processPaymentRefund` (functions/src/
+ * index.ts) auto-reverses the charge through Epoint's real `/reverse`
+ * API and flips straight to `refunded` on success. This is the fallback
+ * for the cases that don't (a pre-Epoint-integration payment with no
+ * captured transaction id, or Epoint itself rejecting the reversal —
+ * both surface an admin notification pointing back here). Same
+ * `moderateVenues` permission as venue moderation, since every payment
+ * here today originates from a venue-listing decision.
  */
 export async function markPaymentRefunded(paymentId: string): Promise<ActionResult> {
   const admin = await getCurrentAdmin();

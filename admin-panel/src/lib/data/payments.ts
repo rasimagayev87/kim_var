@@ -5,10 +5,13 @@ import { getAdminDb } from "@/lib/firebase/admin";
 /** Mirrors the state machine in `functions/src/index.ts`
  * (`processPaymentRefund`/`expireListingRevisionDeadlines`) and
  * `setVenueStatus`/`setOfferStatus` (admin panel) exactly — same 5 strings. */
-export type PaymentStatus = "pending" | "completed" | "revision_pending" | "refund_pending" | "refunded";
+export type PaymentStatus = "pending" | "completed" | "failed" | "revision_pending" | "refund_pending" | "refunded";
 export type PaymentStatusFilter = "all" | PaymentStatus;
 
-export type ListingType = "venue" | "offer";
+/** "pinboxOrder" payments (`type: "pinbox_order"`) point at a `pinboxOrders`
+ * doc, not a `venues`/`offers` doc — there's no admin detail page for it yet,
+ * so callers must not assume every listingType has a linkable route. */
+export type ListingType = "venue" | "offer" | "pinboxOrder";
 
 export interface AdminPaymentRow {
   id: string;
@@ -33,6 +36,7 @@ const FETCH_LIMIT = 200;
 function parseStatus(value: unknown): PaymentStatus {
   return value === "pending" ||
     value === "completed" ||
+    value === "failed" ||
     value === "revision_pending" ||
     value === "refund_pending" ||
     value === "refunded"
@@ -41,7 +45,7 @@ function parseStatus(value: unknown): PaymentStatus {
 }
 
 function parseListingType(value: unknown): ListingType | null {
-  return value === "venue" || value === "offer" ? value : null;
+  return value === "venue" || value === "offer" || value === "pinboxOrder" ? value : null;
 }
 
 /**

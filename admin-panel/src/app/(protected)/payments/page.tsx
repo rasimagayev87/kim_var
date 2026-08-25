@@ -7,8 +7,10 @@ import { getCurrentAdmin } from "@/lib/auth/server";
 import { listPayments, type PaymentStatusFilter } from "@/lib/data/payments";
 
 function parseStatus(value: string | undefined): PaymentStatusFilter {
-  return value === "pending" ||
+  return value === "all" ||
+    value === "pending" ||
     value === "completed" ||
+    value === "failed" ||
     value === "revision_pending" ||
     value === "refund_pending" ||
     value === "refunded"
@@ -36,8 +38,8 @@ export default async function PaymentsPage({
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Ödənişlər</h1>
         <p className="text-sm text-muted-foreground">
-          Ödəniş provayderi hələ qurulmayıb — &quot;Geri qaytarılmalı&quot; siyahısı geri qaytarmaların əl ilə izlənməsi
-          üçündür. {payments.length} nəticə.
+          Epoint vasitəsilə edilən bütün ödənişlər — &quot;Geri qaytarılmalı&quot; siyahısı geri qaytarmaların əl ilə
+          izlənməsi üçündür. {payments.length} nəticə.
         </p>
       </div>
 

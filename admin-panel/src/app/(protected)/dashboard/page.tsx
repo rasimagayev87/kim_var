@@ -6,7 +6,7 @@ import { AiModerationPanel, AiSummaryPanel } from "@/components/dashboard/AiPane
 import { ReportStatsPanel } from "@/components/dashboard/ReportStatsPanel";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { TopVenuesPanel, SubscriptionsPanel } from "@/components/dashboard/ListPanels";
-import { getDashboardStats, getOnlineUsersCount, getRegistrationsLast7Days } from "@/lib/data/dashboard";
+import { getDashboardStats, getOnlineUsersCount, getRegistrationsLast7Days, getTodayRevenue } from "@/lib/data/dashboard";
 import type { KpiDatum, AnalyticsSeries } from "@/lib/types";
 
 const WEEKDAY_LABELS = ["Baz", "B.e", "Ç.a", "Çər", "C.a", "Cüm", "Şən"];
@@ -39,10 +39,11 @@ function weekdayLabel(isoDate: string): string {
  * component's own comments for exactly what's missing.
  */
 export default async function DashboardPage() {
-  const [stats, registrations, onlineUsers] = await Promise.all([
+  const [stats, registrations, onlineUsers, todayRevenue] = await Promise.all([
     getDashboardStats(),
     getRegistrationsLast7Days(),
     getOnlineUsersCount(),
+    getTodayRevenue(),
   ]);
 
   const todayNewUsers = registrations.at(-1)?.count ?? 0;
@@ -54,7 +55,7 @@ export default async function DashboardPage() {
     { id: "active-offers", label: "Aktiv Təkliflər", value: stats.activeOffers, icon: "Tag", tone: "pink" },
     { id: "active-events", label: "Aktiv Tədbirlər", value: stats.activeEvents, icon: "Calendar", tone: "purple" },
     { id: "active-pinboxes", label: "Aktiv PinBox-lar", value: stats.activePinBoxes, icon: "Package", tone: "amber" },
-    { id: "revenue-today", label: "Gəlir (Bugün)", value: 0, unit: "AZN", icon: "Wallet", tone: "success" },
+    { id: "revenue-today", label: "Gəlir (Bugün)", value: todayRevenue, unit: "AZN", icon: "Wallet", tone: "success" },
     { id: "subscriptions", label: "Abunəliklər", value: 0, icon: "CreditCard", tone: "purple" },
     { id: "reports", label: "Reports", value: stats.pendingReports, icon: "Flag", tone: "danger" },
     { id: "pending-approvals", label: "Gözləyən Təsdiqlər", value: stats.pendingModeration, icon: "ShieldAlert", tone: "amber" },
@@ -86,7 +87,7 @@ export default async function DashboardPage() {
     id: "revenue",
     label: "Revenue",
     unit: "AZN",
-    points: [{ date: "bugün", value: 0 }],
+    points: [{ date: "bugün", value: todayRevenue }],
   };
   const retentionSeries: AnalyticsSeries = {
     id: "retention",

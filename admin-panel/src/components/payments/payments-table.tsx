@@ -26,9 +26,13 @@ const TYPE_LABELS: Record<string, string> = {
   // 3 AZN fee → category-tiered "offer_placement_fee" migration.
   offer_listing: "Təklif elanı (köhnə)",
   offer_placement_fee: "Təklif yerləşdirmə haqqı",
+  boost_fee: "Təklifi önə çəkmə",
+  pinbox_order: "PinBox sifarişi",
 };
 
-const LISTING_TYPE_PATH: Record<string, string> = {
+// "pinboxOrder" has no admin detail page yet — deliberately omitted so the
+// listing cell falls back to plain text instead of linking to `/undefined/...`.
+const LISTING_TYPE_PATH: Partial<Record<AdminPaymentRow["listingType"] & string, string>> = {
   venue: "venues",
   offer: "offers",
 };
@@ -88,12 +92,12 @@ export function PaymentsTable({ payments }: { payments: AdminPaymentRow[] }) {
                 </Link>
               </TableCell>
               <TableCell className="text-sm">
-                {payment.listingType && payment.listingId ? (
+                {payment.listingType && payment.listingId && LISTING_TYPE_PATH[payment.listingType] ? (
                   <Link href={`/${LISTING_TYPE_PATH[payment.listingType]}/${payment.listingId}`} className="hover:underline">
                     {payment.listingName ?? payment.listingId}
                   </Link>
                 ) : (
-                  <span className="text-muted-foreground">—</span>
+                  <span className="text-muted-foreground">{payment.listingName ?? "—"}</span>
                 )}
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">{TYPE_LABELS[payment.type] ?? payment.type}</TableCell>
