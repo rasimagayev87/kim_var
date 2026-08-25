@@ -247,6 +247,7 @@ const Map<NotificationType, IconData> _notificationIcons = {
   NotificationType.offerBoosted: Icons.trending_up_rounded,
   NotificationType.venueSubscriptionRenewed: Icons.payments_outlined,
   NotificationType.pinboxOrderConfirmed: Icons.confirmation_number_outlined,
+  NotificationType.paymentFailed: Icons.error_outline_rounded,
   NotificationType.system: Icons.info,
   NotificationType.security: Icons.shield,
   NotificationType.promotion: Icons.campaign,

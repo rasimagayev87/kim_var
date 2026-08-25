@@ -3990,7 +3990,51 @@ export const retryOfferPayment = onCall(
  * past `pending`, so a retried webhook delivery or a duplicate token
  * submission can't double-fire the downstream effect.
  */
-async function applyPaymentOutcome(orderId: string, succeeded: boolean): Promise<boolean> {
+/**
+ * The realistic subset of Epoint's bank decline `code` table (see
+ * developer.epoint.az/error-codes — an ISO-8583-shaped list of ~80
+ * codes, most of which are file-operation/POS-terminal codes that
+ * can't actually occur for an online card-not-present payment) mapped
+ * to a customer-facing AZ reason, so a decline reads as "kartınızda
+ * kifayət qədər vəsait yoxdur" instead of a bare "uğursuz oldu" no
+ * matter which of these came back. Falls back to Epoint's own
+ * `message` field, then a generic line, for anything outside this set.
+ */
+const BANK_DECLINE_MESSAGE_BY_CODE: Record<string, string> = {
+  "100": "Bank ödənişi rədd etdi.",
+  "101": "Kartınızın müddəti bitib.",
+  "102": "Bank bu əməliyyatı şübhəli hesab edib rədd etdi.",
+  "103": "Bank ilə əlaqə saxlamaq lazımdır.",
+  "104": "Bu kart məhdudlaşdırılıb.",
+  "105": "Bank ilə əlaqə saxlamaq lazımdır.",
+  "107": "Kart sahibi bankı ilə əlaqə saxlamalıdır.",
+  "108": "Kart sahibi bankı ilə əlaqə saxlamalıdır.",
+  "109": "Ödəniş konfiqurasiyasında xəta — dəstək komandası ilə əlaqə saxlayın.",
+  "110": "Yanlış ödəniş məbləği.",
+  "111": "Kart nömrəsi yanlışdır.",
+  "112": "Bu əməliyyat üçün PIN tələb olunur.",
+  "116": "Kartınızda kifayət qədər vəsait yoxdur.",
+  "117": "Yanlış PIN daxil edildi.",
+  "118": "Kart məlumatları tapılmadı.",
+  "119": "Bu əməliyyat kartınıza icazə verilmir.",
+  "120": "Bu əməliyyat terminala icazə verilmir.",
+  "122": "Təhlükəsizlik pozuntusu aşkarlandı.",
+  "125": "Etibarsız kart.",
+  "129": "Bank bu kartı şübhəli hesab edir.",
+  "180": "Ödəniş kart sahibinin tələbi ilə ləğv edildi.",
+};
+
+function bankDeclineMessage(code: string | undefined, epointMessage: string | undefined): string {
+  if (code && BANK_DECLINE_MESSAGE_BY_CODE[code]) return BANK_DECLINE_MESSAGE_BY_CODE[code];
+  if (epointMessage && epointMessage.trim()) return epointMessage.trim();
+  return "Ödəniş bankınız tərəfindən rədd edildi.";
+}
+
+async function applyPaymentOutcome(
+  orderId: string,
+  succeeded: boolean,
+  failureDetail?: { code?: string; message?: string },
+): Promise<boolean> {
   const paymentRef = db.collection("payments").doc(orderId);
   const paymentSnap = await paymentRef.get();
   const payment = paymentSnap.data();
@@ -4029,6 +4073,12 @@ async function applyPaymentOutcome(orderId: string, succeeded: boolean): Promise
 
     tx.update(paymentRef, {
       status: succeeded ? "completed" : "failed",
+      ...(!succeeded && failureDetail
+        ? {
+            failureCode: failureDetail.code ?? null,
+            failureMessage: bankDeclineMessage(failureDetail.code, failureDetail.message),
+          }
+        : {}),
       updatedAt: FieldValue.serverTimestamp(),
     });
 
@@ -4166,6 +4216,38 @@ async function applyPaymentOutcome(orderId: string, succeeded: boolean): Promise
         targetType: "pinbox_order",
       });
     }
+  } else if (failureDetail) {
+    // Only a REAL bank decline (routed through the webhook, where
+    // Epoint's own code/message are available) gets a notification
+    // here — `reservePinBoxOrder`'s own catch block already surfaces a
+    // synchronous checkout-request failure (e.g. "Merchant not found")
+    // directly in the app, no bank code exists for that case, and the
+    // user is still looking at the screen when it happens.
+    const ownerId = payment.ownerId as string;
+    const reason = bankDeclineMessage(failureDetail.code, failureDetail.message);
+    let name = "";
+    let targetType = "";
+    if (payment.type === "offer_placement_fee" || payment.type === "boost_fee") {
+      const offerSnap = await db.collection("offers").doc(payment.listingId as string).get();
+      name = (offerSnap.data()?.title as string | undefined) ?? "";
+      targetType = "offer";
+    } else if (payment.type === "venue_subscription") {
+      const freshVenueSnap = await db.collection("venues").doc(payment.listingId as string).get();
+      name = (freshVenueSnap.data()?.name as string | undefined) ?? "";
+      targetType = "venue";
+    } else if (payment.type === "pinbox_order") {
+      targetType = "pinbox_order";
+    }
+    await notifyUser({
+      uid: ownerId,
+      category: "venueOffers",
+      type: "paymentFailed",
+      title: "Ödəniş uğursuz oldu",
+      body: name ? `"${name}": ${reason}` : reason,
+      params: { name, reason },
+      targetId: payment.listingId as string,
+      targetType,
+    });
   }
 
   return true;
@@ -4207,7 +4289,12 @@ export const epointWebhook = onRequest({ region: "us-central1", secrets: [epoint
     return;
   }
 
-  const applied = await applyPaymentOutcome(orderId, epointStatus === "success");
+  const succeeded = epointStatus === "success";
+  const applied = await applyPaymentOutcome(
+    orderId,
+    succeeded,
+    succeeded ? undefined : { code: decoded.code as string | undefined, message: decoded.message as string | undefined },
+  );
   res.status(200).send(applied ? "ok" : "already processed or unknown order_id");
 });
 

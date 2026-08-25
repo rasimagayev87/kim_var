@@ -1299,6 +1299,8 @@
   "notifPinboxOrderConfirmedTitle": "Order confirmed",
   "notifPinboxOrderConfirmedBody": "Your order for \"{title}\" was confirmed, your QR ticket is ready.",
   "notifPinboxOrderConfirmedBodyGeneric": "Your PinBox order was confirmed, your QR ticket is ready.",
+  "notifPaymentFailedTitle": "Payment failed",
+  "notifPaymentFailedBodyWithName": "\"{name}\": {reason}",
   "notifBirthdayOfferTitle": "🎉 A special birthday offer for you!",
   "notifBirthdayOfferBody": "{venueName} made a special offer for your birthday!",
   "notifBirthdayOfferBodyGeneric": "A special offer was made for your birthday!",

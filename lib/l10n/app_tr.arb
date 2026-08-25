@@ -1185,6 +1185,8 @@
   "notifPinboxOrderConfirmedTitle": "Sipariş onaylandı",
   "notifPinboxOrderConfirmedBody": "\"{title}\" siparişiniz onaylandı, QR biletiniz hazır.",
   "notifPinboxOrderConfirmedBodyGeneric": "PinBox siparişiniz onaylandı, QR biletiniz hazır.",
+  "notifPaymentFailedTitle": "Ödeme başarısız oldu",
+  "notifPaymentFailedBodyWithName": "\"{name}\": {reason}",
   "notifBirthdayOfferTitle": "🎉 Sana özel doğum günü teklifi!",
   "notifBirthdayOfferBody": "{venueName} doğum günün için özel bir teklif hazırladı!",
   "notifBirthdayOfferBodyGeneric": "Doğum günün için özel bir teklif hazırlandı!",

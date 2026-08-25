@@ -1185,6 +1185,8 @@
   "notifPinboxOrderConfirmedTitle": "Заказ подтверждён",
   "notifPinboxOrderConfirmedBody": "Ваш заказ \"{title}\" подтверждён, QR-билет готов.",
   "notifPinboxOrderConfirmedBodyGeneric": "Ваш заказ PinBox подтверждён, QR-билет готов.",
+  "notifPaymentFailedTitle": "Оплата не прошла",
+  "notifPaymentFailedBodyWithName": "\"{name}\": {reason}",
   "notifBirthdayOfferTitle": "🎉 Специальное предложение к вашему дню рождения!",
   "notifBirthdayOfferBody": "{venueName} подготовил(о) для вас специальное предложение ко дню рождения!",
   "notifBirthdayOfferBodyGeneric": "Для вас подготовлено специальное предложение ко дню рождения!",

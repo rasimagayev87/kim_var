@@ -147,6 +147,14 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: title.isEmpty ? loc.notifPinboxOrderConfirmedBodyGeneric : loc.notifPinboxOrderConfirmedBody(title),
       );
 
+    case NotificationType.paymentFailed:
+      final name = str('name');
+      final reason = str('reason');
+      return LocalizedNotificationText(
+        title: loc.notifPaymentFailedTitle,
+        body: name.isEmpty ? reason : loc.notifPaymentFailedBodyWithName(name, reason),
+      );
+
     case NotificationType.venueApproved:
       return LocalizedNotificationText(
         title: loc.notifVenueApprovedTitle,

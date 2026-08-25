@@ -74,6 +74,14 @@ enum NotificationType {
   venueSubscriptionRenewed,
   pinboxOrderConfirmed,
 
+  /// The bank declined the charge — same producer/reasoning as the 4
+  /// above, `params: {name, reason}` where `reason` is Epoint's own
+  /// bank-decline code translated to AZ (`bankDeclineMessage` in
+  /// functions/src/index.ts, e.g. "Kartınızda kifayət qədər vəsait
+  /// yoxdur" for insufficient funds) — never a bare "failed", so the
+  /// owner/buyer actually knows why and can act on it.
+  paymentFailed,
+
   /// A venue's live audience just spiked well above its usual level
   /// for this hour — see `computeVenueAudienceHistory` (scheduled
   /// Cloud Function). Owner-only; tapping opens Create Offer
