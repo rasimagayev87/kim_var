@@ -660,6 +660,11 @@
   "pinboxPickupWindowEndedLabel": "Время выдачи истекло",
   "pinboxPickupWindowEndedErrorMessage": "Время выдачи этой коробки уже истекло.",
   "pinboxCheckoutTitle": "Подтвердить заказ",
+  "pinboxQuantityLabel": "КОЛИЧЕСТВО",
+  "pinboxQuantityLimitedWarning": "Осталось только {count}",
+  "@pinboxQuantityLimitedWarning": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "pinboxDeliveryTermsLabel": "УСЛОВИЯ ПОЛУЧЕНИЯ",
   "pinboxPickupOnlyNotice": "Выдача только в указанный промежуток времени",
   "pinboxPickupModelLabel": "Модель: Самовывоз",
@@ -860,6 +865,16 @@
   "moderationResubmitError": "Не удалось отправить повторно. Попробуйте ещё раз чуть позже.",
   "venueDeletedNotice": "Заведение удалено",
   "venueSentForReReviewNotice": "Изменения сохранены — заведение снова ожидает проверки администратора",
+  "venueFirstPaymentBannerText": "Для создания этого заведения требуется первый платёж по подписке.",
+  "venueFirstPaymentConfirmedFoundingText": "Вы среди первых 1000 компаний 🎉 Оплата за этот месяц подтверждена, а следующий месяц (2-й) — в подарок. Дата следующего платежа: {date}.",
+  "@venueFirstPaymentConfirmedFoundingText": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "venueFirstPaymentConfirmedText": "Ваш платёж подтверждён. Дата следующего платежа: {date}.",
+  "@venueFirstPaymentConfirmedText": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "venueFirstPaymentConfirmedDismiss": "Закрыть",
   "venueSubscriptionOverdueBannerText": "Платёж по подписке этого заведения просрочен.",
   "venueSubscriptionPayButton": "Оплатить",
   "venueSubscriptionRetryErrorMessage": "Не удалось получить ссылку на оплату, попробуйте немного позже.",
@@ -1179,6 +1194,9 @@
   "@notifOfferBoostedBodyGeneric": {
     "placeholders": { "hours": { "type": "int" } }
   },
+  "notifVenuePaymentConfirmedTitle": "Оплата подтверждена",
+  "notifVenuePaymentConfirmedBody": "Оплата за \"{name}\" получена, сейчас на рассмотрении.",
+  "notifVenuePaymentConfirmedBodyGeneric": "Оплата за ваше заведение получена, сейчас на рассмотрении.",
   "notifVenueSubscriptionRenewedTitle": "Подписка продлена",
   "notifVenueSubscriptionRenewedBody": "Оплата подписки за \"{name}\" подтверждена.",
   "notifVenueSubscriptionRenewedBodyGeneric": "Оплата подписки вашего заведения подтверждена.",

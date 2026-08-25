@@ -6,6 +6,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -329,7 +330,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
 
     final loc = AppLocalizations.of(context);
 
-    final venueId = await ref
+    final result = await ref
         .read(venueControllerProvider)
         .createVenue(
           name: _nameController.text,
@@ -371,7 +372,13 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
       _cancelUpload = null;
     });
 
-    if (venueId != null) Navigator.pop(context);
+    if (result == null) return;
+
+    if (!mounted) return;
+    await presentEpointCheckout(context, checkoutUrl: result.checkoutUrl, paymentId: result.paymentId, feeAmount: result.feeAmount);
+
+    if (!mounted) return;
+    Navigator.pop(context);
   }
 
   Future<void> _submitEdit() async {

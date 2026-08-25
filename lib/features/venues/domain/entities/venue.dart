@@ -406,6 +406,15 @@ class Venue with _$Venue {
     /// "first approval + 30 days". Null for a non-founding venue.
     @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
 
+    /// True from the moment this venue's FIRST subscription payment
+    /// clears (`applyPaymentOutcome`, functions/src/index.ts) until the
+    /// owner dismisses the resulting confirmation card on
+    /// `MyVenuesScreen` (`dismissFirstPaymentAnnouncement`). Read
+    /// alongside [isFoundingVenue]/[subscriptionRenewsAt] at render
+    /// time, not a frozen snapshot — see this field's own producer
+    /// comment for why.
+    @Default(false) bool firstPaymentAnnouncementPending,
+
     /// Only set while [status] is 'needs_revision' — the owner has this
     /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
     /// Cloud Function) auto-rejects the venue and refunds the payment.

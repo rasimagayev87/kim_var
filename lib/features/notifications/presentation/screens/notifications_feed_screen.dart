@@ -245,6 +245,7 @@ const Map<NotificationType, IconData> _notificationIcons = {
   NotificationType.pinboxNearby: Icons.inventory_2_outlined,
   NotificationType.offerPaymentConfirmed: Icons.payments_outlined,
   NotificationType.offerBoosted: Icons.trending_up_rounded,
+  NotificationType.venuePaymentConfirmed: Icons.payments_outlined,
   NotificationType.venueSubscriptionRenewed: Icons.payments_outlined,
   NotificationType.pinboxOrderConfirmed: Icons.confirmation_number_outlined,
   NotificationType.paymentFailed: Icons.error_outline_rounded,

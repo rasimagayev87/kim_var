@@ -37,6 +37,8 @@ _$VenueImpl _$$VenueImplFromJson(Map<String, dynamic> json) => _$VenueImpl(
   freeOfferWindowEnd: const NullableTimestampConverter().fromJson(
     json['freeOfferWindowEnd'],
   ),
+  firstPaymentAnnouncementPending:
+      json['firstPaymentAnnouncementPending'] as bool? ?? false,
   revisionDeadline: const NullableTimestampConverter().fromJson(
     json['revisionDeadline'],
   ),
@@ -90,6 +92,7 @@ Map<String, dynamic> _$$VenueImplToJson(
   'freeOfferWindowEnd': const NullableTimestampConverter().toJson(
     instance.freeOfferWindowEnd,
   ),
+  'firstPaymentAnnouncementPending': instance.firstPaymentAnnouncementPending,
   'revisionDeadline': const NullableTimestampConverter().toJson(
     instance.revisionDeadline,
   ),

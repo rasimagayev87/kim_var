@@ -18,7 +18,7 @@ import '../../domain/usecases/delete_venue_usecase.dart';
 import '../../domain/usecases/update_venue_usecase.dart';
 import '../../domain/venue_failure.dart';
 
-export '../../domain/repositories/venue_repository.dart' show VenueWithDistance;
+export '../../domain/repositories/venue_repository.dart' show VenueWithDistance, SubmitVenueResult;
 
 /// Exposed as its own provider (rather than left as a private default
 /// inside [FirebaseVenueRepository]'s constructor) so the Riverpod
@@ -68,10 +68,12 @@ class VenueController {
 
   final Ref _ref;
 
-  /// Returns the new venue's id on success, null on failure —
-  /// [onValidationError] receives exactly which fields are missing so
-  /// the form can highlight them, [onError] covers anything else.
-  Future<String?> createVenue({
+  /// Returns the new venue + its required Epoint checkout on success,
+  /// null on failure — [onValidationError] receives exactly which
+  /// fields are missing so the form can highlight them, [onError]
+  /// covers anything else. Every venue's first cycle is a real charge,
+  /// founding or not — see `SubmitVenueResult`'s own doc comment.
+  Future<SubmitVenueResult?> createVenue({
     required String name,
     required VenueCategory? category,
     required File? photo,
@@ -93,7 +95,7 @@ class VenueController {
     if (uid == null) return null;
 
     try {
-      final venueId = await _ref
+      final result = await _ref
           .read(createVenueUseCaseProvider)
           .call(
             ownerId: uid,
@@ -120,7 +122,7 @@ class VenueController {
       // open on top of it (autoDispose only refetches on a fresh
       // watch, not on every write elsewhere).
       _ref.invalidate(nearbyVenuesProvider);
-      return venueId;
+      return result;
     } on VenueValidationException catch (e) {
       onValidationError(e.missingFields);
       return null;

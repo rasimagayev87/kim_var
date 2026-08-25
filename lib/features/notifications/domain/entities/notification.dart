@@ -65,12 +65,18 @@ enum NotificationType {
   /// now `pending`, awaiting admin review (not live yet).
   /// [offerBoosted]: a "Təklifi önə çək" charge cleared —
   /// `Offer.boostedUntil` is set, live immediately.
-  /// [venueSubscriptionRenewed]: this cycle's subscription charge
-  /// cleared.
+  /// [venuePaymentConfirmed]: a brand new venue's FIRST subscription
+  /// charge cleared (`submitVenue`) — it's now `pending`, awaiting
+  /// admin review, same "not live yet" meaning as [offerPaymentConfirmed].
+  /// Distinct from [venueSubscriptionRenewed] so the copy never says
+  /// "renewed" for a venue that was never live before.
+  /// [venueSubscriptionRenewed]: an EXISTING venue's recurring
+  /// subscription charge cleared.
   /// [pinboxOrderConfirmed]: buyer-side — a PinBox order charge
   /// cleared, the QR ticket is ready.
   offerPaymentConfirmed,
   offerBoosted,
+  venuePaymentConfirmed,
   venueSubscriptionRenewed,
   pinboxOrderConfirmed,
 

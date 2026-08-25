@@ -100,7 +100,7 @@ class CreateVenueUseCase {
 
   final VenueRepository _repository;
 
-  Future<String> call({
+  Future<SubmitVenueResult> call({
     required String ownerId,
     required String name,
     required VenueCategory? category,

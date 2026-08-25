@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -285,6 +286,7 @@ class _MyVenueCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final needsRevision = venue.status == 'needs_revision';
+    final awaitingFirstPayment = venue.status == 'awaiting_payment';
     final isOverdue = venue.status == 'approved' &&
         venue.subscriptionRenewsAt != null &&
         venue.subscriptionRenewsAt!.isBefore(DateTime.now());
@@ -367,7 +369,7 @@ class _MyVenueCard extends ConsumerWidget {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              if (venue.status == 'pending' || needsRevision)
+                              if (venue.status == 'pending' || needsRevision || awaitingFirstPayment)
                                 _ModerationStatusBadge(status: venue.status)
                               else
                                 _OpenStatusBadge(
@@ -406,6 +408,13 @@ class _MyVenueCard extends ConsumerWidget {
                       builder: (_) => CreateVenueScreen(existingVenue: venue),
                     ),
                   ),
+                ),
+              if (awaitingFirstPayment) _FirstPaymentBanner(venueId: venue.id),
+              if (venue.firstPaymentAnnouncementPending)
+                _FirstPaymentConfirmedCard(
+                  venueId: venue.id,
+                  isFoundingVenue: venue.isFoundingVenue,
+                  subscriptionRenewsAt: venue.subscriptionRenewsAt,
                 ),
               if (isOverdue) _SubscriptionOverdueBanner(venueId: venue.id),
             ],
@@ -456,9 +465,11 @@ class _ModerationStatusBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        status == 'needs_revision'
-            ? loc.moderationStatusNeedsRevision
-            : loc.moderationStatusPending,
+        switch (status) {
+          'needs_revision' => loc.moderationStatusNeedsRevision,
+          'awaiting_payment' => loc.moderationStatusAwaitingPayment,
+          _ => loc.moderationStatusPending,
+        },
         style: const TextStyle(
           fontSize: 10.5,
           fontWeight: FontWeight.w700,
@@ -565,6 +576,145 @@ class _NeedsRevisionBanner extends StatelessWidget {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown while [Venue.status] is 'awaiting_payment' — the venue's FIRST
+/// subscription charge (`submitVenue`) never went through, so it's
+/// invisible to everyone, not even in the moderation queue yet. Gives
+/// the owner a way back into that same checkout if they abandoned it or
+/// a previous Epoint attempt failed. Mirrors offers' own
+/// `_AwaitingPaymentBanner` (venues just use `presentEpointCheckout`'s
+/// sheet here, same as `_SubscriptionOverdueBanner` below, rather than
+/// launching the card URL directly).
+class _FirstPaymentBanner extends ConsumerStatefulWidget {
+  final String venueId;
+
+  const _FirstPaymentBanner({required this.venueId});
+
+  @override
+  ConsumerState<_FirstPaymentBanner> createState() => _FirstPaymentBannerState();
+}
+
+class _FirstPaymentBannerState extends ConsumerState<_FirstPaymentBanner> {
+  bool _loading = false;
+
+  Future<void> _pay() async {
+    if (_loading) return;
+    setState(() => _loading = true);
+    final loc = AppLocalizations.of(context);
+
+    try {
+      final result = await ref.read(venueRepositoryProvider).retryVenueCreationPayment(widget.venueId);
+      if (!mounted) return;
+      await presentEpointCheckout(context, checkoutUrl: result.checkoutUrl, paymentId: result.paymentId, feeAmount: result.feeAmount);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.venueSubscriptionRetryErrorMessage)));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              loc.venueFirstPaymentBannerText,
+              style: const TextStyle(fontSize: 12.5, color: ChatLightColors.ink),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _loading ? null : _pay,
+            child: _loading
+                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                : Text(loc.venueSubscriptionPayButton, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown once [Venue.firstPaymentAnnouncementPending] is true — the
+/// FIRST subscription charge just cleared. Distinct tone from the other
+/// banners here (positive confirmation, not "needs action"), and reads
+/// [isFoundingVenue]/[subscriptionRenewsAt] live off the same venue
+/// object this whole card list already rebuilds from, so if founding
+/// status (and its free 2nd cycle) lands via `assignFoundingVenueIfEligible`
+/// WHILE this card is still showing, it flips from the plain confirmation
+/// wording to the founding one on its own — no polling, no stale date.
+class _FirstPaymentConfirmedCard extends ConsumerStatefulWidget {
+  final String venueId;
+  final bool isFoundingVenue;
+  final DateTime? subscriptionRenewsAt;
+
+  const _FirstPaymentConfirmedCard({
+    required this.venueId,
+    required this.isFoundingVenue,
+    required this.subscriptionRenewsAt,
+  });
+
+  @override
+  ConsumerState<_FirstPaymentConfirmedCard> createState() => _FirstPaymentConfirmedCardState();
+}
+
+class _FirstPaymentConfirmedCardState extends ConsumerState<_FirstPaymentConfirmedCard> {
+  bool _dismissing = false;
+
+  Future<void> _dismiss() async {
+    if (_dismissing) return;
+    setState(() => _dismissing = true);
+    // Optimistic — this is purely a UI-dismiss flag with no
+    // moderation/payment consequence either way, so there's nothing to
+    // roll back on failure; the card just stays until the next
+    // successful attempt (or reappears on next stream update if the
+    // write genuinely failed).
+    await ref.read(venueRepositoryProvider).dismissFirstPaymentAnnouncement(widget.venueId);
+    if (mounted) setState(() => _dismissing = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final renewsAt = widget.subscriptionRenewsAt;
+    final dateText = renewsAt != null ? DateFormat('dd.MM.yyyy').format(renewsAt) : '—';
+    final text = widget.isFoundingVenue
+        ? loc.venueFirstPaymentConfirmedFoundingText(dateText)
+        : loc.venueFirstPaymentConfirmedText(dateText);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(text, style: const TextStyle(fontSize: 12.5, color: ChatLightColors.ink)),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _dismissing ? null : _dismiss,
+            child: _dismissing
+                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
+                : Text(
+                    loc.venueFirstPaymentConfirmedDismiss,
+                    style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
+                  ),
+          ),
         ],
       ),
     );

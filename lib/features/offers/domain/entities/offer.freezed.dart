@@ -55,10 +55,17 @@ mixin _$Offer {
   /// Optional terms/eligibility text — free-form, shown as-is.
   String? get terms => throw _privateConstructorUsedError;
 
-  /// 'pending' | 'approved' | 'needs_revision' | 'rejected' — same
+  /// 'awaiting_payment' | 'pending' | 'approved' | 'needs_revision' |
+  /// 'rejected'. 'awaiting_payment' is the one state [Venue.status]
+  /// has no equivalent for — a fee-required offer sits here,
+  /// invisible everywhere (including the admin moderation queue),
+  /// until `epointWebhook` (functions/src/index.ts) confirms the
+  /// charge and flips it to 'pending'; a free (founding-quota) offer
+  /// skips straight to 'pending'. From 'pending' on, this is the same
   /// moderation lifecycle as [Venue.status], including the
   /// firestore.rules restriction that only the admin panel's Server
-  /// Actions may change it.
+  /// Actions (or `submitOffer`/`epointWebhook`, the only other
+  /// Admin-SDK writers) may change it.
   String get status => throw _privateConstructorUsedError;
 
   /// Set by the reviewing admin/moderator when [status] is
@@ -706,10 +713,17 @@ class _$OfferImpl extends _Offer {
   @override
   final String? terms;
 
-  /// 'pending' | 'approved' | 'needs_revision' | 'rejected' — same
+  /// 'awaiting_payment' | 'pending' | 'approved' | 'needs_revision' |
+  /// 'rejected'. 'awaiting_payment' is the one state [Venue.status]
+  /// has no equivalent for — a fee-required offer sits here,
+  /// invisible everywhere (including the admin moderation queue),
+  /// until `epointWebhook` (functions/src/index.ts) confirms the
+  /// charge and flips it to 'pending'; a free (founding-quota) offer
+  /// skips straight to 'pending'. From 'pending' on, this is the same
   /// moderation lifecycle as [Venue.status], including the
   /// firestore.rules restriction that only the admin panel's Server
-  /// Actions may change it.
+  /// Actions (or `submitOffer`/`epointWebhook`, the only other
+  /// Admin-SDK writers) may change it.
   @override
   @JsonKey()
   final String status;
@@ -1046,10 +1060,17 @@ abstract class _Offer extends Offer {
   @override
   String? get terms;
 
-  /// 'pending' | 'approved' | 'needs_revision' | 'rejected' — same
+  /// 'awaiting_payment' | 'pending' | 'approved' | 'needs_revision' |
+  /// 'rejected'. 'awaiting_payment' is the one state [Venue.status]
+  /// has no equivalent for — a fee-required offer sits here,
+  /// invisible everywhere (including the admin moderation queue),
+  /// until `epointWebhook` (functions/src/index.ts) confirms the
+  /// charge and flips it to 'pending'; a free (founding-quota) offer
+  /// skips straight to 'pending'. From 'pending' on, this is the same
   /// moderation lifecycle as [Venue.status], including the
   /// firestore.rules restriction that only the admin panel's Server
-  /// Actions may change it.
+  /// Actions (or `submitOffer`/`epointWebhook`, the only other
+  /// Admin-SDK writers) may change it.
   @override
   String get status;
 

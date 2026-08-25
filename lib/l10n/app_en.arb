@@ -725,6 +725,11 @@
   "pinboxPickupWindowEndedLabel": "Pickup window ended",
   "pinboxPickupWindowEndedErrorMessage": "This box's pickup window has already ended.",
   "pinboxCheckoutTitle": "Confirm Order",
+  "pinboxQuantityLabel": "QUANTITY",
+  "pinboxQuantityLimitedWarning": "Only {count} left",
+  "@pinboxQuantityLimitedWarning": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "pinboxDeliveryTermsLabel": "PICKUP TERMS",
   "pinboxPickupOnlyNotice": "Pickup only during the time window shown",
   "pinboxPickupModelLabel": "Model: Self Pickup",
@@ -925,6 +930,16 @@
   "moderationResubmitError": "Couldn't resubmit. Please try again in a moment.",
   "venueDeletedNotice": "Venue deleted",
   "venueSentForReReviewNotice": "Changes saved — the venue is awaiting admin review again",
+  "venueFirstPaymentBannerText": "This venue's first subscription payment is required to finish creating it.",
+  "venueFirstPaymentConfirmedFoundingText": "You're one of our first 1000 companies 🎉 This month's payment is confirmed, and next month (month 2) is on us. Next payment date: {date}.",
+  "@venueFirstPaymentConfirmedFoundingText": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "venueFirstPaymentConfirmedText": "Your payment is confirmed. Next payment date: {date}.",
+  "@venueFirstPaymentConfirmedText": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "venueFirstPaymentConfirmedDismiss": "Dismiss",
   "venueSubscriptionOverdueBannerText": "This venue's subscription payment is overdue.",
   "venueSubscriptionPayButton": "Pay",
   "venueSubscriptionRetryErrorMessage": "Couldn't get a payment link, please try again shortly.",
@@ -1293,6 +1308,9 @@
   "@notifOfferBoostedBodyGeneric": {
     "placeholders": { "hours": { "type": "int" } }
   },
+  "notifVenuePaymentConfirmedTitle": "Payment confirmed",
+  "notifVenuePaymentConfirmedBody": "Payment for \"{name}\" was received, it's now under review.",
+  "notifVenuePaymentConfirmedBodyGeneric": "Payment for your venue was received, it's now under review.",
   "notifVenueSubscriptionRenewedTitle": "Subscription renewed",
   "notifVenueSubscriptionRenewedBody": "Subscription payment for \"{name}\" was confirmed.",
   "notifVenueSubscriptionRenewedBodyGeneric": "Your venue's subscription payment was confirmed.",

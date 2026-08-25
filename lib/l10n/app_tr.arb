@@ -660,6 +660,11 @@
   "pinboxPickupWindowEndedLabel": "Teslim süresi doldu",
   "pinboxPickupWindowEndedErrorMessage": "Bu kutunun teslim süresi doldu.",
   "pinboxCheckoutTitle": "Siparişi Onayla",
+  "pinboxQuantityLabel": "ADET",
+  "pinboxQuantityLimitedWarning": "Sadece {count} adet kaldı",
+  "@pinboxQuantityLimitedWarning": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "pinboxDeliveryTermsLabel": "TESLİM ALMA ŞARTLARI",
   "pinboxPickupOnlyNotice": "Yalnızca belirtilen saat aralığında teslim edilir",
   "pinboxPickupModelLabel": "Model: Gel Al (Pick-up)",
@@ -860,6 +865,16 @@
   "moderationResubmitError": "Yeniden gönderilemedi. Lütfen birazdan tekrar deneyin.",
   "venueDeletedNotice": "Mekan silindi",
   "venueSentForReReviewNotice": "Değişiklikler kaydedildi, mekan yeniden admin onayını bekliyor",
+  "venueFirstPaymentBannerText": "Bu mekanın oluşturulması için ilk abonelik ödemesi gerekiyor.",
+  "venueFirstPaymentConfirmedFoundingText": "İlk 1000 şirketten birisiniz 🎉 Bu ayki ödemeniz onaylandı, gelecek ay (2. ay) hediyemiz. Sonraki ödeme tarihi: {date}.",
+  "@venueFirstPaymentConfirmedFoundingText": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "venueFirstPaymentConfirmedText": "Ödemeniz onaylandı. Sonraki ödeme tarihi: {date}.",
+  "@venueFirstPaymentConfirmedText": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "venueFirstPaymentConfirmedDismiss": "Kapat",
   "venueSubscriptionOverdueBannerText": "Bu mekanın abonelik ödemesi gecikti.",
   "venueSubscriptionPayButton": "Öde",
   "venueSubscriptionRetryErrorMessage": "Ödeme linki alınamadı, lütfen kısa süre sonra tekrar deneyin.",
@@ -1179,6 +1194,9 @@
   "@notifOfferBoostedBodyGeneric": {
     "placeholders": { "hours": { "type": "int" } }
   },
+  "notifVenuePaymentConfirmedTitle": "Ödeme onaylandı",
+  "notifVenuePaymentConfirmedBody": "\"{name}\" için ödeme alındı, şimdi inceleniyor.",
+  "notifVenuePaymentConfirmedBodyGeneric": "Mekanınız için ödeme alındı, şimdi inceleniyor.",
   "notifVenueSubscriptionRenewedTitle": "Abonelik yenilendi",
   "notifVenueSubscriptionRenewedBody": "\"{name}\" için abonelik ödemesi onaylandı.",
   "notifVenueSubscriptionRenewedBodyGeneric": "Mekanınızın abonelik ödemesi onaylandı.",

@@ -5,7 +5,6 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
-import '../../../../core/data/listing_payment.dart';
 import '../../../../core/utils/firestore_retry.dart';
 import '../../domain/entities/venue.dart';
 import '../../domain/repositories/venue_repository.dart';
@@ -27,68 +26,8 @@ class FirebaseVenueRepository implements VenueRepository {
   final VenueRemoteDatasource _datasource;
   final FirebaseFunctions _functions;
 
-  /// The first cycle's charge is written at creation time (this class's
-  /// `createVenue`); every cycle after that is `renewVenueSubscriptions`
-  /// (scheduled Cloud Function, functions/src/index.ts) — no payment
-  /// provider (Epoint/Payriff/LEOpay) is wired yet, so neither one is
-  /// ever actually charged. Real billing arrives with that integration;
-  /// until then both just give each cycle's `payments/{paymentId}` doc
-  /// a plausible `amount` to carry.
-  ///
-  /// Official per-category tariff — "Məkanlar üzrə aylıq abunəlik
-  /// tarifləri", signed by the company director (R. G. Ağayev),
-  /// PeakPin_Mekan_Abunelik_Tarifleri.pdf. Exhaustive (no `_` catch-all
-  /// on purpose) so adding a 40th category is a compile error here
-  /// until it's given a real tier, not a silent 5 AZN default. Kept in
-  /// sync by hand with the identical table in functions/src/index.ts
-  /// (`venueSubscriptionFeeFor`) — Cloud Functions can't import this
-  /// Dart file, so it's independently declared there, not shared code.
-  static double _venueListingFeeFor(VenueCategory category) {
-    return switch (category) {
-      VenueCategory.restaurant => 30.0,
-      VenueCategory.pub => 30.0,
-      VenueCategory.coffeeShop => 25.0,
-      VenueCategory.fastFood => 25.0,
-      VenueCategory.teaHouse => 15.0,
-      VenueCategory.sweetsShop => 20.0,
-      VenueCategory.hotel => 30.0,
-      VenueCategory.motel => 20.0,
-      VenueCategory.cinema => 30.0,
-      VenueCategory.karaoke => 30.0,
-      VenueCategory.gameHall => 30.0,
-      VenueCategory.nightClub => 30.0,
-      VenueCategory.fitness => 30.0,
-      VenueCategory.gym => 30.0,
-      VenueCategory.spa => 30.0,
-      VenueCategory.footballField => 25.0,
-      VenueCategory.clinic => 30.0,
-      VenueCategory.beautySalon => 30.0,
-      VenueCategory.barbershop => 20.0,
-      VenueCategory.cosmetology => 30.0,
-      VenueCategory.tattoo => 20.0,
-      VenueCategory.photoStudio => 20.0,
-      VenueCategory.kidsEntertainment => 30.0,
-      VenueCategory.tailor => 15.0,
-      VenueCategory.dryCleaning => 25.0,
-      VenueCategory.pharmacyOptics => 30.0,
-      VenueCategory.supermarket => 30.0,
-      VenueCategory.carWash => 20.0,
-      VenueCategory.carRepair => 20.0,
-      VenueCategory.applianceRepair => 20.0,
-      VenueCategory.tutoringCenter => 25.0,
-      VenueCategory.bookstoreStationery => 20.0,
-      VenueCategory.dentalClinic => 30.0,
-      VenueCategory.petStore => 20.0,
-      VenueCategory.perfumeryCosmetics => 25.0,
-      VenueCategory.other => 25.0,
-      // Added after the tariff PDF — not on it, priced per the task
-      // that introduced it (session-approved, not director-signed).
-      VenueCategory.independentArtist => 30.0,
-    };
-  }
-
   @override
-  Future<String> createVenue({
+  Future<SubmitVenueResult> createVenue({
     required String ownerId,
     required String name,
     required VenueCategory category,
@@ -113,47 +52,29 @@ class FirebaseVenueRepository implements VenueRepository {
       onTaskReady: onUploadTaskReady,
     );
 
-    final paymentId = await createListingPayment(
-      ownerId: ownerId,
-      listingType: 'venue',
-      listingId: venueId,
-      type: 'venue_subscription',
-      amount: _venueListingFeeFor(category),
-    );
-
-    // First cycle only — `renewVenueSubscriptions` takes over from here,
-    // pushing this forward another 30 days (and writing that cycle's own
-    // `payments` doc) each time it fires. Not `FieldValue.serverTimestamp()`
-    // plus a client-side add: computed from `DateTime.now()` so the 30-day
-    // offset is exact regardless of server-timestamp resolution latency.
-    final subscriptionRenewsAt = DateTime.now().add(const Duration(days: 30));
-
-    await _datasource.setVenue(venueId, {
-      'ownerId': ownerId,
+    final result = await _functions.httpsCallable('submitVenue').call<Map<String, dynamic>>({
+      'venueId': venueId,
       'name': name,
       'category': category.name,
       'photoUrl': photoUrl,
       'lat': lat,
       'lng': lng,
-      kVenueGeoField: GeoFirePoint(GeoPoint(lat, lng)).data,
       'address': address,
       if (country != null) 'country': country,
       'openingHours': openingHours.toMap(),
-      'status': 'pending',
-      'paymentId': paymentId,
-      'subscriptionRenewsAt': Timestamp.fromDate(subscriptionRenewsAt),
-      'verified': false,
-      'likeCount': 0,
-      'rating': 3.0,
-      if (socialLinks != null && !socialLinks.isEmpty)
-        'socialLinks': socialLinks.toMap(),
+      if (socialLinks != null && !socialLinks.isEmpty) 'socialLinks': socialLinks.toMap(),
       'audienceRadiusMode': audienceRadiusMode,
       'audienceRadiusKm': audienceRadiusKm,
       'birthdayNotificationsEnabled': birthdayNotificationsEnabled,
-      'createdAt': FieldValue.serverTimestamp(),
     });
 
-    return venueId;
+    final data = result.data;
+    return (
+      venueId: data['venueId'] as String,
+      checkoutUrl: data['checkoutUrl'] as String,
+      feeAmount: (data['feeAmount'] as num).toDouble(),
+      paymentId: data['paymentId'] as String,
+    );
   }
 
   @override
@@ -327,6 +248,24 @@ class FirebaseVenueRepository implements VenueRepository {
       feeAmount: (data['feeAmount'] as num).toDouble(),
       paymentId: data['paymentId'] as String,
     );
+  }
+
+  @override
+  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueCreationPayment(String venueId) async {
+    final result = await _functions.httpsCallable('retryVenueCreationPayment').call<Map<String, dynamic>>({
+      'venueId': venueId,
+    });
+    final data = result.data;
+    return (
+      checkoutUrl: data['checkoutUrl'] as String,
+      feeAmount: (data['feeAmount'] as num).toDouble(),
+      paymentId: data['paymentId'] as String,
+    );
+  }
+
+  @override
+  Future<void> dismissFirstPaymentAnnouncement(String venueId) {
+    return _datasource.updateVenue(venueId, {'firstPaymentAnnouncementPending': false});
   }
 
   @override

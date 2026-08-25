@@ -133,6 +133,13 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: name.isEmpty ? loc.notifOfferBoostedBodyGeneric(hours) : loc.notifOfferBoostedBody(name, hours),
       );
 
+    case NotificationType.venuePaymentConfirmed:
+      final name = str('name');
+      return LocalizedNotificationText(
+        title: loc.notifVenuePaymentConfirmedTitle,
+        body: name.isEmpty ? loc.notifVenuePaymentConfirmedBodyGeneric : loc.notifVenuePaymentConfirmedBody(name),
+      );
+
     case NotificationType.venueSubscriptionRenewed:
       final name = str('name');
       return LocalizedNotificationText(

@@ -9,13 +9,29 @@ import '../entities/venue.dart';
 /// never a fabricated number.
 typedef VenueWithDistance = ({Venue venue, double distanceMeters});
 
+/// [venueId] identifies the newly-created (still `awaiting_payment`)
+/// venue — invisible to everyone, including the moderation queue, until
+/// the owner completes checkout ([paymentId] identifies which
+/// `payments` doc — pass it, along with [checkoutUrl]/[feeAmount], to
+/// `presentEpointCheckout` (lib/core/payments/epoint_checkout.dart))
+/// and `epointWebhook` (functions/src/index.ts) confirms the charge.
+/// Unlike offers, there's no free-quota exception here — every venue's
+/// first cycle is always a real charge, founding or not (see
+/// `submitVenue`'s own doc comment).
+typedef SubmitVenueResult = ({
+  String venueId,
+  String checkoutUrl,
+  double feeAmount,
+  String paymentId,
+});
+
 abstract class VenueRepository {
   /// [onUploadProgress] and [onUploadTaskReady] only ever fire while
   /// the photo itself is uploading — see
   /// `VenueRemoteDatasource.uploadVenuePhoto` for the exact contract
   /// (progress as a 0.0–1.0 fraction, task-ready handing back a
   /// cancel function).
-  Future<String> createVenue({
+  Future<SubmitVenueResult> createVenue({
     required String ownerId,
     required String name,
     required VenueCategory category,
@@ -123,6 +139,20 @@ abstract class VenueRepository {
   /// overdue banner. Throws if the venue isn't actually overdue yet
   /// (see `retryVenueSubscriptionPayment`, functions/src/index.ts).
   Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueSubscriptionPayment(String venueId);
+
+  /// Re-opens a checkout for a brand new venue's FIRST subscription
+  /// payment, still `awaiting_payment` because the owner abandoned or a
+  /// previous Epoint attempt failed — backs `MyVenuesScreen`'s
+  /// first-payment banner. Distinct from [retryVenueSubscriptionPayment],
+  /// which only handles an already-live venue's overdue renewal (see
+  /// `retryVenueCreationPayment`, functions/src/index.ts).
+  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueCreationPayment(String venueId);
+
+  /// Clears [Venue.firstPaymentAnnouncementPending] once the owner has
+  /// seen/dismissed the first-payment confirmation card — a plain,
+  /// unrestricted owner field (not grant-of-trust, see firestore.rules),
+  /// same "lightweight single-field write" shape as [updateAvailableSeats].
+  Future<void> dismissFirstPaymentAnnouncement(String venueId);
 
   /// Standalone write for [Venue.availableSeats] — deliberately NOT
   /// part of [updateVenue]'s full edit flow, since this is meant for

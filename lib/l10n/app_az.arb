@@ -660,6 +660,11 @@
   "pinboxPickupWindowEndedLabel": "Vaxtı bitib",
   "pinboxPickupWindowEndedErrorMessage": "Bu qutunun təhvil vaxtı artıq bitib.",
   "pinboxCheckoutTitle": "Sifarişi Təsdiqlə",
+  "pinboxQuantityLabel": "SAY",
+  "pinboxQuantityLimitedWarning": "Yalnız {count} ədəd qalıb",
+  "@pinboxQuantityLimitedWarning": {
+    "placeholders": { "count": { "type": "int" } }
+  },
   "pinboxDeliveryTermsLabel": "TƏHVİL-TƏSLİM ŞƏRTLƏRİ",
   "pinboxPickupOnlyNotice": "Yalnız göstərilən saat aralığında təhvil verilir",
   "pinboxPickupModelLabel": "Model: Özün Götür (Pick-up)",
@@ -854,6 +859,16 @@
   "venueDeleteConfirmMessage": "Bu məkanı silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.",
   "venueDeletedNotice": "Məkan silindi",
   "venueSentForReReviewNotice": "Dəyişikliklər saxlanıldı, məkan yenidən admin təsdiqini gözləyir",
+  "venueFirstPaymentBannerText": "Bu məkanın yaradılması üçün ilk abunəlik ödənişi tələb olunur.",
+  "venueFirstPaymentConfirmedFoundingText": "Siz ilk 1000 kompaniyasındasınız 🎉 Bu ayki ödənişiniz təsdiqləndi, növbəti ay (2-ci ay) sizə hədiyyədir. Növbəti ödəniş tarixi: {date}.",
+  "@venueFirstPaymentConfirmedFoundingText": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "venueFirstPaymentConfirmedText": "Ödənişiniz təsdiqləndi. Növbəti ödəniş tarixi: {date}.",
+  "@venueFirstPaymentConfirmedText": {
+    "placeholders": { "date": { "type": "String" } }
+  },
+  "venueFirstPaymentConfirmedDismiss": "Bağla",
   "venueSubscriptionOverdueBannerText": "Bu məkanın abunəlik ödənişi gecikib.",
   "venueSubscriptionPayButton": "Ödə",
   "venueSubscriptionRetryErrorMessage": "Ödəniş linki alınmadı, bir az sonra yenidən cəhd edin.",
@@ -1179,6 +1194,9 @@
   "@notifOfferBoostedBodyGeneric": {
     "placeholders": { "hours": { "type": "int" } }
   },
+  "notifVenuePaymentConfirmedTitle": "Ödəniş təsdiqləndi",
+  "notifVenuePaymentConfirmedBody": "\"{name}\" üçün ödəniş qəbul edildi, indi nəzərdən keçirilir.",
+  "notifVenuePaymentConfirmedBodyGeneric": "Məkanınız üçün ödəniş qəbul edildi, indi nəzərdən keçirilir.",
   "notifVenueSubscriptionRenewedTitle": "Abunəlik yeniləndi",
   "notifVenueSubscriptionRenewedBody": "\"{name}\" üçün abunəlik ödənişi təsdiqləndi.",
   "notifVenueSubscriptionRenewedBodyGeneric": "Məkanınız üçün abunəlik ödənişi təsdiqləndi.",

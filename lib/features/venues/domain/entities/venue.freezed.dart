@@ -107,6 +107,16 @@ mixin _$Venue {
   @NullableTimestampConverter()
   DateTime? get freeOfferWindowEnd => throw _privateConstructorUsedError;
 
+  /// True from the moment this venue's FIRST subscription payment
+  /// clears (`applyPaymentOutcome`, functions/src/index.ts) until the
+  /// owner dismisses the resulting confirmation card on
+  /// `MyVenuesScreen` (`dismissFirstPaymentAnnouncement`). Read
+  /// alongside [isFoundingVenue]/[subscriptionRenewsAt] at render
+  /// time, not a frozen snapshot — see this field's own producer
+  /// comment for why.
+  bool get firstPaymentAnnouncementPending =>
+      throw _privateConstructorUsedError;
+
   /// Only set while [status] is 'needs_revision' — the owner has this
   /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
   /// Cloud Function) auto-rejects the venue and refunds the payment.
@@ -241,6 +251,7 @@ abstract class $VenueCopyWith<$Res> {
     bool isFoundingVenue,
     int freeOffersUsed,
     @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
+    bool firstPaymentAnnouncementPending,
     @NullableTimestampConverter() DateTime? revisionDeadline,
     bool verified,
     int likeCount,
@@ -294,6 +305,7 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? isFoundingVenue = null,
     Object? freeOffersUsed = null,
     Object? freeOfferWindowEnd = freezed,
+    Object? firstPaymentAnnouncementPending = null,
     Object? revisionDeadline = freezed,
     Object? verified = null,
     Object? likeCount = null,
@@ -392,6 +404,11 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
                 ? _value.freeOfferWindowEnd
                 : freeOfferWindowEnd // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            firstPaymentAnnouncementPending:
+                null == firstPaymentAnnouncementPending
+                ? _value.firstPaymentAnnouncementPending
+                : firstPaymentAnnouncementPending // ignore: cast_nullable_to_non_nullable
+                      as bool,
             revisionDeadline: freezed == revisionDeadline
                 ? _value.revisionDeadline
                 : revisionDeadline // ignore: cast_nullable_to_non_nullable
@@ -487,6 +504,7 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     bool isFoundingVenue,
     int freeOffersUsed,
     @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
+    bool firstPaymentAnnouncementPending,
     @NullableTimestampConverter() DateTime? revisionDeadline,
     bool verified,
     int likeCount,
@@ -539,6 +557,7 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? isFoundingVenue = null,
     Object? freeOffersUsed = null,
     Object? freeOfferWindowEnd = freezed,
+    Object? firstPaymentAnnouncementPending = null,
     Object? revisionDeadline = freezed,
     Object? verified = null,
     Object? likeCount = null,
@@ -637,6 +656,10 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.freeOfferWindowEnd
             : freeOfferWindowEnd // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        firstPaymentAnnouncementPending: null == firstPaymentAnnouncementPending
+            ? _value.firstPaymentAnnouncementPending
+            : firstPaymentAnnouncementPending // ignore: cast_nullable_to_non_nullable
+                  as bool,
         revisionDeadline: freezed == revisionDeadline
             ? _value.revisionDeadline
             : revisionDeadline // ignore: cast_nullable_to_non_nullable
@@ -726,6 +749,7 @@ class _$VenueImpl extends _Venue {
     this.isFoundingVenue = false,
     this.freeOffersUsed = 0,
     @NullableTimestampConverter() this.freeOfferWindowEnd,
+    this.firstPaymentAnnouncementPending = false,
     @NullableTimestampConverter() this.revisionDeadline,
     this.verified = false,
     this.likeCount = 0,
@@ -867,6 +891,17 @@ class _$VenueImpl extends _Venue {
   @NullableTimestampConverter()
   final DateTime? freeOfferWindowEnd;
 
+  /// True from the moment this venue's FIRST subscription payment
+  /// clears (`applyPaymentOutcome`, functions/src/index.ts) until the
+  /// owner dismisses the resulting confirmation card on
+  /// `MyVenuesScreen` (`dismissFirstPaymentAnnouncement`). Read
+  /// alongside [isFoundingVenue]/[subscriptionRenewsAt] at render
+  /// time, not a frozen snapshot — see this field's own producer
+  /// comment for why.
+  @override
+  @JsonKey()
+  final bool firstPaymentAnnouncementPending;
+
   /// Only set while [status] is 'needs_revision' — the owner has this
   /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
   /// Cloud Function) auto-rejects the venue and refunds the payment.
@@ -991,7 +1026,7 @@ class _$VenueImpl extends _Venue {
 
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, isFoundingVenue: $isFoundingVenue, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, isFoundingVenue: $isFoundingVenue, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, firstPaymentAnnouncementPending: $firstPaymentAnnouncementPending, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
   }
 
   @override
@@ -1030,6 +1065,12 @@ class _$VenueImpl extends _Venue {
                 other.freeOffersUsed == freeOffersUsed) &&
             (identical(other.freeOfferWindowEnd, freeOfferWindowEnd) ||
                 other.freeOfferWindowEnd == freeOfferWindowEnd) &&
+            (identical(
+                  other.firstPaymentAnnouncementPending,
+                  firstPaymentAnnouncementPending,
+                ) ||
+                other.firstPaymentAnnouncementPending ==
+                    firstPaymentAnnouncementPending) &&
             (identical(other.revisionDeadline, revisionDeadline) ||
                 other.revisionDeadline == revisionDeadline) &&
             (identical(other.verified, verified) ||
@@ -1089,6 +1130,7 @@ class _$VenueImpl extends _Venue {
     isFoundingVenue,
     freeOffersUsed,
     freeOfferWindowEnd,
+    firstPaymentAnnouncementPending,
     revisionDeadline,
     verified,
     likeCount,
@@ -1142,6 +1184,7 @@ abstract class _Venue extends Venue {
     final bool isFoundingVenue,
     final int freeOffersUsed,
     @NullableTimestampConverter() final DateTime? freeOfferWindowEnd,
+    final bool firstPaymentAnnouncementPending,
     @NullableTimestampConverter() final DateTime? revisionDeadline,
     final bool verified,
     final int likeCount,
@@ -1267,6 +1310,16 @@ abstract class _Venue extends Venue {
   @override
   @NullableTimestampConverter()
   DateTime? get freeOfferWindowEnd;
+
+  /// True from the moment this venue's FIRST subscription payment
+  /// clears (`applyPaymentOutcome`, functions/src/index.ts) until the
+  /// owner dismisses the resulting confirmation card on
+  /// `MyVenuesScreen` (`dismissFirstPaymentAnnouncement`). Read
+  /// alongside [isFoundingVenue]/[subscriptionRenewsAt] at render
+  /// time, not a frozen snapshot — see this field's own producer
+  /// comment for why.
+  @override
+  bool get firstPaymentAnnouncementPending;
 
   /// Only set while [status] is 'needs_revision' — the owner has this
   /// long to resubmit before `expireVenueRevisionDeadlines` (scheduled
