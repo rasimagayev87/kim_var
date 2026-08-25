@@ -3475,8 +3475,22 @@ export const reservePinBoxOrder = onCall(
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, amount, description);
-    return { orderId: orderRef.id, checkoutUrl, feeAmount: amount, paymentId: paymentRef.id };
+    // Stock/soldOut above already committed by the time this runs — if
+    // Epoint's own request rejects outright (bad merchant credentials,
+    // its API unreachable, etc.), no webhook will EVER arrive to
+    // trigger applyPaymentOutcome's normal decline-handling path, so
+    // the held unit would stay lost and the box would stay wrongly
+    // soldOut forever. Reusing applyPaymentOutcome(..., false) here
+    // runs the exact same restore-stock/reopen-box logic a real
+    // declined charge would, then the original error is still
+    // rethrown so the client sees the failure either way.
+    try {
+      const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, amount, description);
+      return { orderId: orderRef.id, checkoutUrl, feeAmount: amount, paymentId: paymentRef.id };
+    } catch (e) {
+      await applyPaymentOutcome(paymentRef.id, false);
+      throw e;
+    }
   },
 );
 
