@@ -118,6 +118,35 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
             : loc.notifVenueSubscriptionDueBody(venueName, amount),
       );
 
+    case NotificationType.offerPaymentConfirmed:
+      final name = str('name');
+      return LocalizedNotificationText(
+        title: loc.notifOfferPaymentConfirmedTitle,
+        body: name.isEmpty ? loc.notifOfferPaymentConfirmedBodyGeneric : loc.notifOfferPaymentConfirmedBody(name),
+      );
+
+    case NotificationType.offerBoosted:
+      final name = str('name');
+      final hours = intVal('hours');
+      return LocalizedNotificationText(
+        title: loc.notifOfferBoostedTitle,
+        body: name.isEmpty ? loc.notifOfferBoostedBodyGeneric(hours) : loc.notifOfferBoostedBody(name, hours),
+      );
+
+    case NotificationType.venueSubscriptionRenewed:
+      final name = str('name');
+      return LocalizedNotificationText(
+        title: loc.notifVenueSubscriptionRenewedTitle,
+        body: name.isEmpty ? loc.notifVenueSubscriptionRenewedBodyGeneric : loc.notifVenueSubscriptionRenewedBody(name),
+      );
+
+    case NotificationType.pinboxOrderConfirmed:
+      final title = str('title');
+      return LocalizedNotificationText(
+        title: loc.notifPinboxOrderConfirmedTitle,
+        body: title.isEmpty ? loc.notifPinboxOrderConfirmedBodyGeneric : loc.notifPinboxOrderConfirmedBody(title),
+      );
+
     case NotificationType.venueApproved:
       return LocalizedNotificationText(
         title: loc.notifVenueApprovedTitle,
@@ -186,6 +215,15 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         title: loc.notifPinboxApprovedTitle,
         body: loc.notifPinboxApprovedBody(str('name')),
       );
+
+    case NotificationType.pinboxNeedsRevision:
+      final body = bodyWithOptionalNote(
+        name: str('name'),
+        withNote: loc.notifPinboxNeedsRevisionBodyWithNote,
+        noNote: loc.notifPinboxNeedsRevisionBodyNoNote,
+      );
+      // No `hasPayment` suffix — same reasoning as pinboxRejected below.
+      return LocalizedNotificationText(title: loc.notifPinboxNeedsRevisionTitle, body: body);
 
     case NotificationType.pinboxRejected:
       final body = bodyWithOptionalNote(

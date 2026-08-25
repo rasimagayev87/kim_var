@@ -1164,6 +1164,27 @@
   "notifPinboxRejectedTitle": "Ваша коробка отклонена",
   "notifPinboxRejectedBodyWithNote": "\"{name}\": {note}.",
   "notifPinboxRejectedBodyNoNote": "\"{name}\" отклонена.",
+  "notifPinboxNeedsRevisionTitle": "Ваша коробка требует доработки",
+  "notifPinboxNeedsRevisionBodyWithNote": "\"{name}\": {note}.",
+  "notifPinboxNeedsRevisionBodyNoNote": "\"{name}\" требует доработки.",
+  "notifOfferPaymentConfirmedTitle": "Оплата подтверждена",
+  "notifOfferPaymentConfirmedBody": "Оплата за \"{name}\" получена, сейчас на рассмотрении.",
+  "notifOfferPaymentConfirmedBodyGeneric": "Оплата за ваше предложение получена, сейчас на рассмотрении.",
+  "notifOfferBoostedTitle": "Ваше предложение продвинуто",
+  "notifOfferBoostedBody": "\"{name}\" продвинуто на {hours} ч.",
+  "@notifOfferBoostedBody": {
+    "placeholders": { "name": { "type": "String" }, "hours": { "type": "int" } }
+  },
+  "notifOfferBoostedBodyGeneric": "Ваше предложение продвинуто на {hours} ч.",
+  "@notifOfferBoostedBodyGeneric": {
+    "placeholders": { "hours": { "type": "int" } }
+  },
+  "notifVenueSubscriptionRenewedTitle": "Подписка продлена",
+  "notifVenueSubscriptionRenewedBody": "Оплата подписки за \"{name}\" подтверждена.",
+  "notifVenueSubscriptionRenewedBodyGeneric": "Оплата подписки вашего заведения подтверждена.",
+  "notifPinboxOrderConfirmedTitle": "Заказ подтверждён",
+  "notifPinboxOrderConfirmedBody": "Ваш заказ \"{title}\" подтверждён, QR-билет готов.",
+  "notifPinboxOrderConfirmedBodyGeneric": "Ваш заказ PinBox подтверждён, QR-билет готов.",
   "notifBirthdayOfferTitle": "🎉 Специальное предложение к вашему дню рождения!",
   "notifBirthdayOfferBody": "{venueName} подготовил(о) для вас специальное предложение ко дню рождения!",
   "notifBirthdayOfferBodyGeneric": "Для вас подготовлено специальное предложение ко дню рождения!",

@@ -1278,6 +1278,27 @@
   "notifPinboxRejectedTitle": "Your box was rejected",
   "notifPinboxRejectedBodyWithNote": "\"{name}\": {note}.",
   "notifPinboxRejectedBodyNoNote": "\"{name}\" was rejected.",
+  "notifPinboxNeedsRevisionTitle": "Your box needs revision",
+  "notifPinboxNeedsRevisionBodyWithNote": "\"{name}\": {note}.",
+  "notifPinboxNeedsRevisionBodyNoNote": "\"{name}\" needs revision.",
+  "notifOfferPaymentConfirmedTitle": "Payment confirmed",
+  "notifOfferPaymentConfirmedBody": "Payment for \"{name}\" was received, it's now under review.",
+  "notifOfferPaymentConfirmedBodyGeneric": "Payment for your offer was received, it's now under review.",
+  "notifOfferBoostedTitle": "Your offer was boosted",
+  "notifOfferBoostedBody": "\"{name}\" was boosted for {hours} hours.",
+  "@notifOfferBoostedBody": {
+    "placeholders": { "name": { "type": "String" }, "hours": { "type": "int" } }
+  },
+  "notifOfferBoostedBodyGeneric": "Your offer was boosted for {hours} hours.",
+  "@notifOfferBoostedBodyGeneric": {
+    "placeholders": { "hours": { "type": "int" } }
+  },
+  "notifVenueSubscriptionRenewedTitle": "Subscription renewed",
+  "notifVenueSubscriptionRenewedBody": "Subscription payment for \"{name}\" was confirmed.",
+  "notifVenueSubscriptionRenewedBodyGeneric": "Your venue's subscription payment was confirmed.",
+  "notifPinboxOrderConfirmedTitle": "Order confirmed",
+  "notifPinboxOrderConfirmedBody": "Your order for \"{title}\" was confirmed, your QR ticket is ready.",
+  "notifPinboxOrderConfirmedBodyGeneric": "Your PinBox order was confirmed, your QR ticket is ready.",
   "notifBirthdayOfferTitle": "🎉 A special birthday offer for you!",
   "notifBirthdayOfferBody": "{venueName} made a special offer for your birthday!",
   "notifBirthdayOfferBodyGeneric": "A special offer was made for your birthday!",

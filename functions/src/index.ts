@@ -4091,6 +4091,75 @@ async function applyPaymentOutcome(orderId: string, succeeded: boolean): Promise
     }
   });
 
+  // Outside the transaction, deliberately — a push send has no place in
+  // a block Firestore can silently retry on contention. The card
+  // checkout flow opens in the device's EXTERNAL browser
+  // (`launchUrl(..., mode: .externalApplication)`, see
+  // `epoint_checkout.dart`), so the app has no way to know when the
+  // browser closes or the user comes back; `epointWebhook` calling this
+  // is the only signal the owner ever gets that their payment actually
+  // went through, short of manually reopening the exact right screen.
+  if (succeeded) {
+    const ownerId = payment.ownerId as string;
+    if (payment.type === "offer_placement_fee" || payment.type === "boost_fee") {
+      const offerSnap = await db.collection("offers").doc(payment.listingId as string).get();
+      const name = (offerSnap.data()?.title as string | undefined) ?? "";
+      const quoted = name ? `"${name}"` : "Təklifiniz";
+      if (payment.type === "offer_placement_fee") {
+        await notifyUser({
+          uid: ownerId,
+          category: "venueOffers",
+          type: "offerPaymentConfirmed",
+          title: "Ödəniş təsdiqləndi",
+          body: `${quoted} üçün ödəniş qəbul edildi, indi nəzərdən keçirilir.`,
+          params: { name },
+          targetId: payment.listingId as string,
+          targetType: "offer",
+        });
+      } else {
+        const hours = payment.boostHours as number;
+        await notifyUser({
+          uid: ownerId,
+          category: "venueOffers",
+          type: "offerBoosted",
+          title: "Təklifiniz önə çəkildi",
+          body: `${quoted} ${hours} saat önə çəkildi.`,
+          params: { name, hours },
+          targetId: payment.listingId as string,
+          targetType: "offer",
+        });
+      }
+    } else if (payment.type === "venue_subscription") {
+      const freshVenueSnap = await db.collection("venues").doc(payment.listingId as string).get();
+      const name = (freshVenueSnap.data()?.name as string | undefined) ?? "";
+      await notifyUser({
+        uid: ownerId,
+        category: "venueUpdates",
+        type: "venueSubscriptionRenewed",
+        title: "Abunəlik yeniləndi",
+        body: `${name ? `"${name}"` : "Məkanınız"} üçün abunəlik ödənişi təsdiqləndi.`,
+        params: { name },
+        targetId: payment.listingId as string,
+        targetType: "venue",
+      });
+    } else if (payment.type === "pinbox_order") {
+      const freshOrderSnap = await db.collection("pinboxOrders").doc(payment.listingId as string).get();
+      const pinboxId = freshOrderSnap.data()?.pinboxId as string | undefined;
+      const freshPinboxSnap = pinboxId ? await db.collection("pinboxes").doc(pinboxId).get() : null;
+      const title = (freshPinboxSnap?.data()?.title as string | undefined) ?? "";
+      await notifyUser({
+        uid: ownerId,
+        category: "venueOffers",
+        type: "pinboxOrderConfirmed",
+        title: "Sifariş təsdiqləndi",
+        body: `${title ? `"${title}"` : "PinBox"} sifarişiniz təsdiqləndi, QR biletiniz hazırdır.`,
+        params: { title },
+        targetId: payment.listingId as string,
+        targetType: "pinbox_order",
+      });
+    }
+  }
+
   return true;
 }
 

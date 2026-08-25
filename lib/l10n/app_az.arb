@@ -1164,6 +1164,27 @@
   "notifPinboxRejectedTitle": "Qutunuz rədd edildi",
   "notifPinboxRejectedBodyWithNote": "\"{name}\": {note}.",
   "notifPinboxRejectedBodyNoNote": "\"{name}\" rədd edildi.",
+  "notifPinboxNeedsRevisionTitle": "Qutunuz üzərində düzəliş tələb olunur",
+  "notifPinboxNeedsRevisionBodyWithNote": "\"{name}\": {note}.",
+  "notifPinboxNeedsRevisionBodyNoNote": "\"{name}\" üzərində düzəliş tələb olunur.",
+  "notifOfferPaymentConfirmedTitle": "Ödəniş təsdiqləndi",
+  "notifOfferPaymentConfirmedBody": "\"{name}\" üçün ödəniş qəbul edildi, indi nəzərdən keçirilir.",
+  "notifOfferPaymentConfirmedBodyGeneric": "Təklifiniz üçün ödəniş qəbul edildi, indi nəzərdən keçirilir.",
+  "notifOfferBoostedTitle": "Təklifiniz önə çəkildi",
+  "notifOfferBoostedBody": "\"{name}\" {hours} saat önə çəkildi.",
+  "@notifOfferBoostedBody": {
+    "placeholders": { "name": { "type": "String" }, "hours": { "type": "int" } }
+  },
+  "notifOfferBoostedBodyGeneric": "Təklifiniz {hours} saat önə çəkildi.",
+  "@notifOfferBoostedBodyGeneric": {
+    "placeholders": { "hours": { "type": "int" } }
+  },
+  "notifVenueSubscriptionRenewedTitle": "Abunəlik yeniləndi",
+  "notifVenueSubscriptionRenewedBody": "\"{name}\" üçün abunəlik ödənişi təsdiqləndi.",
+  "notifVenueSubscriptionRenewedBodyGeneric": "Məkanınız üçün abunəlik ödənişi təsdiqləndi.",
+  "notifPinboxOrderConfirmedTitle": "Sifariş təsdiqləndi",
+  "notifPinboxOrderConfirmedBody": "\"{title}\" sifarişiniz təsdiqləndi, QR biletiniz hazırdır.",
+  "notifPinboxOrderConfirmedBodyGeneric": "PinBox sifarişiniz təsdiqləndi, QR biletiniz hazırdır.",
   "notifBirthdayOfferTitle": "🎉 Sənə xüsusi ad günü təklifi!",
   "notifBirthdayOfferBody": "{venueName} sənin ad günün üçün xüsusi təklif hazırladı!",
   "notifBirthdayOfferBodyGeneric": "Sənin ad günün üçün xüsusi təklif hazırlandı!",

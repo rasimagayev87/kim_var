@@ -53,6 +53,27 @@ enum NotificationType {
   offerNeedsRevision,
   offerRejected,
 
+  /// A real Epoint charge cleared — see `applyPaymentOutcome`'s
+  /// post-transaction notify block (functions/src/index.ts), the only
+  /// producer for all 4 of these. Exists because the card checkout
+  /// flow opens in the device's EXTERNAL browser
+  /// (`launchUrl(..., mode: .externalApplication)`), so the app itself
+  /// has no way to detect the user coming back — without a push, the
+  /// only way an owner would ever find out their payment went through
+  /// is by happening to reopen the exact right screen later.
+  /// [offerPaymentConfirmed]: the offer's placement fee cleared — it's
+  /// now `pending`, awaiting admin review (not live yet).
+  /// [offerBoosted]: a "Təklifi önə çək" charge cleared —
+  /// `Offer.boostedUntil` is set, live immediately.
+  /// [venueSubscriptionRenewed]: this cycle's subscription charge
+  /// cleared.
+  /// [pinboxOrderConfirmed]: buyer-side — a PinBox order charge
+  /// cleared, the QR ticket is ready.
+  offerPaymentConfirmed,
+  offerBoosted,
+  venueSubscriptionRenewed,
+  pinboxOrderConfirmed,
+
   /// A venue's live audience just spiked well above its usual level
   /// for this hour — see `computeVenueAudienceHistory` (scheduled
   /// Cloud Function). Owner-only; tapping opens Create Offer
@@ -127,6 +148,13 @@ enum NotificationType {
   /// venue/offer pair above there's no third [pinboxNeedsRevision] type
   /// — only these two.
   pinboxApproved,
+
+  /// Was genuinely missing until now — `moderationStatusNotification`
+  /// (functions/src/index.ts) already handled `needs_revision` for
+  /// EVERY kind generically, this app's own enum just never had a case
+  /// for the PinBox one, so a real admin "send back for revision"
+  /// decision silently fell through to [other]'s generic icon/copy.
+  pinboxNeedsRevision,
   pinboxRejected,
 
   /// A venue published a new PinBox within this user's radius — see

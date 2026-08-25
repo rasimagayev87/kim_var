@@ -7,6 +7,7 @@ import '../../offers/presentation/screens/create_offer_screen.dart';
 import '../../offers/presentation/screens/offer_details_screen.dart';
 import '../../pinbox/presentation/providers/pinbox_providers.dart';
 import '../../pinbox/presentation/screens/pinbox_checkout_screen.dart';
+import '../../pinbox/presentation/screens/pinbox_ticket_screen.dart';
 import '../../post_share/presentation/screens/post_detail_screen.dart';
 import '../../profile/presentation/providers/profile_providers.dart';
 import '../../profile/presentation/screens/user_profile_screen.dart';
@@ -92,5 +93,9 @@ Future<void> openNotificationTarget(BuildContext context, WidgetRef ref, AppNoti
     // venue(s) are actually overdue, no need to single one out here.
     case 'venue_subscription_due':
       Navigator.push(context, MaterialPageRoute(builder: (_) => const MyVenuesScreen()));
+    // A confirmed PinBox order — buyer's own ticket, same destination
+    // `_OrderCard` itself navigates to from "Aldıqlarım".
+    case 'pinbox_order':
+      Navigator.push(context, MaterialPageRoute(builder: (_) => PinBoxTicketScreen(orderId: targetId)));
   }
 }
