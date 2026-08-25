@@ -1102,6 +1102,7 @@
   "postCommentSendButton": "Send",
   "postCommentErrorMessage": "The comment wasn't sent. Please try again shortly.",
   "postLikeErrorMessage": "The like wasn't saved. Please try again shortly.",
+  "postRepostErrorMessage": "The repost wasn't saved. Please try again shortly.",
   "feedDownloadVideoOption": "Download video",
   "feedDownloadInProgressMessage": "Downloading... {percent}%",
   "@feedDownloadInProgressMessage": {

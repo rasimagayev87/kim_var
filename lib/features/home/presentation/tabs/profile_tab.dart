@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart' as fb;
+import 'package:flutter/cupertino.dart' show CupertinoIcons;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -43,205 +44,338 @@ class ProfileTab extends ConsumerWidget {
     final postsAsync = myUid == null
         ? const AsyncValue.data(<Post>[])
         : ref.watch(userPostsProvider(myUid));
+    final likedPostsAsync = myUid == null
+        ? const AsyncValue.data(<Post>[])
+        : ref.watch(userLikedPostsProvider(myUid));
+    final repostedPostsAsync = myUid == null
+        ? const AsyncValue.data(<Post>[])
+        : ref.watch(userRepostedPostsProvider(myUid));
     final newVisitorsCount = ref.watch(newProfileVisitorsCountProvider);
 
     final displayName = authUser?.name ?? loc.profileNamePlaceholder;
 
-    return Stack(
-          children: [
-            SafeArea(
-              // Unconstrained on phone (maxWidth simply never binds below
-              // 640 logical px); on tablet/landscape-wide layouts this
-              // keeps the header and grid from stretching edge-to-edge
-              // into an unreadable single row of oversized avatars/text.
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 640),
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-                    children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: () async {
-                              if (!context.mounted) return;
-                              startCreatePostFlow(context);
-                            },
-                            icon: const Icon(
-                              Icons.add_circle_outline,
-                              color: ChatLightColors.ink,
-                              size: 22,
-                            ),
-                          ),
-                          const Spacer(),
-                          // Tightly grouped on purpose (no default
-                          // IconButton spacing between them) — three
-                          // buttons stretched across most of the row
-                          // read as loose/unfinished, not premium.
-                          Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              IconButton(
-                                padding: EdgeInsets.zero,
-                                constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                                onPressed: myUid == null
-                                    ? null
-                                    : () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => ProfileVisitorsScreen(uid: myUid),
-                                          ),
-                                        );
-                                      },
-                                icon: const Icon(
-                                  Icons.directions_walk,
-                                  color: ChatLightColors.ink,
-                                  size: 20,
-                                ),
-                              ),
-                              if (newVisitorsCount > 0)
-                                Positioned(
-                                  top: 2,
-                                  right: 2,
-                                  child: IgnorePointer(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                                      constraints: const BoxConstraints(minWidth: 17),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.error,
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: ChatLightColors.bg1, width: 1.5),
-                                      ),
-                                      child: Text(
-                                        newVisitorsCount > 99 ? '99+' : '$newVisitorsCount',
-                                        textAlign: TextAlign.center,
-                                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
-                                      ),
-                                    ),
+    return DefaultTabController(
+          length: 3,
+          child: NestedScrollView(
+            // Unconstrained on phone (maxWidth simply never binds below
+            // 640 logical px); on tablet/landscape-wide layouts this
+            // keeps the header and grid from stretching edge-to-edge
+            // into an unreadable single row of oversized avatars/text.
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              SliverToBoxAdapter(
+                child: SafeArea(
+                  bottom: false,
+                  child: Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 640),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                IconButton(
+                                  onPressed: () async {
+                                    if (!context.mounted) return;
+                                    startCreatePostFlow(context);
+                                  },
+                                  icon: const Icon(
+                                    Icons.add_circle_outline,
+                                    color: ChatLightColors.ink,
+                                    size: 22,
                                   ),
                                 ),
-                            ],
-                          ),
-                          IconButton(
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                            onPressed: (authUser?.username ?? '').isEmpty
-                                ? null
-                                : () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => ProfileShareScreen(
-                                          name: displayName,
-                                          username: authUser!.username!,
-                                          photoUrl: profile.photoUrl,
-                                        ),
+                                const Spacer(),
+                                // Tightly grouped on purpose (no default
+                                // IconButton spacing between them) — three
+                                // buttons stretched across most of the row
+                                // read as loose/unfinished, not premium.
+                                Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    IconButton(
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(
+                                        minWidth: 36,
+                                        minHeight: 36,
+                                      ),
+                                      onPressed: myUid == null
+                                          ? null
+                                          : () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      ProfileVisitorsScreen(
+                                                        uid: myUid,
+                                                      ),
+                                                ),
+                                              );
+                                            },
+                                      icon: const Icon(
+                                        Icons.directions_walk,
+                                        color: ChatLightColors.ink,
+                                        size: 20,
                                       ),
                                     ),
-                            icon: const Icon(
-                              Icons.share_outlined,
-                              color: ChatLightColors.ink,
-                              size: 20,
-                            ),
-                          ),
-                          IconButton(
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                            onPressed: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => const SettingsScreen(),
-                              ),
-                            ),
-                            icon: const Icon(
-                              Icons.menu_rounded,
-                              color: ChatLightColors.ink,
-                              size: 22,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Center(
-                        child: _AvatarWithRing(photoUrl: profile.photoUrl),
-                      ),
-                      const SizedBox(height: 14),
-                      Center(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                displayName,
-                                style: GoogleFonts.manrope(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                  color: ChatLightColors.ink,
+                                    if (newVisitorsCount > 0)
+                                      Positioned(
+                                        top: 2,
+                                        right: 2,
+                                        child: IgnorePointer(
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 5,
+                                              vertical: 1,
+                                            ),
+                                            constraints: const BoxConstraints(
+                                              minWidth: 17,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.error,
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              border: Border.all(
+                                                color: ChatLightColors.bg1,
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              newVisitorsCount > 99
+                                                  ? '99+'
+                                                  : '$newVisitorsCount',
+                                              textAlign: TextAlign.center,
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.w800,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
+                                IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 36,
+                                    minHeight: 36,
+                                  ),
+                                  onPressed: (authUser?.username ?? '').isEmpty
+                                      ? null
+                                      : () => Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => ProfileShareScreen(
+                                              name: displayName,
+                                              username: authUser!.username!,
+                                              photoUrl: profile.photoUrl,
+                                            ),
+                                          ),
+                                        ),
+                                  icon: const Icon(
+                                    Icons.share_outlined,
+                                    color: ChatLightColors.ink,
+                                    size: 20,
+                                  ),
+                                ),
+                                IconButton(
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 36,
+                                    minHeight: 36,
+                                  ),
+                                  onPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => const SettingsScreen(),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.menu_rounded,
+                                    color: ChatLightColors.ink,
+                                    size: 22,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Center(
+                              child: _AvatarWithRing(
+                                photoUrl: profile.photoUrl,
                               ),
                             ),
-                            if (profile.identityVerified) ...[
-                              const SizedBox(width: 6),
-                              const Icon(
-                                Icons.verified_outlined,
-                                color: AppColors.primary,
-                                size: 21,
+                            const SizedBox(height: 14),
+                            Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      displayName,
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w800,
+                                        color: ChatLightColors.ink,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  if (profile.identityVerified) ...[
+                                    const SizedBox(width: 6),
+                                    const Icon(
+                                      Icons.verified_outlined,
+                                      color: AppColors.primary,
+                                      size: 21,
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            if ((authUser?.username ?? '').isNotEmpty) ...[
+                              const SizedBox(height: 3),
+                              Center(
+                                child: Text(
+                                  '@${authUser!.username}',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 13.5,
+                                    color: ChatLightColors.inkSoft,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
                             ],
+                            const SizedBox(height: 20),
+                            ProfileStatsRow(
+                              following: followingCount,
+                              followers: followersCount,
+                              likes: myUid == null
+                                  ? 0
+                                  : ref.watch(
+                                      userTotalPostLikesProvider(myUid),
+                                    ),
+                              loc: loc,
+                            ),
+                            const SizedBox(height: 16),
+                            const PostsDivider(),
                           ],
                         ),
                       ),
-                      if ((authUser?.username ?? '').isNotEmpty) ...[
-                        const SizedBox(height: 3),
-                        Center(
-                          child: Text(
-                            '@${authUser!.username}',
-                            style: GoogleFonts.manrope(
-                              fontSize: 13.5,
-                              color: ChatLightColors.inkSoft,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 20),
-                      ProfileStatsRow(
-                        following: followingCount,
-                        followers: followersCount,
-                        likes: myUid == null ? 0 : ref.watch(userTotalPostLikesProvider(myUid)),
-                        loc: loc,
-                      ),
-                      const SizedBox(height: 16),
-                      const PostsDivider(),
-                      const SizedBox(height: 14),
-                      postsAsync.when(
-                        data: (posts) => posts.isEmpty
-                            ? const PostFeedEmptyState()
-                            : PostGrid(posts: posts),
-                        loading: () => const PostGridLoading(),
-                        // Previously rendered the exact same empty state as
-                        // "you truly have zero posts", with nothing logged —
-                        // a genuine stream failure (permission hiccup,
-                        // transient `unavailable`) was then indistinguishable
-                        // from an empty profile, and left no trace to
-                        // diagnose a "my post never showed up" report with.
-                        error: (error, stackTrace) {
-                          logError('profile_tab.userPostsProvider', error, stackTrace);
-                          return const PostFeedEmptyState();
-                        },
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _ProfileMediaTabBarDelegate(),
+              ),
+            ],
+            body: TabBarView(
+              children: [
+                _ProfileMediaTabPage(
+                  postsAsync: postsAsync,
+                  logContext: 'profile_tab.userPostsProvider',
+                ),
+                _ProfileMediaTabPage(
+                  postsAsync: likedPostsAsync,
+                  logContext: 'profile_tab.userLikedPostsProvider',
+                ),
+                _ProfileMediaTabPage(
+                  postsAsync: repostedPostsAsync,
+                  logContext: 'profile_tab.userRepostedPostsProvider',
+                ),
+              ],
             ),
-          ],
+          ),
         )
         .animate()
         .fadeIn(duration: 240.ms, curve: Curves.easeOut)
         .slideY(begin: 0.04, end: 0, duration: 240.ms, curve: Curves.easeOut);
   }
+}
+
+/// One tab page of the media section below — resolves an
+/// `AsyncValue<List<Post>>` (own/liked/reposted) into the loading/empty/
+/// error/grid states, same fallback reasoning as the single-grid version
+/// this replaced: a genuine stream failure (permission hiccup, transient
+/// `unavailable`) is logged and shown as empty rather than left
+/// indistinguishable from "truly zero posts". Always wrapped in a
+/// scrollable (even the empty/loading states) since every `TabBarView`
+/// page under a `NestedScrollView` needs to own a `Scrollable` for the
+/// pinned tab bar above to size/scroll correctly.
+class _ProfileMediaTabPage extends StatelessWidget {
+  final AsyncValue<List<Post>> postsAsync;
+  final String logContext;
+
+  const _ProfileMediaTabPage({
+    required this.postsAsync,
+    required this.logContext,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return postsAsync.when(
+      data: (posts) => posts.isEmpty
+          ? const SingleChildScrollView(
+              physics: AlwaysScrollableScrollPhysics(),
+              child: PostFeedEmptyState(),
+            )
+          : PostGrid(posts: posts, scrollable: true),
+      loading: () => const SingleChildScrollView(
+        physics: AlwaysScrollableScrollPhysics(),
+        child: PostGridLoading(),
+      ),
+      error: (error, stackTrace) {
+        logError(logContext, error, stackTrace);
+        return const SingleChildScrollView(
+          physics: AlwaysScrollableScrollPhysics(),
+          child: PostFeedEmptyState(),
+        );
+      },
+    );
+  }
+}
+
+/// Pinned icon-only tab bar between the profile header and the media
+/// grid — own posts / liked / reposted, matching `PostGrid`'s own look
+/// in every tab (see `_ProfileMediaTabPage`), so this only switches the
+/// data source, never the grid's visual design.
+class _ProfileMediaTabBarDelegate extends SliverPersistentHeaderDelegate {
+  @override
+  double get minExtent => 44;
+
+  @override
+  double get maxExtent => 44;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return ColoredBox(
+      color: ChatLightColors.bg1,
+      child: TabBar(
+        indicatorColor: AppColors.primary,
+        indicatorWeight: 2.5,
+        indicatorSize: TabBarIndicatorSize.label,
+        labelColor: AppColors.primary,
+        unselectedLabelColor: ChatLightColors.inkFaint,
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        tabs: const [
+          Tab(icon: Icon(CupertinoIcons.square_grid_2x2, size: 22)),
+          Tab(icon: Icon(CupertinoIcons.heart, size: 23)),
+          Tab(icon: Icon(CupertinoIcons.arrow_2_squarepath, size: 21)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) =>
+      false;
 }
 
 /// The gradient ring only appears while the signed-in user has at
@@ -342,4 +476,3 @@ class _AvatarWithRing extends ConsumerWidget {
     );
   }
 }
-

@@ -10,44 +10,80 @@ import '../../domain/entities/post.dart';
 import '../../domain/entities/post_comment.dart';
 import '../../domain/repositories/post_repository.dart';
 
-final postRepositoryProvider = Provider<PostRepository>((ref) => FirebasePostRepository());
+final postRepositoryProvider = Provider<PostRepository>(
+  (ref) => FirebasePostRepository(),
+);
 
 String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
 
-final userPostsProvider = StreamProvider.autoDispose.family<List<Post>, String>((ref, userId) {
-  return ref.watch(postRepositoryProvider).watchUserPosts(userId);
-});
+final userPostsProvider = StreamProvider.autoDispose.family<List<Post>, String>(
+  (ref, userId) {
+    return ref.watch(postRepositoryProvider).watchUserPosts(userId);
+  },
+);
 
 /// Sum of `likesCount` across every post [userId] has shared — the real,
 /// media-based number the Təqib/Təqibçi/Bəyənmə stats row shows for
 /// "Bəyənmə" (see `ProfileTab`/`UserProfileScreen`). Swiping/cards no
 /// longer exist, so this replaces the old swipe-based `heartCount`.
-final userTotalPostLikesProvider = Provider.autoDispose.family<int, String>((ref, userId) {
+final userTotalPostLikesProvider = Provider.autoDispose.family<int, String>((
+  ref,
+  userId,
+) {
   final posts = ref.watch(userPostsProvider(userId)).valueOrNull ?? const [];
   return posts.fold<int>(0, (sum, p) => sum + p.likesCount);
 });
 
-final isPostLikedByMeProvider = StreamProvider.autoDispose.family<bool, String>((ref, postId) {
-  final uid = _currentUid();
-  if (uid == null) return Stream.value(false);
-  return ref.watch(postRepositoryProvider).watchIsLikedByMe(postId, uid);
-});
+final isPostLikedByMeProvider = StreamProvider.autoDispose.family<bool, String>(
+  (ref, postId) {
+    final uid = _currentUid();
+    if (uid == null) return Stream.value(false);
+    return ref.watch(postRepositoryProvider).watchIsLikedByMe(postId, uid);
+  },
+);
 
-final postCommentsProvider = StreamProvider.autoDispose.family<List<PostComment>, String>((ref, postId) {
-  return ref.watch(postRepositoryProvider).watchComments(postId);
-});
+/// "Bəyəndikləri" profile tab — [userId] must be the signed-in user
+/// (the underlying `users/{uid}/likedPosts` mirror is owner-read-only).
+final userLikedPostsProvider = StreamProvider.autoDispose
+    .family<List<Post>, String>((ref, userId) {
+      return ref.watch(postRepositoryProvider).watchLikedPosts(userId);
+    });
 
-final postByIdProvider = StreamProvider.autoDispose.family<Post?, String>((ref, postId) {
+/// "Repostlar" profile tab — same owner-only shape as [userLikedPostsProvider].
+final userRepostedPostsProvider = StreamProvider.autoDispose
+    .family<List<Post>, String>((ref, userId) {
+      return ref.watch(postRepositoryProvider).watchRepostedPosts(userId);
+    });
+
+final isPostRepostedByMeProvider = StreamProvider.autoDispose
+    .family<bool, String>((ref, postId) {
+      final uid = _currentUid();
+      if (uid == null) return Stream.value(false);
+      return ref.watch(postRepositoryProvider).watchIsRepostedByMe(postId, uid);
+    });
+
+final postCommentsProvider = StreamProvider.autoDispose
+    .family<List<PostComment>, String>((ref, postId) {
+      return ref.watch(postRepositoryProvider).watchComments(postId);
+    });
+
+final postByIdProvider = StreamProvider.autoDispose.family<Post?, String>((
+  ref,
+  postId,
+) {
   return ref.watch(postRepositoryProvider).watchPost(postId);
 });
 
 /// Keyed by a (postId, commentId) record — Riverpod families accept
 /// records as a single family argument.
-final isCommentLikedByMeProvider = StreamProvider.autoDispose.family<bool, (String postId, String commentId)>((ref, key) {
-  final uid = _currentUid();
-  if (uid == null) return Stream.value(false);
-  return ref.watch(postRepositoryProvider).watchIsCommentLikedByMe(key.$1, key.$2, uid);
-});
+final isCommentLikedByMeProvider = StreamProvider.autoDispose
+    .family<bool, (String postId, String commentId)>((ref, key) {
+      final uid = _currentUid();
+      if (uid == null) return Stream.value(false);
+      return ref
+          .watch(postRepositoryProvider)
+          .watchIsCommentLikedByMe(key.$1, key.$2, uid);
+    });
 
 class PostController {
   PostController(this._ref);
@@ -67,11 +103,22 @@ class PostController {
     if (uid == null) return false;
     try {
       final repo = _ref.read(postRepositoryProvider);
-      final mediaUrl = await repo.uploadMedia(userId: uid, file: file, type: mediaType, onProgress: onProgress);
+      final mediaUrl = await repo.uploadMedia(
+        userId: uid,
+        file: file,
+        type: mediaType,
+        onProgress: onProgress,
+      );
       final thumbnailUrl = mediaType == PostMediaType.video
           ? await _uploadVideoThumbnail(repo: repo, uid: uid, videoFile: file)
           : null;
-      await repo.createPost(userId: uid, mediaUrl: mediaUrl, mediaType: mediaType, thumbnailUrl: thumbnailUrl, caption: caption);
+      await repo.createPost(
+        userId: uid,
+        mediaUrl: mediaUrl,
+        mediaType: mediaType,
+        thumbnailUrl: thumbnailUrl,
+        caption: caption,
+      );
       return true;
     } catch (e, st) {
       logError('post_providers.PostController.uploadAndCreatePost', e, st);
@@ -96,7 +143,12 @@ class PostController {
         quality: 75,
       );
       if (path == null) return null;
-      return await repo.uploadMedia(userId: uid, file: File(path), type: PostMediaType.photo, onProgress: (_) {});
+      return await repo.uploadMedia(
+        userId: uid,
+        file: File(path),
+        type: PostMediaType.photo,
+        onProgress: (_) {},
+      );
     } catch (e, st) {
       logError('post_providers.PostController._uploadVideoThumbnail', e, st);
       return null;
@@ -105,7 +157,9 @@ class PostController {
 
   Future<bool> updateCaption(String postId, String caption) async {
     try {
-      await _ref.read(postRepositoryProvider).updateCaption(postId: postId, caption: caption);
+      await _ref
+          .read(postRepositoryProvider)
+          .updateCaption(postId: postId, caption: caption);
       return true;
     } catch (e, st) {
       logError('post_providers.PostController.updateCaption', e, st);
@@ -113,9 +167,19 @@ class PostController {
     }
   }
 
-  Future<bool> deletePost(String postId, String mediaUrl, {String? thumbnailUrl}) async {
+  Future<bool> deletePost(
+    String postId,
+    String mediaUrl, {
+    String? thumbnailUrl,
+  }) async {
     try {
-      await _ref.read(postRepositoryProvider).deletePost(postId: postId, mediaUrl: mediaUrl, thumbnailUrl: thumbnailUrl);
+      await _ref
+          .read(postRepositoryProvider)
+          .deletePost(
+            postId: postId,
+            mediaUrl: mediaUrl,
+            thumbnailUrl: thumbnailUrl,
+          );
       return true;
     } catch (e, st) {
       logError('post_providers.PostController.deletePost', e, st);
@@ -127,7 +191,9 @@ class PostController {
     final uid = _currentUid();
     if (uid == null) return false;
     try {
-      await _ref.read(postRepositoryProvider).toggleLike(postId: postId, uid: uid, like: like);
+      await _ref
+          .read(postRepositoryProvider)
+          .toggleLike(postId: postId, uid: uid, like: like);
       return true;
     } catch (e, st) {
       logError('post_providers.PostController.toggleLike', e, st);
@@ -135,13 +201,36 @@ class PostController {
     }
   }
 
-  Future<bool> addComment(String postId, String text, {String? replyToCommentId}) async {
+  Future<bool> toggleRepost(String postId, bool repost) async {
     final uid = _currentUid();
     if (uid == null) return false;
     try {
       await _ref
           .read(postRepositoryProvider)
-          .addComment(postId: postId, uid: uid, text: text, replyToCommentId: replyToCommentId);
+          .toggleRepost(postId: postId, uid: uid, repost: repost);
+      return true;
+    } catch (e, st) {
+      logError('post_providers.PostController.toggleRepost', e, st);
+      return false;
+    }
+  }
+
+  Future<bool> addComment(
+    String postId,
+    String text, {
+    String? replyToCommentId,
+  }) async {
+    final uid = _currentUid();
+    if (uid == null) return false;
+    try {
+      await _ref
+          .read(postRepositoryProvider)
+          .addComment(
+            postId: postId,
+            uid: uid,
+            text: text,
+            replyToCommentId: replyToCommentId,
+          );
       return true;
     } catch (e, st) {
       logError('post_providers.PostController.addComment', e, st);
@@ -149,9 +238,15 @@ class PostController {
     }
   }
 
-  Future<bool> updateComment(String postId, String commentId, String text) async {
+  Future<bool> updateComment(
+    String postId,
+    String commentId,
+    String text,
+  ) async {
     try {
-      await _ref.read(postRepositoryProvider).updateComment(postId: postId, commentId: commentId, text: text);
+      await _ref
+          .read(postRepositoryProvider)
+          .updateComment(postId: postId, commentId: commentId, text: text);
       return true;
     } catch (e, st) {
       logError('post_providers.PostController.updateComment', e, st);
@@ -161,7 +256,9 @@ class PostController {
 
   Future<bool> deleteComment(String postId, String commentId) async {
     try {
-      await _ref.read(postRepositoryProvider).deleteComment(postId: postId, commentId: commentId);
+      await _ref
+          .read(postRepositoryProvider)
+          .deleteComment(postId: postId, commentId: commentId);
       return true;
     } catch (e, st) {
       logError('post_providers.PostController.deleteComment', e, st);
@@ -169,11 +266,22 @@ class PostController {
     }
   }
 
-  Future<bool> toggleCommentLike(String postId, String commentId, bool like) async {
+  Future<bool> toggleCommentLike(
+    String postId,
+    String commentId,
+    bool like,
+  ) async {
     final uid = _currentUid();
     if (uid == null) return false;
     try {
-      await _ref.read(postRepositoryProvider).toggleCommentLike(postId: postId, commentId: commentId, uid: uid, like: like);
+      await _ref
+          .read(postRepositoryProvider)
+          .toggleCommentLike(
+            postId: postId,
+            commentId: commentId,
+            uid: uid,
+            like: like,
+          );
       return true;
     } catch (e, st) {
       logError('post_providers.PostController.toggleCommentLike', e, st);
@@ -182,4 +290,6 @@ class PostController {
   }
 }
 
-final postControllerProvider = Provider<PostController>((ref) => PostController(ref));
+final postControllerProvider = Provider<PostController>(
+  (ref) => PostController(ref),
+);

@@ -131,6 +131,25 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
 
+      // Reverse index for the "Bəyəndikləri" profile tab — mirrored here
+      // by `onPostLikeCreated`/`onPostLikeDeleted` (functions/src/index.ts)
+      // whenever this user likes/unlikes a post, since a client-side
+      // `collectionGroup("likes")` query can't be proven safe by rules
+      // (same reason the `posts` collection's own cross-user list query is
+      // blocked below). Admin SDK writes bypass rules, so `allow write:
+      // if false` only blocks the client.
+      match /likedPosts/{postId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
+      // "Repostlar" profile tab — same owner-read/write-only shape as
+      // `favoriteOffers` above; the client toggles this directly, exactly
+      // like `posts/{postId}/likes/{uid}` toggles a like.
+      match /reposts/{postId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
       // Social/system notification inbox (follow, likes, comments,
       // venue events, security/system alerts — never message-related,
       // see the Söhbət module's own delivery/read-receipt fields for

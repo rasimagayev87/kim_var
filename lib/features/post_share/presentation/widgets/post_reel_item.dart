@@ -87,8 +87,12 @@ class _PostReelItemState extends ConsumerState<PostReelItem> {
   /// perceptible delay. Errors here are silent: `showPostShareOptions`
   /// falls back to downloading on demand if this never finished.
   void _cacheMediaInBackground() {
-    final extension = widget.post.mediaType == PostMediaType.video ? 'mp4' : 'jpg';
-    unawaited(PostMediaCache.getOrDownload(widget.post.mediaUrl, extension: extension));
+    final extension = widget.post.mediaType == PostMediaType.video
+        ? 'mp4'
+        : 'jpg';
+    unawaited(
+      PostMediaCache.getOrDownload(widget.post.mediaUrl, extension: extension),
+    );
   }
 
   Future<void> _initVideo() async {
@@ -481,11 +485,14 @@ class _BottomInfo extends ConsumerWidget {
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
-                    shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
+                    shadows: const [
+                      Shadow(color: Colors.black54, blurRadius: 6),
+                    ],
                   ),
                 ),
               ),
-              if (profile?.username != null && profile!.username!.isNotEmpty) ...[
+              if (profile?.username != null &&
+                  profile!.username!.isNotEmpty) ...[
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
@@ -496,7 +503,9 @@ class _BottomInfo extends ConsumerWidget {
                       color: Colors.white70,
                       fontWeight: FontWeight.w500,
                       fontSize: 12.5,
-                      shadows: const [Shadow(color: Colors.black54, blurRadius: 6)],
+                      shadows: const [
+                        Shadow(color: Colors.black54, blurRadius: 6),
+                      ],
                     ),
                   ),
                 ),
@@ -561,7 +570,11 @@ class _RightActionRail extends ConsumerWidget {
                 ),
                 child: ClipOval(
                   child: profile?.photoUrl != null
-                      ? AppImage(profile!.photoUrl!, thumbnail: true, fit: BoxFit.cover)
+                      ? AppImage(
+                          profile!.photoUrl!,
+                          thumbnail: true,
+                          fit: BoxFit.cover,
+                        )
                       : const Icon(Icons.person_outline, color: Colors.white70),
                 ),
               ),
@@ -580,6 +593,8 @@ class _RightActionRail extends ConsumerWidget {
               count: null,
               onTap: () => showPostShareOptions(context, post),
             ),
+            const SizedBox(height: 20),
+            _RepostAction(post: post),
           ],
         ),
       ),
@@ -614,6 +629,41 @@ class _LikeAction extends ConsumerWidget {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(loc.postLikeErrorMessage)));
+        }
+      },
+    );
+  }
+}
+
+/// Repost toggle — cyan (the app's own accent) rather than like's red,
+/// so the two read as distinct actions at a glance. Reposting adds
+/// [post] to the reposter's own "Repostlar" profile tab
+/// ([userRepostedPostsProvider]); it never touches the original post's
+/// own owner/counts.
+class _RepostAction extends ConsumerWidget {
+  final Post post;
+
+  const _RepostAction({required this.post});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context);
+    final isReposted =
+        ref.watch(isPostRepostedByMeProvider(post.id)).valueOrNull ?? false;
+
+    return _RailAction(
+      icon: Icons.repeat_rounded,
+      count: null,
+      iconColor: isReposted ? AppColors.primary : Colors.white,
+      onTap: () async {
+        if (!context.mounted) return;
+        final ok = await ref
+            .read(postControllerProvider)
+            .toggleRepost(post.id, !isReposted);
+        if (!ok && context.mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(loc.postRepostErrorMessage)));
         }
       },
     );

@@ -42,11 +42,23 @@ class ProfileStatsRow extends StatelessWidget {
     return IntrinsicHeight(
       child: Row(
         children: [
-          Expanded(child: _StatColumn(count: following, label: loc.profileStatsFollowing)),
+          Expanded(
+            child: _StatColumn(
+              count: following,
+              label: loc.profileStatsFollowing,
+            ),
+          ),
           const _StatDivider(),
-          Expanded(child: _StatColumn(count: followers, label: loc.profileStatsFollowers)),
+          Expanded(
+            child: _StatColumn(
+              count: followers,
+              label: loc.profileStatsFollowers,
+            ),
+          ),
           const _StatDivider(),
-          Expanded(child: _StatColumn(count: likes, label: loc.profileStatsLikes)),
+          Expanded(
+            child: _StatColumn(count: likes, label: loc.profileStatsLikes),
+          ),
         ],
       ),
     );
@@ -58,7 +70,10 @@ class _StatDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(width: 1, color: ChatLightColors.inkFaint.withValues(alpha: 0.25));
+    return Container(
+      width: 1,
+      color: ChatLightColors.inkFaint.withValues(alpha: 0.25),
+    );
   }
 }
 
@@ -79,13 +94,21 @@ class _StatColumn extends StatelessWidget {
           curve: Curves.easeOut,
           builder: (context, value, _) => Text(
             '$value',
-            style: GoogleFonts.manrope(fontSize: 17, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+            style: GoogleFonts.manrope(
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              color: ChatLightColors.ink,
+            ),
           ),
         ),
         const SizedBox(height: 2),
         Text(
           label,
-          style: GoogleFonts.manrope(fontSize: 11.5, color: ChatLightColors.inkSoft, fontWeight: FontWeight.w500),
+          style: GoogleFonts.manrope(
+            fontSize: 11.5,
+            color: ChatLightColors.inkSoft,
+            fontWeight: FontWeight.w500,
+          ),
           overflow: TextOverflow.ellipsis,
         ),
       ],
@@ -106,19 +129,30 @@ class PostsDivider extends StatelessWidget {
         Expanded(
           child: Container(
             height: 1,
-            decoration: BoxDecoration(gradient: LinearGradient(colors: [Colors.transparent, lineColor])),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.transparent, lineColor]),
+            ),
           ),
         ),
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 12),
           padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-          child: const Icon(Icons.perm_media_outlined, size: 16, color: ChatLightColors.inkSoft),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(
+            Icons.perm_media_outlined,
+            size: 16,
+            color: ChatLightColors.inkSoft,
+          ),
         ),
         Expanded(
           child: Container(
             height: 1,
-            decoration: BoxDecoration(gradient: LinearGradient(colors: [lineColor, Colors.transparent])),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [lineColor, Colors.transparent]),
+            ),
           ),
         ),
       ],
@@ -137,20 +171,32 @@ class PostsDivider extends StatelessWidget {
 class PostGrid extends StatelessWidget {
   final List<Post> posts;
 
-  const PostGrid({super.key, required this.posts});
+  /// False (default) for the existing usage — embedded, non-scrolling,
+  /// inside an outer `ListView` that owns the scrolling. True for a
+  /// grid that owns its own scrolling instead, e.g. one page of a
+  /// `TabBarView` (see `profile_tab.dart`'s media tabs), which needs
+  /// this `GridView` to actually scroll rather than try to take its
+  /// unbounded natural height inside a bounded page.
+  final bool scrollable;
+
+  const PostGrid({super.key, required this.posts, this.scrollable = false});
 
   @override
   Widget build(BuildContext context) {
     return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: !scrollable,
+      physics: scrollable
+          ? const AlwaysScrollableScrollPhysics()
+          : const NeverScrollableScrollPhysics(),
+      padding: scrollable ? EdgeInsets.zero : null,
       itemCount: posts.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
         crossAxisSpacing: 2,
         mainAxisSpacing: 2,
       ),
-      itemBuilder: (context, index) => _PostGridTile(posts: posts, index: index),
+      itemBuilder: (context, index) =>
+          _PostGridTile(posts: posts, index: index),
     );
   }
 }
@@ -168,7 +214,10 @@ class _PostGridTile extends StatelessWidget {
     return GestureDetector(
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => PostReelViewerScreen(posts: posts, initialIndex: index)),
+        MaterialPageRoute(
+          builder: (_) =>
+              PostReelViewerScreen(posts: posts, initialIndex: index),
+        ),
       ),
       child: Stack(
         fit: StackFit.expand,
@@ -192,7 +241,11 @@ class _PostGridTile extends StatelessWidget {
             const Positioned(
               top: 6,
               right: 6,
-              child: Icon(Icons.play_arrow_outlined, color: Colors.white, size: 18),
+              child: Icon(
+                Icons.play_arrow_outlined,
+                color: Colors.white,
+                size: 18,
+              ),
             ),
         ],
       ),
@@ -210,11 +263,18 @@ class PostFeedEmptyState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 32),
       child: Column(
         children: [
-          const Icon(Icons.photo_library_outlined, color: ChatLightColors.inkFaint, size: 36),
+          const Icon(
+            Icons.photo_library_outlined,
+            color: ChatLightColors.inkFaint,
+            size: 36,
+          ),
           const SizedBox(height: 12),
           Text(
             loc.postFeedEmptyMessage,
-            style: GoogleFonts.manrope(fontSize: 13.5, color: ChatLightColors.inkSoft),
+            style: GoogleFonts.manrope(
+              fontSize: 13.5,
+              color: ChatLightColors.inkSoft,
+            ),
             textAlign: TextAlign.center,
           ),
         ],
@@ -232,7 +292,12 @@ class PostGridLoading extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 40),
-      child: Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.4)),
+      child: Center(
+        child: CircularProgressIndicator(
+          color: AppColors.primary,
+          strokeWidth: 2.4,
+        ),
+      ),
     );
   }
 }

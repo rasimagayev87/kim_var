@@ -8,14 +8,19 @@ import '../../domain/entities/post_comment.dart';
 import '../../domain/repositories/post_repository.dart';
 
 class FirebasePostRepository implements PostRepository {
-  FirebasePostRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+  FirebasePostRepository({
+    FirebaseFirestore? firestore,
+    FirebaseStorage? storage,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _storage = storage ?? FirebaseStorage.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
-  CollectionReference<Map<String, dynamic>> get _posts => _firestore.collection('posts');
+  CollectionReference<Map<String, dynamic>> get _posts =>
+      _firestore.collection('posts');
+  CollectionReference<Map<String, dynamic>> get _users =>
+      _firestore.collection('users');
 
   @override
   Future<String> uploadMedia({
@@ -25,11 +30,16 @@ class FirebasePostRepository implements PostRepository {
     required void Function(double progress) onProgress,
   }) async {
     final extension = type == PostMediaType.video ? 'mp4' : 'jpg';
-    final contentType = type == PostMediaType.video ? 'video/mp4' : 'image/jpeg';
+    final contentType = type == PostMediaType.video
+        ? 'video/mp4'
+        : 'image/jpeg';
     final fileName = '${DateTime.now().microsecondsSinceEpoch}.$extension';
 
     final storageRef = _storage.ref('posts/$userId/$fileName');
-    final task = storageRef.putFile(file, SettableMetadata(contentType: contentType));
+    final task = storageRef.putFile(
+      file,
+      SettableMetadata(contentType: contentType),
+    );
 
     task.snapshotEvents.listen((snapshot) {
       if (snapshot.totalBytes > 0) {
@@ -71,6 +81,36 @@ class FirebasePostRepository implements PostRepository {
   }
 
   @override
+  Stream<List<Post>> watchLikedPosts(String uid) =>
+      _watchMirroredPosts(uid, 'likedPosts');
+
+  @override
+  Stream<List<Post>> watchRepostedPosts(String uid) =>
+      _watchMirroredPosts(uid, 'reposts');
+
+  /// Backs [watchLikedPosts]/[watchRepostedPosts] — both read a small
+  /// `users/{uid}/{subcollection}` mirror (see [toggleLike]/[toggleRepost])
+  /// ordered newest-first, then resolve each entry's id to the actual
+  /// `posts/{id}` doc. A post deleted since being liked/reposted just
+  /// silently drops out of the list rather than erroring.
+  Stream<List<Post>> _watchMirroredPosts(String uid, String subcollection) {
+    return _users
+        .doc(uid)
+        .collection(subcollection)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .asyncMap((snap) async {
+          final postDocs = await Future.wait(
+            snap.docs.map((d) => _posts.doc(d.id).get()),
+          );
+          return postDocs
+              .where((d) => d.exists)
+              .map((d) => _fromDoc(d.id, d.data()!))
+              .toList();
+        });
+  }
+
+  @override
   Stream<Post?> watchPost(String postId) {
     return _posts.doc(postId).snapshots().map((snap) {
       final data = snap.data();
@@ -80,12 +120,19 @@ class FirebasePostRepository implements PostRepository {
   }
 
   @override
-  Future<void> updateCaption({required String postId, required String caption}) {
+  Future<void> updateCaption({
+    required String postId,
+    required String caption,
+  }) {
     return _posts.doc(postId).update({'caption': caption});
   }
 
   @override
-  Future<void> deletePost({required String postId, required String mediaUrl, String? thumbnailUrl}) async {
+  Future<void> deletePost({
+    required String postId,
+    required String mediaUrl,
+    String? thumbnailUrl,
+  }) async {
     await _posts.doc(postId).delete();
     try {
       await _storage.refFromURL(mediaUrl).delete();
@@ -104,19 +151,55 @@ class FirebasePostRepository implements PostRepository {
 
   @override
   Stream<bool> watchIsLikedByMe(String postId, String uid) {
-    return _posts.doc(postId).collection('likes').doc(uid).snapshots().map((snap) => snap.exists);
+    return _posts
+        .doc(postId)
+        .collection('likes')
+        .doc(uid)
+        .snapshots()
+        .map((snap) => snap.exists);
   }
 
   @override
-  Future<void> toggleLike({required String postId, required String uid, required bool like}) {
+  Future<void> toggleLike({
+    required String postId,
+    required String uid,
+    required bool like,
+  }) {
     final likeRef = _posts.doc(postId).collection('likes').doc(uid);
     if (like) {
-      return likeRef.set({'userId': uid, 'createdAt': FieldValue.serverTimestamp()});
+      return likeRef.set({
+        'userId': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     }
     return likeRef.delete();
   }
 
-  CollectionReference<Map<String, dynamic>> _comments(String postId) => _posts.doc(postId).collection('comments');
+  @override
+  Stream<bool> watchIsRepostedByMe(String postId, String uid) {
+    return _users
+        .doc(uid)
+        .collection('reposts')
+        .doc(postId)
+        .snapshots()
+        .map((snap) => snap.exists);
+  }
+
+  @override
+  Future<void> toggleRepost({
+    required String postId,
+    required String uid,
+    required bool repost,
+  }) {
+    final repostRef = _users.doc(uid).collection('reposts').doc(postId);
+    if (repost) {
+      return repostRef.set({'createdAt': FieldValue.serverTimestamp()});
+    }
+    return repostRef.delete();
+  }
+
+  CollectionReference<Map<String, dynamic>> _comments(String postId) =>
+      _posts.doc(postId).collection('comments');
 
   @override
   Stream<List<PostComment>> watchComments(String postId) {
@@ -125,7 +208,10 @@ class FirebasePostRepository implements PostRepository {
     return _comments(postId)
         .orderBy('createdAt')
         .snapshots()
-        .map((snap) => snap.docs.map((d) => _commentFromDoc(d.id, d.data())).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => _commentFromDoc(d.id, d.data())).toList(),
+        );
   }
 
   @override
@@ -145,18 +231,34 @@ class FirebasePostRepository implements PostRepository {
   }
 
   @override
-  Future<void> updateComment({required String postId, required String commentId, required String text}) {
+  Future<void> updateComment({
+    required String postId,
+    required String commentId,
+    required String text,
+  }) {
     return _comments(postId).doc(commentId).update({'text': text});
   }
 
   @override
-  Future<void> deleteComment({required String postId, required String commentId}) {
+  Future<void> deleteComment({
+    required String postId,
+    required String commentId,
+  }) {
     return _comments(postId).doc(commentId).delete();
   }
 
   @override
-  Stream<bool> watchIsCommentLikedByMe(String postId, String commentId, String uid) {
-    return _comments(postId).doc(commentId).collection('likes').doc(uid).snapshots().map((snap) => snap.exists);
+  Stream<bool> watchIsCommentLikedByMe(
+    String postId,
+    String commentId,
+    String uid,
+  ) {
+    return _comments(postId)
+        .doc(commentId)
+        .collection('likes')
+        .doc(uid)
+        .snapshots()
+        .map((snap) => snap.exists);
   }
 
   @override
@@ -166,9 +268,14 @@ class FirebasePostRepository implements PostRepository {
     required String uid,
     required bool like,
   }) {
-    final likeRef = _comments(postId).doc(commentId).collection('likes').doc(uid);
+    final likeRef = _comments(
+      postId,
+    ).doc(commentId).collection('likes').doc(uid);
     if (like) {
-      return likeRef.set({'userId': uid, 'createdAt': FieldValue.serverTimestamp()});
+      return likeRef.set({
+        'userId': uid,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
     }
     return likeRef.delete();
   }
@@ -178,7 +285,9 @@ class FirebasePostRepository implements PostRepository {
       id: id,
       userId: data['userId'] as String? ?? '',
       mediaUrl: data['mediaUrl'] as String? ?? '',
-      mediaType: (data['mediaType'] as String?) == 'video' ? PostMediaType.video : PostMediaType.photo,
+      mediaType: (data['mediaType'] as String?) == 'video'
+          ? PostMediaType.video
+          : PostMediaType.photo,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       likesCount: (data['likesCount'] as num?)?.toInt() ?? 0,
       commentsCount: (data['commentsCount'] as num?)?.toInt() ?? 0,

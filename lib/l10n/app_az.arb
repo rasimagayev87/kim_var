@@ -1023,6 +1023,7 @@
   "postCommentSendButton": "Göndər",
   "postCommentErrorMessage": "Rəy göndərilmədi. Bir az sonra yenidən cəhd edin.",
   "postLikeErrorMessage": "Bəyənmə saxlanılmadı. Bir az sonra yenidən cəhd edin.",
+  "postRepostErrorMessage": "Repost saxlanılmadı. Bir az sonra yenidən cəhd edin.",
   "feedDownloadVideoOption": "Videonu endir",
   "feedDownloadInProgressMessage": "Yüklənir... {percent}%",
   "@feedDownloadInProgressMessage": {

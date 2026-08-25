@@ -1023,6 +1023,7 @@
   "postCommentSendButton": "Gönder",
   "postCommentErrorMessage": "Yorum gönderilmedi. Lütfen daha sonra tekrar deneyin.",
   "postLikeErrorMessage": "Beğeni kaydedilmedi. Lütfen daha sonra tekrar deneyin.",
+  "postRepostErrorMessage": "Repost kaydedilmedi. Lütfen daha sonra tekrar deneyin.",
   "feedDownloadVideoOption": "Videoyu indir",
   "feedDownloadInProgressMessage": "İndiriliyor... %{percent}",
   "@feedDownloadInProgressMessage": {

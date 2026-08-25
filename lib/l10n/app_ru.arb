@@ -1023,6 +1023,7 @@
   "postCommentSendButton": "Отправить",
   "postCommentErrorMessage": "Комментарий не отправлен. Повторите попытку позже.",
   "postLikeErrorMessage": "Лайк не сохранён. Повторите попытку позже.",
+  "postRepostErrorMessage": "Репост не сохранён. Повторите попытку позже.",
   "feedDownloadVideoOption": "Скачать видео",
   "feedDownloadInProgressMessage": "Загрузка... {percent}%",
   "@feedDownloadInProgressMessage": {

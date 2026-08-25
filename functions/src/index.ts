@@ -746,6 +746,18 @@ export const onPostLikeCreated = onDocumentCreated("posts/{postId}/likes/{uid}",
   await bumpPostCounter(event.params.postId, "likesCount", 1);
 
   const likerId = event.params.uid;
+
+  // Mirrors this like into the LIKER's own doc — the "Bəyəndikləri" profile
+  // tab reads this subcollection directly rather than trying a client-side
+  // `collectionGroup("likes")` query, which Firestore's own rules can't
+  // prove safe (same reason a plain `posts.where("userId", "==", otherUid)`
+  // list query is already broken elsewhere in firestore.rules — see that
+  // file's own comment on the `posts` collection). Same "mirror into the
+  // acting user's own subcollection" shape as notifyUser() below.
+  await db.collection("users").doc(likerId).collection("likedPosts").doc(event.params.postId).set({
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
   const postSnap = await db.collection("posts").doc(event.params.postId).get();
   const postOwnerId = postSnap.data()?.userId as string | undefined;
   if (!postOwnerId || postOwnerId === likerId) return;
@@ -768,6 +780,7 @@ export const onPostLikeCreated = onDocumentCreated("posts/{postId}/likes/{uid}",
 
 export const onPostLikeDeleted = onDocumentDeleted("posts/{postId}/likes/{uid}", async (event) => {
   await bumpPostCounter(event.params.postId, "likesCount", -1);
+  await db.collection("users").doc(event.params.uid).collection("likedPosts").doc(event.params.postId).delete();
 });
 
 /**
