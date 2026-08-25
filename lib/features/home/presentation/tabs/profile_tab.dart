@@ -56,236 +56,236 @@ class ProfileTab extends ConsumerWidget {
 
     return DefaultTabController(
           length: 3,
-          child: NestedScrollView(
-            // Unconstrained on phone (maxWidth simply never binds below
-            // 640 logical px); on tablet/landscape-wide layouts this
-            // keeps the header and grid from stretching edge-to-edge
-            // into an unreadable single row of oversized avatars/text.
-            headerSliverBuilder: (context, innerBoxIsScrolled) => [
-              SliverToBoxAdapter(
-                child: SafeArea(
-                  bottom: false,
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 640),
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                IconButton(
-                                  onPressed: () async {
-                                    if (!context.mounted) return;
-                                    startCreatePostFlow(context);
-                                  },
-                                  icon: const Icon(
-                                    Icons.add_circle_outline,
-                                    color: ChatLightColors.ink,
-                                    size: 22,
-                                  ),
+          // Plain fixed Column, not a NestedScrollView — the profile
+          // header (avatar/name/stats) is never meant to scroll away;
+          // only the media grid below the tab bar does, each tab
+          // owning its own independent scroll.
+          child: Column(
+            children: [
+              SafeArea(
+                bottom: false,
+                child: Center(
+                  child: ConstrainedBox(
+                    // Unconstrained on phone (maxWidth simply never binds
+                    // below 640 logical px); on tablet/landscape-wide
+                    // layouts this keeps the header from stretching
+                    // edge-to-edge into an unreadable single row of
+                    // oversized avatars/text.
+                    constraints: const BoxConstraints(maxWidth: 640),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 14),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              IconButton(
+                                onPressed: () async {
+                                  if (!context.mounted) return;
+                                  startCreatePostFlow(context);
+                                },
+                                icon: const Icon(
+                                  Icons.add_circle_outline,
+                                  color: ChatLightColors.ink,
+                                  size: 22,
                                 ),
-                                const Spacer(),
-                                // Tightly grouped on purpose (no default
-                                // IconButton spacing between them) — three
-                                // buttons stretched across most of the row
-                                // read as loose/unfinished, not premium.
-                                Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    IconButton(
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(
-                                        minWidth: 36,
-                                        minHeight: 36,
-                                      ),
-                                      onPressed: myUid == null
-                                          ? null
-                                          : () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      ProfileVisitorsScreen(
-                                                        uid: myUid,
-                                                      ),
-                                                ),
-                                              );
-                                            },
-                                      icon: const Icon(
-                                        Icons.directions_walk,
-                                        color: ChatLightColors.ink,
-                                        size: 20,
-                                      ),
-                                    ),
-                                    if (newVisitorsCount > 0)
-                                      Positioned(
-                                        top: 2,
-                                        right: 2,
-                                        child: IgnorePointer(
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 5,
-                                              vertical: 1,
-                                            ),
-                                            constraints: const BoxConstraints(
-                                              minWidth: 17,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: AppColors.error,
-                                              borderRadius:
-                                                  BorderRadius.circular(10),
-                                              border: Border.all(
-                                                color: ChatLightColors.bg1,
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                            child: Text(
-                                              newVisitorsCount > 99
-                                                  ? '99+'
-                                                  : '$newVisitorsCount',
-                                              textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                fontSize: 10,
-                                                fontWeight: FontWeight.w800,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                                IconButton(
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                    minWidth: 36,
-                                    minHeight: 36,
-                                  ),
-                                  onPressed: (authUser?.username ?? '').isEmpty
-                                      ? null
-                                      : () => Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) => ProfileShareScreen(
-                                              name: displayName,
-                                              username: authUser!.username!,
-                                              photoUrl: profile.photoUrl,
-                                            ),
-                                          ),
-                                        ),
-                                  icon: const Icon(
-                                    Icons.share_outlined,
-                                    color: ChatLightColors.ink,
-                                    size: 20,
-                                  ),
-                                ),
-                                IconButton(
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                    minWidth: 36,
-                                    minHeight: 36,
-                                  ),
-                                  onPressed: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const SettingsScreen(),
-                                    ),
-                                  ),
-                                  icon: const Icon(
-                                    Icons.menu_rounded,
-                                    color: ChatLightColors.ink,
-                                    size: 22,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            Center(
-                              child: _AvatarWithRing(
-                                photoUrl: profile.photoUrl,
                               ),
-                            ),
-                            const SizedBox(height: 14),
-                            Center(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
+                              const Spacer(),
+                              // Tightly grouped on purpose (no default
+                              // IconButton spacing between them) — three
+                              // buttons stretched across most of the row
+                              // read as loose/unfinished, not premium.
+                              Stack(
+                                clipBehavior: Clip.none,
                                 children: [
-                                  Flexible(
-                                    child: Text(
-                                      displayName,
-                                      style: GoogleFonts.manrope(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.w800,
-                                        color: ChatLightColors.ink,
-                                      ),
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
+                                  IconButton(
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(
+                                      minWidth: 36,
+                                      minHeight: 36,
+                                    ),
+                                    onPressed: myUid == null
+                                        ? null
+                                        : () {
+                                            Navigator.push(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    ProfileVisitorsScreen(
+                                                      uid: myUid,
+                                                    ),
+                                              ),
+                                            );
+                                          },
+                                    icon: const Icon(
+                                      Icons.directions_walk,
+                                      color: ChatLightColors.ink,
+                                      size: 20,
                                     ),
                                   ),
-                                  if (profile.identityVerified) ...[
-                                    const SizedBox(width: 6),
-                                    const Icon(
-                                      Icons.verified_outlined,
-                                      color: AppColors.primary,
-                                      size: 21,
+                                  if (newVisitorsCount > 0)
+                                    Positioned(
+                                      top: 2,
+                                      right: 2,
+                                      child: IgnorePointer(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 5,
+                                            vertical: 1,
+                                          ),
+                                          constraints: const BoxConstraints(
+                                            minWidth: 17,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.error,
+                                            borderRadius: BorderRadius.circular(
+                                              10,
+                                            ),
+                                            border: Border.all(
+                                              color: ChatLightColors.bg1,
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            newVisitorsCount > 99
+                                                ? '99+'
+                                                : '$newVisitorsCount',
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ],
                                 ],
                               ),
-                            ),
-                            if ((authUser?.username ?? '').isNotEmpty) ...[
-                              const SizedBox(height: 3),
-                              Center(
-                                child: Text(
-                                  '@${authUser!.username}',
-                                  style: GoogleFonts.manrope(
-                                    fontSize: 13.5,
-                                    color: ChatLightColors.inkSoft,
-                                    fontWeight: FontWeight.w500,
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 36,
+                                  minHeight: 36,
+                                ),
+                                onPressed: (authUser?.username ?? '').isEmpty
+                                    ? null
+                                    : () => Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => ProfileShareScreen(
+                                            name: displayName,
+                                            username: authUser!.username!,
+                                            photoUrl: profile.photoUrl,
+                                          ),
+                                        ),
+                                      ),
+                                icon: const Icon(
+                                  Icons.share_outlined,
+                                  color: ChatLightColors.ink,
+                                  size: 20,
+                                ),
+                              ),
+                              IconButton(
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minWidth: 36,
+                                  minHeight: 36,
+                                ),
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => const SettingsScreen(),
                                   ),
+                                ),
+                                icon: const Icon(
+                                  Icons.menu_rounded,
+                                  color: ChatLightColors.ink,
+                                  size: 22,
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 20),
-                            ProfileStatsRow(
-                              following: followingCount,
-                              followers: followersCount,
-                              likes: myUid == null
-                                  ? 0
-                                  : ref.watch(
-                                      userTotalPostLikesProvider(myUid),
+                          ),
+                          Center(
+                            child: _AvatarWithRing(photoUrl: profile.photoUrl),
+                          ),
+                          const SizedBox(height: 14),
+                          Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    displayName,
+                                    style: GoogleFonts.manrope(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.w800,
+                                      color: ChatLightColors.ink,
                                     ),
-                              loc: loc,
+                                    overflow: TextOverflow.ellipsis,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                if (profile.identityVerified) ...[
+                                  const SizedBox(width: 6),
+                                  const Icon(
+                                    Icons.verified_outlined,
+                                    color: AppColors.primary,
+                                    size: 21,
+                                  ),
+                                ],
+                              ],
                             ),
-                            const SizedBox(height: 8),
+                          ),
+                          if ((authUser?.username ?? '').isNotEmpty) ...[
+                            const SizedBox(height: 3),
+                            Center(
+                              child: Text(
+                                '@${authUser!.username}',
+                                style: GoogleFonts.manrope(
+                                  fontSize: 13.5,
+                                  color: ChatLightColors.inkSoft,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
                           ],
-                        ),
+                          const SizedBox(height: 20),
+                          ProfileStatsRow(
+                            following: followingCount,
+                            followers: followersCount,
+                            likes: myUid == null
+                                ? 0
+                                : ref.watch(userTotalPostLikesProvider(myUid)),
+                            loc: loc,
+                          ),
+                          const SizedBox(height: 8),
+                        ],
                       ),
                     ),
                   ),
                 ),
               ),
-              SliverPersistentHeader(
-                pinned: true,
-                delegate: _ProfileMediaTabBarDelegate(),
+              const _ProfileMediaTabBar(),
+
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _ProfileMediaTabPage(
+                      postsAsync: postsAsync,
+                      logContext: 'profile_tab.userPostsProvider',
+                    ),
+                    _ProfileMediaTabPage(
+                      postsAsync: likedPostsAsync,
+                      logContext: 'profile_tab.userLikedPostsProvider',
+                    ),
+                    _ProfileMediaTabPage(
+                      postsAsync: repostedPostsAsync,
+                      logContext: 'profile_tab.userRepostedPostsProvider',
+                    ),
+                  ],
+                ),
               ),
             ],
-            body: TabBarView(
-              children: [
-                _ProfileMediaTabPage(
-                  postsAsync: postsAsync,
-                  logContext: 'profile_tab.userPostsProvider',
-                ),
-                _ProfileMediaTabPage(
-                  postsAsync: likedPostsAsync,
-                  logContext: 'profile_tab.userLikedPostsProvider',
-                ),
-                _ProfileMediaTabPage(
-                  postsAsync: repostedPostsAsync,
-                  logContext: 'profile_tab.userRepostedPostsProvider',
-                ),
-              ],
-            ),
           ),
         )
         .animate()
@@ -300,9 +300,9 @@ class ProfileTab extends ConsumerWidget {
 /// this replaced: a genuine stream failure (permission hiccup, transient
 /// `unavailable`) is logged and shown as empty rather than left
 /// indistinguishable from "truly zero posts". Always wrapped in a
-/// scrollable (even the empty/loading states) since every `TabBarView`
-/// page under a `NestedScrollView` needs to own a `Scrollable` for the
-/// pinned tab bar above to size/scroll correctly.
+/// scrollable (even the empty/loading states) since each page fills the
+/// `Expanded` `TabBarView` area and owns its own scrolling — the header
+/// above it (`ProfileTab`'s own `Column`) never scrolls at all.
 class _ProfileMediaTabPage extends StatelessWidget {
   final AsyncValue<List<Post>> postsAsync;
   final String logContext;
@@ -336,23 +336,17 @@ class _ProfileMediaTabPage extends StatelessWidget {
   }
 }
 
-/// Pinned icon-only tab bar between the profile header and the media
+/// Fixed icon-only tab bar between the profile header and the media
 /// grid — own posts / liked / reposted, matching `PostGrid`'s own look
 /// in every tab (see `_ProfileMediaTabPage`), so this only switches the
-/// data source, never the grid's visual design.
-class _ProfileMediaTabBarDelegate extends SliverPersistentHeaderDelegate {
-  @override
-  double get minExtent => 44;
+/// data source, never the grid's visual design. `dividerColor:
+/// transparent` drops Material 3's default hairline under the tab bar,
+/// which read as a stray leftover line against this app's own design.
+class _ProfileMediaTabBar extends StatelessWidget {
+  const _ProfileMediaTabBar();
 
   @override
-  double get maxExtent => 44;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
+  Widget build(BuildContext context) {
     return ColoredBox(
       color: ChatLightColors.bg1,
       child: TabBar(
@@ -363,6 +357,7 @@ class _ProfileMediaTabBarDelegate extends SliverPersistentHeaderDelegate {
         unselectedLabelColor: ChatLightColors.inkFaint,
         splashFactory: NoSplash.splashFactory,
         overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        dividerColor: Colors.transparent,
         tabs: const [
           Tab(icon: Icon(CupertinoIcons.square_grid_2x2, size: 22)),
           Tab(icon: Icon(CupertinoIcons.heart, size: 23)),
@@ -371,10 +366,6 @@ class _ProfileMediaTabBarDelegate extends SliverPersistentHeaderDelegate {
       ),
     );
   }
-
-  @override
-  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) =>
-      false;
 }
 
 /// The gradient ring only appears while the signed-in user has at
