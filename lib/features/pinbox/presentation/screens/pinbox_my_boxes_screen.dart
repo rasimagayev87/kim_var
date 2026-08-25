@@ -239,8 +239,23 @@ class _ListingCard extends ConsumerWidget {
 
   const _ListingCard({required this.pinbox});
 
+  /// `status` only ever flips to `'expired'` if something explicitly
+  /// writes it — nothing does that on a schedule the moment
+  /// [PinBox.pickupWindowEnd] passes (see `reservePinBoxOrder`'s own
+  /// doc comment on this exact gap), so a box that never sold out
+  /// stays `'active'` in Firestore forever after its window ends. This
+  /// derives the real-time answer instead of trusting the stale field.
+  bool get _isPastPickupWindow => pinbox.pickupWindowEnd.isBefore(DateTime.now());
+
   Future<void> _openMenu(BuildContext context, WidgetRef ref) async {
     final loc = AppLocalizations.of(context);
+    // A sold-out or expired box has nothing left to edit — its stock/
+    // pickup window are already final, only removing the listing makes
+    // sense at that point. 'pending'/'rejected' still need editing —
+    // that's how `resubmitPinBox` (see `create_pinbox_screen.dart`)
+    // gets back to review after a fix, so this only ever excludes the
+    // two genuinely-final states.
+    final canEdit = pinbox.status != 'soldOut' && pinbox.status != 'expired' && !_isPastPickupWindow;
     final action = await showModalBottomSheet<_ListingCardAction>(
       context: context,
       backgroundColor: Colors.white,
@@ -250,11 +265,12 @@ class _ListingCard extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
-            ListTile(
-              leading: const Icon(Icons.edit_outlined, color: ChatLightColors.ink),
-              title: Text(loc.pinboxEditTitle, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
-              onTap: () => Navigator.pop(sheetContext, _ListingCardAction.edit),
-            ),
+            if (canEdit)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined, color: ChatLightColors.ink),
+                title: Text(loc.pinboxEditTitle, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+                onTap: () => Navigator.pop(sheetContext, _ListingCardAction.edit),
+              ),
             ListTile(
               leading: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
               title: Text(loc.pinboxDeleteMenuOption, style: const TextStyle(fontSize: 15, color: AppColors.error)),
@@ -316,6 +332,7 @@ class _ListingCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final (statusLabel, statusColor) = switch (pinbox.status) {
+      'active' when _isPastPickupWindow => (loc.pinboxListingStatusExpired, ChatLightColors.inkFaint),
       'active' => (loc.pinboxListingStatusActive, AppColors.primary),
       'soldOut' => (loc.pinboxListingStatusSoldOut, AppColors.gold),
       'expired' => (loc.pinboxListingStatusExpired, ChatLightColors.inkFaint),
