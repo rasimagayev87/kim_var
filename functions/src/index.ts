@@ -3746,8 +3746,16 @@ function offerPlacementFeeForCategory(category: string): number | undefined {
  * redirect, since the redirect only fires if the user's browser is still
  * open and connected, unlike the server-to-server webhook.
  */
-const EPOINT_SUCCESS_REDIRECT_URL = "https://peakpin.app/payment/success";
-const EPOINT_ERROR_REDIRECT_URL = "https://peakpin.app/payment/error";
+// Served from admin-panel (admin.peakpin.app/payment/success|error), not
+// peakpin.app — that domain is a separate Vercel project this codebase
+// has no source access to, and peakpin.app/payment/{success,error}
+// simply didn't exist (a real customer landed on a 404 after paying).
+// admin-panel is a project this codebase DOES control, and Epoint
+// doesn't care what domain the redirect is on. Move these to
+// peakpin.app proper once that project's own source is available to
+// build the same two pages there instead.
+const EPOINT_SUCCESS_REDIRECT_URL = "https://admin.peakpin.app/payment/success";
+const EPOINT_ERROR_REDIRECT_URL = "https://admin.peakpin.app/payment/error";
 
 /**
  * Starts an Epoint checkout for one `payments` doc and returns the
