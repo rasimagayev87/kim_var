@@ -574,6 +574,15 @@
       }
     }
   },
+  "offerBoostSheetSubtitle": "Haritada en üstte görün ve yakındaki müşterileri anında çekin.",
+  "offerBoostMultiplier6h": "~2x daha fazla görüntülenme",
+  "offerBoostMultiplier12h": "~5x daha fazla görüntülenme ve müşteri",
+  "offerBoostMultiplier18h": "~8x maksimum görünürlük",
+  "offerBoostMostPopularBadge": "EN POPÜLER",
+  "offerBoostCtaButton": "Öne çıkar ({amount} AZN)",
+  "@offerBoostCtaButton": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "offerBoostComingSoonMessage": "Ödeme sistemi hazırlanma aşamasındadır, yakında etkinleşecek.",
   "offerBoostAwaitingPaymentNotice": "Ödeme sayfasına yönlendirildiniz ({amount} AZN). Ödeme onaylanınca teklifiniz öne çıkarılacak.",
   "@offerBoostAwaitingPaymentNotice": {

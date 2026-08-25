@@ -574,6 +574,15 @@
       }
     }
   },
+  "offerBoostSheetSubtitle": "Будьте на самом верху карты и мгновенно привлекайте клиентов поблизости.",
+  "offerBoostMultiplier6h": "~В 2 раза больше просмотров",
+  "offerBoostMultiplier12h": "~В 5 раз больше просмотров и клиентов",
+  "offerBoostMultiplier18h": "~В 8 раз максимальная видимость",
+  "offerBoostMostPopularBadge": "САМЫЙ ПОПУЛЯРНЫЙ",
+  "offerBoostCtaButton": "Продвинуть ({amount} AZN)",
+  "@offerBoostCtaButton": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "offerBoostComingSoonMessage": "Платёжная система находится в разработке и скоро станет доступна.",
   "offerBoostAwaitingPaymentNotice": "Вы перенаправлены на страницу оплаты ({amount} AZN). После подтверждения оплаты предложение будет продвинуто.",
   "@offerBoostAwaitingPaymentNotice": {

@@ -639,6 +639,15 @@
       }
     }
   },
+  "offerBoostSheetSubtitle": "Show up at the top of the map and grab nearby customers' attention instantly.",
+  "offerBoostMultiplier6h": "~2x more views",
+  "offerBoostMultiplier12h": "~5x more views and customers",
+  "offerBoostMultiplier18h": "~8x maximum visibility",
+  "offerBoostMostPopularBadge": "MOST POPULAR",
+  "offerBoostCtaButton": "Boost ({amount} AZN)",
+  "@offerBoostCtaButton": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "offerBoostComingSoonMessage": "The payment system is being set up and will be available soon.",
   "offerBoostAwaitingPaymentNotice": "You've been redirected to payment ({amount} AZN). Once confirmed, your offer will be boosted.",
   "@offerBoostAwaitingPaymentNotice": {

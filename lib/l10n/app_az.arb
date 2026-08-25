@@ -574,6 +574,15 @@
       }
     }
   },
+  "offerBoostSheetSubtitle": "Xəritədə ən üstdə görün və yaxınlıqdakı müştəriləri dərhal cəlb et.",
+  "offerBoostMultiplier6h": "~2x daha çox baxış",
+  "offerBoostMultiplier12h": "~5x daha çox baxış və müştəri",
+  "offerBoostMultiplier18h": "~8x maksimum görünmə",
+  "offerBoostMostPopularBadge": "ƏN POPULYAR",
+  "offerBoostCtaButton": "Önə çək ({amount} AZN)",
+  "@offerBoostCtaButton": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "offerBoostComingSoonMessage": "Ödəniş sistemi hazırlanma mərhələsindədir, tezliklə aktivləşəcək.",
   "offerBoostAwaitingPaymentNotice": "Ödəniş səhifəsinə yönləndirildiniz ({amount} AZN). Ödəniş təsdiqlənən kimi təklifiniz önə çəkiləcək.",
   "@offerBoostAwaitingPaymentNotice": {

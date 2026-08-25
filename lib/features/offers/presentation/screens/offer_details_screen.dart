@@ -17,6 +17,7 @@ import '../../../venues/presentation/screens/create_venue_screen.dart' show venu
 import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../../domain/entities/offer.dart';
 import '../providers/offer_providers.dart';
+import '../widgets/boost_offer_bottom_sheet.dart';
 
 /// Full details page for a single offer — opened by tapping a card in
 /// Kəşf et → Təkliflər. Watches [offerByIdProvider] (realtime), same
@@ -234,60 +235,26 @@ class _HeroImage extends ConsumerWidget {
   /// actual product decision for offers specifically.
   Future<void> _openBoostMenu(BuildContext context, WidgetRef ref) async {
     final loc = AppLocalizations.of(context);
-    await showModalBottomSheet<void>(
+    final hours = await showModalBottomSheet<int>(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (sheetContext) {
-        final sheetLoc = AppLocalizations.of(sheetContext);
-        Widget tier(String label, int hours, int priceAzn) => ListTile(
-              leading: const Icon(Icons.trending_up_rounded, color: ChatLightColors.ink),
-              title: Text(label, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
-              trailing: Text(
-                sheetLoc.offerBoostPriceSuffix(priceAzn),
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.primary),
-              ),
-              onTap: () async {
-                Navigator.pop(sheetContext);
-                final result = await ref.read(offerControllerProvider).createBoostCheckout(offer.id, hours);
-                if (result == null) {
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
-                  return;
-                }
-                if (!context.mounted) return;
-                await presentEpointCheckout(
-                  context,
-                  checkoutUrl: result.checkoutUrl,
-                  paymentId: result.paymentId,
-                  feeAmount: result.feeAmount,
-                );
-              },
-            );
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    sheetLoc.offerBoostMenuItem,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 4),
-              tier(sheetLoc.offerBoost6h, 6, 2),
-              tier(sheetLoc.offerBoost12h, 12, 4),
-              tier(sheetLoc.offerBoost18h, 18, 6),
-              const SizedBox(height: 8),
-            ],
-          ),
-        );
-      },
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => const BoostOfferBottomSheet(),
+    );
+    if (hours == null) return;
+
+    final result = await ref.read(offerControllerProvider).createBoostCheckout(offer.id, hours);
+    if (result == null) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+      return;
+    }
+    if (!context.mounted) return;
+    await presentEpointCheckout(
+      context,
+      checkoutUrl: result.checkoutUrl,
+      paymentId: result.paymentId,
+      feeAmount: result.feeAmount,
     );
   }
 
