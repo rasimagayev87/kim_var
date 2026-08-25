@@ -103,26 +103,26 @@ export async function createEpointCheckout(req: EpointCheckoutRequest): Promise<
 }
 
 /**
- * The exact path Epoint's own docs (developer.epoint.az/token-payment/
- * widget) redact behind a "click to authenticate and reveal" wall —
- * everything else about this endpoint (request fields, GET-with-
- * data/signature-as-query-params shape, response shape) is confirmed
- * from their public sample code, only the literal path is not. This
- * follows their own `/api/1/{action}` convention (matches `/request`,
- * `/get-status`, etc.) as the most likely value, but MUST be verified
- * against the real docs (log into developer.epoint.az) or Epoint
- * support once real merchant credentials exist, before this is trusted
- * in production — do not assume this is correct without checking.
+ * Confirmed against Epoint's newer official PHP SDK
+ * (github.com/rafoabbas/epoint-php, `WidgetRequest`/`EpointClient
+ * ::post`) — `/token/widget` (a path segment, not `/token-widget`),
+ * POST with the exact same `data`/`signature` form-urlencoded body
+ * every other endpoint in this file uses, not a GET-with-query-params
+ * request. The endpoint itself is real (confirmed live: a malformed
+ * path here 404s with an HTML page, this one returns real JSON), but
+ * as of this project's own merchant account, Epoint rejects it with
+ * `{"status":"error","message":"You don't have access to this
+ * operation"}` — Apple/Google Pay needs Epoint to enable it for the
+ * account first; nothing about the request itself is wrong.
  */
-const EPOINT_TOKEN_WIDGET_PATH = "/token-widget";
+const EPOINT_TOKEN_WIDGET_PATH = "/token/widget";
 
 /**
  * Requests an Apple Pay/Google Pay "Token Widget" URL for one order —
  * the client embeds the returned `widgetUrl` in a WebView, the
  * customer completes payment inside it, and the result reaches this
  * app the same way a card checkout's does: Epoint calls `epointWebhook`
- * with the same order_id/signature. See this file's own doc comment on
- * `EPOINT_TOKEN_WIDGET_PATH` for the one unconfirmed part of this.
+ * with the same order_id/signature.
  */
 export async function createEpointTokenWidget(req: EpointTokenWidgetRequest): Promise<EpointTokenWidgetResult> {
   const { data, signature } = signPayload(req.privateKey, {
@@ -132,11 +132,11 @@ export async function createEpointTokenWidget(req: EpointTokenWidgetRequest): Pr
     description: req.description,
   });
 
-  const url = new URL(`${EPOINT_BASE_URL}${EPOINT_TOKEN_WIDGET_PATH}`);
-  url.searchParams.set("data", data);
-  url.searchParams.set("signature", signature);
-
-  const response = await fetch(url.toString());
+  const response = await fetch(`${EPOINT_BASE_URL}${EPOINT_TOKEN_WIDGET_PATH}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ data, signature }).toString(),
+  });
   const body = (await response.json()) as Record<string, unknown>;
   const widgetUrl = body.widget_url as string | undefined;
   if (!response.ok || body.status !== "success" || !widgetUrl) {
