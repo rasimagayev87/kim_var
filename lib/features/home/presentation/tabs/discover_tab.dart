@@ -45,6 +45,25 @@ import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../../../venues/presentation/widgets/venue_filter_sheet.dart';
 import '../../../venues/presentation/widgets/venue_star_rating.dart';
 
+/// Hides Google's own default restaurant/shop/cafe POI layer on the
+/// Kəşf et → İnsanlar map ONLY — a venue not subscribed to PeakPin
+/// still showing up for free via Google's base map data undercuts the
+/// whole point of a venue paying to be listed here. Deliberately
+/// narrow: only `poi.business` is touched, so parks/transit (real
+/// geographic context, not a competing business listing) and every
+/// street/neighborhood label stay exactly as Google renders them by
+/// default. Every OTHER `GoogleMap` in the app (venue profile/offer
+/// mini-maps, the owner's location picker) intentionally does NOT get
+/// this — see this constant's call site for why.
+const String kDiscoverMapStyle = '''
+[
+  {
+    "featureType": "poi.business",
+    "stylers": [{ "visibility": "off" }]
+  }
+]
+''';
+
 enum _DiscoverView { map, places, offers }
 
 /// Options in the Fürsətlər "+" chooser sheet — see
@@ -441,6 +460,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
         GoogleMap(
           initialCameraPosition: CameraPosition(target: center, zoom: initialZoom),
           mapType: toGoogleMapType(mapLocationSettings.mapType),
+          style: kDiscoverMapStyle,
           onMapCreated: (controller) => _mapController = controller,
           markers: markers,
           circles: selection.mode == DiscoverRadiusMode.distance
