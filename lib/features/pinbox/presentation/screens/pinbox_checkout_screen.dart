@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
@@ -31,13 +32,81 @@ class PinBoxCheckoutScreen extends ConsumerStatefulWidget {
 
 class _PinBoxCheckoutScreenState extends ConsumerState<PinBoxCheckoutScreen> {
   bool _submitting = false;
+  int _quantity = 1;
+  String? _quantityWarning;
+  late final TextEditingController _quantityController;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityController = TextEditingController(text: '$_quantity');
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    super.dispose();
+  }
+
+  int get _maxQuantity => widget.pinbox.stockRemaining;
+
+  void _setQuantity(int value) {
+    setState(() {
+      _quantity = value;
+      _quantityWarning = null;
+    });
+    _quantityController.text = '$value';
+  }
+
+  void _increment() {
+    if (_quantity >= _maxQuantity) return;
+    _setQuantity(_quantity + 1);
+  }
+
+  void _decrement() {
+    if (_quantity <= 1) return;
+    _setQuantity(_quantity - 1);
+  }
+
+  // Real-time clamp on direct keyboard entry — the field must never
+  // display (even transiently) a value the "Ödə" button would actually
+  // accept beyond stock, per this task's own explicit requirement.
+  void _onQuantityChanged(String raw) {
+    final parsed = int.tryParse(raw);
+    if (parsed == null) return;
+
+    final loc = AppLocalizations.of(context);
+    if (parsed > _maxQuantity) {
+      setState(() {
+        _quantity = _maxQuantity;
+        _quantityWarning = loc.pinboxQuantityLimitedWarning(_maxQuantity);
+      });
+      _quantityController.text = '$_maxQuantity';
+      _quantityController.selection = TextSelection.collapsed(offset: _quantityController.text.length);
+      return;
+    }
+    if (parsed < 1) {
+      setState(() {
+        _quantity = 1;
+        _quantityWarning = null;
+      });
+      _quantityController.text = '1';
+      _quantityController.selection = TextSelection.collapsed(offset: _quantityController.text.length);
+      return;
+    }
+    setState(() {
+      _quantity = parsed;
+      _quantityWarning = null;
+    });
+  }
 
   Future<void> _pay() async {
     if (_submitting) return;
+    if (_quantity > _maxQuantity || _quantity < 1) return;
     setState(() => _submitting = true);
 
     final loc = AppLocalizations.of(context);
-    final result = await ref.read(pinboxCheckoutControllerProvider).reserveOrder(widget.pinbox.id);
+    final result = await ref.read(pinboxCheckoutControllerProvider).reserveOrder(widget.pinbox.id, quantity: _quantity);
 
     if (!mounted) return;
     setState(() => _submitting = false);
@@ -154,19 +223,55 @@ class _PinBoxCheckoutScreenState extends ConsumerState<PinBoxCheckoutScreen> {
               ),
             ),
             const SizedBox(height: AppSpacing.xxl),
+            _SectionLabel(loc.pinboxQuantityLabel),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadii.card)),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _QuantityStepperButton(icon: Icons.remove, onTap: _quantity > 1 ? _decrement : null),
+                      SizedBox(
+                        width: 64,
+                        child: TextField(
+                          controller: _quantityController,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                          onChanged: _onQuantityChanged,
+                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: ChatLightColors.ink),
+                          decoration: const InputDecoration(border: InputBorder.none, isDense: true),
+                        ),
+                      ),
+                      _QuantityStepperButton(icon: Icons.add, onTap: _quantity < _maxQuantity ? _increment : null),
+                    ],
+                  ),
+                  if (_quantityWarning != null) ...[
+                    const SizedBox(height: 4),
+                    Text(_quantityWarning!, style: const TextStyle(fontSize: 12, color: AppColors.error)),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xxl),
             _SectionLabel(loc.pinboxPaymentDetailsLabel),
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadii.card)),
               child: Column(
                 children: [
-                  _PriceRow(label: loc.pinboxPriceLabel, value: '${pinbox.pinboxPrice.toStringAsFixed(2)} AZN'),
+                  _PriceRow(
+                    label: '${loc.pinboxPriceLabel} × $_quantity',
+                    value: '${pinbox.pinboxPrice.toStringAsFixed(2)} AZN',
+                  ),
                   const SizedBox(height: 8),
                   _PriceRow(label: loc.pinboxServiceFeeLabel, value: loc.pinboxServiceFeeFree, valueColor: AppColors.primary),
                   const Divider(height: 22),
                   _PriceRow(
                     label: loc.pinboxTotalToPayLabel,
-                    value: '${pinbox.pinboxPrice.toStringAsFixed(2)} AZN',
+                    value: '${(pinbox.pinboxPrice * _quantity).toStringAsFixed(2)} AZN',
                     bold: true,
                   ),
                 ],
@@ -198,7 +303,15 @@ class _PinBoxCheckoutScreenState extends ConsumerState<PinBoxCheckoutScreen> {
               width: double.infinity,
               height: 52,
               child: ElevatedButton(
-                onPressed: (_submitting || soldOut || windowEnded) ? null : _pay,
+                // `_quantity > _maxQuantity` is a client-side belt-and-
+                // braces line only — `_onQuantityChanged`/`_increment`
+                // already keep `_quantity` clamped to stock at all
+                // times, so this should never actually trip in normal
+                // use; `reservePinBoxOrder`'s own transaction (functions/
+                // src/index.ts) is the real, unbypassable check.
+                onPressed: (_submitting || soldOut || windowEnded || _quantity > _maxQuantity || _quantity < 1)
+                    ? null
+                    : _pay,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
@@ -218,7 +331,7 @@ class _PinBoxCheckoutScreenState extends ConsumerState<PinBoxCheckoutScreen> {
                             ? loc.pinboxSoldOutLabel
                             : windowEnded
                                 ? loc.pinboxPickupWindowEndedLabel
-                                : '${loc.pinboxPayButtonLabel} · ${pinbox.pinboxPrice.toStringAsFixed(2)} AZN',
+                                : '${loc.pinboxPayButtonLabel} · ${(pinbox.pinboxPrice * _quantity).toStringAsFixed(2)} AZN',
                       ),
               ),
             ),
@@ -344,6 +457,35 @@ class _PriceRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Same circular `-`/`+` visual as the waitlist party-size stepper
+/// (`_StepperButton`, waitlist_join_sheet.dart) — that one is file-
+/// private, so this mirrors its style rather than importing it,
+/// consistent with this codebase's existing per-screen-duplication
+/// convention for small stepper controls.
+class _QuantityStepperButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onTap;
+
+  const _QuantityStepperButton({required this.icon, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null;
+    return Material(
+      color: enabled ? AppColors.primary.withValues(alpha: 0.12) : ChatLightColors.cardSurface,
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Icon(icon, size: 20, color: enabled ? AppColors.primary : ChatLightColors.inkFaint),
+        ),
+      ),
     );
   }
 }

@@ -59,9 +59,13 @@ mixin _$PinBox {
   @TimestampConverter()
   DateTime get pickupWindowEnd => throw _privateConstructorUsedError;
 
-  /// 'pending' | 'active' | 'soldOut' | 'expired' | 'rejected' — same
-  /// moderation lifecycle shape as [Offer.status]/[Venue.status];
-  /// only the admin panel's Server Actions may move it off 'pending'.
+  /// 'pending' | 'active' | 'soldOut' | 'expired' | 'rejected' |
+  /// 'needs_revision' — same moderation lifecycle shape as
+  /// [Offer.status]/[Venue.status]; only the admin panel's Server
+  /// Actions may move it off 'pending'. Unlike Offer/Venue there's no
+  /// `revisionDeadline` field — a PinBox listing has no upfront fee
+  /// to protect with an auto-reject/refund clock, so 'needs_revision'
+  /// just waits on the owner's own resubmission via `resubmitPinBox`.
   String get status => throw _privateConstructorUsedError;
   String? get reviewNote => throw _privateConstructorUsedError;
   String? get reviewedBy => throw _privateConstructorUsedError;
@@ -539,9 +543,13 @@ class _$PinBoxImpl extends _PinBox {
   @TimestampConverter()
   final DateTime pickupWindowEnd;
 
-  /// 'pending' | 'active' | 'soldOut' | 'expired' | 'rejected' — same
-  /// moderation lifecycle shape as [Offer.status]/[Venue.status];
-  /// only the admin panel's Server Actions may move it off 'pending'.
+  /// 'pending' | 'active' | 'soldOut' | 'expired' | 'rejected' |
+  /// 'needs_revision' — same moderation lifecycle shape as
+  /// [Offer.status]/[Venue.status]; only the admin panel's Server
+  /// Actions may move it off 'pending'. Unlike Offer/Venue there's no
+  /// `revisionDeadline` field — a PinBox listing has no upfront fee
+  /// to protect with an auto-reject/refund clock, so 'needs_revision'
+  /// just waits on the owner's own resubmission via `resubmitPinBox`.
   @override
   @JsonKey()
   final String status;
@@ -746,9 +754,13 @@ abstract class _PinBox extends PinBox {
   @TimestampConverter()
   DateTime get pickupWindowEnd;
 
-  /// 'pending' | 'active' | 'soldOut' | 'expired' | 'rejected' — same
-  /// moderation lifecycle shape as [Offer.status]/[Venue.status];
-  /// only the admin panel's Server Actions may move it off 'pending'.
+  /// 'pending' | 'active' | 'soldOut' | 'expired' | 'rejected' |
+  /// 'needs_revision' — same moderation lifecycle shape as
+  /// [Offer.status]/[Venue.status]; only the admin panel's Server
+  /// Actions may move it off 'pending'. Unlike Offer/Venue there's no
+  /// `revisionDeadline` field — a PinBox listing has no upfront fee
+  /// to protect with an auto-reject/refund clock, so 'needs_revision'
+  /// just waits on the owner's own resubmission via `resubmitPinBox`.
   @override
   String get status;
   @override

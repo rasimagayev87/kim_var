@@ -226,14 +226,14 @@ class PinBoxCheckoutController {
 
   final Ref _ref;
 
-  Future<PinBoxReserveResult> reserveOrder(String pinboxId) async {
+  Future<PinBoxReserveResult> reserveOrder(String pinboxId, {int quantity = 1}) async {
     final uid = _currentUid();
     if (uid == null) {
       return (outcome: PinBoxReserveOutcome.error, orderId: null, checkoutUrl: null, feeAmount: null, paymentId: null);
     }
 
     try {
-      final result = await _ref.read(pinboxRepositoryProvider).reservePinBoxOrder(pinboxId: pinboxId);
+      final result = await _ref.read(pinboxRepositoryProvider).reservePinBoxOrder(pinboxId: pinboxId, quantity: quantity);
       return (
         outcome: PinBoxReserveOutcome.success,
         orderId: result.orderId,

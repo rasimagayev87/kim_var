@@ -28,7 +28,12 @@ class LiveFeedAllPinboxesScreen extends ConsumerWidget {
       ),
       body: pinboxesAsync.when(
         data: (pinboxes) {
-          final sorted = [...pinboxes]..sort((a, b) => b.pinbox.createdAt.compareTo(a.pinbox.createdAt));
+          // See `LiveFeedPinboxSection`'s own comment — the provider's
+          // fetch can go stale relative to `pickupWindowEnd` the longer
+          // it stays cached, so this re-checks against "now" on every
+          // rebuild rather than trusting the fetch was recent.
+          final active = pinboxes.where((r) => r.pinbox.pickupWindowEnd.isAfter(DateTime.now()));
+          final sorted = [...active]..sort((a, b) => b.pinbox.createdAt.compareTo(a.pinbox.createdAt));
           return sorted.isEmpty
               ? Center(child: Text(loc.listingEmptyPinboxSubtitle, style: const TextStyle(color: AppColors.textSecondary)))
               : ListView.separated(

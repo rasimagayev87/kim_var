@@ -22,8 +22,17 @@ class LiveFeedPinboxSection extends ConsumerWidget {
 
     return pinboxesAsync.when(
       data: (pinboxes) {
-        if (pinboxes.isEmpty) return const SizedBox.shrink();
-        final sorted = [...pinboxes]..sort((a, b) => b.pinbox.createdAt.compareTo(a.pinbox.createdAt));
+        // `nearbyPinBoxesProvider` is a one-shot `FutureProvider.autoDispose`
+        // (pinbox_providers.dart) — its fetch already excludes an expired
+        // `pickupWindowEnd` at the moment it runs, but nothing re-invalidates
+        // it just because time passed, so a box that expired since the last
+        // fetch would otherwise linger in whatever result is still cached.
+        // Re-checking against `DateTime.now()` here (evaluated fresh on
+        // every rebuild) is what actually keeps this section honest for as
+        // long as the provider stays alive.
+        final active = pinboxes.where((r) => r.pinbox.pickupWindowEnd.isAfter(DateTime.now())).toList();
+        if (active.isEmpty) return const SizedBox.shrink();
+        final sorted = [...active]..sort((a, b) => b.pinbox.createdAt.compareTo(a.pinbox.createdAt));
         final latest = sorted.take(3).toList();
 
         return Column(
@@ -40,7 +49,13 @@ class LiveFeedPinboxSection extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             SizedBox(
-              height: 220,
+              // `LiveFeedPinboxCard` is taller than its sibling cards
+              // (`LiveFeedOfferCard`/`LiveFeedEventCard`, which fit 210):
+              // a shorter 1.2 image aspect ratio (vs 1.35) plus a 4th text
+              // row (price row, on top of title/description/meta) push
+              // its natural content height past 220 — confirmed via a
+              // real "BOTTOM OVERFLOWED" report at that height.
+              height: 244,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 20),
