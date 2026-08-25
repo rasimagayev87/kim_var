@@ -4,15 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../events/presentation/screens/event_details_screen.dart';
-import '../../../location/presentation/providers/location_providers.dart';
 import '../../../offers/presentation/screens/offer_details_screen.dart';
 import '../../../pinbox/presentation/providers/pinbox_providers.dart';
 import '../../../pinbox/presentation/screens/pinbox_checkout_screen.dart';
-import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../../domain/entities/live_feed_item.dart';
 import '../providers/live_feed_providers.dart';
-import '../widgets/live_feed_card.dart';
+import '../widgets/live_feed_events_section.dart';
+import '../widgets/live_feed_hero_section.dart';
+import '../widgets/live_feed_offers_section.dart';
+import '../widgets/live_feed_pinbox_section.dart';
+import '../widgets/live_feed_seats_section.dart';
 import '../widgets/live_feed_ticker.dart';
 
 /// "Canlı" — see `live_feed_providers.dart`'s doc comment for the full
@@ -121,11 +123,24 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
               loading: () => const SizedBox.shrink(),
               error: (_, _) => const SizedBox.shrink(),
             ),
-            Expanded(
-              child: itemsAsync.when(
-                data: (items) => items.isEmpty ? const _LiveFeedEmptyState() : _LiveFeedList(items: items, onTap: _openItem),
-                loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-                error: (_, _) => const _LiveFeedEmptyState(),
+            const Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.only(bottom: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: 16),
+                    LiveFeedHeroSection(),
+                    SizedBox(height: 24),
+                    LiveFeedOffersSection(),
+                    SizedBox(height: 24),
+                    LiveFeedSeatsSection(),
+                    SizedBox(height: 24),
+                    LiveFeedPinboxSection(),
+                    SizedBox(height: 24),
+                    LiveFeedEventsSection(),
+                  ],
+                ),
               ),
             ),
           ],
@@ -135,136 +150,3 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
   }
 }
 
-class _LiveFeedList extends StatelessWidget {
-  final List<LiveFeedItem> items;
-  final ValueChanged<LiveFeedItem> onTap;
-
-  const _LiveFeedList({required this.items, required this.onTap});
-
-  static const _sectionOrder = [
-    LiveFeedType.audience,
-    LiveFeedType.event,
-    LiveFeedType.offer,
-    LiveFeedType.pinbox,
-    LiveFeedType.seatAvailable,
-    LiveFeedType.birthday,
-  ];
-
-  String _sectionTitle(AppLocalizations loc, LiveFeedType type) {
-    return switch (type) {
-      LiveFeedType.audience => loc.liveFeedSectionAudience,
-      LiveFeedType.event => loc.liveFeedSectionEvent,
-      LiveFeedType.offer => loc.liveFeedSectionOffer,
-      LiveFeedType.pinbox => loc.liveFeedSectionPinbox,
-      LiveFeedType.seatAvailable => loc.liveFeedSectionSeatAvailable,
-      LiveFeedType.birthday => loc.liveFeedSectionBirthday,
-    };
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final loc = AppLocalizations.of(context);
-    final byType = <LiveFeedType, List<LiveFeedItem>>{};
-    for (final item in items) {
-      (byType[item.type] ??= []).add(item);
-    }
-
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      children: [
-        for (final type in _sectionOrder)
-          if (byType[type]?.isNotEmpty ?? false) ...[
-            Text(
-              _sectionTitle(loc, type),
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.white),
-            ),
-            const SizedBox(height: 10),
-            for (final item in byType[type]!) ...[
-              LiveFeedCard(item: item, onTap: () => onTap(item)),
-              const SizedBox(height: 10),
-            ],
-            const SizedBox(height: 12),
-          ],
-      ],
-    );
-  }
-}
-
-class _LiveFeedEmptyState extends ConsumerWidget {
-  const _LiveFeedEmptyState();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final loc = AppLocalizations.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 36),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.bolt_outlined, color: AppColors.textMuted, size: 42),
-            const SizedBox(height: 16),
-            Text(
-              loc.liveFeedEmptyMessage,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5),
-            ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () => _increaseRadius(context, ref),
-              child: Text(loc.liveFeedIncreaseRadiusButton),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// The exact same tiers Kəşf et's own picker offers
-  /// (`kDefaultRadiusOptionsKm` + `kExtraRadiusOptionsKm`), plus
-  /// Ölkə/Dünya for VIP users only — so cycling here can never land on
-  /// a value that isn't a real, selectable option anywhere else in the
-  /// app.
-  List<DiscoverRadiusSelection> _radiusCycle(bool isPremium) => [
-    for (final km in [...kDefaultRadiusOptionsKm, ...kExtraRadiusOptionsKm]) DiscoverRadiusSelection.distance(km),
-    if (isPremium) const DiscoverRadiusSelection.country(),
-    if (isPremium) const DiscoverRadiusSelection.world(),
-  ];
-
-  /// Bumps the SAME radius state Kəşf et's own filter sheet writes to
-  /// (`selectedDiscoverModeProvider`) — Canlı doesn't own a separate
-  /// radius concept, it reuses Kəşf et's exactly as instructed, so
-  /// widening it here is visible there too (including the button
-  /// showing up as the selected option when the user navigates back to
-  /// Kəşf et).
-  ///
-  /// Cycles forward one tier in [_radiusCycle], wrapping back to 100m
-  /// after the last tier available to this user (30km for regular
-  /// users, Dünya üzrə for VIP).
-  ///
-  /// Updating that provider alone used to be silently invisible: the
-  /// poll loop only picks up the new radius on its next scheduled tick
-  /// (up to [liveFeedPollInterval] later), which read as "the button
-  /// does nothing" — [LiveFeedController.refreshNow] forces an
-  /// immediate fetch, and the snackbar confirms the tap registered
-  /// even on the (likely, right after this radius still finds
-  /// nothing) case where the list stays empty.
-  void _increaseRadius(BuildContext context, WidgetRef ref) {
-    final cycle = _radiusCycle(ref.read(isPremiumProvider));
-    final currentIndex = cycle.indexOf(ref.read(selectedDiscoverModeProvider));
-    final next = cycle[(currentIndex + 1) % cycle.length];
-    ref.read(selectedDiscoverModeProvider.notifier).state = next;
-    ref.read(liveFeedControllerProvider.notifier).refreshNow();
-
-    final loc = AppLocalizations.of(context);
-    final label = switch (next.mode) {
-      DiscoverRadiusMode.distance =>
-        next.km! < 1 ? '${(next.km! * 1000).round()} m' : '${next.km!.toStringAsFixed(0)} km',
-      DiscoverRadiusMode.country => loc.privacyRadiusCountryLabel,
-      DiscoverRadiusMode.world => loc.privacyRadiusWorldLabel,
-    };
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(loc.liveFeedRadiusIncreasedMessage(label))),
-    );
-  }
-}
