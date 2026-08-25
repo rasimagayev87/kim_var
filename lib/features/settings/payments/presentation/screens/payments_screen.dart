@@ -26,7 +26,7 @@ class PaymentsScreen extends ConsumerWidget {
     final cards = ref.watch(savedCardsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.pop(context),

@@ -100,7 +100,7 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
     final itemsAsync = ref.watch(liveFeedControllerProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: SafeArea(
         bottom: false,
         child: Column(

@@ -27,10 +27,9 @@ class EventDetailsScreen extends ConsumerWidget {
     final eventAsync = ref.watch(venueEventByIdProvider(eventId));
 
     return Scaffold(
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          const ChatLightBackground(),
           eventAsync.when(
             loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
             error: (error, _) => Center(child: Text('$error', style: const TextStyle(color: ChatLightColors.inkSoft))),

@@ -91,7 +91,6 @@ class UserProfileScreen extends ConsumerWidget {
 
     return Stack(
           children: [
-            const ChatLightBackground(),
             SafeArea(
               child: Center(
                 child: ConstrainedBox(

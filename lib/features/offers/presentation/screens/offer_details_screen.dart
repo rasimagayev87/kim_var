@@ -34,10 +34,9 @@ class OfferDetailsScreen extends ConsumerWidget {
     final isFavorite = ref.watch(favoriteOfferIdsProvider.select((async) => async.valueOrNull?.contains(offerId) ?? false));
 
     return Scaffold(
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          const ChatLightBackground(),
           offerAsync.when(
             loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
             error: (error, _) => _ErrorState(message: '$error'),

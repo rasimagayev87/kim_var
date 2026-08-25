@@ -25,9 +25,9 @@ class MyOffersScreen extends ConsumerWidget {
     final offersAsync = ref.watch(myOffersProvider);
 
     return Scaffold(
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: ChatLightColors.bg1.withValues(alpha: 0.92),
+        backgroundColor: Colors.transparent.withValues(alpha: 0.92),
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -42,7 +42,6 @@ class MyOffersScreen extends ConsumerWidget {
       ),
       body: Stack(
         children: [
-          const ChatLightBackground(),
           SafeArea(
             child: offersAsync.when(
               loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),

@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/localization/locale_providers.dart';
 import 'core/navigation/deep_link_handler.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/premium_background_wrapper.dart';
 import 'features/calls/presentation/widgets/call_pip_overlay.dart';
 import 'features/onboarding/presentation/screens/splash_screen.dart';
 import 'features/premium/presentation/providers/vip_purchase_listener.dart';
@@ -96,7 +97,7 @@ class PeakPinApp extends ConsumerWidget {
       // the user navigate freely underneath it.
       builder: (context, child) => Stack(
         children: [
-          if (child != null) child,
+          if (child != null) PremiumBackgroundWrapper(child: child),
           const CallPipOverlay(),
         ],
       ),

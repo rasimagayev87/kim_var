@@ -168,7 +168,6 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
 
     return Stack(
       children: [
-        const ChatLightBackground(),
         SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

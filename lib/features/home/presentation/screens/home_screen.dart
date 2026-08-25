@@ -112,7 +112,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
 
     return SessionGuard(
       child: Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       body: IndexedStack(
         index: _index,
         children: [

@@ -74,9 +74,9 @@ class _EpointTokenWidgetScreenState extends State<EpointTokenWidgetScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: ChatLightColors.bg1,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),

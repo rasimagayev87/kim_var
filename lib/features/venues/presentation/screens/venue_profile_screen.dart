@@ -49,10 +49,9 @@ class VenueProfileScreen extends ConsumerWidget {
         ref.watch(isVenueLikedByMeProvider(venueId)).valueOrNull ?? false;
 
     return Scaffold(
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
-          const ChatLightBackground(),
           venueAsync.when(
             loading: () => const Center(
               child: CircularProgressIndicator(

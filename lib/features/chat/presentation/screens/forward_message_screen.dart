@@ -67,9 +67,9 @@ class _ForwardMessageScreenState extends ConsumerState<ForwardMessageScreen> {
     final chatsAsync = myUid == null ? const AsyncValue<List<Chat>>.data([]) : ref.watch(chatsProvider);
 
     return Scaffold(
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: ChatLightColors.bg1,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: ChatLightColors.ink,
         title: Text(loc.chatForwardTitle, style: const TextStyle(color: ChatLightColors.ink)),

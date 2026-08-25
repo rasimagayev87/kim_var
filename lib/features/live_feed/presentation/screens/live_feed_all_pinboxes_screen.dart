@@ -19,9 +19,9 @@ class LiveFeedAllPinboxesScreen extends ConsumerWidget {
     final pinboxesAsync = ref.watch(nearbyPinBoxesProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(loc.liveFeedSectionPinboxListings, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),

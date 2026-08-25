@@ -174,7 +174,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
   Future<void> _pickCategory() async {
     final selected = await showModalBottomSheet<VenueCategory>(
       context: context,
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
@@ -197,7 +197,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
     final loc = AppLocalizations.of(context);
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(
           top: Radius.circular(AppRadii.sheet),
@@ -295,7 +295,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
           toolbarColor: AppColors.primary,
           toolbarWidgetColor: ChatLightColors.contourLine,
           activeControlsWidgetColor: AppColors.primary,
-          backgroundColor: ChatLightColors.bg1,
+          backgroundColor: Colors.transparent,
           lockAspectRatio: false,
         ),
         IOSUiSettings(
@@ -469,9 +469,9 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
     final loc = AppLocalizations.of(context);
 
     return Scaffold(
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: ChatLightColors.bg1.withValues(alpha: 0.92),
+        backgroundColor: Colors.transparent.withValues(alpha: 0.92),
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -494,7 +494,6 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
       ),
       body: Stack(
         children: [
-          const ChatLightBackground(),
           SafeArea(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),

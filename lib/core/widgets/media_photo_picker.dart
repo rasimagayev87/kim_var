@@ -102,7 +102,7 @@ mixin PhotoPickerMixin<T extends StatefulWidget> on State<T> {
     final loc = AppLocalizations.of(context);
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
       builder: (sheetContext) {
         return SafeArea(
@@ -171,7 +171,7 @@ mixin PhotoPickerMixin<T extends StatefulWidget> on State<T> {
           toolbarColor: AppColors.primary,
           toolbarWidgetColor: ChatLightColors.contourLine,
           activeControlsWidgetColor: AppColors.primary,
-          backgroundColor: ChatLightColors.bg1,
+          backgroundColor: Colors.transparent,
           lockAspectRatio: false,
         ),
         IOSUiSettings(title: loc.venuePhotoCropTitle, aspectRatioLockEnabled: false),

@@ -203,9 +203,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final usernameHelper = _usernameHelperText(loc);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         centerTitle: true,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),

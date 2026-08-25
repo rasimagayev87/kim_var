@@ -120,7 +120,6 @@ class _NotificationsFeedScreenState extends ConsumerState<NotificationsFeedScree
 
     return Stack(
       children: [
-        const ChatLightBackground(),
         SafeArea(
           child: Column(
             children: [

@@ -49,7 +49,6 @@ class ProfileTab extends ConsumerWidget {
 
     return Stack(
           children: [
-            const ChatLightBackground(),
             SafeArea(
               // Unconstrained on phone (maxWidth simply never binds below
               // 640 logical px); on tablet/landscape-wide layouts this

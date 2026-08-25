@@ -17,9 +17,9 @@ class LiveFeedAllEventsScreen extends ConsumerWidget {
     final eventsAsync = ref.watch(nearbyEventsProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(loc.liveFeedSectionEvents, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),

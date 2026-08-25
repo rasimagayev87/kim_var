@@ -21,9 +21,9 @@ class LiveFeedAllSeatsScreen extends ConsumerWidget {
     final eligibleCategories = ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(loc.liveFeedSectionSeatsNow, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),

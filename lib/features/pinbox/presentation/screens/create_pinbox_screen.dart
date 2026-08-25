@@ -269,9 +269,9 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     final discountPercent = _discountPercent;
 
     return Scaffold(
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: ChatLightColors.bg1.withValues(alpha: 0.92),
+        backgroundColor: Colors.transparent.withValues(alpha: 0.92),
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -286,7 +286,6 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
       ),
       body: Stack(
         children: [
-          const ChatLightBackground(),
           SafeArea(
             child: ListView(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),

@@ -17,7 +17,7 @@ class AboutScreen extends ConsumerWidget {
     final versionAsync = ref.watch(appVersionProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(

@@ -54,7 +54,7 @@ class _ExportDataScreenState extends ConsumerState<ExportDataScreen> {
     final loc = AppLocalizations.of(context);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(

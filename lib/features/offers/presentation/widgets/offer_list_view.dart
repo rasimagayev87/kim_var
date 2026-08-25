@@ -107,7 +107,7 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
     final selected = ref.read(selectedOfferCategoryFilterProvider);
     final result = await showModalBottomSheet<Object>(
       context: context,
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (_) => OfferFilterSheet(selected: selected),
@@ -237,7 +237,6 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
 
     return Stack(
       children: [
-        const ChatLightBackground(),
         Positioned.fill(
           child: Column(
             children: [

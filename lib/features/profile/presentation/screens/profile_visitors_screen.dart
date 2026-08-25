@@ -25,9 +25,9 @@ class ProfileVisitorsScreen extends ConsumerWidget {
     ref.watch(markVisitorsCheckedProvider);
 
     return Scaffold(
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: ChatLightColors.bg1,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: ChatLightColors.ink,
         title: Text(

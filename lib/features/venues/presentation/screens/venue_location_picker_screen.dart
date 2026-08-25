@@ -124,7 +124,7 @@ class _VenueLocationPickerScreenState
     final canConfirm = _picked != null && !_resolvingAddress;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(

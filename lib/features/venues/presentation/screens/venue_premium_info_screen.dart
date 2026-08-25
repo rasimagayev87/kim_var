@@ -21,7 +21,7 @@ class VenuePremiumInfoScreen extends StatelessWidget {
     final since = premiumSince;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.pop(context),

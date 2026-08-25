@@ -295,7 +295,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
     }
     final selected = await showModalBottomSheet<Venue>(
       context: context,
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (_) => VenuePickerSheet(venues: eligibleVenues, label: loc.eventVenuePickerLabel),
@@ -365,7 +365,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
     }
     final selected = await showModalBottomSheet<Venue>(
       context: context,
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (_) => VenuePickerSheet(venues: eligibleVenues, label: loc.eventVenuePickerLabel),
@@ -381,7 +381,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
     }
     final selected = await showModalBottomSheet<Venue>(
       context: context,
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (_) => VenuePickerSheet(venues: eligibleVenues, label: loc.eventVenuePickerLabel),
@@ -1345,11 +1345,10 @@ class _StatusMessage extends StatelessWidget {
 /// user's chosen distance. One-shot geohash-range fetch, not a live
 /// stream — see [VenueRepository.fetchVenuesWithinRadius].
 ///
-/// This content area is a deliberate light-theme exception like the
-/// chat screens ([ChatLightBackground]/[ChatLightColors]) — the rest
-/// of Kəşf et (title, İnsanlar/Məkanlar/Təkliflər switcher) stays
-/// dark, only the venue list itself switches, matching the approved
-/// mockup.
+/// This content area uses the same [ChatLightColors] surface tokens
+/// as the chat screens — the rest of Kəşf et (title,
+/// İnsanlar/Məkanlar/Təkliflər switcher) stays dark, only the venue
+/// list itself switches, matching the approved mockup.
 /// Collapses the Azerbaijani/Turkish İ/I/ı family down to plain ASCII
 /// 'i' — same fix, same reasoning as `chats_tab.dart`'s/`offer_list_view.dart`'s
 /// own private `_azSearchKey` (duplicated rather than shared).
@@ -1378,7 +1377,7 @@ class _VenueListViewState extends ConsumerState<_VenueListView> {
     final selected = ref.read(selectedVenueCategoryFilterProvider);
     final result = await showModalBottomSheet<Object>(
       context: context,
-      backgroundColor: ChatLightColors.bg1,
+      backgroundColor: Colors.transparent,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       builder: (_) => VenueFilterSheet(selected: selected),
@@ -1416,7 +1415,6 @@ class _VenueListViewState extends ConsumerState<_VenueListView> {
 
     return Stack(
       children: [
-        const ChatLightBackground(),
         Positioned.fill(
           child: Column(
             children: [
@@ -1804,8 +1802,8 @@ class _OpenStatusBadge extends StatelessWidget {
 }
 
 /// Light-theme counterpart of [_StatusMessage] — same layout/purpose,
-/// just recolored for the venue list's [ChatLightBackground] rather
-/// than the app's dark theme.
+/// just recolored for the venue list's light surface rather than the
+/// app's dark theme.
 class _VenueLightStatusMessage extends StatelessWidget {
   final IconData icon;
   final String title;

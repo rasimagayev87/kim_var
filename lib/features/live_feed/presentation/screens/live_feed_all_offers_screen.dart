@@ -18,9 +18,9 @@ class LiveFeedAllOffersScreen extends ConsumerWidget {
     final offersAsync = ref.watch(nearbyOffersProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: AppColors.background,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
         title: Text(loc.liveFeedSectionOffersNearby, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
