@@ -8,7 +8,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
-import '../../../../core/widgets/premium_upsell_sheet.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
@@ -16,7 +15,6 @@ import '../../../follow/presentation/providers/follow_providers.dart';
 import '../../../post_share/domain/entities/post.dart';
 import '../../../post_share/presentation/providers/post_providers.dart';
 import '../../../post_share/presentation/widgets/post_capture_sheet.dart';
-import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../profile/presentation/providers/profile_visitors_providers.dart';
 import '../../../profile/presentation/screens/profile_share_screen.dart';
@@ -45,7 +43,6 @@ class ProfileTab extends ConsumerWidget {
     final postsAsync = myUid == null
         ? const AsyncValue.data(<Post>[])
         : ref.watch(userPostsProvider(myUid));
-    final isPremium = ref.watch(isPremiumProvider);
     final newVisitorsCount = ref.watch(newProfileVisitorsCountProvider);
 
     final displayName = authUser?.name ?? loc.profileNamePlaceholder;
@@ -91,14 +88,6 @@ class ProfileTab extends ConsumerWidget {
                                 onPressed: myUid == null
                                     ? null
                                     : () {
-                                        if (!isPremium) {
-                                          showPremiumUpsellSheet(
-                                            context,
-                                            title: loc.premiumUpsellVisitorsTitle,
-                                            message: loc.premiumUpsellVisitorsMessage,
-                                          );
-                                          return;
-                                        }
                                         Navigator.push(
                                           context,
                                           MaterialPageRoute(
@@ -112,7 +101,7 @@ class ProfileTab extends ConsumerWidget {
                                   size: 20,
                                 ),
                               ),
-                              if (isPremium && newVisitorsCount > 0)
+                              if (newVisitorsCount > 0)
                                 Positioned(
                                   top: 2,
                                   right: 2,
