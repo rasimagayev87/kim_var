@@ -678,6 +678,11 @@
     "placeholders": { "amount": { "type": "String" } }
   },
   "epointCheckoutErrorMessage": "Couldn't start payment, please try again shortly.",
+  "epointResultSuccessTitle": "Payment received",
+  "epointResultSuccessMessage": "It'll be confirmed within a few seconds and the result will show up in the app.",
+  "epointResultErrorTitle": "Payment failed",
+  "epointResultErrorMessage": "Your card wasn't charged. Feel free to try again.",
+  "epointResultCloseButton": "Close",
   "offerAwaitingPaymentBannerText": "Payment is required to publish this offer.",
   "offerRetryPaymentButton": "Complete payment",
   "offerRetryPaymentErrorMessage": "Couldn't get a payment link, please try again shortly.",

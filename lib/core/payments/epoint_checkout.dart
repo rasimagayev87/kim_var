@@ -3,11 +3,12 @@ import 'dart:io';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:pay/pay.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../features/chat/presentation/theme/chat_light_theme.dart';
 import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
+import 'epoint_card_checkout_screen.dart';
+import 'epoint_payment_result_screen.dart';
 import 'epoint_token_widget_screen.dart';
 
 /// The ONE place every Epoint-backed checkout (offer placement fee,
@@ -21,18 +22,25 @@ import 'epoint_token_widget_screen.dart';
 /// (functions/src/index.ts) — this function only ever gets the owner
 /// to Epoint's side of the transaction, it never itself marks anything
 /// paid.
+///
+/// The card path shows [EpointPaymentResultScreen] once
+/// [EpointCardCheckoutScreen] reports which redirect it saw — done
+/// here, using the CALLER's own stable `context`, rather than inside
+/// the (by then already-popped) bottom sheet itself.
 Future<void> presentEpointCheckout(
   BuildContext context, {
   required String checkoutUrl,
   required String paymentId,
   required double feeAmount,
 }) async {
-  await showModalBottomSheet<void>(
+  final cardResult = await showModalBottomSheet<bool?>(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (sheetContext) => _EpointCheckoutSheet(checkoutUrl: checkoutUrl, paymentId: paymentId, feeAmount: feeAmount),
   );
+  if (cardResult == null || !context.mounted) return;
+  await Navigator.push(context, MaterialPageRoute(builder: (_) => EpointPaymentResultScreen(success: cardResult)));
 }
 
 enum _Method { card, applePay }
@@ -53,8 +61,12 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
   bool _confirming = false;
 
   Future<void> _payByCard() async {
-    Navigator.pop(context);
-    await launchUrl(Uri.parse(widget.checkoutUrl), mode: LaunchMode.externalApplication);
+    final cardResult = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => EpointCardCheckoutScreen(checkoutUrl: widget.checkoutUrl)),
+    );
+    if (!mounted) return;
+    Navigator.pop(context, cardResult);
   }
 
   Future<void> _payByApplePay() async {

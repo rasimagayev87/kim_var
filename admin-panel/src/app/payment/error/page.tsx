@@ -9,8 +9,9 @@ import { cn } from "@/lib/utils";
 
 /**
  * Epoint's `error_redirect_url` — same reasoning as the success page
- * right next to this one (card checkout always opens in the external
- * browser, this is genuinely the only page the customer lands on). A
+ * right next to this one (the in-app `EpointCardCheckoutScreen`
+ * intercepts this URL before it ever renders on a current app build;
+ * kept live for pre-update installs and direct opens). A
  * declined/abandoned card never reaches `applyPaymentOutcome` at all
  * unless Epoint's own webhook explicitly reports the decline, so
  * unlike the success page there's no guaranteed server-side event

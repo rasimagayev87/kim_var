@@ -613,6 +613,11 @@
     "placeholders": { "amount": { "type": "String" } }
   },
   "epointCheckoutErrorMessage": "Не удалось начать оплату, попробуйте немного позже.",
+  "epointResultSuccessTitle": "Платёж принят",
+  "epointResultSuccessMessage": "Он будет подтверждён в течение нескольких секунд, результат появится в приложении.",
+  "epointResultErrorTitle": "Платёж не прошёл",
+  "epointResultErrorMessage": "С карты ничего не списано. Вы можете попробовать снова.",
+  "epointResultCloseButton": "Закрыть",
   "offerAwaitingPaymentBannerText": "Для публикации этого предложения требуется оплата.",
   "offerRetryPaymentButton": "Завершить оплату",
   "offerRetryPaymentErrorMessage": "Не удалось получить ссылку на оплату, попробуйте немного позже.",

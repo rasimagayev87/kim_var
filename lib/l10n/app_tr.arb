@@ -613,6 +613,11 @@
     "placeholders": { "amount": { "type": "String" } }
   },
   "epointCheckoutErrorMessage": "Ödeme başlatılamadı, lütfen kısa süre sonra tekrar deneyin.",
+  "epointResultSuccessTitle": "Ödeme alındı",
+  "epointResultSuccessMessage": "Birkaç saniye içinde onaylanacak ve sonuç uygulamada görünecek.",
+  "epointResultErrorTitle": "Ödeme başarısız oldu",
+  "epointResultErrorMessage": "Kartınızdan para çekilmedi. Dilerseniz tekrar deneyebilirsiniz.",
+  "epointResultCloseButton": "Kapat",
   "offerAwaitingPaymentBannerText": "Bu teklifin yayınlanması için ödeme gerekiyor.",
   "offerRetryPaymentButton": "Ödemeyi tamamla",
   "offerRetryPaymentErrorMessage": "Ödeme linki alınamadı, lütfen kısa süre sonra tekrar deneyin.",

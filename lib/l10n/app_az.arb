@@ -613,6 +613,11 @@
     "placeholders": { "amount": { "type": "String" } }
   },
   "epointCheckoutErrorMessage": "Ödəniş başlada bilmədik, bir az sonra yenidən cəhd edin.",
+  "epointResultSuccessTitle": "Ödəniş qəbul edildi",
+  "epointResultSuccessMessage": "Bir neçə saniyə ərzində təsdiqlənəcək və nəticə tətbiqdə görünəcək.",
+  "epointResultErrorTitle": "Ödəniş uğursuz oldu",
+  "epointResultErrorMessage": "Kartınızdan pul tutulmadı. İstəsəniz yenidən cəhd edə bilərsiniz.",
+  "epointResultCloseButton": "Bağla",
   "offerAwaitingPaymentBannerText": "Bu təklifin yerləşdirilməsi üçün ödəniş tələb olunur.",
   "offerRetryPaymentButton": "Ödənişi tamamla",
   "offerRetryPaymentErrorMessage": "Ödəniş linki alınmadı, bir az sonra yenidən cəhd edin.",
