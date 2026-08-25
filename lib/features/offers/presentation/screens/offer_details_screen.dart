@@ -234,22 +234,14 @@ class _HeroImage extends ConsumerWidget {
   /// owner-only menu here at all), a time-boxed paid boost is the
   /// actual product decision for offers specifically.
   Future<void> _openBoostMenu(BuildContext context, WidgetRef ref) async {
-    final loc = AppLocalizations.of(context);
-    final hours = await showModalBottomSheet<int>(
+    final result = await showModalBottomSheet<BoostCheckoutResult>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (_) => const BoostOfferBottomSheet(),
+      builder: (_) => BoostOfferBottomSheet(offerId: offer.id),
     );
-    if (hours == null) return;
+    if (result == null || !context.mounted) return;
 
-    final result = await ref.read(offerControllerProvider).createBoostCheckout(offer.id, hours);
-    if (result == null) {
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
-      return;
-    }
-    if (!context.mounted) return;
     await presentEpointCheckout(
       context,
       checkoutUrl: result.checkoutUrl,

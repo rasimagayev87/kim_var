@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../providers/offer_providers.dart';
+
+typedef BoostCheckoutResult = ({String checkoutUrl, double feeAmount, String paymentId});
 
 /// One "Təklifi önə çək" tier — hours/price pairs must match
 /// `BOOST_FEE_BY_HOURS` in functions/src/index.ts exactly, since the
@@ -23,19 +27,43 @@ const _tiers = [
 ];
 
 /// Tier-picker UI for `_HeroImage._openBoostMenu` (offer_details_screen.dart)
-/// — pops the chosen tier's hours, or `null` if dismissed without a
-/// choice. Purely presentational: the caller is the one that actually
-/// calls `createBoostCheckout`/`presentEpointCheckout` once this
-/// closes, same split as `OfferFilterSheet`.
-class BoostOfferBottomSheet extends StatefulWidget {
-  const BoostOfferBottomSheet({super.key});
+/// — calls `createBoostCheckout` itself (showing an in-button spinner
+/// while it's in flight, same `_submitting` pattern as
+/// `create_venue_screen.dart`/`pinbox_checkout_screen.dart`) and pops
+/// with the [BoostCheckoutResult] once Epoint has actually handed back
+/// a checkout URL, or `null` if dismissed/failed. Staying open through
+/// that round trip (instead of popping immediately on tap) is
+/// deliberate — popping first left a several-second gap with nothing
+/// on screen while the network call was still in flight.
+class BoostOfferBottomSheet extends ConsumerStatefulWidget {
+  final String offerId;
+
+  const BoostOfferBottomSheet({super.key, required this.offerId});
 
   @override
-  State<BoostOfferBottomSheet> createState() => _BoostOfferBottomSheetState();
+  ConsumerState<BoostOfferBottomSheet> createState() => _BoostOfferBottomSheetState();
 }
 
-class _BoostOfferBottomSheetState extends State<BoostOfferBottomSheet> {
+class _BoostOfferBottomSheetState extends ConsumerState<BoostOfferBottomSheet> {
   int _selectedIndex = 1;
+  bool _submitting = false;
+
+  Future<void> _confirm() async {
+    if (_submitting) return;
+    setState(() => _submitting = true);
+
+    final loc = AppLocalizations.of(context);
+    final hours = _tiers[_selectedIndex].hours;
+    final result = await ref.read(offerControllerProvider).createBoostCheckout(widget.offerId, hours);
+
+    if (!mounted) return;
+    if (result == null) {
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+      return;
+    }
+    Navigator.pop(context, result);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -76,7 +104,7 @@ class _BoostOfferBottomSheetState extends State<BoostOfferBottomSheet> {
               final isSelected = _selectedIndex == index;
 
               return GestureDetector(
-                onTap: () => setState(() => _selectedIndex = index),
+                onTap: _submitting ? null : () => setState(() => _selectedIndex = index),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   margin: const EdgeInsets.only(bottom: 12),
@@ -139,14 +167,21 @@ class _BoostOfferBottomSheetState extends State<BoostOfferBottomSheet> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.onAccent,
+                  disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
                   elevation: 0,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 ),
-                onPressed: () => Navigator.pop(context, selected.hours),
-                child: Text(
-                  loc.offerBoostCtaButton(selected.priceAzn),
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.onAccent),
-                ),
+                onPressed: _submitting ? null : _confirm,
+                child: _submitting
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.onAccent),
+                      )
+                    : Text(
+                        loc.offerBoostCtaButton(selected.priceAzn),
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.onAccent),
+                      ),
               ),
             ),
             const SizedBox(height: 8),
