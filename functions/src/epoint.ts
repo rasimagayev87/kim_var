@@ -145,3 +145,58 @@ export async function createEpointTokenWidget(req: EpointTokenWidgetRequest): Pr
 
   return { widgetUrl };
 }
+
+export interface EpointReverseRequest {
+  publicKey: string;
+  privateKey: string;
+  /** Epoint's own transaction id (the webhook callback's `transaction`
+   * field, captured at confirmed-success time — NOT the merchant's own
+   * `order_id`) — the only identifier `/reverse` accepts. */
+  epointTransaction: string;
+  /** Omitted → Epoint reverses the transaction's full original amount
+   * (per the official docs, `amount` is optional here); passed anyway
+   * whenever the caller has it, so a partial-refund need later doesn't
+   * silently default to "reverse everything". */
+  amount?: number;
+  currency?: string;
+  language?: "az" | "en" | "ru";
+}
+
+export interface EpointReverseResult {
+  succeeded: boolean;
+  message?: string;
+}
+
+/**
+ * "Əməliyyatların ləğv edilməsi" (cancel/reverse a transaction) —
+ * confirmed against the official Epoint API PDF (epoint-api-az.pdf,
+ * "Əməliyyatların ləğv edilməsi" section): POST to `/reverse` with
+ * `transaction` (Epoint's id, the doc's field name literally has a typo,
+ * "transation", but the JSON key IS `transaction` per its own worked
+ * example) + `currency`, `amount` optional. Distinct from `/refund-
+ * request`, which the SAME doc's preceding section shows requires a
+ * `card_uid` — that endpoint only applies to the saved-card/
+ * card-registration flow this app never uses, so `/reverse` is the only
+ * endpoint that actually applies to a normal one-off checkout payment.
+ * Response is just `{status, message}` — no transaction/rrn/card
+ * details to relay back, unlike every other endpoint in this file.
+ */
+export async function reverseEpointTransaction(req: EpointReverseRequest): Promise<EpointReverseResult> {
+  const { data, signature } = signPayload(req.privateKey, {
+    public_key: req.publicKey,
+    language: req.language ?? "az",
+    transaction: req.epointTransaction,
+    ...(req.amount !== undefined ? { amount: req.amount.toFixed(2) } : {}),
+    currency: req.currency ?? "AZN",
+  });
+
+  const response = await fetch(`${EPOINT_BASE_URL}/reverse`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ data, signature }).toString(),
+  });
+
+  const body = (await response.json()) as Record<string, unknown>;
+  const succeeded = response.ok && body.status === "success";
+  return { succeeded, message: body.message as string | undefined };
+}

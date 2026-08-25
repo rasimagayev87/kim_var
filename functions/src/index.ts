@@ -11,7 +11,13 @@ import { beforeEmailSent, beforeUserSignedIn } from "firebase-functions/v2/ident
 import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 import { createHash, randomInt } from "crypto";
-import { createEpointCheckout, createEpointTokenWidget, decodeEpointData, verifyEpointSignature } from "./epoint";
+import {
+  createEpointCheckout,
+  createEpointTokenWidget,
+  decodeEpointData,
+  reverseEpointTransaction,
+  verifyEpointSignature,
+} from "./epoint";
 import { geohashForLocation } from "geofire-common";
 import { verifyAppleNotification, verifyAppleTransaction, verifyGoogleSubscription } from "./iap";
 
@@ -1465,6 +1471,17 @@ const FOUNDING_VENUE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
  * `config/foundingVenueCounter` is a single counter doc updated inside
  * the same transaction as the venue write, so two venues approved in
  * the same instant can't both slip in as the 1000th.
+ *
+ * Also grants the "1 ay ödə, 1 ay hədiyyə al" perk here, not at the
+ * first payment (`applyPaymentOutcome`) — founding status isn't known
+ * yet at that point, since it's only assigned on first approval, which
+ * always happens strictly after the first (real, Epoint-confirmed)
+ * payment. The owner already paid for their first cycle in full; this
+ * just pushes `subscriptionRenewsAt` one more `SUBSCRIPTION_CYCLE_MS`
+ * forward, skipping what would otherwise be the 2nd charge. Additive
+ * regardless of how long moderation review took (adds to whatever
+ * `subscriptionRenewsAt` already holds, not "+30 days from today"), so
+ * a slow review never shrinks or stretches the free month.
  */
 async function assignFoundingVenueIfEligible(venueId: string): Promise<void> {
   const counterRef = db.collection("config").doc("foundingVenueCounter");
@@ -1472,6 +1489,7 @@ async function assignFoundingVenueIfEligible(venueId: string): Promise<void> {
 
   await db.runTransaction(async (tx) => {
     const counterSnap = await tx.get(counterRef);
+    const venueSnap = await tx.get(venueRef);
     const count = (counterSnap.data()?.count as number | undefined) ?? 0;
 
     if (count >= FOUNDING_VENUE_LIMIT) {
@@ -1479,11 +1497,16 @@ async function assignFoundingVenueIfEligible(venueId: string): Promise<void> {
       return;
     }
 
+    const currentRenewsAt = (venueSnap.data()?.subscriptionRenewsAt as Timestamp | undefined)?.toDate();
+
     tx.set(counterRef, { count: count + 1 }, { merge: true });
     tx.update(venueRef, {
       isFoundingVenue: true,
       freeOffersUsed: 0,
       freeOfferWindowEnd: Timestamp.fromDate(new Date(Date.now() + FOUNDING_VENUE_WINDOW_MS)),
+      ...(currentRenewsAt
+        ? { subscriptionRenewsAt: Timestamp.fromDate(new Date(currentRenewsAt.getTime() + SUBSCRIPTION_CYCLE_MS)) }
+        : {}),
     });
   });
 }
@@ -2609,37 +2632,88 @@ export const cleanupExpiredIdentityVerificationImages = onSchedule(
  * offer listings (`listingType` on the doc), same as everything else
  * downstream of `payments/{paymentId}`.
  *
- * No payment provider (Epoint/Payriff/LEOpay) is wired yet, so this
- * deliberately does NOT call a real refund API and does NOT advance
- * `status` to `refunded` itself — it just logs enough for the admin
- * panel's payments page (manual-tracking queue, filtered on
- * `refund_pending`) to be the source of truth until a provider exists.
- * Swapping in the real call later is a change to this one function
- * only — the state machine, admin UI, and notifications around it stay
- * the same.
+ * Calls Epoint's real `/reverse` endpoint (`reverseEpointTransaction`,
+ * epoint.ts — confirmed against the official API PDF, NOT
+ * `/refund-request`, which needs a `card_uid` this app's checkout flow
+ * never has) against `epointTransaction` (captured at confirmed-success
+ * time in `applyPaymentOutcome`). On success, advances `status` to
+ * `refunded` itself — no more manual bank transfer for the common case.
+ *
+ * Two things still fall back to the OLD manual path (admin panel's
+ * Payments page, filtered on `refund_pending`, is still the queue for
+ * these): a payment written before this field existed (no
+ * `epointTransaction` to reverse), and a `/reverse` call Epoint itself
+ * rejects (e.g. code 914 "reversal original not found" — the doc gives
+ * no guaranteed time window). Either case notifies admins so a payment
+ * that still needs a manual refund is never silently missed now that
+ * most of them resolve themselves.
  */
-export const processPaymentRefund = onDocumentUpdated("payments/{paymentId}", async (event) => {
-  const before = event.data?.before.data();
-  const after = event.data?.after.data();
-  if (!before || !after) return;
-  if (before.status === "refund_pending" || after.status !== "refund_pending") return;
+export const processPaymentRefund = onDocumentUpdated(
+  { document: "payments/{paymentId}", secrets: [epointPublicKey, epointPrivateKey] },
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+    if (before.status === "refund_pending" || after.status !== "refund_pending") return;
 
-  logger.info("processPaymentRefund: refund needed, awaiting manual processing", {
-    paymentId: event.params.paymentId,
-    ownerId: after.ownerId,
-    listingType: after.listingType,
-    listingId: after.listingId,
-    amount: after.amount,
-    currency: after.currency,
-  });
+    const paymentId = event.params.paymentId;
+    const epointTransaction = after.epointTransaction as string | undefined;
+    const amount = after.amount as number | undefined;
+    const currency = (after.currency as string | undefined) ?? "AZN";
+    const listingType = after.listingType as string | undefined;
+    const listingId = after.listingId as string | undefined;
 
-  // TODO: Epoint/Payriff/LEOpay inteqrasiyası tamamlananda burada
-  // provayderin real REFUND/CANCEL endpoint-inə server-side sorğu
-  // göndəriləcək (əməliyyat ID-si + məbləğ ilə), və uğurlu cavabdan
-  // sonra bu sənədin statusu 'refunded' ediləcək. Hələlik status
-  // 'refund_pending'də qalır — admin panelindəki Ödənişlər səhifəsi
-  // bunları əl ilə izləmək üçündür.
-});
+    const notifyManualFallback = async (reason: string) => {
+      logger.error("processPaymentRefund: falling back to manual refund", { paymentId, reason });
+      if (!listingType || !listingId) return;
+      const nameSnap =
+        listingType === "venue"
+          ? await db.collection("venues").doc(listingId).get()
+          : listingType === "offer"
+            ? await db.collection("offers").doc(listingId).get()
+            : null;
+      const name = (nameSnap?.data()?.name as string | undefined) ?? (nameSnap?.data()?.title as string | undefined) ?? "";
+      await notifyAdmins({
+        type: "refund.manual",
+        message: `${name ? `"${name}"` : listingId} üçün avtomatik geri qaytarma alınmadı (${reason}) — ${amount} ${currency} əl ilə qaytarılmalıdır.`,
+        targetType: listingType,
+        targetId: listingId,
+      });
+    };
+
+    if (!epointTransaction) {
+      await notifyManualFallback("bu ödənişdə Epoint əməliyyat ID-si yoxdur");
+      return;
+    }
+
+    let result;
+    try {
+      result = await reverseEpointTransaction({
+        publicKey: epointPublicKeyValue(),
+        privateKey: epointPrivateKeyValue(),
+        epointTransaction,
+        amount,
+        currency,
+      });
+    } catch (e) {
+      logger.error("processPaymentRefund: Epoint /reverse request threw", { paymentId, error: e });
+      await notifyManualFallback("Epoint sorğusu uğursuz oldu");
+      return;
+    }
+
+    if (!result.succeeded) {
+      await notifyManualFallback(result.message ?? "Epoint əməliyyatı rədd etdi");
+      return;
+    }
+
+    await db.collection("payments").doc(paymentId).update({
+      status: "refunded",
+      refundedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    logger.info("processPaymentRefund: refunded automatically via Epoint", { paymentId, amount, currency });
+  },
+);
 
 /**
  * One collection's worth of `expireListingRevisionDeadlines`'s sweep —
@@ -2730,12 +2804,19 @@ const SUBSCRIPTION_CYCLE_MS = 30 * 24 * 60 * 60 * 1000;
 
 /**
  * Finds this venue's most recent `venue_subscription` payment and
- * reuses it if it's still `pending` (so a second call — the daily
- * schedule catching up, or the owner tapping "Ödə" — never double-
- * invoices the same overdue cycle); otherwise creates a fresh pending
- * one. Shared by `renewVenueSubscriptions` (which only acts when this
- * actually creates a new doc) and `retryVenueSubscriptionPayment`
- * (which always wants a checkout for whatever's pending, new or not).
+ * reuses it if it's still `pending` AND no Epoint checkout was ever
+ * started for it (so a second call — the daily schedule catching up,
+ * or the owner tapping "Ödə" before either one actually reached Epoint —
+ * never double-invoices the same overdue cycle); otherwise creates a
+ * fresh pending one, since Epoint permanently rejects a second request
+ * for an `order_id` it already saw (see `startEpointCheckoutForPayment`'s
+ * own doc comment) — reusing a doc that already has a `checkoutStartedAt`
+ * would make the owner's own "Ödə" retry fail every time. The
+ * superseded doc is marked `failed` so it doesn't sit in the admin
+ * panel's "gözləyən" queue forever. Shared by `renewVenueSubscriptions`
+ * (which only acts when this actually creates a new doc) and
+ * `retryVenueSubscriptionPayment` (which always wants a checkout for
+ * whatever's pending, new or not).
  */
 async function ensurePendingSubscriptionPayment(
   venueId: string,
@@ -2753,8 +2834,11 @@ async function ensurePendingSubscriptionPayment(
     .get();
 
   const latest = existing.docs[0];
-  if (latest && latest.data().status === "pending") {
+  if (latest && latest.data().status === "pending" && !latest.data().checkoutStartedAt) {
     return { ref: latest.ref, amount: latest.data().amount as number, isNew: false };
+  }
+  if (latest && latest.data().status === "pending" && latest.data().checkoutStartedAt) {
+    await latest.ref.update({ status: "failed", updatedAt: FieldValue.serverTimestamp() });
   }
 
   const amount = venueSubscriptionFeeByCategory[category];
@@ -2780,9 +2864,9 @@ async function ensurePendingSubscriptionPayment(
  * "Məkanlar üzrə aylıq abunəlik" (see `_venueListingFeeFor`'s own doc
  * comment for the signed tariff PDF this table mirrors) — the recurring
  * half of venue billing. Used to write straight to `'completed'` with
- * no real charge (see `listing_payment.dart`/`computeMonthlyPinBoxPayouts`'s
- * own still-current doc comments for that same stand-in pattern
- * elsewhere); THIS collection point now requires a real Epoint payment
+ * no real charge (see `listing_payment.dart`'s own still-current doc
+ * comments for that same stand-in pattern elsewhere); THIS collection
+ * point now requires a real Epoint payment
  * each cycle, same as `submitOffer`'s fee path — `subscriptionRenewsAt`
  * only advances once `epointWebhook` confirms the charge, not here.
  *
@@ -2880,6 +2964,173 @@ export const retryVenueSubscriptionPayment = onCall(
     const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, amount, `Məkan abunəliyi — ${venueName}`);
 
     return { checkoutUrl, feeAmount: amount, paymentId: paymentRef.id };
+  },
+);
+
+/**
+ * Venue creation, moved server-side — replaces the old client-side
+ * `FirebaseVenueRepository.createVenue` + `createListingPayment` stub
+ * (`lib/core/data/listing_payment.dart`), which wrote a `payments` doc
+ * straight to `status: 'completed'` with NO real Epoint charge, a
+ * leftover from before Epoint was wired up that offers/PinBox already
+ * migrated away from but venues never did. Same shape as `submitOffer`:
+ * the venue doc is created here (pre-allocated id from the client, same
+ * as `allocateVenueId` always did, so the already-uploaded photo lands
+ * on the right doc), `status: 'awaiting_payment'` — invisible to
+ * everyone, not yet in the moderation queue — until `epointWebhook`
+ * confirms the charge (`applyPaymentOutcome`'s venue_subscription
+ * first-payment branch flips it to `'pending'` and sets
+ * `subscriptionRenewsAt` for the first time). `firestore.rules`'
+ * `venues/{venueId}` create rule is `false` — this Admin-SDK path is
+ * now the only way a venue doc gets created.
+ */
+export const submitVenue = onCall(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    // The ONLY gate on "can this account create a venue" — a self-service
+    // toggle in Privacy/Security ("Biznes fəaliyyəti"), default 'active'
+    // for every account (same default `firestore.rules`' old
+    // `isBusinessUser` used, `.get('businessStatus', 'active')`). That
+    // rule was the sole enforcement point before venue creation moved
+    // server-side; this replicates it here now that the rule itself is
+    // `allow create: if false`.
+    const requesterSnap = await db.collection("users").doc(uid).get();
+    if ((requesterSnap.data()?.businessStatus as string | undefined) === "none") {
+      throw new HttpsError("permission-denied", "Məkan yaratmaq üçün Ayarlar → Biznes fəaliyyəti bölməsindən aktiv edin.");
+    }
+
+    const data = request.data as Record<string, unknown>;
+    const clientVenueId = data.venueId as string | undefined;
+    const name = (data.name as string | undefined)?.trim();
+    const category = data.category as string | undefined;
+    const photoUrl = data.photoUrl as string | undefined;
+    const lat = data.lat as number | undefined;
+    const lng = data.lng as number | undefined;
+    const address = (data.address as string | undefined)?.trim();
+    const openingHours = data.openingHours as Record<string, unknown> | undefined;
+    if (!clientVenueId || !name || !category || !photoUrl || lat === undefined || lng === undefined || !address || !openingHours) {
+      throw new HttpsError("invalid-argument", "Tələb olunan sahələr çatışmır.");
+    }
+
+    const fee = venueSubscriptionFeeByCategory[category];
+    if (fee === undefined) {
+      logger.error("submitVenue: no subscription fee tier for category", { category });
+      throw new HttpsError("failed-precondition", "Bu məkan kateqoriyası üçün haqq cədvəli tapılmadı.");
+    }
+
+    const venueRef = db.collection("venues").doc(clientVenueId);
+    if ((await venueRef.get()).exists) {
+      throw new HttpsError("already-exists", "Bu ID artıq istifadə olunub.");
+    }
+
+    const { ref: paymentRef, amount } = await ensurePendingSubscriptionPayment(clientVenueId, uid, category, name);
+
+    await venueRef.set({
+      ownerId: uid,
+      name,
+      category,
+      photoUrl,
+      lat,
+      lng,
+      position: { geopoint: new GeoPoint(lat, lng), geohash: geohashForLocation([lat, lng], 9) },
+      address,
+      ...(data.country ? { country: data.country } : {}),
+      openingHours,
+      status: "awaiting_payment",
+      paymentId: paymentRef.id,
+      verified: false,
+      likeCount: 0,
+      rating: 3.0,
+      ...(data.socialLinks ? { socialLinks: data.socialLinks } : {}),
+      audienceRadiusMode: (data.audienceRadiusMode as string | undefined) ?? "distance",
+      audienceRadiusKm: (data.audienceRadiusKm as number | undefined) ?? 1.0,
+      birthdayNotificationsEnabled: (data.birthdayNotificationsEnabled as boolean | undefined) ?? false,
+      createdAt: FieldValue.serverTimestamp(),
+    });
+
+    const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, amount, `Məkan abunəliyi — ${name}`);
+
+    return { venueId: venueRef.id, checkoutUrl, feeAmount: amount, paymentId: paymentRef.id };
+  },
+);
+
+/**
+ * Re-opens a checkout for a venue whose FIRST subscription payment
+ * previously failed or was abandoned — same `payments` doc, a fresh
+ * Epoint request. Distinct from `retryVenueSubscriptionPayment`, which
+ * only handles an already-live venue's overdue RENEWAL (it explicitly
+ * requires an existing, past-due `subscriptionRenewsAt` — a brand new
+ * `awaiting_payment` venue has none yet). Mirrors `retryOfferPayment`.
+ */
+export const retryVenueCreationPayment = onCall(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    const venueId = request.data?.venueId as string | undefined;
+    if (!venueId) throw new HttpsError("invalid-argument", "venueId tələb olunur.");
+
+    const venueSnap = await db.collection("venues").doc(venueId).get();
+    const venue = venueSnap.data();
+    if (!venue) throw new HttpsError("not-found", "Məkan tapılmadı.");
+    if (venue.ownerId !== uid) throw new HttpsError("permission-denied", "Bu məkanın sahibi deyilsiniz.");
+    if (venue.status !== "awaiting_payment") {
+      throw new HttpsError("failed-precondition", "Bu məkan ödəniş gözləmir.");
+    }
+
+    const paymentsSnap = await db
+      .collection("payments")
+      .where("listingType", "==", "venue")
+      .where("listingId", "==", venueId)
+      .where("type", "==", "venue_subscription")
+      .orderBy("createdAt", "desc")
+      .limit(1)
+      .get();
+    const paymentDoc = paymentsSnap.docs[0];
+    if (!paymentDoc) throw new HttpsError("not-found", "Bu məkan üçün ödəniş qeydi tapılmadı.");
+    if (paymentDoc.data().status === "completed") {
+      throw new HttpsError("failed-precondition", "Bu ödəniş artıq tamamlanıb.");
+    }
+
+    const amount = paymentDoc.data().amount as number;
+    const venueName = (venue.name as string | undefined) ?? "";
+    const description = (paymentDoc.data().description as string | undefined) ?? `Məkan abunəliyi — ${venueName}`;
+
+    // Epoint permanently rejects a second checkout request for the same
+    // `order_id` (= payment doc id) — see `startEpointCheckoutForPayment`'s
+    // own doc comment. A payment doc that already went through Epoint
+    // once (the original submitVenue attempt) can never be reused, so
+    // this creates a fresh one instead of just flipping the old one back
+    // to 'pending' the way it used to (confirmed via live testing: the
+    // very first version of this function hit "Duplicate order_id value"
+    // every time).
+    let targetRef = paymentDoc.ref;
+    if (paymentDoc.data().checkoutStartedAt) {
+      await paymentDoc.ref.update({ status: "failed", updatedAt: FieldValue.serverTimestamp() });
+      targetRef = db.collection("payments").doc();
+      await targetRef.set({
+        ownerId: uid,
+        listingType: "venue",
+        listingId: venueId,
+        type: "venue_subscription",
+        description,
+        amount,
+        currency: (paymentDoc.data().currency as string | undefined) ?? "AZN",
+        status: "pending",
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } else {
+      await targetRef.update({ status: "pending", updatedAt: FieldValue.serverTimestamp() });
+    }
+
+    const checkoutUrl = await startEpointCheckoutForPayment(targetRef.id, amount, description);
+
+    return { checkoutUrl, feeAmount: amount, paymentId: targetRef.id };
   },
 );
 
@@ -3623,91 +3874,6 @@ export const redeemPinBoxOrder = onCall({ region: "us-central1", enforceAppCheck
 
 const PINBOX_PAYOUT_COMMISSION_RATE = 0.15;
 
-/**
- * PinBox Faza 10 — monthly commission reconciliation. Runs at 03:00
- * Asia/Baku on the 1st of each month and settles the FULL PREVIOUS
- * calendar month: sums every `completed` order's `amountPaid` per
- * venue, splits it 85/15 (venue/PeakPin), and upserts one
- * `venuePayouts` doc per venue per period. No money actually moves
- * here — per the product's explicit "no automated bank transfer" rule,
- * this only computes what's owed; an admin marks a doc `status: "paid"`
- * by hand (admin panel's PinBox Ödənişləri page) once they've sent it.
- *
- * Idempotent by construction: the doc id is `${venueId}_${period}`, and
- * a doc already `status: "paid"` is left untouched on rerun (a manual
- * re-invocation for the same period must never un-pay something the
- * admin already settled).
- */
-export const computeMonthlyPinBoxPayouts = onSchedule(
-  { schedule: "0 3 1 * *", timeZone: "Asia/Baku", region: "europe-west1" },
-  async () => {
-    const now = new Date();
-    const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-    const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    const period = `${periodStart.getUTCFullYear()}-${String(periodStart.getUTCMonth() + 1).padStart(2, "0")}`;
-
-    const ordersSnap = await db
-      .collection("pinboxOrders")
-      .where("status", "==", "completed")
-      .where("redeemedAt", ">=", Timestamp.fromDate(periodStart))
-      .where("redeemedAt", "<", Timestamp.fromDate(periodEnd))
-      .get();
-
-    if (ordersSnap.empty) {
-      logger.info("computeMonthlyPinBoxPayouts: no completed orders", { period });
-      return;
-    }
-
-    const grossByVenue = new Map<string, { gross: number; orderCount: number }>();
-    for (const doc of ordersSnap.docs) {
-      const data = doc.data();
-      const venueId = data.venueId as string;
-      const amountPaid = (data.amountPaid as number | undefined) ?? 0;
-      const entry = grossByVenue.get(venueId) ?? { gross: 0, orderCount: 0 };
-      entry.gross += amountPaid;
-      entry.orderCount += 1;
-      grossByVenue.set(venueId, entry);
-    }
-
-    const venueIds = [...grossByVenue.keys()];
-    const venueDocs = await Promise.all(venueIds.map((id) => db.collection("venues").doc(id).get()));
-    const venueById = new Map(venueDocs.map((doc) => [doc.id, doc.data()]));
-
-    let written = 0;
-    for (const venueId of venueIds) {
-      const { gross, orderCount } = grossByVenue.get(venueId)!;
-      const venue = venueById.get(venueId);
-      const payoutRef = db.collection("venuePayouts").doc(`${venueId}_${period}`);
-      const existing = await payoutRef.get();
-      if (existing.exists && existing.data()?.status === "paid") continue;
-
-      const commissionAmount = Math.round(gross * PINBOX_PAYOUT_COMMISSION_RATE * 100) / 100;
-      const payoutAmount = Math.round((gross - commissionAmount) * 100) / 100;
-
-      await payoutRef.set({
-        venueId,
-        venueName: (venue?.name as string | undefined) ?? "Naməlum",
-        ownerId: (venue?.ownerId as string | undefined) ?? null,
-        period,
-        periodStart: Timestamp.fromDate(periodStart),
-        periodEnd: Timestamp.fromDate(periodEnd),
-        orderCount,
-        grossAmount: gross,
-        commissionRate: PINBOX_PAYOUT_COMMISSION_RATE,
-        commissionAmount,
-        payoutAmount,
-        currency: "AZN",
-        status: "pending",
-        createdAt: existing.exists ? (existing.data()?.createdAt ?? FieldValue.serverTimestamp()) : FieldValue.serverTimestamp(),
-        updatedAt: FieldValue.serverTimestamp(),
-      });
-      written++;
-    }
-
-    logger.info("computeMonthlyPinBoxPayouts: wrote payouts", { period, venueCount: written });
-  },
-);
-
 // ---------------------------------------------------------------------------
 // Təklif yerləşdirmə haqqı (offer placement fee) — Epoint-backed, replaces
 // the old flat 3 AZN "offer_listing" fee `listing_payment.dart`'s
@@ -3763,6 +3929,21 @@ const EPOINT_ERROR_REDIRECT_URL = "https://admin.peakpin.app/payment/error";
  * `retryOfferPayment` so a failed/expired checkout can be re-started
  * without re-deriving the fee or creating a second payment doc.
  */
+/**
+ * Epoint permanently rejects a second `/api/1/request` for an `order_id`
+ * it has already seen — "Duplicate order_id value" — even if the first
+ * attempt was never completed (abandoned, card declined, network
+ * error). `orderId` here is always the `payments/{paymentId}` doc's own
+ * id, so once a payment doc has been through this function once, it can
+ * NEVER be reused for a second checkout attempt. Stamping
+ * `checkoutStartedAt` right after a successful call is what every
+ * "reuse this pending payment or make a fresh one" call site (below)
+ * checks before reusing — discovered via live testing against Epoint's
+ * real API while building `retryVenueCreationPayment` (a retry
+ * immediately hit this error), and confirmed to affect the pre-existing
+ * `retryOfferPayment`/`ensurePendingSubscriptionPayment` reuse pattern
+ * identically, not something specific to the venue-creation flow.
+ */
 async function startEpointCheckoutForPayment(
   paymentId: string,
   amount: number,
@@ -3777,6 +3958,7 @@ async function startEpointCheckoutForPayment(
     successRedirectUrl: EPOINT_SUCCESS_REDIRECT_URL,
     errorRedirectUrl: EPOINT_ERROR_REDIRECT_URL,
   });
+  await db.collection("payments").doc(paymentId).update({ checkoutStartedAt: FieldValue.serverTimestamp() });
   return redirectUrl;
 }
 
@@ -3953,16 +4135,39 @@ export const retryOfferPayment = onCall(
       throw new HttpsError("failed-precondition", "Bu ödəniş artıq tamamlanıb.");
     }
 
-    await paymentDoc.ref.update({ status: "pending", updatedAt: FieldValue.serverTimestamp() });
-
     const amount = paymentDoc.data().amount as number;
-    const checkoutUrl = await startEpointCheckoutForPayment(
-      paymentDoc.id,
-      amount,
-      (paymentDoc.data().description as string | undefined) ?? `Təklif yerləşdirmə haqqı — ${(offer.title as string | undefined) ?? ""}`,
-    );
+    const description =
+      (paymentDoc.data().description as string | undefined) ?? `Təklif yerləşdirmə haqqı — ${(offer.title as string | undefined) ?? ""}`;
 
-    return { checkoutUrl, feeAmount: amount, paymentId: paymentDoc.id };
+    // Epoint permanently rejects a second checkout request for the same
+    // `order_id` (= payment doc id) — see `startEpointCheckoutForPayment`'s
+    // own doc comment. A payment doc that already went through Epoint
+    // once (the original submitOffer attempt) can never be reused, so
+    // this creates a fresh one instead of just flipping the old one back
+    // to 'pending' the way it used to.
+    let targetRef = paymentDoc.ref;
+    if (paymentDoc.data().checkoutStartedAt) {
+      await paymentDoc.ref.update({ status: "failed", updatedAt: FieldValue.serverTimestamp() });
+      targetRef = db.collection("payments").doc();
+      await targetRef.set({
+        ownerId: uid,
+        listingType: "offer",
+        listingId: offerId,
+        type: "offer_placement_fee",
+        description,
+        amount,
+        currency: (paymentDoc.data().currency as string | undefined) ?? "AZN",
+        status: "pending",
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } else {
+      await targetRef.update({ status: "pending", updatedAt: FieldValue.serverTimestamp() });
+    }
+
+    const checkoutUrl = await startEpointCheckoutForPayment(targetRef.id, amount, description);
+
+    return { checkoutUrl, feeAmount: amount, paymentId: targetRef.id };
   },
 );
 
@@ -4034,6 +4239,7 @@ async function applyPaymentOutcome(
   orderId: string,
   succeeded: boolean,
   failureDetail?: { code?: string; message?: string },
+  epointTransaction?: string,
 ): Promise<boolean> {
   const paymentRef = db.collection("payments").doc(orderId);
   const paymentSnap = await paymentRef.get();
@@ -4047,10 +4253,12 @@ async function applyPaymentOutcome(
   await db.runTransaction(async (tx) => {
     // Firestore transactions need every read before any write — the
     // venue_subscription branch needs the venue's current
-    // subscriptionRenewsAt to compute the next cycle, and a FAILED
+    // subscriptionRenewsAt to compute the next cycle, a FAILED
     // pinbox_order needs its own order doc (for pinboxId/quantity, to
-    // release the stock it held) — both reads happen up front
-    // regardless of which payment type this actually is.
+    // release the stock it held), and a SUCCEEDED pinbox_order needs
+    // both the order (pinboxId) and the pinbox/venue docs (title/name)
+    // to write the venuePayouts obligation row below — all reads
+    // happen up front regardless of which payment type this actually is.
     const venueRef =
       succeeded && payment.type === "venue_subscription" && payment.listingType === "venue"
         ? db.collection("venues").doc(payment.listingId as string)
@@ -4062,17 +4270,28 @@ async function applyPaymentOutcome(
         ? db.collection("pinboxOrders").doc(payment.listingId as string)
         : null;
     const pinboxOrderSnap = pinboxOrderRef ? await tx.get(pinboxOrderRef) : null;
-    // Only needed to decide whether restoring stock on a FAILED
-    // payment should also reopen a box this exact order sold out —
-    // reading it unconditionally on success would be a wasted read.
-    const pinboxRef =
-      !succeeded && pinboxOrderSnap?.exists
-        ? db.collection("pinboxes").doc(pinboxOrderSnap.data()!.pinboxId as string)
-        : null;
+    // Needed on failure to decide whether restoring stock should also
+    // reopen a box this exact order sold out, AND on success to get
+    // the box's title for the venuePayouts obligation row.
+    const pinboxRef = pinboxOrderSnap?.exists
+      ? db.collection("pinboxes").doc(pinboxOrderSnap.data()!.pinboxId as string)
+      : null;
     const pinboxSnap = pinboxRef ? await tx.get(pinboxRef) : null;
+    const pinboxOrderVenueRef =
+      succeeded && pinboxOrderSnap?.exists
+        ? db.collection("venues").doc(pinboxOrderSnap.data()!.venueId as string)
+        : null;
+    const pinboxOrderVenueSnap = pinboxOrderVenueRef ? await tx.get(pinboxOrderVenueRef) : null;
 
     tx.update(paymentRef, {
       status: succeeded ? "completed" : "failed",
+      // Epoint's OWN transaction id (distinct from this doc's own id,
+      // which is the `order_id` Epoint was given) — the only identifier
+      // `/reverse` accepts, so this is what a later automatic refund
+      // (`processPaymentRefund`) needs. Only meaningful once a charge
+      // actually succeeded; a failed attempt never has a real
+      // transaction to reverse.
+      ...(succeeded && epointTransaction ? { epointTransaction } : {}),
       ...(!succeeded && failureDetail
         ? {
             failureCode: failureDetail.code ?? null,
@@ -4096,14 +4315,47 @@ async function applyPaymentOutcome(
       // undo here since the offer was never made visible.
     } else if (payment.type === "venue_subscription" && payment.listingType === "venue" && venueRef) {
       if (succeeded) {
-        const prevRenewsAt = (venueSnap?.data()?.subscriptionRenewsAt as Timestamp | undefined)?.toDate() ?? new Date();
-        const nextRenewsAt = new Date(prevRenewsAt.getTime() + SUBSCRIPTION_CYCLE_MS);
-        tx.update(venueRef, {
-          paymentId: paymentRef.id,
-          subscriptionRenewsAt: Timestamp.fromDate(nextRenewsAt),
-          updatedAt: FieldValue.serverTimestamp(),
-        });
+        const isFirstPayment = venueSnap?.data()?.status === "awaiting_payment";
+        if (isFirstPayment) {
+          // First-ever charge for a brand new venue (`submitVenue`) —
+          // this is what actually admits it into moderation; nothing
+          // free happens here even for a founding venue, since
+          // `isFoundingVenue` isn't assigned until first approval
+          // (`assignFoundingVenueIfEligible`), which is the only place
+          // that can grant the free 2nd cycle — see its own doc comment.
+          tx.update(venueRef, {
+            status: "pending",
+            paymentId: paymentRef.id,
+            subscriptionRenewsAt: Timestamp.fromDate(new Date(Date.now() + SUBSCRIPTION_CYCLE_MS)),
+            // Drives the "Ödənişiniz təsdiqləndi" card on MyVenuesScreen
+            // — cleared by the owner dismissing it (see
+            // `dismissFirstPaymentAnnouncement`, firebase_venue_
+            // repository.dart). Deliberately read LIVE alongside
+            // `isFoundingVenue`/`subscriptionRenewsAt` at render time,
+            // not frozen into params here — `isFoundingVenue` isn't
+            // known yet at this exact moment (only set on first
+            // approval, see `assignFoundingVenueIfEligible`), so the
+            // card self-corrects from the non-founding wording to the
+            // founding one if approval (and the free 2nd cycle) lands
+            // before the owner dismisses it.
+            firstPaymentAnnouncementPending: true,
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        } else {
+          const prevRenewsAt = (venueSnap?.data()?.subscriptionRenewsAt as Timestamp | undefined)?.toDate() ?? new Date();
+          const nextRenewsAt = new Date(prevRenewsAt.getTime() + SUBSCRIPTION_CYCLE_MS);
+          tx.update(venueRef, {
+            paymentId: paymentRef.id,
+            subscriptionRenewsAt: Timestamp.fromDate(nextRenewsAt),
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        }
       }
+      // On failure the venue just stays `awaiting_payment` (first
+      // payment) or keeps its stale-past `subscriptionRenewsAt`
+      // (renewal) — `retryVenueCreationPayment`/
+      // `retryVenueSubscriptionPayment` are the owner's way back in
+      // either way, nothing to undo here.
       // On failure subscriptionRenewsAt stays in the past — the venue
       // simply stays overdue, `retryVenueSubscriptionPayment` is the
       // owner's way back in. Nothing about the venue's own status/
@@ -4125,6 +4377,38 @@ async function applyPaymentOutcome(
         tx.update(pinboxOrderRef, {
           status: "reserved",
           paymentId: paymentRef.id,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+
+        // The venue's 85% share becomes owed the moment the charge is
+        // confirmed — not at redemption or at month-end — per the
+        // admin panel's "PinBox Öhdəlikləri" page: one obligation row
+        // per order, visible as "pending" immediately, settled by hand
+        // once a month (see `markPinBoxPayoutPaid` in admin-panel).
+        // Doc id = order id, so this can never double-write even if
+        // applyPaymentOutcome is somehow invoked twice for the same
+        // order (the top-of-function `status !== "pending"` guard
+        // already prevents that anyway — this is just belt-and-braces).
+        const order = pinboxOrderSnap.data()!;
+        const grossAmount = payment.amount as number;
+        const commissionAmount = Math.round(grossAmount * PINBOX_PAYOUT_COMMISSION_RATE * 100) / 100;
+        const payoutAmount = Math.round((grossAmount - commissionAmount) * 100) / 100;
+        tx.set(db.collection("venuePayouts").doc(pinboxOrderRef.id), {
+          orderId: pinboxOrderRef.id,
+          paymentId: paymentRef.id,
+          venueId: order.venueId as string,
+          venueName: (pinboxOrderVenueSnap?.data()?.name as string | undefined) ?? "Naməlum",
+          ownerId: (pinboxOrderVenueSnap?.data()?.ownerId as string | undefined) ?? null,
+          pinboxId: order.pinboxId as string,
+          pinboxTitle: (pinboxSnap?.data()?.title as string | undefined) ?? "Naməlum",
+          quantity: order.quantity as number,
+          grossAmount,
+          commissionRate: PINBOX_PAYOUT_COMMISSION_RATE,
+          commissionAmount,
+          payoutAmount,
+          currency: (payment.currency as string) ?? "AZN",
+          status: "pending",
+          createdAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         });
       } else if (pinboxRef && pinboxSnap) {
@@ -4159,10 +4443,13 @@ async function applyPaymentOutcome(
   // went through, short of manually reopening the exact right screen.
   if (succeeded) {
     const ownerId = payment.ownerId as string;
+    const amount = payment.amount as number;
+    const currency = (payment.currency as string) ?? "AZN";
     if (payment.type === "offer_placement_fee" || payment.type === "boost_fee") {
       const offerSnap = await db.collection("offers").doc(payment.listingId as string).get();
       const name = (offerSnap.data()?.title as string | undefined) ?? "";
       const quoted = name ? `"${name}"` : "Təklifiniz";
+      const owner = await getUserDisplayInfo(ownerId);
       if (payment.type === "offer_placement_fee") {
         await notifyUser({
           uid: ownerId,
@@ -4173,6 +4460,12 @@ async function applyPaymentOutcome(
           params: { name },
           targetId: payment.listingId as string,
           targetType: "offer",
+        });
+        await notifyAdmins({
+          type: "payment.succeeded",
+          message: `${owner.name} → ${quoted} (təklif yerləşdirmə haqqı): ${amount} ${currency}`,
+          targetType: "offer",
+          targetId: payment.listingId as string,
         });
       } else {
         const hours = payment.boostHours as number;
@@ -4186,34 +4479,63 @@ async function applyPaymentOutcome(
           targetId: payment.listingId as string,
           targetType: "offer",
         });
+        await notifyAdmins({
+          type: "payment.succeeded",
+          message: `${owner.name} → ${quoted} (${hours} saat önə çəkmə): ${amount} ${currency}`,
+          targetType: "offer",
+          targetId: payment.listingId as string,
+        });
       }
     } else if (payment.type === "venue_subscription") {
       const freshVenueSnap = await db.collection("venues").doc(payment.listingId as string).get();
       const name = (freshVenueSnap.data()?.name as string | undefined) ?? "";
+      // `status === "pending"` only ever happens here as the direct
+      // result of THIS payment's first-payment branch above (a renewal
+      // never touches `status`) — reliable enough to distinguish
+      // "just created" from "recurring cycle" without extra plumbing.
+      const isFirstPayment = freshVenueSnap.data()?.status === "pending";
+      const owner = await getUserDisplayInfo(ownerId);
+      const quoted = name ? `"${name}"` : "Məkanınız";
       await notifyUser({
         uid: ownerId,
         category: "venueUpdates",
-        type: "venueSubscriptionRenewed",
-        title: "Abunəlik yeniləndi",
-        body: `${name ? `"${name}"` : "Məkanınız"} üçün abunəlik ödənişi təsdiqləndi.`,
+        type: isFirstPayment ? "venuePaymentConfirmed" : "venueSubscriptionRenewed",
+        title: isFirstPayment ? "Ödəniş təsdiqləndi" : "Abunəlik yeniləndi",
+        body: isFirstPayment
+          ? `${quoted} üçün ödəniş qəbul edildi, indi nəzərdən keçirilir.`
+          : `${quoted} üçün abunəlik ödənişi təsdiqləndi.`,
         params: { name },
         targetId: payment.listingId as string,
         targetType: "venue",
+      });
+      await notifyAdmins({
+        type: "payment.succeeded",
+        message: `${owner.name} → ${quoted} (${isFirstPayment ? "ilk abunəlik ödənişi" : "abunəlik yenilənməsi"}): ${amount} ${currency}`,
+        targetType: "venue",
+        targetId: payment.listingId as string,
       });
     } else if (payment.type === "pinbox_order") {
       const freshOrderSnap = await db.collection("pinboxOrders").doc(payment.listingId as string).get();
       const pinboxId = freshOrderSnap.data()?.pinboxId as string | undefined;
       const freshPinboxSnap = pinboxId ? await db.collection("pinboxes").doc(pinboxId).get() : null;
       const title = (freshPinboxSnap?.data()?.title as string | undefined) ?? "";
+      const owner = await getUserDisplayInfo(ownerId);
+      const quoted = title ? `"${title}"` : "PinBox";
       await notifyUser({
         uid: ownerId,
         category: "venueOffers",
         type: "pinboxOrderConfirmed",
         title: "Sifariş təsdiqləndi",
-        body: `${title ? `"${title}"` : "PinBox"} sifarişiniz təsdiqləndi, QR biletiniz hazırdır.`,
+        body: `${quoted} sifarişiniz təsdiqləndi, QR biletiniz hazırdır.`,
         params: { title },
         targetId: payment.listingId as string,
         targetType: "pinbox_order",
+      });
+      await notifyAdmins({
+        type: "payment.succeeded",
+        message: `${owner.name} → ${quoted} (PinBox sifarişi): ${amount} ${currency}`,
+        targetType: "pinbox_order",
+        targetId: payment.listingId as string,
       });
     }
   } else if (failureDetail) {
@@ -4294,6 +4616,7 @@ export const epointWebhook = onRequest({ region: "us-central1", secrets: [epoint
     orderId,
     succeeded,
     succeeded ? undefined : { code: decoded.code as string | undefined, message: decoded.message as string | undefined },
+    succeeded ? (decoded.transaction as string | undefined) : undefined,
   );
   res.status(200).send(applied ? "ok" : "already processed or unknown order_id");
 });

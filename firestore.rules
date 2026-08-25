@@ -397,19 +397,15 @@ service cloud.firestore {
     match /venues/{venueId} {
       allow read: if request.auth != null;
 
-      // New venues must start 'pending' with no review metadata — an
-      // owner can't self-publish by creating straight into 'approved',
-      // or forge a fake review trail.
-      allow create: if request.auth != null &&
-        request.auth.uid == request.resource.data.ownerId &&
-        isBusinessUser(request.auth.uid) &&
-        request.resource.data.status == 'pending' &&
-        !('reviewNote' in request.resource.data) &&
-        !('reviewedBy' in request.resource.data) &&
-        !('reviewedAt' in request.resource.data) &&
-        !('isFoundingVenue' in request.resource.data) &&
-        !('freeOffersUsed' in request.resource.data) &&
-        !('freeOfferWindowEnd' in request.resource.data);
+      // Create is Cloud-Function-only (`submitVenue`, functions/src/
+      // index.ts, Admin SDK — bypasses this rule entirely) — same
+      // reasoning as `offers/{offerId}` below: the venue doc and its
+      // first `payments` doc must be created together, and only
+      // `submitVenue` can guarantee that pairing (a raw client write
+      // could create a venue with no real payment behind it at all,
+      // which is exactly the bug this migration fixed — see
+      // `FirebaseVenueRepository.createVenue`'s own doc comment).
+      allow create: if false;
 
       // `ownerId` is immutable — an update can't reassign a venue to a
       // different owner, even the current owner's own write. `likeCount`/
@@ -438,9 +434,12 @@ service cloud.firestore {
       // admin panel and `resubmitVenue`/`expireVenueRevisionDeadlines`
       // (functions/src/index.ts), so the owner can't grant themselves
       // extra time to fix a flagged listing. `subscriptionRenewsAt` is
-      // the same again — only `renewVenueSubscriptions` (scheduled
-      // Cloud Function) may push it forward, so the owner can't grant
-      // themselves a free extra cycle by editing their own venue.
+      // the same again — only `applyPaymentOutcome` (first payment and
+      // every renewal), `renewVenueSubscriptions` (the scheduled sweep
+      // that invoices an overdue cycle), and `assignFoundingVenueIfEligible`
+      // (the founding "1 ay hədiyyə" extension) may push it forward, so
+      // the owner can't grant themselves a free extra cycle by editing
+      // their own venue.
       // `isFoundingVenue`/`freeOffersUsed`/`freeOfferWindowEnd` are the
       // same again — only `assignFoundingVenueIfEligible` (on first
       // approval) and `submitOffer`'s free-quota transaction (both
@@ -457,24 +456,23 @@ service cloud.firestore {
 
     // Top-level, separate from the (unrelated, still-unused) VIP-purchase
     // `users/{userId}/payments` subcollection above — this one backs the
-    // venue/offer listing fee/refund state machine (see
+    // venue/offer/PinBox-order/boost fee-refund state machine (see
     // `Venue.paymentId`/`Offer.paymentId`, `listingType`/`listingId`
     // distinguishing which, `functions/src/index.ts`'s
-    // `processPaymentRefund`/`expireListingRevisionDeadlines`), and is
-    // written by the owner's own client at venue/offer-creation time (no
-    // payment provider is wired yet, so this stands in for a real
-    // checkout confirmation — see `createListingPayment` in
-    // `lib/core/data/listing_payment.dart`, shared by both repositories).
-    // Every status transition AFTER that initial write
-    // (`revision_pending`, `refund_pending`, `refunded`) is
-    // grant-of-trust — only the admin panel (Admin SDK) and the Cloud
-    // Functions above may make it, never the owner directly.
+    // `processPaymentRefund`/`expireListingRevisionDeadlines`). Every
+    // real payment now goes through Epoint — created `status: 'pending'`
+    // server-side (`submitVenue`/`submitOffer`/`reservePinBoxOrder`/
+    // `createBoostCheckout`/`ensurePendingSubscriptionPayment`, all
+    // Admin SDK, bypass this rule) and flipped to `'completed'`/`'failed'`
+    // only by `applyPaymentOutcome` on a confirmed Epoint webhook — so no
+    // client write path exists or should exist. (Older venue/offer
+    // payment docs from before this migration may still show
+    // `status: 'completed'` written directly by the client — see
+    // `FirebaseVenueRepository.createVenue`'s own doc comment for that
+    // history; this rule no longer permits writing NEW ones that way.)
     match /payments/{paymentId} {
       allow read: if request.auth != null && request.auth.uid == resource.data.ownerId;
-      allow create: if request.auth != null &&
-        request.auth.uid == request.resource.data.ownerId &&
-        request.resource.data.status == 'completed';
-      allow update, delete: if false;
+      allow write: if false;
     }
 
     // Maps an Apple `originalTransactionId`/Google purchase token back
