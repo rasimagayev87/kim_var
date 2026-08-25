@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -540,6 +541,7 @@ class _RightActionRail extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(publicProfileProvider(post.userId)).valueOrNull;
+    final isOwnPost = fb.FirebaseAuth.instance.currentUser?.uid == post.userId;
 
     return Positioned(
       right: 12,
@@ -593,8 +595,10 @@ class _RightActionRail extends ConsumerWidget {
               count: null,
               onTap: () => showPostShareOptions(context, post),
             ),
-            const SizedBox(height: 20),
-            _RepostAction(post: post),
+            if (!isOwnPost) ...[
+              const SizedBox(height: 20),
+              _RepostAction(post: post),
+            ],
           ],
         ),
       ),
@@ -639,7 +643,10 @@ class _LikeAction extends ConsumerWidget {
 /// so the two read as distinct actions at a glance. Reposting adds
 /// [post] to the reposter's own "Repostlar" profile tab
 /// ([userRepostedPostsProvider]); it never touches the original post's
-/// own owner/counts.
+/// own owner/counts. `_RightActionRail` only ever mounts this for
+/// someone else's post — reposting your own is nonsensical, and
+/// `firestore.rules`' `users/{uid}/reposts/{postId}` create rule
+/// rejects it server-side too, so this isn't just a UI nicety.
 class _RepostAction extends ConsumerWidget {
   final Post post;
 
