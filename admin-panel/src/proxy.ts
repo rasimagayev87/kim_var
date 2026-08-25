@@ -14,7 +14,12 @@ import { SESSION_COOKIE_NAME, verifySessionCookie } from "@/lib/auth/session";
 // Function/Route Handler that does anything sensitive re-verifies the
 // session itself (see lib/auth/server.ts's doc comment) — Proxy
 // coverage can silently change on a refactor, per Next's own guidance.
-const PUBLIC_PATHS = new Set(["/login", "/unauthorized"]);
+// Epoint's success_redirect_url/error_redirect_url (see
+// functions/src/index.ts's EPOINT_SUCCESS_REDIRECT_URL/
+// EPOINT_ERROR_REDIRECT_URL) — a paying customer's browser, which never
+// has an admin session, must reach these without being bounced to
+// /login.
+const PUBLIC_PATHS = new Set(["/login", "/unauthorized", "/payment/success", "/payment/error"]);
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
