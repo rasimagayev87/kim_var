@@ -15,7 +15,7 @@ class VipPackageOption {
 }
 
 /// The store subscription identifiers — monthly $1.99 / quarterly
-/// $3.99 / yearly $19.99 (the actual price/currency shown to a
+/// $3.99 / yearly $9.99 (the actual price/currency shown to a
 /// customer is whatever's configured in each store console; these
 /// dollar amounts are only the target price when creating the
 /// products there). Kept as named constants so pointing at a
