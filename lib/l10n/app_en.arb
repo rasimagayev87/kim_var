@@ -464,6 +464,7 @@
   "pinboxListingStatusSoldOut": "Sold out",
   "pinboxListingStatusExpired": "Expired",
   "pinboxListingStatusRejected": "Rejected",
+  "pinboxListingStatusNeedsRevision": "Needs revision",
   "pinboxSoldCountLabel": "{sold}/{total} sold",
   "@pinboxSoldCountLabel": {
     "placeholders": {

@@ -399,6 +399,7 @@
   "pinboxListingStatusSoldOut": "Tükendi",
   "pinboxListingStatusExpired": "Süresi doldu",
   "pinboxListingStatusRejected": "Reddedildi",
+  "pinboxListingStatusNeedsRevision": "Düzeltme gerekiyor",
   "pinboxSoldCountLabel": "{sold}/{total} satıldı",
   "@pinboxSoldCountLabel": {
     "placeholders": {

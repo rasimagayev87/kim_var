@@ -46,6 +46,7 @@ export function PinBoxesFilters({ initialSearch, initialStatus }: { initialSearc
         <SelectContent>
           <SelectItem value="all">Hamısı</SelectItem>
           <SelectItem value="pending">Gözləyən</SelectItem>
+          <SelectItem value="needs_revision">Düzəliş tələb olunur</SelectItem>
           <SelectItem value="active">Aktiv</SelectItem>
           <SelectItem value="soldOut">Satılıb</SelectItem>
           <SelectItem value="expired">Vaxtı bitib</SelectItem>

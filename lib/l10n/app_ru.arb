@@ -399,6 +399,7 @@
   "pinboxListingStatusSoldOut": "Распродана",
   "pinboxListingStatusExpired": "Истёк срок",
   "pinboxListingStatusRejected": "Отклонена",
+  "pinboxListingStatusNeedsRevision": "Требуется доработка",
   "pinboxSoldCountLabel": "Продано {sold}/{total}",
   "@pinboxSoldCountLabel": {
     "placeholders": {

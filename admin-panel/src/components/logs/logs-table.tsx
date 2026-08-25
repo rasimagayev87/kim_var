@@ -18,6 +18,7 @@ const ACTION_LABELS: Record<string, string> = {
   "offer.activated": "Təklif aktiv edildi",
   "offer.deactivated": "Təklif deaktiv edildi",
   "pinbox.approved": "PinBox təsdiqləndi",
+  "pinbox.needsRevision": "PinBox düzəlişə göndərildi",
   "pinbox.rejected": "PinBox rədd edildi",
   "user.banned": "İstifadəçi ban edildi",
   "user.unbanned": "Ban aradan qaldırıldı",

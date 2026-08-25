@@ -10,6 +10,7 @@ import type { PinBoxStatus } from "@/lib/data/pinboxes";
 
 const ERROR_MESSAGES: Record<string, string> = {
   forbidden: "Bu əməliyyat üçün icazəniz yoxdur.",
+  "note-required": "Səbəb xanası məcburidir.",
 };
 
 export function PinBoxStatusActions({ id, status }: { id: string; status: PinBoxStatus }) {
@@ -40,14 +41,24 @@ export function PinBoxStatusActions({ id, status }: { id: string; status: PinBox
     return (
       <div className="flex flex-wrap gap-2">
         <Button disabled={pending} onClick={() => apply("active", "PinBox təsdiqləndi.")}>
-          Qəbul et
+          Təsdiq et
         </Button>
+        <ModerationNoteDialog
+          triggerLabel="Düzəlişə göndər"
+          triggerVariant="outline"
+          disabled={pending}
+          title="PinBox-ı düzəlişə göndər"
+          description="Sahibə göstəriləcək bu qeyd olmadan davam etmək mümkün deyil — sahib düzəldib yenidən göndərə bilər."
+          noteRequired
+          submitLabel="Düzəlişə göndər"
+          onSubmit={(note) => applyAsync("needs_revision", "PinBox düzəlişə göndərildi.", note)}
+        />
         <ModerationNoteDialog
           triggerLabel="Rədd et"
           triggerVariant="destructive"
           disabled={pending}
           title="PinBox-ı rədd et"
-          description="Səbəb qeyd etmək opsionaldır — sahibə göstəriləcək."
+          description="Səbəb qeyd etmək opsionaldır — sahibə göstəriləcək. PinBox listinqinin özünün haqqı olmadığı üçün geri qaytarılacaq ödəniş yoxdur."
           noteRequired={false}
           submitLabel="Rədd et"
           submitVariant="destructive"
@@ -55,6 +66,10 @@ export function PinBoxStatusActions({ id, status }: { id: string; status: PinBox
         />
       </div>
     );
+  }
+
+  if (status === "needs_revision") {
+    return <p className="text-sm text-muted-foreground">Sahibin düzəliş edib yenidən göndərməsi gözlənilir.</p>;
   }
 
   if (status === "active") {

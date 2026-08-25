@@ -2334,14 +2334,15 @@ export const resubmitOffer = onCall({ region: "us-central1", enforceAppCheck: fa
 });
 
 /**
- * PinBox equivalent of `resubmitVenue`/`resubmitOffer` — PinBox never
- * had a `needs_revision` flow to begin with (see Faza 0's own audit:
- * no resubmit path existed anywhere for it), so this callable's only
- * job is the new one: an owner editing an already-`active` PinBox
- * re-enters moderation, same "no silent content swap on a live
- * listing" reasoning. No `revisionDeadline`/`paymentId` fields exist
- * on PinBox (no flat listing fee — see `PinBox`'s own doc comment), so
- * there's nothing equivalent to `revertRevisionPayment` to call here.
+ * PinBox equivalent of `resubmitVenue`/`resubmitOffer` — two distinct
+ * callers: `needs_revision` → the admin sent it back with a reason, the
+ * owner fixed it and is resubmitting for review; `active` → an owner
+ * editing an already-live PinBox, which re-enters moderation the same
+ * "no silent content swap on a live listing" way `resubmitVenue`'s
+ * `approved` branch does. No `revisionDeadline`/`paymentId` fields
+ * exist on PinBox (no flat listing fee — see `PinBox`'s own doc
+ * comment), so there's nothing equivalent to `revertRevisionPayment` to
+ * call here.
  */
 export const resubmitPinBox = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
@@ -2356,7 +2357,9 @@ export const resubmitPinBox = onCall({ region: "us-central1", enforceAppCheck: f
     if (!snap.exists) throw new HttpsError("not-found", "PinBox tapılmadı.");
     const data = snap.data()!;
     if (data.ownerId !== uid) throw new HttpsError("permission-denied", "Bu qutunun sahibi deyilsiniz.");
-    if (data.status !== "active") throw new HttpsError("failed-precondition", "not-eligible");
+    if (data.status !== "active" && data.status !== "needs_revision") {
+      throw new HttpsError("failed-precondition", "not-eligible");
+    }
 
     tx.update(ref, {
       status: "pending",

@@ -3,10 +3,13 @@ import "server-only";
 import { getAdminDb } from "@/lib/firebase/admin";
 
 /** Mirrors the literal strings written by the Flutter app's `PinBox.status`
- * (see `lib/features/pinbox/domain/entities/pinbox.dart`) — unlike Offer/
- * Venue, there is no `needs_revision` state: PinBox has no resubmit flow,
- * so moderation is a plain approve/reject decision. */
-export type PinBoxStatus = "pending" | "active" | "soldOut" | "expired" | "rejected";
+ * (see `lib/features/pinbox/domain/entities/pinbox.dart`). `needs_revision`
+ * mirrors Offer/Venue's own moderation shape (owner fixes and resubmits via
+ * `resubmitPinBox`) — unlike those two, there's no `revisionDeadline`/
+ * payment-refund side effect on this one, since a PinBox listing itself
+ * carries no upfront fee to protect (see `setPinBoxStatus`'s own doc
+ * comment). */
+export type PinBoxStatus = "pending" | "active" | "soldOut" | "expired" | "rejected" | "needs_revision";
 export type PinBoxStatusFilter = "all" | PinBoxStatus;
 
 export interface AdminPinBoxRow {
@@ -37,7 +40,11 @@ export interface AdminPinBoxRow {
 const FETCH_LIMIT = 200;
 
 function parseStatus(value: unknown): PinBoxStatus {
-  return value === "active" || value === "soldOut" || value === "expired" || value === "rejected"
+  return value === "active" ||
+    value === "soldOut" ||
+    value === "expired" ||
+    value === "rejected" ||
+    value === "needs_revision"
     ? value
     : "pending";
 }

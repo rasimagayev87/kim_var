@@ -61,9 +61,13 @@ class PinBox with _$PinBox {
     @TimestampConverter() required DateTime pickupWindowStart,
     @TimestampConverter() required DateTime pickupWindowEnd,
 
-    /// 'pending' | 'active' | 'soldOut' | 'expired' | 'rejected' — same
-    /// moderation lifecycle shape as [Offer.status]/[Venue.status];
-    /// only the admin panel's Server Actions may move it off 'pending'.
+    /// 'pending' | 'active' | 'soldOut' | 'expired' | 'rejected' |
+    /// 'needs_revision' — same moderation lifecycle shape as
+    /// [Offer.status]/[Venue.status]; only the admin panel's Server
+    /// Actions may move it off 'pending'. Unlike Offer/Venue there's no
+    /// `revisionDeadline` field — a PinBox listing has no upfront fee
+    /// to protect with an auto-reject/refund clock, so 'needs_revision'
+    /// just waits on the owner's own resubmission via `resubmitPinBox`.
     @Default('pending') String status,
     String? reviewNote,
     String? reviewedBy,

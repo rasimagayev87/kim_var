@@ -18,6 +18,7 @@ export type ModerationAction =
   | "offer.activated"
   | "offer.deactivated"
   | "pinbox.approved"
+  | "pinbox.needsRevision"
   | "pinbox.rejected"
   | "user.banned"
   | "user.unbanned"
