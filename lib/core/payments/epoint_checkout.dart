@@ -79,6 +79,20 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
     Navigator.pop(context, cardResult);
   }
 
+  /// Apple Pay/Google Pay are immediate-action buttons, not a
+  /// select-then-press-"Ödə" row like Card/Saved card — matching
+  /// Apple's own HIG (their button IS the buy button, not a list
+  /// selection) and shaving one tap off a flow that already needs an
+  /// unavoidable extra tap on Epoint's own hosted widget page (Apple's
+  /// ApplePaySession can only start from a genuine user gesture inside
+  /// THAT page's own JS context — nothing on our side can skip that
+  /// one, but this at least removes the one tap that WAS ours to cut).
+  Future<void> _onWalletTap(_Method method) async {
+    if (_confirming) return;
+    setState(() => _selected = method);
+    await _payByWidget();
+  }
+
   Future<void> _payByWidget() async {
     final loc = AppLocalizations.of(context);
     setState(() => _confirming = true);
@@ -217,20 +231,22 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
             if (Platform.isIOS)
               _PaymentMethodCard(
                 selected: _selected == _Method.applePay,
+                loading: _confirming && _selected == _Method.applePay,
                 icon: Icons.apple,
                 iconColor: Colors.black,
                 title: loc.epointApplePayOption,
                 subtitle: loc.epointApplePaySubtitle,
-                onTap: () => setState(() => _selected = _Method.applePay),
+                onTap: () => _onWalletTap(_Method.applePay),
               ),
             if (Platform.isAndroid)
               _PaymentMethodCard(
                 selected: _selected == _Method.googlePay,
+                loading: _confirming && _selected == _Method.googlePay,
                 icon: Icons.g_mobiledata_rounded,
                 iconColor: Colors.black,
                 title: loc.epointGooglePayOption,
                 subtitle: loc.epointGooglePaySubtitle,
-                onTap: () => setState(() => _selected = _Method.googlePay),
+                onTap: () => _onWalletTap(_Method.googlePay),
               ),
             if (savedCards.isNotEmpty)
               _PaymentMethodCard(
@@ -288,6 +304,7 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
 
 class _PaymentMethodCard extends StatelessWidget {
   final bool selected;
+  final bool loading;
   final IconData icon;
   final Color iconColor;
   final String title;
@@ -296,6 +313,7 @@ class _PaymentMethodCard extends StatelessWidget {
 
   const _PaymentMethodCard({
     required this.selected,
+    this.loading = false,
     required this.icon,
     required this.iconColor,
     required this.title,
@@ -339,16 +357,23 @@ class _PaymentMethodCard extends StatelessWidget {
                 ],
               ),
             ),
-            Container(
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: selected ? AppColors.primary : ChatLightColors.inkFaint, width: 2),
-                color: selected ? AppColors.primary : Colors.transparent,
+            if (loading)
+              const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.primary),
+              )
+            else
+              Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(color: selected ? AppColors.primary : ChatLightColors.inkFaint, width: 2),
+                  color: selected ? AppColors.primary : Colors.transparent,
+                ),
+                child: selected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
               ),
-              child: selected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
-            ),
           ],
         ),
       ),
