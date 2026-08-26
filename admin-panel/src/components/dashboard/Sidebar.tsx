@@ -52,6 +52,13 @@ const EXISTING_NAV: {
   { href: "/venues", label: "Məkanlar", icon: Store, permission: "moderateVenues", countKey: "venues" },
   { href: "/payments", label: "Ödənişlər", icon: CreditCard, permission: "moderateVenues", countKey: "payments" },
   {
+    href: "/premium-payments",
+    label: "Premium Biznes Ödənişləri",
+    icon: Sparkles,
+    permission: "moderateVenues",
+    countKey: "premiumPayments",
+  },
+  {
     href: "/pinbox-payouts",
     label: "PinBox öhdəlikləri",
     icon: CreditCard,

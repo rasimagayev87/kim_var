@@ -27,6 +27,7 @@ const TYPE_LABELS: Record<string, string> = {
   offer_listing: "Təklif elanı (köhnə)",
   offer_placement_fee: "Təklif yerləşdirmə haqqı",
   boost_fee: "Təklifi önə çəkmə",
+  venue_premium: "Premium biznes ödənişi",
   pinbox_order: "PinBox sifarişi",
 };
 

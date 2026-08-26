@@ -29,6 +29,16 @@ export interface AdminPaymentRow {
   status: PaymentStatus;
   createdAt: string | null;
   updatedAt: string | null;
+  /** Only set for `type: "venue_premium"` rows — the tier purchased
+   * (1/6/12), from `payments.premiumMonths` (functions/src/index.ts'
+   * `createVenuePremiumCheckout`). */
+  premiumMonths: number | null;
+  /** Only set for `type: "venue_premium"` rows — the venue's CURRENT
+   * `premiumExpiresAt` (not this specific payment's own contribution;
+   * a renewal purchased before expiry extends the existing date, see
+   * `applyPaymentOutcome`'s `venue_premium` branch, so this always
+   * reflects where the venue's premium period stands NOW). */
+  venuePremiumExpiresAt: string | null;
 }
 
 const FETCH_LIMIT = 200;
@@ -57,14 +67,27 @@ function parseListingType(value: unknown): ListingType | null {
  * listing payments — distinguished by `listingType`, resolved against
  * whichever of `venues`/`offers` it points at for display.
  */
-export async function listPayments({ status }: { status: PaymentStatusFilter }): Promise<AdminPaymentRow[]> {
+export async function listPayments({
+  status,
+  type,
+}: {
+  status: PaymentStatusFilter;
+  /** Narrows to one `payments.type` value (e.g. "venue_premium") —
+   * filtered in-memory over the already-fetched page rather than a
+   * second Firestore `where`, so this never needs its own composite
+   * index alongside the existing `status` + `orderBy(createdAt)` one.
+   * Fine at this payment volume; revisit with a real query if
+   * `FETCH_LIMIT` ever stops covering a full day of traffic. */
+  type?: string;
+}): Promise<AdminPaymentRow[]> {
   const db = getAdminDb();
   let query: FirebaseFirestore.Query = db.collection("payments");
   if (status !== "all") {
     query = query.where("status", "==", status);
   }
 
-  const snap = await query.orderBy("createdAt", "desc").limit(FETCH_LIMIT).get();
+  const snap0 = await query.orderBy("createdAt", "desc").limit(FETCH_LIMIT).get();
+  const snap = type ? { docs: snap0.docs.filter((doc) => doc.data().type === type) } : snap0;
 
   const ownerIds = [...new Set(snap.docs.map((doc) => doc.data().ownerId as string))];
   const venueIds = [
@@ -105,6 +128,10 @@ export async function listPayments({ status }: { status: PaymentStatusFilter }):
           : null;
     const createdAt = data.createdAt as FirebaseFirestore.Timestamp | undefined;
     const updatedAt = data.updatedAt as FirebaseFirestore.Timestamp | undefined;
+    const venuePremiumExpiresAt =
+      data.type === "venue_premium" && listingType === "venue" && listingId
+        ? (venueById.get(listingId)?.premiumExpiresAt as FirebaseFirestore.Timestamp | undefined)
+        : undefined;
     return {
       id: doc.id,
       ownerId: data.ownerId as string,
@@ -119,6 +146,8 @@ export async function listPayments({ status }: { status: PaymentStatusFilter }):
       status: parseStatus(data.status),
       createdAt: createdAt ? createdAt.toDate().toISOString() : null,
       updatedAt: updatedAt ? updatedAt.toDate().toISOString() : null,
+      premiumMonths: (data.premiumMonths as number | undefined) ?? null,
+      venuePremiumExpiresAt: venuePremiumExpiresAt ? venuePremiumExpiresAt.toDate().toISOString() : null,
     };
   });
 }

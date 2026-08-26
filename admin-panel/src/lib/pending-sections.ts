@@ -16,12 +16,14 @@ export interface PendingCounts {
   reviewReports: number;
   payments: number;
   pinboxPayouts: number;
+  premiumPayments: number;
 }
 
 export const PENDING_SECTION_META: { key: keyof PendingCounts; label: string; href: string }[] = [
   { key: "identityVerifications", label: "Kimlik doğrulama", href: "/identity-verifications" },
   { key: "venues", label: "Məkanlar", href: "/venues" },
   { key: "payments", label: "Ödənişlər", href: "/payments" },
+  { key: "premiumPayments", label: "Premium Biznes Ödənişləri", href: "/premium-payments" },
   { key: "pinboxPayouts", label: "PinBox öhdəlikləri", href: "/pinbox-payouts" },
   { key: "offers", label: "Təkliflər", href: "/offers" },
   { key: "pinboxes", label: "PinBox", href: "/pinboxes" },

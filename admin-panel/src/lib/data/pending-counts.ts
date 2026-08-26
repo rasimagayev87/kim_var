@@ -30,6 +30,14 @@ export { PENDING_SECTION_META } from "@/lib/pending-sections";
  * this badge has to match that or it never reflects what the admin
  * just resolved.
  *
+ * `premiumPayments` is a different kind of badge entirely — a
+ * successful "Məkanı premium et" payment needs NO admin action (unlike
+ * every other count here, which really is a queue), so there's no
+ * status to filter on. It counts `venue_premium` payments completed in
+ * the last 24 hours instead — a "what's new" indicator, not a
+ * to-do-list count. Resets to 0 on its own as those payments age past
+ * 24 hours, with nothing for an admin to "clear."
+ *
  * The `PendingCounts` shape and `PENDING_SECTION_META` display labels
  * live in `@/lib/pending-sections` (no `"server-only"`) so client
  * components like `NotificationBell` can import them without pulling
@@ -38,19 +46,37 @@ export { PENDING_SECTION_META } from "@/lib/pending-sections";
  */
 export async function getPendingCounts(): Promise<PendingCounts> {
   const db = getAdminDb();
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-  const [venuesSnap, offersSnap, pinboxesSnap, identitySnap, reportsSnap, eventReportsSnap, reviewReportsSnap, paymentsSnap, pinboxPayoutsSnap] =
-    await Promise.all([
-      db.collection("venues").where("status", "==", "pending").count().get(),
-      db.collection("offers").where("status", "==", "pending").count().get(),
-      db.collection("pinboxes").where("status", "==", "pending").count().get(),
-      db.collection("identityVerifications").where("status", "==", "pending").count().get(),
-      db.collection("reports").where("status", "==", "pending").count().get(),
-      db.collection("eventReports").where("status", "==", "open").count().get(),
-      db.collection("reviewReports").where("status", "==", "pending").count().get(),
-      db.collection("payments").where("status", "==", "refund_pending").count().get(),
-      db.collection("venuePayouts").where("status", "==", "pending").count().get(),
-    ]);
+  const [
+    venuesSnap,
+    offersSnap,
+    pinboxesSnap,
+    identitySnap,
+    reportsSnap,
+    eventReportsSnap,
+    reviewReportsSnap,
+    paymentsSnap,
+    pinboxPayoutsSnap,
+    premiumPaymentsSnap,
+  ] = await Promise.all([
+    db.collection("venues").where("status", "==", "pending").count().get(),
+    db.collection("offers").where("status", "==", "pending").count().get(),
+    db.collection("pinboxes").where("status", "==", "pending").count().get(),
+    db.collection("identityVerifications").where("status", "==", "pending").count().get(),
+    db.collection("reports").where("status", "==", "pending").count().get(),
+    db.collection("eventReports").where("status", "==", "open").count().get(),
+    db.collection("reviewReports").where("status", "==", "pending").count().get(),
+    db.collection("payments").where("status", "==", "refund_pending").count().get(),
+    db.collection("venuePayouts").where("status", "==", "pending").count().get(),
+    db
+      .collection("payments")
+      .where("type", "==", "venue_premium")
+      .where("status", "==", "completed")
+      .where("createdAt", ">=", oneDayAgo)
+      .count()
+      .get(),
+  ]);
 
   return {
     venues: venuesSnap.data().count,
@@ -62,5 +88,6 @@ export async function getPendingCounts(): Promise<PendingCounts> {
     reviewReports: reviewReportsSnap.data().count,
     payments: paymentsSnap.data().count,
     pinboxPayouts: pinboxPayoutsSnap.data().count,
+    premiumPayments: premiumPaymentsSnap.data().count,
   };
 }
