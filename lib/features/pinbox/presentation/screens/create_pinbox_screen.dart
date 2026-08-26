@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_cropper/image_cropper.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
@@ -76,7 +77,10 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      checkLostPhotoOnResume((file) => setState(() => _photo = file));
+      checkLostPhotoOnResume(
+        (file) => setState(() => _photo = file),
+        aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+      );
     }
   }
 
@@ -295,7 +299,10 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                   existingUrl: widget.existingPinBox?.imageUrl,
                   hasError: _fieldErrors.contains(PinBoxFieldError.photo),
                   label: loc.pinboxPhotoLabel,
-                  onPick: () => pickPhoto((file) => setState(() => _photo = file)),
+                  onPick: () => pickPhoto(
+                    (file) => setState(() => _photo = file),
+                    aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1),
+                  ),
                   onRemove: () => setState(() => _photo = null),
                 ),
                 const SizedBox(height: AppSpacing.xxl),

@@ -9,12 +9,9 @@ import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_spacing.dart';
 
-/// Reusable "tap to add a photo" tile — extracted from Create Venue's
-/// and Create Offer's own near-identical private picker widgets so a
-/// 3rd near-duplicate (PinBox, Faza 5) doesn't repeat it a 4th time.
-/// Venue/Offer keep their own existing private widgets untouched (no
-/// risk to already-working screens); only new screens need to reach
-/// for this one.
+/// Reusable "tap to add a photo" tile — shared by Create Venue, Create
+/// Offer, Create Event, and PinBox, all of which also share
+/// [PhotoPickerMixin] below for the pick/crop logic itself.
 class MediaPhotoPicker extends StatelessWidget {
   final File? file;
   final String? existingUrl;
@@ -92,13 +89,23 @@ class MediaPhotoPicker extends StatelessWidget {
   }
 }
 
-/// Pick-from-gallery-or-camera → crop → deliver a [File] — the shared
-/// "hardest part" of Create Venue/Offer/PinBox's photo flow, iOS
+/// Pick-from-gallery-or-camera → view original → crop (locked to the
+/// caller's [aspectRatio], matching wherever the result is actually
+/// displayed — see each call site) → deliver a [File]. The shared
+/// "hardest part" of Create Venue/Offer/Event/PinBox's photo flow, iOS
 /// lost-data recovery included. Mix into any `State<T> with
 /// WidgetsBindingObserver` and call [checkLostPhotoOnResume] from
 /// `didChangeAppLifecycleState`.
 mixin PhotoPickerMixin<T extends StatefulWidget> on State<T> {
-  Future<void> pickPhoto(ValueChanged<File> onPicked) async {
+  /// The [aspectRatio] locked crop this delivers MUST match whatever
+  /// fixed-size box the caller actually displays the result in
+  /// (`BoxFit.cover`) — a free-form crop doesn't give the user a
+  /// WYSIWYG result, it just moves the surprise to display time, where
+  /// the exact same box re-crops whatever ratio they picked. Confirmed
+  /// against every current display site: venue/offer/event covers all
+  /// render in a fixed-height, full-width box (~16:9 on typical phone
+  /// widths); PinBox always renders as a 1:1 square thumbnail.
+  Future<void> pickPhoto(ValueChanged<File> onPicked, {required CropAspectRatio aspectRatio}) async {
     final loc = AppLocalizations.of(context);
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
@@ -151,21 +158,29 @@ mixin PhotoPickerMixin<T extends StatefulWidget> on State<T> {
     // create_venue_screen.dart/create_offer_screen.dart's own pickers.
     if (source == ImageSource.camera) await Future.delayed(const Duration(milliseconds: 600));
     if (!mounted) return;
-    await _cropAndDeliver(picked, onPicked);
+
+    final proceed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => _OriginalPhotoPreviewScreen(imagePath: picked.path), fullscreenDialog: true),
+    );
+    if (proceed != true || !mounted) return;
+
+    await _cropAndDeliver(picked, onPicked, aspectRatio);
   }
 
-  Future<void> checkLostPhotoOnResume(ValueChanged<File> onPicked) async {
+  Future<void> checkLostPhotoOnResume(ValueChanged<File> onPicked, {required CropAspectRatio aspectRatio}) async {
     final response = await ImagePicker().retrieveLostData();
     if (response.isEmpty || response.file == null || !mounted) return;
-    await _cropAndDeliver(response.file!, onPicked);
+    await _cropAndDeliver(response.file!, onPicked, aspectRatio);
   }
 
-  Future<void> _cropAndDeliver(XFile picked, ValueChanged<File> onPicked) async {
+  Future<void> _cropAndDeliver(XFile picked, ValueChanged<File> onPicked, CropAspectRatio aspectRatio) async {
     final loc = AppLocalizations.of(context);
     final cropped = await ImageCropper().cropImage(
       sourcePath: picked.path,
       maxWidth: 1600,
       maxHeight: 1600,
+      aspectRatio: aspectRatio,
       compressFormat: ImageCompressFormat.jpg,
       compressQuality: 85,
       uiSettings: [
@@ -175,11 +190,72 @@ mixin PhotoPickerMixin<T extends StatefulWidget> on State<T> {
           toolbarWidgetColor: ChatLightColors.contourLine,
           activeControlsWidgetColor: AppColors.primary,
           backgroundColor: Colors.transparent,
-          lockAspectRatio: false,
+          lockAspectRatio: true,
         ),
-        IOSUiSettings(title: loc.venuePhotoCropTitle, aspectRatioLockEnabled: false),
+        IOSUiSettings(
+          title: loc.venuePhotoCropTitle,
+          aspectRatioLockEnabled: true,
+          resetAspectRatioEnabled: false,
+          aspectRatioPickerButtonHidden: true,
+        ),
       ],
     );
     if (cropped != null && mounted) onPicked(File(cropped.path));
+  }
+}
+
+/// Full-size, pinch-zoomable view of the JUST-PICKED original photo,
+/// shown before the (aspect-ratio-locked) crop step — lets the user
+/// see exactly what they're about to crop from, satisfying "view the
+/// original before confirming" without needing to modify
+/// `image_cropper`'s own native crop UI (a platform modal we can't
+/// inject a custom button into).
+class _OriginalPhotoPreviewScreen extends StatelessWidget {
+  final String imagePath;
+
+  const _OriginalPhotoPreviewScreen({required this.imagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        leading: IconButton(
+          onPressed: () => Navigator.pop(context, false),
+          icon: const Icon(Icons.close_rounded),
+        ),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 1,
+          maxScale: 4,
+          child: Image.file(File(imagePath)),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        child: SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.onAccent,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(
+              loc.photoPreviewContinueButton,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.onAccent),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

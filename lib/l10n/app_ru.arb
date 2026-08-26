@@ -448,6 +448,7 @@
   "venueCategorySearchHint": "Поиск категории...",
   "venueCategoryChangeHint": "Нажмите, чтобы изменить",
   "venuePhotoCropTitle": "Обрезать фото",
+  "photoPreviewContinueButton": "Продолжить",
   "venueUploadingLabel": "Загрузка...",
   "venueUploadCancelButton": "Отмена",
   "venueDirectionsGoogleMaps": "Google Maps",

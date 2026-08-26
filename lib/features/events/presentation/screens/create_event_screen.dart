@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_cropper/image_cropper.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/app_image.dart';
+import '../../../../core/widgets/media_photo_picker.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
@@ -43,7 +43,13 @@ class CreateEventScreen extends ConsumerStatefulWidget {
   ConsumerState<CreateEventScreen> createState() => _CreateEventScreenState();
 }
 
-class _CreateEventScreenState extends ConsumerState<CreateEventScreen> with WidgetsBindingObserver {
+class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
+    with WidgetsBindingObserver, PhotoPickerMixin<CreateEventScreen> {
+  // 16:9 — matches `event_details_screen.dart`'s fixed-height cover
+  // box (not the old 4:3 this replaces, which is what caused a
+  // portrait poster to lose most of its height right at upload time).
+  static const _coverAspectRatio = CropAspectRatio(ratioX: 16, ratioY: 9);
+
   late final _titleController = TextEditingController(text: widget.existingEvent?.title ?? '');
   late final _descriptionController = TextEditingController(text: widget.existingEvent?.description ?? '');
   File? _coverImage;
@@ -72,70 +78,13 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen> with Widg
   // same recovery via image_picker's documented `retrieveLostData()`.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _checkLostCoverImage();
+    if (state == AppLifecycleState.resumed) {
+      checkLostPhotoOnResume((file) => setState(() => _coverImage = file), aspectRatio: _coverAspectRatio);
+    }
   }
 
-  Future<void> _checkLostCoverImage() async {
-    final response = await ImagePicker().retrieveLostData();
-    if (response.isEmpty || response.file == null || !mounted) return;
-    await _cropAndSetCover(response.file!);
-  }
-
-  Future<void> _pickCoverImage() async {
-    final loc = AppLocalizations.of(context);
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
-      builder: (sheetContext) => SafeArea(
-        top: false,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: AppSpacing.sm),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined, color: AppColors.primary),
-              title: Text(loc.venuePhotoGalleryOption),
-              onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt_outlined, color: AppColors.primary),
-              title: Text(loc.venuePhotoCameraOption),
-              onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-          ],
-        ),
-      ),
-    );
-    if (source == null || !mounted) return;
-
-    final picked = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 85);
-    if (picked == null || !mounted) return;
-    // See the identical comment in create_venue_screen.dart's own
-    // `_pickPhoto` — camera's native dismissal race with the cropper's
-    // own presentation, gallery doesn't hit it.
-    if (source == ImageSource.camera) await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    await _cropAndSetCover(picked);
-  }
-
-  Future<void> _cropAndSetCover(XFile picked) async {
-    final cropped = await ImageCropper().cropImage(
-      sourcePath: picked.path,
-      maxWidth: 1600,
-      maxHeight: 1200,
-      aspectRatio: const CropAspectRatio(ratioX: 4, ratioY: 3),
-      compressFormat: ImageCompressFormat.jpg,
-      compressQuality: 85,
-      uiSettings: [
-        AndroidUiSettings(toolbarColor: AppColors.primary, activeControlsWidgetColor: AppColors.primary),
-        IOSUiSettings(aspectRatioLockEnabled: true),
-      ],
-    );
-    if (cropped == null || !mounted) return;
-    setState(() => _coverImage = File(cropped.path));
-  }
+  Future<void> _pickCoverImage() =>
+      pickPhoto((file) => setState(() => _coverImage = file), aspectRatio: _coverAspectRatio);
 
   Future<void> _pickDateTime({required bool isStart}) async {
     final now = DateTime.now();

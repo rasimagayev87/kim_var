@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_cropper/image_cropper.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
+import '../../../../core/widgets/media_photo_picker.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/widgets/country_dial_code.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
@@ -36,7 +36,10 @@ class CreateVenueScreen extends ConsumerStatefulWidget {
   ConsumerState<CreateVenueScreen> createState() => _CreateVenueScreenState();
 }
 
-class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with WidgetsBindingObserver {
+class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
+    with WidgetsBindingObserver, PhotoPickerMixin<CreateVenueScreen> {
+  static const _photoAspectRatio = CropAspectRatio(ratioX: 16, ratioY: 9);
+
   late final _nameController = TextEditingController(
     text: widget.existingVenue?.name ?? '',
   );
@@ -114,13 +117,9 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
   // across that memory reclaim, it just loses the pending Future.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) _checkLostPhoto();
-  }
-
-  Future<void> _checkLostPhoto() async {
-    final response = await ImagePicker().retrieveLostData();
-    if (response.isEmpty || response.file == null || !mounted) return;
-    await _cropAndSetPhoto(response.file!);
+    if (state == AppLifecycleState.resumed) {
+      checkLostPhotoOnResume((file) => setState(() => _photo = file), aspectRatio: _photoAspectRatio);
+    }
   }
 
   /// Trims each field and treats a blank result as "not provided" —
@@ -193,125 +192,8 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
     }
   }
 
-  Future<void> _pickPhoto() async {
-    final loc = AppLocalizations.of(context);
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppRadii.sheet),
-        ),
-      ),
-      builder: (sheetContext) {
-        return Container(
-          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
-          child: SafeArea(
-          top: false,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: AppSpacing.sm),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    loc.venuePhotoSheetTitle,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: ChatLightColors.ink,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              ListTile(
-                leading: const Icon(
-                  Icons.photo_library_outlined,
-                  color: AppColors.primary,
-                ),
-                title: Text(
-                  loc.venuePhotoGalleryOption,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: ChatLightColors.ink,
-                  ),
-                ),
-                onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.camera_alt_outlined,
-                  color: AppColors.primary,
-                ),
-                title: Text(
-                  loc.venuePhotoCameraOption,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    color: ChatLightColors.ink,
-                  ),
-                ),
-                onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-            ],
-          ),
-          ),
-        );
-      },
-    );
-    if (source == null || !mounted) return;
-
-    final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: source,
-      maxWidth: 1600,
-      imageQuality: 85,
-    );
-    if (picked == null || !mounted) return;
-    // The camera's own native view controller is still mid-dismissal
-    // when `pickImage` resolves on iOS — presenting the cropper's own
-    // native UI immediately after can silently fail (a UIKit
-    // constraint: can't present while a presentation/dismissal is
-    // still in flight). Gallery dismisses fast enough this race never
-    // shows; camera (heavier, post-capture processing) reliably hits
-    // it. A short delay only for the camera path lets that dismissal
-    // finish first.
-    if (source == ImageSource.camera) await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    await _cropAndSetPhoto(picked);
-  }
-
-  Future<void> _cropAndSetPhoto(XFile picked) async {
-    final loc = AppLocalizations.of(context);
-    final cropped = await ImageCropper().cropImage(
-      sourcePath: picked.path,
-      maxWidth: 1600,
-      maxHeight: 1600,
-      compressFormat: ImageCompressFormat.jpg,
-      compressQuality: 85,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: loc.venuePhotoCropTitle,
-          toolbarColor: AppColors.primary,
-          toolbarWidgetColor: ChatLightColors.contourLine,
-          activeControlsWidgetColor: AppColors.primary,
-          backgroundColor: Colors.transparent,
-          lockAspectRatio: false,
-        ),
-        IOSUiSettings(
-          title: loc.venuePhotoCropTitle,
-          aspectRatioLockEnabled: false,
-        ),
-      ],
-    );
-    // A null result means the user cancelled the crop step — keep
-    // whatever photo was already selected (or none) rather than
-    // silently discarding a prior pick.
-    if (cropped != null && mounted) setState(() => _photo = File(cropped.path));
-  }
+  Future<void> _pickPhoto() =>
+      pickPhoto((file) => setState(() => _photo = file), aspectRatio: _photoAspectRatio);
 
   Future<void> _submit() async {
     if (!mounted) return;
