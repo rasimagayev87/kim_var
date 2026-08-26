@@ -272,7 +272,21 @@ service cloud.firestore {
     // `status` field at all and is treated as `accepted` everywhere
     // that reads it (client and rules alike).
     match /follows/{followId} {
-      allow read: if request.auth != null;
+      // A followers-of-B list query returns docs with `followeeId==B`
+      // (gate on B's own privacy); a following-of-A list query returns
+      // docs with `followerId==A` (gate on A's). Granting on EITHER
+      // side being public/accepted-followed is correct, not a leak —
+      // it's "you may see this edge if you have legitimate access to
+      // either list it could appear on", same reasoning `canReadPost`
+      // above already uses for one resource instead of two.
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.followerId ||
+        request.auth.uid == resource.data.followeeId ||
+        get(/databases/$(database)/documents/users/$(resource.data.followeeId)).data.get('accountPrivacy', 'public') != 'private' ||
+        get(/databases/$(database)/documents/users/$(resource.data.followerId)).data.get('accountPrivacy', 'public') != 'private' ||
+        isAcceptedFollower(request.auth.uid, resource.data.followeeId) ||
+        isAcceptedFollower(request.auth.uid, resource.data.followerId)
+      );
 
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.followerId &&
@@ -290,12 +304,12 @@ service cloud.firestore {
 
       // The follower can always remove the edge (unfollow an accepted
       // one, or cancel their own still-pending request). The followee
-      // may ALSO delete it, but only while it's still pending
-      // (declining the request) — once accepted, only the follower may
-      // remove it, same as before.
+      // may ALSO delete it regardless of status — a still-pending one
+      // (declining the request) or an already-accepted one ("Çıxart",
+      // removing a follower).
       allow delete: if request.auth != null && (
         request.auth.uid == resource.data.followerId ||
-        (request.auth.uid == resource.data.followeeId && resource.data.status == 'pending')
+        request.auth.uid == resource.data.followeeId
       );
     }
 

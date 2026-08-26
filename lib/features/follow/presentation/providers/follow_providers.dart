@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../data/repositories/firebase_follow_repository.dart';
+import '../../domain/entities/follow_edge.dart';
 import '../../domain/repositories/follow_repository.dart';
 
 final followRepositoryProvider = Provider<FollowRepository>((ref) => FirebaseFollowRepository());
@@ -111,6 +112,121 @@ class FollowController {
       return false;
     }
   }
+
+  /// "Çıxart" — [otherUid] stops being one of the SIGNED-IN user's
+  /// followers. [otherUid] here is the FOLLOWER being removed, not
+  /// someone the signed-in user follows.
+  Future<bool> removeFollower(String otherUid) async {
+    final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
+    if (myUid == null) return false;
+    try {
+      await _ref.read(followRepositoryProvider).removeFollower(followerId: otherUid, followeeId: myUid);
+      return true;
+    } catch (e, st) {
+      logError('follow_providers.removeFollower', e, st);
+      return false;
+    }
+  }
 }
 
 final followControllerProvider = Provider<FollowController>((ref) => FollowController(ref));
+
+/// One page of a followers/following list — [items] newest-edge-first,
+/// [hasMore] driven by "did the last page come back full" (same
+/// heuristic `NotificationListController` uses). [hasError] surfaces a
+/// failed fetch (e.g. a transient network drop) as a distinct empty
+/// state rather than leaving the screen spinning forever.
+class FollowListState {
+  final List<FollowEdge> items;
+  final bool initialLoading;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final bool hasError;
+
+  const FollowListState({
+    this.items = const [],
+    this.initialLoading = true,
+    this.isLoadingMore = false,
+    this.hasMore = true,
+    this.hasError = false,
+  });
+
+  FollowListState copyWith({
+    List<FollowEdge>? items,
+    bool? initialLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+    bool? hasError,
+  }) {
+    return FollowListState(
+      items: items ?? this.items,
+      initialLoading: initialLoading ?? this.initialLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      hasError: hasError ?? this.hasError,
+    );
+  }
+}
+
+/// One class serving both the Followers and Following tabs of
+/// `FollowListScreen` — which list it pages through is decided
+/// entirely by the [fetchPage] closure it's constructed with (see
+/// `followersListControllerProvider`/`followingListControllerProvider`
+/// below), so the pagination logic itself isn't duplicated per tab.
+class FollowListController extends StateNotifier<FollowListState> {
+  FollowListController(this._fetchPage) : super(const FollowListState()) {
+    _loadFirstPage();
+  }
+
+  static const _pageSize = 30;
+  final Future<List<FollowEdge>> Function({DateTime? startAfter, int limit}) _fetchPage;
+
+  Future<void> _loadFirstPage() async {
+    try {
+      final page = await _fetchPage(limit: _pageSize);
+      state = FollowListState(items: page, initialLoading: false, hasMore: page.length == _pageSize);
+    } catch (e, st) {
+      logError('FollowListController._loadFirstPage', e, st);
+      state = const FollowListState(initialLoading: false, hasMore: false, hasError: true);
+    }
+  }
+
+  Future<void> loadMore() async {
+    if (state.initialLoading || state.isLoadingMore || !state.hasMore || state.items.isEmpty) return;
+    state = state.copyWith(isLoadingMore: true);
+    try {
+      final page = await _fetchPage(startAfter: state.items.last.createdAt, limit: _pageSize);
+      state = state.copyWith(
+        items: [...state.items, ...page],
+        isLoadingMore: false,
+        hasMore: page.length == _pageSize,
+      );
+    } catch (e, st) {
+      logError('FollowListController.loadMore', e, st);
+      // Leave the already-loaded items in place; just stop trying to
+      // page further so the list doesn't retry-loop against whatever
+      // just failed.
+      state = state.copyWith(isLoadingMore: false, hasMore: false);
+    }
+  }
+
+  /// Drops [uid] from the currently-shown page right after a
+  /// successful remove-follower/unfollow on OWN list — a real
+  /// server-side re-fetch would show the same result, this just
+  /// avoids the round-trip.
+  void removeLocally(String uid) {
+    state = state.copyWith(items: state.items.where((e) => e.uid != uid).toList());
+  }
+}
+
+final followersListControllerProvider =
+    StateNotifierProvider.autoDispose.family<FollowListController, FollowListState, String>((ref, uid) {
+  final repo = ref.watch(followRepositoryProvider);
+  return FollowListController(({startAfter, limit = 30}) => repo.fetchFollowersPage(uid, startAfter: startAfter, limit: limit));
+});
+
+final followingListControllerProvider =
+    StateNotifierProvider.autoDispose.family<FollowListController, FollowListState, String>((ref, uid) {
+  final repo = ref.watch(followRepositoryProvider);
+  return FollowListController(({startAfter, limit = 30}) => repo.fetchFollowingPage(uid, startAfter: startAfter, limit: limit));
+});

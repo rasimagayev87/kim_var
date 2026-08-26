@@ -13,6 +13,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../follow/presentation/providers/follow_providers.dart';
+import '../../../follow/presentation/screens/follow_list_screen.dart';
 import '../../../post_share/domain/entities/post.dart';
 import '../../../post_share/presentation/providers/post_providers.dart';
 import '../../../post_share/presentation/widgets/post_capture_sheet.dart';
@@ -257,6 +258,18 @@ class ProfileTab extends ConsumerWidget {
                                 ? 0
                                 : ref.watch(userTotalPostLikesProvider(myUid)),
                             loc: loc,
+                            onTapFollowing: myUid == null
+                                ? null
+                                : () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => FollowListScreen(uid: myUid, initialTabIndex: 1)),
+                                    ),
+                            onTapFollowers: myUid == null
+                                ? null
+                                : () => Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (_) => FollowListScreen(uid: myUid)),
+                                    ),
                           ),
                           const SizedBox(height: 8),
                         ],

@@ -1220,6 +1220,17 @@
   "followRequestAcceptButton": "Accept",
   "followRequestDeclineButton": "Decline",
   "followErrorMessage": "Something went wrong. Please try again shortly.",
+  "followersTabTitle": "Followers",
+  "followingTabTitle": "Following",
+  "followerRemoveButton": "Remove",
+  "followerRemoveConfirmMessage": "Are you sure you want to remove this follower?",
+  "unfollowButton": "Unfollow",
+  "unfollowConfirmMessage": "Stop following {name}?",
+  "@unfollowConfirmMessage": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "followListEmptyFollowers": "No followers yet",
+  "followListEmptyFollowing": "Not following anyone yet",
   "avatarMenuViewPhoto": "View photo",
   "avatarMenuViewStatus": "View status",
   "profileStatsFollowing": "Following",

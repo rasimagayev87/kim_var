@@ -28,6 +28,8 @@ class ProfileStatsRow extends StatelessWidget {
   final int followers;
   final int likes;
   final AppLocalizations loc;
+  final VoidCallback? onTapFollowing;
+  final VoidCallback? onTapFollowers;
 
   const ProfileStatsRow({
     super.key,
@@ -35,6 +37,8 @@ class ProfileStatsRow extends StatelessWidget {
     required this.followers,
     required this.likes,
     required this.loc,
+    this.onTapFollowing,
+    this.onTapFollowers,
   });
 
   @override
@@ -46,6 +50,7 @@ class ProfileStatsRow extends StatelessWidget {
             child: _StatColumn(
               count: following,
               label: loc.profileStatsFollowing,
+              onTap: onTapFollowing,
             ),
           ),
           const _StatDivider(),
@@ -53,6 +58,7 @@ class ProfileStatsRow extends StatelessWidget {
             child: _StatColumn(
               count: followers,
               label: loc.profileStatsFollowers,
+              onTap: onTapFollowers,
             ),
           ),
           const _StatDivider(),
@@ -80,12 +86,13 @@ class _StatDivider extends StatelessWidget {
 class _StatColumn extends StatelessWidget {
   final int count;
   final String label;
+  final VoidCallback? onTap;
 
-  const _StatColumn({required this.count, required this.label});
+  const _StatColumn({required this.count, required this.label, this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final column = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         TweenAnimationBuilder<int>(
@@ -113,6 +120,13 @@ class _StatColumn extends StatelessWidget {
         ),
       ],
     );
+
+    if (onTap == null) return column;
+    // No padding here on purpose — this must render at EXACTLY the
+    // same size as the non-tappable [likes] column beside it inside
+    // `ProfileStatsRow`'s `IntrinsicHeight`, or the two would end up
+    // different heights and throw the row's vertical centering off.
+    return InkWell(borderRadius: BorderRadius.circular(8), onTap: onTap, child: column);
   }
 }
 

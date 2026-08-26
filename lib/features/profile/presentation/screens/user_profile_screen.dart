@@ -13,6 +13,8 @@ import '../../../chat/presentation/providers/chat_providers.dart';
 import '../../../chat/presentation/screens/chat_conversation_screen.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../follow/presentation/providers/follow_providers.dart';
+import '../../../follow/presentation/screens/follow_list_screen.dart';
+import '../../../follow/presentation/widgets/follow_action_button.dart';
 import '../../../home/presentation/tabs/profile_tab.dart';
 import '../../../location/presentation/providers/presence_provider.dart';
 import '../../../post_share/presentation/providers/post_providers.dart';
@@ -168,6 +170,14 @@ class UserProfileScreen extends ConsumerWidget {
                         followers: followersCount,
                         likes: likesCount,
                         loc: loc,
+                        onTapFollowing: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => FollowListScreen(uid: uid, initialTabIndex: 1)),
+                        ),
+                        onTapFollowers: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => FollowListScreen(uid: uid)),
+                        ),
                       ),
                       const SizedBox(height: 16),
                       _ProfileActionRow(
@@ -477,7 +487,7 @@ class _ProfileActionRow extends ConsumerWidget {
     final incomingRequest = ref.watch(incomingFollowRequestProvider(otherUid)).valueOrNull ?? false;
 
     final messageButton = Expanded(
-      child: _ProfileActionButton(
+      child: ProfileActionButton(
         label: loc.sendMessageButton,
         tonal: true,
         onPressed: () async {
@@ -496,7 +506,7 @@ class _ProfileActionRow extends ConsumerWidget {
       return Row(
         children: [
           Expanded(
-            child: _ProfileActionButton(
+            child: ProfileActionButton(
               label: loc.followRequestAcceptButton,
               tonal: false,
               onPressed: () async {
@@ -509,7 +519,7 @@ class _ProfileActionRow extends ConsumerWidget {
           ),
           const SizedBox(width: 8),
           Expanded(
-            child: _ProfileActionButton(
+            child: ProfileActionButton(
               label: loc.followRequestDeclineButton,
               tonal: true,
               onPressed: () async {
@@ -528,96 +538,10 @@ class _ProfileActionRow extends ConsumerWidget {
 
     return Row(
       children: [
-        Expanded(child: _FollowButton(otherUid: otherUid)),
+        Expanded(child: FollowButton(otherUid: otherUid, displayName: displayName)),
         const SizedBox(width: 10),
         messageButton,
       ],
-    );
-  }
-}
-
-/// Follow button with 3 states: not following ("Takip et"), a
-/// still-pending request the SIGNED-IN user themselves sent
-/// ("İstək göndərildi" — disabled, tapping again does nothing until
-/// the followee decides), and following ("Takipdə"). Which of the
-/// first two a fresh tap produces depends on [otherUid]'s own
-/// `AccountPrivacy` — see [FollowController.toggleFollow].
-class _FollowButton extends ConsumerWidget {
-  final String otherUid;
-
-  const _FollowButton({required this.otherUid});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final loc = AppLocalizations.of(context);
-    final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
-    if (myUid == null) return const SizedBox.shrink();
-
-    final isFollowing = ref.watch(isFollowingProvider(otherUid)).valueOrNull ?? false;
-    final isPending = ref.watch(isPendingFollowRequestProvider(otherUid)).valueOrNull ?? false;
-    final privacy = ref.watch(otherUserPrivacySettingsProvider(otherUid)).valueOrNull ?? const PrivacySettings();
-
-    final label = isFollowing
-        ? loc.followingButton
-        : isPending
-            ? loc.followRequestSentLabel
-            : loc.followButton;
-
-    return _ProfileActionButton(
-      label: label,
-      tonal: isFollowing || isPending,
-      onPressed: isPending
-          ? null
-          : () async {
-              if (!context.mounted) return;
-              final success = await ref.read(followControllerProvider).toggleFollow(
-                    otherUid: otherUid,
-                    isCurrentlyFollowing: isFollowing,
-                    isCurrentlyPending: isPending,
-                    otherAccountIsPrivate: privacy.accountPrivacy == AccountPrivacy.private,
-                  );
-              if (!success && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.followErrorMessage)));
-              }
-            },
-    );
-  }
-}
-
-/// Thin, minimal (no icon) pill button for the Takip et/Mesaj yaz pair
-/// — `tonal: false` is the solid app-accent fill (Takip et before
-/// following); `tonal: true` is the same pale accent-tinted wash used
-/// for Mesaj yaz and for Takip et once already following.
-class _ProfileActionButton extends StatelessWidget {
-  final String label;
-  final bool tonal;
-  final VoidCallback? onPressed;
-
-  const _ProfileActionButton({required this.label, required this.tonal, required this.onPressed});
-
-  @override
-  Widget build(BuildContext context) {
-    final background = tonal ? AppColors.primary.withValues(alpha: 0.12) : AppColors.primary;
-    final foreground = tonal ? AppColors.primary : AppColors.onAccent;
-
-    return Material(
-      color: background,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onPressed,
-        child: Container(
-          height: 42,
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.manrope(fontSize: 13.5, fontWeight: FontWeight.w600, color: foreground),
-          ),
-        ),
-      ),
     );
   }
 }

@@ -1106,6 +1106,17 @@
   "followRequestAcceptButton": "Принять",
   "followRequestDeclineButton": "Отклонить",
   "followErrorMessage": "Что-то пошло не так. Попробуйте позже.",
+  "followersTabTitle": "Подписчики",
+  "followingTabTitle": "Подписки",
+  "followerRemoveButton": "Удалить",
+  "followerRemoveConfirmMessage": "Вы уверены, что хотите удалить этого подписчика?",
+  "unfollowButton": "Отписаться",
+  "unfollowConfirmMessage": "Отписаться от {name}?",
+  "@unfollowConfirmMessage": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "followListEmptyFollowers": "Пока нет подписчиков",
+  "followListEmptyFollowing": "Пока ни на кого не подписан(а)",
   "avatarMenuViewPhoto": "Посмотреть фото",
   "avatarMenuViewStatus": "Посмотреть статус",
   "profileStatsFollowing": "Подписки",

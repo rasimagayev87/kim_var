@@ -1,3 +1,5 @@
+import '../entities/follow_edge.dart';
+
 /// A one-directional social-graph edge — distinct from `friends`
 /// (mutual, request/accept), which already exists elsewhere in this
 /// app. Following a `public` account is instant; following a
@@ -46,4 +48,17 @@ abstract class FollowRepository {
   /// The followee rejects [followerId]'s pending request — removes the
   /// doc outright (a fresh request later just creates a new one).
   Future<void> declineFollowRequest({required String followerId, required String followeeId});
+
+  /// One page of [uid]'s ACCEPTED followers, newest edge first —
+  /// [startAfter] cursors off the previous page's last [FollowEdge.createdAt].
+  Future<List<FollowEdge>> fetchFollowersPage(String uid, {DateTime? startAfter, int limit = 30});
+
+  /// One page of accounts [uid] ACCEPTED-follows, newest edge first.
+  Future<List<FollowEdge>> fetchFollowingPage(String uid, {DateTime? startAfter, int limit = 30});
+
+  /// The followee removes an already-accepted follower — same
+  /// underlying delete as [unfollow]/[declineFollowRequest], kept as
+  /// its own method since the app-level intent ("Çıxart") differs from
+  /// either of those.
+  Future<void> removeFollower({required String followerId, required String followeeId});
 }

@@ -1106,6 +1106,17 @@
   "followRequestAcceptButton": "Kabul et",
   "followRequestDeclineButton": "Reddet",
   "followErrorMessage": "Bir şeyler ters gitti. Lütfen daha sonra tekrar deneyin.",
+  "followersTabTitle": "Takipçiler",
+  "followingTabTitle": "Takip edilenler",
+  "followerRemoveButton": "Kaldır",
+  "followerRemoveConfirmMessage": "Bu takipçiyi kaldırmak istediğinizden emin misiniz?",
+  "unfollowButton": "Takibi bırak",
+  "unfollowConfirmMessage": "{name} takibini bırakmak istiyor musunuz?",
+  "@unfollowConfirmMessage": {
+    "placeholders": { "name": { "type": "String" } }
+  },
+  "followListEmptyFollowers": "Henüz takipçi yok",
+  "followListEmptyFollowing": "Henüz kimse takip edilmiyor",
   "avatarMenuViewPhoto": "Fotoğrafı görüntüle",
   "avatarMenuViewStatus": "Durumu görüntüle",
   "profileStatsFollowing": "Takip",

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../domain/entities/follow_edge.dart';
 import '../../domain/repositories/follow_repository.dart';
 
 class FirebaseFollowRepository implements FollowRepository {
@@ -78,5 +79,40 @@ class FirebaseFollowRepository implements FollowRepository {
   @override
   Future<void> declineFollowRequest({required String followerId, required String followeeId}) {
     return _follows.doc(_docId(followerId, followeeId)).delete();
+  }
+
+  @override
+  Future<void> removeFollower({required String followerId, required String followeeId}) {
+    return _follows.doc(_docId(followerId, followeeId)).delete();
+  }
+
+  @override
+  Future<List<FollowEdge>> fetchFollowersPage(String uid, {DateTime? startAfter, int limit = 30}) {
+    return _fetchPage(matchField: 'followeeId', matchUid: uid, otherField: 'followerId', startAfter: startAfter, limit: limit);
+  }
+
+  @override
+  Future<List<FollowEdge>> fetchFollowingPage(String uid, {DateTime? startAfter, int limit = 30}) {
+    return _fetchPage(matchField: 'followerId', matchUid: uid, otherField: 'followeeId', startAfter: startAfter, limit: limit);
+  }
+
+  Future<List<FollowEdge>> _fetchPage({
+    required String matchField,
+    required String matchUid,
+    required String otherField,
+    DateTime? startAfter,
+    required int limit,
+  }) async {
+    var query = _follows.where(matchField, isEqualTo: matchUid).orderBy('createdAt', descending: true);
+    if (startAfter != null) query = query.startAfter([Timestamp.fromDate(startAfter)]);
+
+    final snap = await query.limit(limit).get();
+    return snap.docs.where((d) => _isAccepted(d.data())).map((d) {
+      final data = d.data();
+      return FollowEdge(
+        uid: data[otherField] as String,
+        createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      );
+    }).toList();
   }
 }
