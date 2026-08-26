@@ -53,6 +53,21 @@ void main() async {
       // go stale/mismatch the way App Attest's can.
       appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
     );
+    // activate() only registers the token provider — it does NOT mean
+    // a token is actually cached yet. The real first fetch is a
+    // network round-trip to Apple/Google's attestation servers, and
+    // SplashScreen's very first frame already triggers a Firestore
+    // read for a returning user (AuthController._restore() →
+    // FirebaseAuthRepository._hydrateFromFirestore, users/{uid}.get())
+    // with nothing in between to wait for that token. Force-fetching
+    // here closes that race window. Bounded by a timeout and
+    // swallowed on failure, same fail-open philosophy as activate()
+    // itself above — a slow/unreachable attestation service must
+    // never be the reason the app can't open.
+    await FirebaseAppCheck.instance.getToken().timeout(
+      const Duration(seconds: 5),
+      onTimeout: () => null,
+    );
   } catch (_) {
     // Best-effort, see above — swallow and continue without App Check.
   }
