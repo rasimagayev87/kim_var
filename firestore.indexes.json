@@ -12,6 +12,24 @@
       "collectionGroup": "payments",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "venues",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isPremium", "order": "ASCENDING" },
+        { "fieldPath": "premiumExpiryReminderSent", "order": "ASCENDING" },
+        { "fieldPath": "premiumExpiresAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "listingType", "order": "ASCENDING" },
         { "fieldPath": "listingId", "order": "ASCENDING" },
         { "fieldPath": "type", "order": "ASCENDING" },

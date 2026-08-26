@@ -58,7 +58,7 @@ export async function getPendingCounts(): Promise<PendingCounts> {
     reviewReportsSnap,
     paymentsSnap,
     pinboxPayoutsSnap,
-    premiumPaymentsSnap,
+    premiumPaymentsCount,
   ] = await Promise.all([
     db.collection("venues").where("status", "==", "pending").count().get(),
     db.collection("offers").where("status", "==", "pending").count().get(),
@@ -69,13 +69,24 @@ export async function getPendingCounts(): Promise<PendingCounts> {
     db.collection("reviewReports").where("status", "==", "pending").count().get(),
     db.collection("payments").where("status", "==", "refund_pending").count().get(),
     db.collection("venuePayouts").where("status", "==", "pending").count().get(),
+    // This 3-field query (type + status + createdAt range) needs its
+    // own Firestore composite index, unlike every other query above
+    // (each a single equality filter). Caught separately so a missing
+    // or still-building index degrades to "0" instead of a rejected
+    // Promise.all taking down every protected page's layout — this ran
+    // production down once already before this try/catch existed.
     db
       .collection("payments")
       .where("type", "==", "venue_premium")
       .where("status", "==", "completed")
       .where("createdAt", ">=", oneDayAgo)
       .count()
-      .get(),
+      .get()
+      .then((snap) => snap.data().count)
+      .catch((error) => {
+        console.error("getPendingCounts: premiumPayments query failed (missing/building index?)", error);
+        return 0;
+      }),
   ]);
 
   return {
@@ -88,6 +99,6 @@ export async function getPendingCounts(): Promise<PendingCounts> {
     reviewReports: reviewReportsSnap.data().count,
     payments: paymentsSnap.data().count,
     pinboxPayouts: pinboxPayoutsSnap.data().count,
-    premiumPayments: premiumPaymentsSnap.data().count,
+    premiumPayments: premiumPaymentsCount,
   };
 }
