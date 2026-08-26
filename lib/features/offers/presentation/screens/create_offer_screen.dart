@@ -250,7 +250,9 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
       backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
       builder: (sheetContext) {
-        return SafeArea(
+        return Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
+          child: SafeArea(
           top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -279,6 +281,7 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
               ),
               const SizedBox(height: AppSpacing.sm),
             ],
+          ),
           ),
         );
       },
@@ -489,7 +492,7 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen> with Widg
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.transparent.withValues(alpha: 0.92),
+        backgroundColor: AppColors.backgroundDark.withValues(alpha: 0.92),
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,

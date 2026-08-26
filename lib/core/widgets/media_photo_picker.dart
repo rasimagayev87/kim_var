@@ -105,7 +105,9 @@ mixin PhotoPickerMixin<T extends StatefulWidget> on State<T> {
       backgroundColor: Colors.transparent,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
       builder: (sheetContext) {
-        return SafeArea(
+        return Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
+          child: SafeArea(
           top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -134,6 +136,7 @@ mixin PhotoPickerMixin<T extends StatefulWidget> on State<T> {
               ),
               const SizedBox(height: AppSpacing.sm),
             ],
+          ),
           ),
         );
       },

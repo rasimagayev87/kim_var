@@ -271,7 +271,7 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.transparent.withValues(alpha: 0.92),
+        backgroundColor: AppColors.backgroundDark.withValues(alpha: 0.92),
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,

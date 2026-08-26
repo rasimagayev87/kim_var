@@ -204,7 +204,9 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
         ),
       ),
       builder: (sheetContext) {
-        return SafeArea(
+        return Container(
+          decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
+          child: SafeArea(
           top: false,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -255,6 +257,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
               ),
               const SizedBox(height: AppSpacing.sm),
             ],
+          ),
           ),
         );
       },
@@ -471,7 +474,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen> with Widg
     return Scaffold(
       backgroundColor: Colors.transparent,
       appBar: AppBar(
-        backgroundColor: Colors.transparent.withValues(alpha: 0.92),
+        backgroundColor: AppColors.backgroundDark.withValues(alpha: 0.92),
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
@@ -1323,7 +1326,9 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
         )
         .toList();
 
-    return SafeArea(
+    return Container(
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      child: SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
@@ -1460,6 +1465,7 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

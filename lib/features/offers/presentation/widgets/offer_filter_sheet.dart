@@ -44,7 +44,9 @@ class _OfferFilterSheetState extends State<OfferFilterSheet> {
         .where((c) => query.isEmpty || venueCategoryLabel(loc, c).toLowerCase().contains(query))
         .toList();
 
-    return SafeArea(
+    return Container(
+      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      child: SafeArea(
       top: false,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
@@ -122,6 +124,7 @@ class _OfferFilterSheetState extends State<OfferFilterSheet> {
             ),
           ],
         ),
+      ),
       ),
     );
   }
