@@ -690,6 +690,8 @@
   "epointCardSubtitle": "Visa, Mastercard, and other cards",
   "epointApplePayOption": "Apple Pay",
   "epointApplePaySubtitle": "Fast, secure payment with a tap",
+  "epointGooglePayOption": "Google Pay",
+  "epointGooglePaySubtitle": "Fast, secure payment with a tap",
   "epointCheckoutSecurityNote": "256-bit SSL Secure Payment",
   "epointCheckoutPayButton": "Pay {amount} AZN",
   "@epointCheckoutPayButton": {

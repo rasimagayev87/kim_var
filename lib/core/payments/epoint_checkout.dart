@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
-import 'package:pay/pay.dart';
 
 import '../../features/chat/presentation/theme/chat_light_theme.dart';
 import '../../l10n/app_localizations.dart';
@@ -16,7 +15,10 @@ import 'epoint_token_widget_screen.dart';
 /// `retryOfferPayment`/`retryVenueSubscriptionPayment`, all of which
 /// return `{checkoutUrl, feeAmount, paymentId}`) opens from. Shows
 /// "Kart ilə ödə" always, plus Apple Pay on iOS or Google Pay on
-/// Android — never both, since a device only ever has one of them.
+/// Android — both go through Epoint's own hosted "Token Widget"
+/// (`createEpointWidgetCheckout`), which serves either wallet under
+/// EPOINT's own merchant accounts, so neither platform needs any
+/// merchant registration on PeakPin's side.
 /// Whichever method the owner picks, the actual payment confirmation
 /// always flows back through the SAME `epointWebhook`
 /// (functions/src/index.ts) — this function only ever gets the owner
@@ -43,7 +45,7 @@ Future<void> presentEpointCheckout(
   await Navigator.push(context, MaterialPageRoute(builder: (_) => EpointPaymentResultScreen(success: cardResult)));
 }
 
-enum _Method { card, applePay }
+enum _Method { card, applePay, googlePay }
 
 class _EpointCheckoutSheet extends StatefulWidget {
   final String checkoutUrl;
@@ -69,12 +71,12 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
     Navigator.pop(context, cardResult);
   }
 
-  Future<void> _payByApplePay() async {
+  Future<void> _payByWidget() async {
     final loc = AppLocalizations.of(context);
     setState(() => _confirming = true);
     try {
       final result = await FirebaseFunctions.instance
-          .httpsCallable('createApplePayCheckout')
+          .httpsCallable('createEpointWidgetCheckout')
           .call<Map<String, dynamic>>({'paymentId': widget.paymentId});
       final widgetUrl = result.data['widgetUrl'] as String;
       if (!mounted) return;
@@ -93,26 +95,8 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
       case _Method.card:
         await _payByCard();
       case _Method.applePay:
-        await _payByApplePay();
-    }
-  }
-
-  Future<void> _onGooglePayResult(Map<String, dynamic> paymentResult) async {
-    final loc = AppLocalizations.of(context);
-    setState(() => _confirming = true);
-    try {
-      final token = paymentResult['paymentMethodData']?['tokenizationData']?['token'] as String?;
-      if (token == null) throw StateError('missing Google Pay token');
-      await FirebaseFunctions.instance.httpsCallable('submitGooglePayToken').call<Map<String, dynamic>>({
-        'paymentId': widget.paymentId,
-        'googlePayToken': token,
-      });
-      if (!mounted) return;
-      Navigator.pop(context);
-    } catch (_) {
-      if (!mounted) return;
-      setState(() => _confirming = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
+      case _Method.googlePay:
+        await _payByWidget();
     }
   }
 
@@ -170,6 +154,15 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
                 subtitle: loc.epointApplePaySubtitle,
                 onTap: () => setState(() => _selected = _Method.applePay),
               ),
+            if (Platform.isAndroid)
+              _PaymentMethodCard(
+                selected: _selected == _Method.googlePay,
+                icon: Icons.g_mobiledata_rounded,
+                iconColor: Colors.black,
+                title: loc.epointGooglePayOption,
+                subtitle: loc.epointGooglePaySubtitle,
+                onTap: () => setState(() => _selected = _Method.googlePay),
+              ),
             const SizedBox(height: 2),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -207,10 +200,6 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
                       ),
               ),
             ),
-            if (Platform.isAndroid) ...[
-              const SizedBox(height: 10),
-              _GooglePayTile(feeAmount: widget.feeAmount, onResult: _onGooglePayResult),
-            ],
             const SizedBox(height: 8),
           ],
         ),
@@ -285,39 +274,6 @@ class _PaymentMethodCard extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Wraps the `pay` package's own `GooglePayButton` — kept in its own
-/// bordered row rather than folded into [_PaymentMethodCard]'s
-/// select-then-confirm flow because, per Google's own brand
-/// guidelines, it must render its OFFICIAL button (its own tap IS the
-/// payment action) rather than a reskinned selectable tile.
-class _GooglePayTile extends StatelessWidget {
-  final double feeAmount;
-  final ValueChanged<Map<String, dynamic>> onResult;
-
-  const _GooglePayTile({required this.feeAmount, required this.onResult});
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<PaymentConfiguration>(
-      future: PaymentConfiguration.fromAsset('assets/payments/google_pay_config.json'),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) return const SizedBox.shrink();
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: GooglePayButton(
-            paymentConfiguration: snapshot.data!,
-            paymentItems: [PaymentItem(label: 'PeakPin', amount: feeAmount.toStringAsFixed(2), status: PaymentItemStatus.final_price)],
-            type: GooglePayButtonType.pay,
-            width: double.infinity,
-            onPaymentResult: onResult,
-            loadingIndicator: const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-          ),
-        );
-      },
     );
   }
 }

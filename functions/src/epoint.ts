@@ -103,17 +103,26 @@ export async function createEpointCheckout(req: EpointCheckoutRequest): Promise<
 }
 
 /**
- * Confirmed against Epoint's newer official PHP SDK
- * (github.com/rafoabbas/epoint-php, `WidgetRequest`/`EpointClient
- * ::post`) — `/token/widget` (a path segment, not `/token-widget`),
- * POST with the exact same `data`/`signature` form-urlencoded body
- * every other endpoint in this file uses, not a GET-with-query-params
- * request. The endpoint itself is real (confirmed live: a malformed
- * path here 404s with an HTML page, this one returns real JSON), but
- * as of this project's own merchant account, Epoint rejects it with
+ * Confirmed against Epoint's own official docs page (their
+ * ParamTable/PHP example for this exact endpoint) AND their newer
+ * official PHP SDK (github.com/rafoabbas/epoint-php,
+ * `WidgetRequest`/`EpointClient::post`) — `/token/widget` (a path
+ * segment, not `/token-widget`), POST with the exact same
+ * `data`/`signature` form-urlencoded body every other endpoint in
+ * this file uses (their own docs show a GET with query params, which
+ * 405s in practice — POST is what actually works). Was rejected with
  * `{"status":"error","message":"You don't have access to this
- * operation"}` — Apple/Google Pay needs Epoint to enable it for the
- * account first; nothing about the request itself is wrong.
+ * operation"}` earlier in this project's life; Epoint has since
+ * enabled it for this merchant account (confirmed live: a real
+ * `widget_url` comes back now).
+ *
+ * The returned widget page's own inline HTML/JS (inspected directly)
+ * carries BOTH Apple Pay (ApplePaySession, merchant id
+ * `merchant.az.epoint.applepay`) and Google Pay (Google's Pay JS,
+ * `merchantId: 'BCR2DN4TY3DITOZH'`) buttons — both under EPOINT's own
+ * merchant accounts, not this project's. Nothing needs registering on
+ * PeakPin's side for either platform; the widget shows whichever
+ * button the visiting device/browser actually supports.
  */
 const EPOINT_TOKEN_WIDGET_PATH = "/token/widget";
 

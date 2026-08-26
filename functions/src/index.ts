@@ -4307,13 +4307,12 @@ export const retryOfferPayment = onCall(
  */
 /**
  * The one place that turns a resolved Epoint outcome (success/failure)
- * into the actual Firestore side effects — shared by `epointWebhook`
- * (card checkout AND the Apple Pay/Google Pay token widget, which both
- * resolve through this same webhook) and `submitGooglePayToken`
- * (native Google Pay's synchronous token-submit response). Per this
- * task's own "don't build a second webhook path" requirement: no
- * payment method gets its own copy of this dispatch, only its own way
- * of arriving at `succeeded`.
+ * into the actual Firestore side effects — shared by `epointWebhook`,
+ * which every Epoint-backed payment resolves through regardless of
+ * method (card checkout, or the Apple Pay/Google Pay token widget —
+ * see `createEpointWidgetCheckout`). Per this task's own "don't build
+ * a second webhook path" requirement: no payment method gets its own
+ * copy of this dispatch.
  *
  * Idempotent — returns `false` (no-op) for a payment that's already
  * past `pending`, so a retried webhook delivery or a duplicate token
@@ -4764,15 +4763,30 @@ async function loadOwnedPendingPayment(uid: string, paymentId: string): Promise<
 }
 
 /**
- * Apple Pay — the client asks for a Token Widget URL for a payment it
- * (or `retryOfferPayment`/`retryVenueSubscriptionPayment`/
- * `createBoostCheckout`) already created, then embeds it in a WKWebView
- * (see `EpointTokenWidgetView` in the Flutter app). The customer pays
+ * Apple Pay AND Google Pay — one Token Widget request either way,
+ * confirmed against Epoint's own docs + raw widget HTML (inspected
+ * live): the returned page carries BOTH Apple's ApplePaySession JS
+ * (merchant id `merchant.az.epoint.applepay`) and Google's Pay JS
+ * (`merchantId: 'BCR2DN4TY3DITOZH'`, `gatewayMerchantId:
+ * 'epointpayment_txn001'`) — both under EPOINT's OWN merchant
+ * accounts, not ours, so neither platform needs anything registered
+ * on PeakPin's side (no Apple Merchant ID/domain verification, no
+ * Google Pay `gatewayMerchantId` review). The widget's own JS shows
+ * whichever button the visiting device/browser actually supports; the
+ * client doesn't need to pick one when requesting the URL.
+ *
+ * The client embeds the returned URL in a WKWebView (see
+ * `EpointTokenWidgetScreen` in the Flutter app). The customer pays
  * inside that widget; Epoint reports the result to `epointWebhook`
  * exactly like a card checkout does — this function only ever hands
- * back a URL, it never itself decides success/failure.
+ * back a URL, it never itself decides success/failure. (Formerly
+ * `createApplePayCheckout` — renamed once Google Pay turned out to
+ * go through the exact same request, not a separate native
+ * integration; see the git history for the old
+ * `submitGooglePayToken`/`EPOINT_GOOGLE_PAY_MERCHANT_ID` path this
+ * replaced.)
  */
-export const createApplePayCheckout = onCall(
+export const createEpointWidgetCheckout = onCall(
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
@@ -4791,57 +4805,6 @@ export const createApplePayCheckout = onCall(
     });
 
     return { widgetUrl };
-  },
-);
-
-/**
- * Google Pay — native mobile integration, per Epoint's own docs
- * (developer.epoint.az/token-payment/google-pay), is NOT the widget:
- * the app itself shows Google's native Pay sheet (Flutter `pay`
- * package) and gets back an encrypted payment token, which this
- * function forwards to Epoint to actually charge. Resolves
- * synchronously (unlike the widget/redirect flows, which wait on
- * `epointWebhook`) — but still finishes through the exact same
- * `applyPaymentOutcome` dispatch, so nothing downstream needs to know
- * which payment method was used.
- *
- * NOT YET FUNCTIONAL: per Epoint's docs, native Google Pay requires
- * them to review screenshots of this app's own Google Pay button and
- * issue a `gatewayMerchantId` before any of this can really charge —
- * until that arrives (see EPOINT_GOOGLE_PAY_MERCHANT_ID below) this
- * throws rather than pretending to succeed.
- */
-const EPOINT_GOOGLE_PAY_MERCHANT_ID = process.env.EPOINT_GOOGLE_PAY_MERCHANT_ID;
-
-export const submitGooglePayToken = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
-  async (request) => {
-    const uid = request.auth?.uid;
-    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
-
-    if (!EPOINT_GOOGLE_PAY_MERCHANT_ID) {
-      throw new HttpsError(
-        "failed-precondition",
-        "Google Pay hələ aktivləşdirilməyib — Epoint-dən gatewayMerchantId gözlənilir.",
-      );
-    }
-
-    const paymentId = request.data?.paymentId as string | undefined;
-    const googlePayToken = request.data?.googlePayToken as string | undefined;
-    if (!paymentId || !googlePayToken) {
-      throw new HttpsError("invalid-argument", "paymentId və googlePayToken tələb olunur.");
-    }
-
-    await loadOwnedPendingPayment(uid, paymentId);
-
-    // TODO: once EPOINT_GOOGLE_PAY_MERCHANT_ID is real, POST googlePayToken
-    // to whatever endpoint Epoint documents for native Google Pay token
-    // submission (not yet public — confirm with Epoint support alongside
-    // the merchant ID itself), then:
-    //   const succeeded = <that response indicates success>;
-    //   await applyPaymentOutcome(paymentId, succeeded);
-    //   return { succeeded };
-    throw new HttpsError("unimplemented", "Google Pay token submission is not wired up yet.");
   },
 );
 

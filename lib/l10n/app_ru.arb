@@ -625,6 +625,8 @@
   "epointCardSubtitle": "Visa, Mastercard и другие карты",
   "epointApplePayOption": "Apple Pay",
   "epointApplePaySubtitle": "Быстрая и безопасная оплата одним касанием",
+  "epointGooglePayOption": "Google Pay",
+  "epointGooglePaySubtitle": "Быстрая и безопасная оплата одним касанием",
   "epointCheckoutSecurityNote": "256-битная SSL защита платежей",
   "epointCheckoutPayButton": "Оплатить {amount} AZN",
   "@epointCheckoutPayButton": {

@@ -625,6 +625,8 @@
   "epointCardSubtitle": "Visa, Mastercard və digər kartlar",
   "epointApplePayOption": "Apple Pay",
   "epointApplePaySubtitle": "Toxunuşla sürətli və təhlükəsiz ödəniş",
+  "epointGooglePayOption": "Google Pay",
+  "epointGooglePaySubtitle": "Toxunuşla sürətli və təhlükəsiz ödəniş",
   "epointCheckoutSecurityNote": "256-bit SSL Təhlükəsiz Ödəniş Sistemi",
   "epointCheckoutPayButton": "{amount} AZN Ödə",
   "@epointCheckoutPayButton": {

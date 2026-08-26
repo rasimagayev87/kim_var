@@ -6,9 +6,11 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../features/chat/presentation/theme/chat_light_theme.dart';
 import '../theme/app_colors.dart';
 
-/// Hosts Epoint's Apple Pay "Token Widget" (see `createApplePayCheckout`,
-/// functions/src/index.ts) — their own hosted iframe/page where the
-/// customer actually completes the Apple Pay sheet. This screen never
+/// Hosts Epoint's Apple Pay/Google Pay "Token Widget" (see
+/// `createEpointWidgetCheckout`, functions/src/index.ts) — their own
+/// hosted iframe/page where the customer actually completes the wallet
+/// sheet (whichever of the two the widget shows for the visiting
+/// device). This screen never
 /// itself decides success/failure: the real confirmation is
 /// `epointWebhook` flipping the underlying `payments` doc, which
 /// whatever screen presented this checkout is already listening to
