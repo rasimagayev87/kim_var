@@ -108,13 +108,6 @@ class NotificationsScreen extends ConsumerWidget {
                     if (!ok && context.mounted) showError();
                   },
                 ),
-                SettingsToggleRow(
-                  icon: Icons.email_outlined,
-                  title: loc.notifEmailTitle,
-                  value: false,
-                  onChanged: null,
-                  badge: SettingsPill(label: loc.notifEmailComingSoonLabel, color: AppColors.textMuted),
-                ),
               ],
             ),
           ],

@@ -363,6 +363,22 @@ bool _isBlockedPair(
 bool _isGhostMode(Map<String, dynamic> data) =>
     data['ghostModeEnabled'] as bool? ?? false;
 
+/// "Görünmə radiusu" — the CANDIDATE's own choice of how far away
+/// they can be discovered, distinct from (and enforced independently
+/// of) the VIEWER's own [DiscoverRadiusSelection]. `country`/`world`
+/// visibility modes mean "no distance cap" (same convention
+/// `discoverRadiusMode` already uses), so only `distance` mode is
+/// checked here. [distanceMeters] is the SAME haversine distance
+/// every call site already computed for its own viewer-radius check —
+/// distance is symmetric, so there's never a need to compute it twice.
+bool _isWithinVisibilityRadius(Map<String, dynamic> data, double distanceMeters) {
+  final mode = data['visibilityRadiusMode'] as String?;
+  if (mode != 'distance') return true;
+  final radiusKm = (data['visibilityRadiusKm'] as num?)?.toDouble();
+  if (radiusKm == null) return true;
+  return distanceMeters <= radiusKm * 1000;
+}
+
 /// Live count of nearby users per radius option, recomputed from the same
 /// real Firestore candidate stream/position [nearbyUsersProvider] uses —
 /// no hardcoded numbers. Also respects the current gender filter, so the
@@ -410,6 +426,7 @@ final radiusUserCountsProvider = Provider<Map<double, int>>((ref) {
       lat,
       lng,
     );
+    if (!_isWithinVisibilityRadius(data, distance)) continue;
 
     for (final km in kRadiusOptionsKm) {
       if (distance <= km * 1000) counts[km] = counts[km]! + 1;
@@ -465,7 +482,7 @@ final venueAudienceCountProvider =
               lat,
               lng,
             );
-            if (distance <= params.radiusKm * 1000) count++;
+            if (distance <= params.radiusKm * 1000 && _isWithinVisibilityRadius(data, distance)) count++;
           }
           return count;
       }
@@ -535,6 +552,7 @@ final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
     if (selection.mode == DiscoverRadiusMode.distance &&
         distance > selection.km! * 1000)
       continue;
+    if (!_isWithinVisibilityRadius(data, distance)) continue;
 
     final gender = data['gender'] as String?;
     if (genderFilter == GenderFilter.male && gender != 'Kişi') continue;

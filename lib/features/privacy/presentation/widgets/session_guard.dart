@@ -35,6 +35,12 @@ class _SessionGuardState extends ConsumerState<SessionGuard> {
   void initState() {
     super.initState();
     _startWatching();
+    // Best-effort, once per app launch — closes the loop on a pending
+    // `verifyBeforeUpdateEmail` confirmation the user may have clicked
+    // since the last time this ran (see `AccountRepository
+    // .syncEmailFromAuth`'s own doc comment for why this can't happen
+    // synchronously at the point the user requests the change).
+    ref.read(accountControllerProvider).syncEmailFromAuth();
   }
 
   Future<void> _startWatching() async {

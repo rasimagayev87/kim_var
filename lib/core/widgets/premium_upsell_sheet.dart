@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../features/premium/presentation/screens/vip_screen.dart';
 import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
-import 'coming_soon_screen.dart';
 
 /// Bottom sheet shown whenever a user without an active Premium
 /// subscription taps a feature gated behind Premium (e.g. a locked map
@@ -78,16 +78,7 @@ class _PremiumUpsellSheet extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ComingSoonScreen(
-                      title: loc.premiumComingSoonTitle,
-                      icon: Icons.workspace_premium_outlined,
-                      message: loc.premiumComingSoonMessage,
-                    ),
-                  ),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (_) => const VipScreen()));
               },
               child: Text(loc.premiumUpgradeButton),
             ),

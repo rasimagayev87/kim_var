@@ -3,16 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_text_styles.dart';
+import '../../../../../core/utils/app_logger.dart';
 import '../../../../../l10n/app_localizations.dart';
+import '../../../../privacy/domain/repositories/account_repository.dart';
 import '../../../../privacy/presentation/providers/privacy_providers.dart';
+import '../../../../privacy/presentation/widgets/reauth_sheet.dart';
 
 final _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
-/// Updates the Firestore-stored `email` field directly — see
-/// `AccountRepository.updateEmail`'s doc comment for why this is a
-/// plain write rather than a Firebase-Auth email-link verification
-/// (this app has no email provider linked and no transactional email
-/// service configured). Pops `true` on success.
+/// Sends a Firebase-Auth confirmation link to the new address (see
+/// `AccountRepository.updateEmail`'s doc comment) — the real sign-in
+/// email only actually changes once the user taps that link, not on
+/// this screen. Pops `true` once the link has been sent successfully.
 class ChangeEmailSheet extends ConsumerStatefulWidget {
   final String? currentEmail;
 
@@ -41,13 +43,25 @@ class _ChangeEmailSheetState extends ConsumerState<ChangeEmailSheet> {
     }
 
     setState(() => _saving = true);
-    final success = await ref.read(accountControllerProvider).updateEmail(email);
-    if (!mounted) return;
-    setState(() => _saving = false);
-
-    if (success) {
+    try {
+      await ref.read(accountControllerProvider).updateEmail(email);
+      if (!mounted) return;
       Navigator.pop(context, true);
-    } else {
+    } on ReauthenticationRequiredException {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      final reauthed = await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: AppColors.surface,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        builder: (_) => const ReauthSheet(),
+      );
+      if (reauthed == true && mounted) await _save();
+    } catch (e, st) {
+      logError('change_email_sheet', e, st);
+      if (!mounted) return;
+      setState(() => _saving = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountErrorMessage)));
     }
   }
@@ -65,6 +79,8 @@ class _ChangeEmailSheetState extends ConsumerState<ChangeEmailSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(loc.accountChangeEmailSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            Text(loc.accountChangeEmailSheetSubtitle, style: AppTextStyles.caption.copyWith(height: 1.4)),
             const SizedBox(height: 16),
             TextField(
               controller: _emailController,

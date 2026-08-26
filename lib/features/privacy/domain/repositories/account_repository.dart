@@ -27,11 +27,13 @@ abstract class AccountRepository {
   /// itself server-side too, as defense-in-depth).
   Future<void> deleteAccount();
 
-  /// Gathers the signed-in user's own `users/{uid}` document into a
-  /// single JSON string. Scoped to just that document for Phase 3 —
-  /// not their messages or events, which involve other people's data
-  /// too and would need a very different (server-side) export pipeline
-  /// to do safely.
+  /// Gathers everything the signed-in user directly owns — profile,
+  /// posts, reviews, payment history, saved cards (masked fields
+  /// only), who they follow/who follows them, and their recent
+  /// notifications — into a single JSON string. Deliberately excludes
+  /// message threads and anything else that inherently involves OTHER
+  /// people's data too; that would need a very different (server-side,
+  /// privacy-reviewed) export pipeline to do safely.
   Future<String> exportUserData();
 
   /// Which provider the signed-in user originally authenticated with —
@@ -68,12 +70,22 @@ abstract class AccountRepository {
   /// came back after tapping the link.
   Stream<void> get emailReauthCompleted;
 
-  /// Updates the Firestore-stored `email` field. NOT a Firebase-Auth
-  /// email credential with a verification link — this app has no
-  /// transactional email service configured to send one through, and
-  /// the account's actual sign-in credential is a synthetic address
-  /// unrelated to this real, user-facing contact email. This is a
-  /// real write, just a plainer one than "send a confirmation link"
-  /// implies.
+  /// Sends a confirmation link to [newEmail] via Firebase Auth
+  /// (`verifyBeforeUpdateEmail`) — the account's real sign-in email
+  /// (Google/Apple/email-link all resolve to a real `user.email`, no
+  /// synthetic address involved) only actually changes once the user
+  /// taps that link, not synchronously here. Checks sign-in freshness
+  /// first and throws [ReauthenticationRequiredException] (same
+  /// contract as [deleteAccount]) if it's too old. The Firestore
+  /// `users/{uid}.email` mirror is deliberately NOT written here — see
+  /// [syncEmailFromAuth], which is what actually closes the loop once
+  /// the link is clicked, possibly in a later session.
   Future<void> updateEmail(String newEmail);
+
+  /// Best-effort: reloads the current Firebase Auth user and, if its
+  /// `.email` has diverged from the stored `users/{uid}.email` (e.g.
+  /// the user clicked an [updateEmail] confirmation link since the
+  /// last time this ran), writes the real value back to Firestore.
+  /// Safe to call on every app launch — a no-op when nothing changed.
+  Future<void> syncEmailFromAuth();
 }

@@ -171,6 +171,23 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     Navigator.pop(context);
   }
 
+  bool get _canSubmit {
+    if (_firstNameController.text.trim().isEmpty) return false;
+    if (_lastNameController.text.trim().isEmpty) return false;
+    if (_birthDate == null) return false;
+
+    final newUsername = _usernameController.text.trim();
+    final usernameChanged = newUsername.toLowerCase() != _originalUsername.toLowerCase();
+    if (usernameChanged &&
+        (newUsername.isEmpty ||
+            _usernameStatus == _UsernameStatus.taken ||
+            _usernameStatus == _UsernameStatus.invalidFormat ||
+            _usernameStatus == _UsernameStatus.checking)) {
+      return false;
+    }
+    return true;
+  }
+
   String? _usernameHelperText(AppLocalizations loc) {
     switch (_usernameStatus) {
       case _UsernameStatus.checking:
@@ -244,6 +261,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               label: loc.fieldFirstNameLabel,
               hint: loc.fieldFirstNameHint,
               icon: Icons.person_outline,
+              onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 16),
             PremiumTextField(
@@ -251,6 +269,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               label: loc.fieldLastNameLabel,
               hint: loc.fieldLastNameHint,
               icon: Icons.person_outline,
+              onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 16),
             GestureDetector(
@@ -298,7 +317,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             PremiumButton(
               label: loc.saveButton,
               loading: _saving,
-              onPressed: _handleSave,
+              onPressed: _canSubmit ? _handleSave : null,
             ),
           ],
         ),

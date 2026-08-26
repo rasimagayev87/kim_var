@@ -223,18 +223,6 @@ class PrivacySecurityScreen extends ConsumerWidget {
                     MaterialPageRoute(builder: (_) => const ActiveDevicesScreen()),
                   ),
                 ),
-                SettingsMenuRow(
-                  icon: Icons.verified_user_outlined,
-                  title: loc.privacyTwoFactorTitle,
-                  subtitle: loc.privacyTwoFactorHelperText,
-                  onTap: () => showModalBottomSheet<void>(
-                    context: context,
-                    isScrollControlled: true,
-                    backgroundColor: AppColors.surface,
-                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-                    builder: (_) => _TwoFactorSheet(currentlyEnabled: settings.twoFactorEnabled),
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 16),

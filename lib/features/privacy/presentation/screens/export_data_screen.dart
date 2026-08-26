@@ -7,12 +7,14 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../providers/privacy_providers.dart';
 
-/// "Məlumatlarımı yüklə" — no export pipeline/new dependency exists for
-/// this yet, so scope for now is: fetch the user's own `users/{uid}`
-/// document, show it as readable JSON, and let them copy it. A real
-/// "send me a downloadable file" flow would need either a new package
-/// (to write+share a file) or a server-side export job — worth
-/// revisiting once this needs to cover more than the profile doc.
+/// "Məlumatlarımı yüklə" — fetches everything `AccountRepository
+/// .exportUserData` gathers (profile, posts, reviews, payment
+/// history, saved cards, follows, notifications) as readable JSON and
+/// lets the user copy it. Deliberately still copy-to-clipboard, not a
+/// downloadable file — that would need either a new package (to
+/// write+share a file) or a server-side export job, worth revisiting
+/// separately; message threads and other cross-user data stay out of
+/// scope entirely, see the repository method's own doc comment.
 class ExportDataScreen extends ConsumerStatefulWidget {
   const ExportDataScreen({super.key});
 

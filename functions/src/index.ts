@@ -252,13 +252,20 @@ export const getDiscoverCandidates = onCall({ region: "us-central1", enforceAppC
     query = query.limit(DISCOVER_WORLD_CANDIDATES_LIMIT);
   }
 
+  const caller = callerSnap.data() ?? {};
+  const viewerLat = caller.lat as number | undefined;
+  const viewerLng = caller.lng as number | undefined;
+  const viewerCountry = caller.country as string | undefined;
+
   const snap = await query.get();
-  const candidates = snap.docs.map((doc) => {
-    const data = doc.data();
-    const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toMillis() : null;
-    const birthDate = data.birthDate instanceof Timestamp ? data.birthDate.toMillis() : null;
-    return { ...data, uid: doc.id, lastSeen, birthDate };
-  });
+  const withUid: FirebaseFirestore.DocumentData[] = snap.docs.map((doc) => ({ ...doc.data(), uid: doc.id }));
+  const candidates = withUid
+    .filter((data) => isWithinTargetVisibilityRadius(data, viewerLat, viewerLng, viewerCountry))
+    .map((data) => {
+      const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toMillis() : null;
+      const birthDate = data.birthDate instanceof Timestamp ? data.birthDate.toMillis() : null;
+      return { ...data, lastSeen, birthDate };
+    });
 
   return { candidates };
 });
@@ -940,6 +947,40 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
  * notifications to nothing — see `discoverRadiusPersistenceProvider`'s
  * own doc comment.
  */
+/**
+ * "Görünmə radiusu" — the CANDIDATE's own choice of how far away they
+ * can be discovered, mirrors [isWithinRecipientDiscoverRadius] exactly
+ * (same missing-data-defaults-unrestricted policy) but swaps
+ * `discoverRadiusMode/Km` (the VIEWER's own setting) for
+ * `visibilityRadiusMode/Km` (the CANDIDATE's own setting) — a
+ * different, independently-enforced privacy control from the viewer's
+ * discover radius, used by `getDiscoverCandidates` below.
+ */
+function isWithinTargetVisibilityRadius(
+  candidateData: FirebaseFirestore.DocumentData,
+  viewerLat: number | undefined,
+  viewerLng: number | undefined,
+  viewerCountry: string | undefined,
+): boolean {
+  const mode = candidateData.visibilityRadiusMode as string | undefined;
+  if (mode === undefined || mode === "world") return true;
+  if (mode === "country") return candidateData.country !== undefined && candidateData.country === viewerCountry;
+
+  const radiusKm = candidateData.visibilityRadiusKm as number | undefined;
+  const candidateLat = candidateData.lat as number | undefined;
+  const candidateLng = candidateData.lng as number | undefined;
+  if (
+    radiusKm === undefined ||
+    candidateLat === undefined ||
+    candidateLng === undefined ||
+    viewerLat === undefined ||
+    viewerLng === undefined
+  ) {
+    return true;
+  }
+  return haversineMeters(viewerLat, viewerLng, candidateLat, candidateLng) <= radiusKm * 1000;
+}
+
 function isWithinRecipientDiscoverRadius(
   userData: FirebaseFirestore.DocumentData,
   venueLat: number | undefined,

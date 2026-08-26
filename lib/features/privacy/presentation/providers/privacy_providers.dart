@@ -204,15 +204,16 @@ class AccountController {
 
   Stream<void> get emailReauthCompleted => _ref.read(accountRepositoryProvider).emailReauthCompleted;
 
-  /// Returns true on success (logged internally on failure).
-  Future<bool> updateEmail(String newEmail) async {
-    try {
-      await _ref.read(accountRepositoryProvider).updateEmail(newEmail);
-      return true;
-    } catch (e, st) {
-      logError('privacy_providers.AccountController.updateEmail', e, st);
-      return false;
-    }
+  /// Sends the confirmation link — see [AccountRepository.updateEmail].
+  /// [ReauthenticationRequiredException] is let through deliberately,
+  /// same reasoning as [deleteAccount] (the caller needs to react to
+  /// it specifically, not treat it as a generic failure).
+  Future<void> updateEmail(String newEmail) {
+    return _ref.read(accountRepositoryProvider).updateEmail(newEmail);
+  }
+
+  Future<void> syncEmailFromAuth() {
+    return _ref.read(accountRepositoryProvider).syncEmailFromAuth();
   }
 }
 

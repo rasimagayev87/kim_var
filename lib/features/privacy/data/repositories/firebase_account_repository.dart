@@ -71,14 +71,62 @@ class FirebaseAccountRepository implements AccountRepository {
     await _auth.signOut();
   }
 
+  /// Notifications are the one collection here that can genuinely grow
+  /// unbounded for an active account — capped to the most recent 200
+  /// (still far more than the in-app feed itself ever pages through at
+  /// once) so this stays a single reasonably-sized read rather than an
+  /// unbounded one; every other collection here is realistically small
+  /// enough not to need a cap.
+  static const _notificationsExportLimit = 200;
+
   @override
   Future<String> exportUserData() async {
     final user = _auth.currentUser;
     if (user == null) throw StateError('İxrac üçün istifadəçi daxil olmayıb.');
+    final uid = user.uid;
 
-    final doc = await _firestore.collection('users').doc(user.uid).get();
-    final data = _sanitizeForJson(doc.data() ?? <String, dynamic>{});
-    return const JsonEncoder.withIndent('  ').convert(data);
+    final results = await Future.wait([
+      _firestore.collection('users').doc(uid).get(),
+      _firestore.collection('posts').where('userId', isEqualTo: uid).get(),
+      _firestore.collection('reviews').where('userId', isEqualTo: uid).get(),
+      _firestore.collection('users').doc(uid).collection('payments').orderBy('createdAt', descending: true).get(),
+      _firestore.collection('savedCards').where('ownerId', isEqualTo: uid).where('status', isEqualTo: 'active').get(),
+      _firestore.collection('follows').where('followerId', isEqualTo: uid).get(),
+      _firestore.collection('follows').where('followeeId', isEqualTo: uid).get(),
+      _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('notifications')
+          .orderBy('createdAt', descending: true)
+          .limit(_notificationsExportLimit)
+          .get(),
+    ]);
+
+    final profileDoc = results[0] as DocumentSnapshot<Map<String, dynamic>>;
+    final postsSnap = results[1] as QuerySnapshot<Map<String, dynamic>>;
+    final reviewsSnap = results[2] as QuerySnapshot<Map<String, dynamic>>;
+    final paymentsSnap = results[3] as QuerySnapshot<Map<String, dynamic>>;
+    final savedCardsSnap = results[4] as QuerySnapshot<Map<String, dynamic>>;
+    final followingSnap = results[5] as QuerySnapshot<Map<String, dynamic>>;
+    final followersSnap = results[6] as QuerySnapshot<Map<String, dynamic>>;
+    final notificationsSnap = results[7] as QuerySnapshot<Map<String, dynamic>>;
+
+    final export = <String, dynamic>{
+      'profile': profileDoc.data() ?? <String, dynamic>{},
+      'posts': postsSnap.docs.map((d) => d.data()).toList(),
+      'reviews': reviewsSnap.docs.map((d) => d.data()).toList(),
+      'paymentHistory': paymentsSnap.docs.map((d) => d.data()).toList(),
+      // Never the real Epoint card token — only what's already shown
+      // in "Kartlarım" itself.
+      'savedCards': savedCardsSnap.docs
+          .map((d) => {'cardMask': d.data()['cardMask'], 'cardBrand': d.data()['cardBrand'], 'isDefault': d.data()['isDefault']})
+          .toList(),
+      'following': followingSnap.docs.map((d) => d.data()['followeeId']).toList(),
+      'followers': followersSnap.docs.map((d) => d.data()['followerId']).toList(),
+      'notifications': notificationsSnap.docs.map((d) => d.data()).toList(),
+    };
+
+    return const JsonEncoder.withIndent('  ').convert(_sanitizeForJson(export));
   }
 
   /// Firestore's `Timestamp`/`GeoPoint` etc. aren't directly
@@ -178,8 +226,45 @@ class FirebaseAccountRepository implements AccountRepository {
     final user = _auth.currentUser;
     if (user == null) throw StateError('E-poçt yeniləmək üçün istifadəçi daxil olmayıb.');
 
+    final lastSignIn = user.metadata.lastSignInTime;
+    final isFresh = lastSignIn != null && DateTime.now().difference(lastSignIn) < _freshSignInWindow;
+    if (!isFresh) {
+      throw const ReauthenticationRequiredException();
+    }
+
+    try {
+      await user.verifyBeforeUpdateEmail(newEmail);
+    } on fb.FirebaseAuthException catch (e) {
+      if (e.code == 'requires-recent-login') {
+        throw const ReauthenticationRequiredException();
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> syncEmailFromAuth() async {
+    final userBefore = _auth.currentUser;
+    if (userBefore == null) return;
+
+    try {
+      await userBefore.reload();
+    } catch (_) {
+      // Best-effort — a transient reload failure just means this run
+      // doesn't catch a pending change; the next app launch will retry.
+      return;
+    }
+
+    final user = _auth.currentUser;
+    final authEmail = user?.email;
+    if (user == null || authEmail == null) return;
+
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    final storedEmail = doc.data()?['email'] as String?;
+    if (storedEmail == authEmail) return;
+
     await _firestore.collection('users').doc(user.uid).set(
-      {'email': newEmail, 'updatedAt': FieldValue.serverTimestamp()},
+      {'email': authEmail, 'updatedAt': FieldValue.serverTimestamp()},
       SetOptions(merge: true),
     );
   }

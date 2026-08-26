@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_image.dart';
+import '../../../../core/widgets/friendly_error_state.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
@@ -45,8 +46,11 @@ class MyOffersScreen extends ConsumerWidget {
           SafeArea(
             child: offersAsync.when(
               loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-              error: (error, _) => Center(
-                child: Text('$error', style: const TextStyle(color: ChatLightColors.inkSoft), textAlign: TextAlign.center),
+              error: (error, stackTrace) => FriendlyErrorState(
+                logContext: 'my_offers_screen.myOffersProvider',
+                error: error,
+                stackTrace: stackTrace,
+                onRetry: () => ref.invalidate(myOffersProvider),
               ),
               data: (allOffers) {
                 // Rejected offers drop out of this list entirely — same
