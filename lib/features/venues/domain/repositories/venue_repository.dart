@@ -49,7 +49,16 @@ abstract class VenueRepository {
     ValueChanged<VoidCallback>? onUploadTaskReady,
   });
 
-  Future<void> updateVenue({
+  /// Edits an existing venue via the `updateVenue` Cloud Function
+  /// (moved server-side so the "does this edit need re-review" diff
+  /// can't be bypassed by a modified client — see that function's own
+  /// doc comment, functions/src/index.ts). Returns whether the edit
+  /// sent the venue back into moderation: true for any changed field
+  /// other than [audienceRadiusMode]/[audienceRadiusKm] on a venue that
+  /// was `needs_revision`/`approved`; false for a radius-only edit
+  /// (applies immediately, no re-review) or a venue that wasn't live
+  /// yet in the first place.
+  Future<bool> updateVenue({
     required String venueId,
     required String name,
     required VenueCategory category,

@@ -496,11 +496,27 @@ service cloud.firestore {
       // sweep), and the admin panel's manual toggle (Admin SDK, bypasses
       // these rules) may set them, so an owner can't self-grant premium
       // status or extend their own expiry by editing their own venue.
+      // `name`/`category`/`lat`/`lng`/`position`/`address`/`country`/
+      // `openingHours`/`socialLinks`/`audienceRadiusMode`/
+      // `audienceRadiusKm`/`birthdayNotificationsEnabled`/`photoUrl` are
+      // blocked too — every real field edit now goes through the
+      // `updateVenue` Cloud Function (functions/src/index.ts), which
+      // diffs old vs. new server-side and decides whether the edit needs
+      // to re-enter moderation (everything does, except a radius-only
+      // change). Blocking these here is what actually makes that
+      // decision tamper-proof — without it, a client could still write
+      // any of these fields directly and simply never call the function
+      // that would otherwise send the venue back for review. The two
+      // remaining legitimate owner-direct-write flows are
+      // `availableSeats`/`seatsUpdatedAt` (the standalone seat-count
+      // sheet) and `firstPaymentAnnouncementPending` (dismissing the
+      // one-time payment-confirmed card) — neither touches moderation-
+      // relevant content, so neither needs to go through the function.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent']);
+          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }

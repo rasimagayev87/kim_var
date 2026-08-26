@@ -2418,6 +2418,112 @@ function revertRevisionPayment(tx: FirebaseFirestore.Transaction, paymentId: str
 }
 
 /**
+ * Venue field edits, moved server-side — replaces the old client-side
+ * `FirebaseVenueRepository.updateVenue` direct Firestore write +
+ * separately-called `resubmitVenue`, which had two problems: nothing
+ * stopped a modified client from writing content directly (firestore
+ * .rules only blocked grant-of-trust fields like `status`, not the
+ * content fields themselves) while simply skipping the `resubmitVenue`
+ * call, and a `resubmitVenue` failure after a successful field write
+ * could leave an edited `approved` venue silently stuck live without
+ * ever re-entering review. Same shape as `submitVenue`: the client
+ * uploads a new photo to Storage first (if any) and passes the
+ * resulting URL here as a plain string, same as `submitVenue` already
+ * does — this function never receives a raw file.
+ *
+ * Re-review is diff-based, not blanket: `needsReReview` is true only
+ * when the venue was already `needs_revision`/`approved` AND something
+ * OTHER than `audienceRadiusMode`/`audienceRadiusKm` actually changed.
+ * A radius-only edit (or a no-op resubmit of unchanged fields) applies
+ * immediately and stays visible — the one deliberate exception to
+ * "every edit of a live venue re-enters moderation", since the live
+ * audience radius has no bearing on what a reviewer approved. Any
+ * other changed field re-enters the venue into `pending` exactly like
+ * `resubmitVenue` used to (same status/reviewNote/reviewedBy/
+ * reviewedAt/revisionDeadline reset, same `revertRevisionPayment`
+ * call) — just atomically, in the same transaction as the field write,
+ * so the two can no longer drift apart.
+ */
+export const updateVenue = onCall(
+  { region: "us-central1", enforceAppCheck: false },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    const data = request.data as Record<string, unknown>;
+    const venueId = data.venueId as string | undefined;
+    const name = (data.name as string | undefined)?.trim();
+    const category = data.category as string | undefined;
+    const photoUrl = data.photoUrl as string | undefined; // only present if a new photo was uploaded
+    const lat = data.lat as number | undefined;
+    const lng = data.lng as number | undefined;
+    const address = (data.address as string | undefined)?.trim();
+    const country = data.country as string | undefined;
+    const openingHours = data.openingHours as Record<string, unknown> | undefined;
+    const socialLinks = data.socialLinks as Record<string, unknown> | undefined;
+    const audienceRadiusMode = (data.audienceRadiusMode as string | undefined) ?? "distance";
+    const audienceRadiusKm = (data.audienceRadiusKm as number | undefined) ?? 1.0;
+    const birthdayNotificationsEnabled = (data.birthdayNotificationsEnabled as boolean | undefined) ?? false;
+
+    if (!venueId || !name || !category || lat === undefined || lng === undefined || !address || !openingHours) {
+      throw new HttpsError("invalid-argument", "Tələb olunan sahələr çatışmır.");
+    }
+
+    const ref = db.collection("venues").doc(venueId);
+    const sentForReReview = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) throw new HttpsError("not-found", "Məkan tapılmadı.");
+      const current = snap.data()!;
+      if (current.ownerId !== uid) throw new HttpsError("permission-denied", "Bu məkanın sahibi deyilsiniz.");
+
+      const currentSocialLinks = (current.socialLinks as Record<string, unknown> | undefined) ?? null;
+      const contentChanged =
+        current.name !== name ||
+        current.category !== category ||
+        (photoUrl !== undefined && current.photoUrl !== photoUrl) ||
+        current.lat !== lat ||
+        current.lng !== lng ||
+        (current.address as string | undefined) !== address ||
+        ((current.country as string | undefined) ?? null) !== (country ?? null) ||
+        JSON.stringify(current.openingHours ?? {}) !== JSON.stringify(openingHours) ||
+        JSON.stringify(currentSocialLinks) !== JSON.stringify(socialLinks ?? null) ||
+        Boolean(current.birthdayNotificationsEnabled) !== birthdayNotificationsEnabled;
+
+      const wasLive = current.status === "needs_revision" || current.status === "approved";
+      const needsReReview = wasLive && contentChanged;
+
+      tx.update(ref, {
+        name,
+        category,
+        lat,
+        lng,
+        position: { geopoint: new GeoPoint(lat, lng), geohash: geohashForLocation([lat, lng], 9) },
+        address,
+        country: country ?? null,
+        openingHours,
+        socialLinks: socialLinks ?? null,
+        audienceRadiusMode,
+        audienceRadiusKm,
+        birthdayNotificationsEnabled,
+        updatedAt: FieldValue.serverTimestamp(),
+        ...(photoUrl !== undefined ? { photoUrl } : {}),
+        ...(needsReReview
+          ? { status: "pending", reviewNote: null, reviewedBy: null, reviewedAt: null, revisionDeadline: null }
+          : {}),
+      });
+
+      if (needsReReview) {
+        revertRevisionPayment(tx, current.paymentId as string | undefined);
+      }
+
+      return needsReReview;
+    });
+
+    return { sentForReReview };
+  },
+);
+
+/**
  * Owner resubmits a venue after editing it — the only way `status` can
  * move back to `pending`, since firestore.rules blocks the owner from
  * writing `status` directly. Client flow: `updateVenue` (normal field
@@ -2433,6 +2539,12 @@ function revertRevisionPayment(tx: FirebaseFirestore.Transaction, paymentId: str
  * Rejects anything else (`pending`/`rejected`) so a stray call can't
  * pull a listing still awaiting its first review, or a rejected one,
  * into 'pending' through this side door.
+ *
+ * No longer called from the venue edit flow (`updateVenue`, above,
+ * folds this same status-flip logic in atomically, gated on an actual
+ * content diff) — kept as a standalone callable in case a future admin
+ * or support flow needs to force a resubmit without going through a
+ * full field edit.
  */
 export const resubmitVenue = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;

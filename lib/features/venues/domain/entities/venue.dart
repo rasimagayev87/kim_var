@@ -462,10 +462,15 @@ class Venue with _$Venue {
     /// from "links exist but this specific one is unset" with one check.
     @VenueSocialLinksConverter() VenueSocialLinks? socialLinks,
 
-    /// 'distance' | 'country' | 'world' — same 3 modes as Discover's own
-    /// `DiscoverRadiusSelection`, just persisted here since the owner
-    /// picks one and it stays fixed, where Discover's version is
-    /// transient per-viewer session state, never saved.
+    /// Distance-only going forward — the create/edit form's picker only
+    /// ever writes 'distance' now (a whole-country/worldwide live
+    /// audience count isn't a meaningful number the way nearby foot
+    /// traffic is). 'country'/'world' remain valid, READ-only values on
+    /// venues that already had them before this change — not force
+    /// -migrated, `venueAudienceCountProvider` still has working
+    /// branches for both. Reused from Discover's own
+    /// `DiscoverRadiusSelection` type purely for the 3-value string
+    /// shape, not because all 3 stay pickable here.
     @Default('distance') String audienceRadiusMode,
 
     /// Only meaningful when [audienceRadiusMode] is 'distance' — radius
@@ -473,8 +478,11 @@ class Venue with _$Venue {
     /// [VenueProfileScreen] scans around [lat]/[lng] for recently-active
     /// `users` docs — see `location_providers.dart`'s
     /// `venueAudienceCountProvider`. Owner-editable from the create/edit
-    /// form (same option set as Discover's own radius picker); defaults
-    /// to 1km since venues have no other stored radius to default from.
+    /// form's 6 fixed distance options (100m/500m/1/5/10/30km) — the
+    /// ONE field edit exempt from re-triggering moderation review, see
+    /// the `updateVenue` Cloud Function's own doc comment
+    /// (functions/src/index.ts); defaults to 1km since venues have no
+    /// other stored radius to default from.
     @Default(1.0) double audienceRadiusKm,
 
     /// Set either by a real Epoint payment (`applyPaymentOutcome`'s

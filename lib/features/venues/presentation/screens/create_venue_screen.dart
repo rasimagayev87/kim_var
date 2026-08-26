@@ -10,7 +10,6 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/media_photo_picker.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../auth/presentation/widgets/country_dial_code.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../domain/entities/venue.dart';
@@ -277,7 +276,14 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
 
     final loc = AppLocalizations.of(context);
 
-    final success = await ref
+    // The `updateVenue` Cloud Function decides atomically, server-side,
+    // whether this edit needs to re-enter moderation — a radius-only
+    // edit (or no real change at all) applies immediately with no
+    // re-review; any other changed field on an already-live venue
+    // moves it back to `pending`, same as before, just without the
+    // separate client-side `resubmitVenue` call this used to need (see
+    // that Cloud Function's own doc comment, functions/src/index.ts).
+    final (:success, :sentForReReview) = await ref
         .read(venueControllerProvider)
         .updateVenue(
           venueId: widget.existingVenue!.id,
@@ -314,22 +320,6 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
           onUploadTaskReady: (cancel) => _cancelUpload = cancel,
         );
 
-    // A needs_revision OR already-approved venue moves back to pending
-    // as a direct consequence of the owner editing it — no separate
-    // "resubmit" step for them to remember, and no way for an owner to
-    // silently swap in different content on a venue that already
-    // cleared review (see `resubmitVenue`'s own doc comment).
-    // Best-effort: the field edit above already succeeded either way,
-    // so a resubmit failure here isn't surfaced as the whole save
-    // failing, just silently left for the next edit (or a manual
-    // retry) to move it back to pending.
-    final wasLiveBeforeEdit = widget.existingVenue?.status == 'needs_revision' || widget.existingVenue?.status == 'approved';
-    if (success && wasLiveBeforeEdit) {
-      await ref
-          .read(venueControllerProvider)
-          .resubmitVenue(widget.existingVenue!.id);
-    }
-
     if (!mounted) return;
     setState(() {
       _submitting = false;
@@ -338,11 +328,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
     });
 
     if (success) {
-      // Only the "was already approved, now back under review" case
-      // gets a notice — needs_revision resubmission and a plain
-      // pending-listing edit both already had no confirmation toast,
-      // and shouldn't gain one just from this change.
-      if (widget.existingVenue?.status == 'approved') {
+      if (sentForReReview) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.venueSentForReReviewNotice)));
       }
       Navigator.pop(context);
@@ -470,7 +456,6 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
                 const SizedBox(height: AppSpacing.md),
                 _AudienceRadiusSelector(
                   value: _audienceRadius,
-                  country: _country,
                   onChanged: (selection) =>
                       setState(() => _audienceRadius = selection),
                 ),
@@ -591,12 +576,10 @@ String _audienceRadiusLabel(double km) => km < 1
 
 class _AudienceRadiusSelector extends StatelessWidget {
   final DiscoverRadiusSelection value;
-  final String? country;
   final ValueChanged<DiscoverRadiusSelection> onChanged;
 
   const _AudienceRadiusSelector({
     required this.value,
-    required this.country,
     required this.onChanged,
   });
 
@@ -628,7 +611,6 @@ class _AudienceRadiusSelector extends StatelessWidget {
             selected: isMoreSelected,
             onTap: () => _showMoreAudienceRadiusSheet(
               context,
-              country: country,
               value: value,
               onSelected: onChanged,
             ),
@@ -681,8 +663,8 @@ class _AudienceRadiusChip extends StatelessWidget {
 
 /// Same pill envelope as [_AudienceRadiusChip], styled as a neutral
 /// trigger (highlighted only when the CURRENT selection lives inside
-/// the sheet it opens — 5/10/30km or country/world — same "is one of
-/// my hidden options active" convention as Discover's own more-button).
+/// the sheet it opens — 5/10/30km — same "is one of my hidden options
+/// active" convention as Discover's own more-button).
 class _AudienceRadiusMoreChip extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
@@ -729,7 +711,6 @@ class _AudienceRadiusMoreChip extends StatelessWidget {
 
 void _showMoreAudienceRadiusSheet(
   BuildContext context, {
-  required String? country,
   required DiscoverRadiusSelection value,
   required ValueChanged<DiscoverRadiusSelection> onSelected,
 }) {
@@ -740,20 +721,23 @@ void _showMoreAudienceRadiusSheet(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
     builder: (_) => _MoreAudienceRadiusPanel(
-      country: country,
       value: value,
       onSelected: onSelected,
     ),
   );
 }
 
+/// Distance-only — venue audience radius deliberately doesn't offer
+/// "Ölkə üzrə"/"Dünya üzrə" the way Discover's own radius picker and
+/// Privacy/Security's visibility-radius picker do (both unrelated,
+/// unaffected by this): a whole-country/worldwide live-audience count
+/// isn't a meaningful number the way a venue's actual nearby foot
+/// traffic is.
 class _MoreAudienceRadiusPanel extends StatelessWidget {
-  final String? country;
   final DiscoverRadiusSelection value;
   final ValueChanged<DiscoverRadiusSelection> onSelected;
 
   const _MoreAudienceRadiusPanel({
-    required this.country,
     required this.value,
     required this.onSelected,
   });
@@ -761,7 +745,6 @@ class _MoreAudienceRadiusPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final countryFlag = flagForCountryName(country);
 
     return SafeArea(
       top: false,
@@ -813,90 +796,6 @@ class _MoreAudienceRadiusPanel extends StatelessWidget {
                   ),
                 ],
               ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _SpecialAudienceRadiusOption(
-                    icon: countryFlag == null ? Icons.flag_outlined : null,
-                    flag: countryFlag,
-                    label: loc.privacyRadiusCountryLabel,
-                    selected: value.mode == DiscoverRadiusMode.country,
-                    onTap: () {
-                      onSelected(const DiscoverRadiusSelection.country());
-                      Navigator.pop(context);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _SpecialAudienceRadiusOption(
-                    icon: Icons.public_outlined,
-                    flag: null,
-                    label: loc.privacyRadiusWorldLabel,
-                    selected: value.mode == DiscoverRadiusMode.world,
-                    onTap: () {
-                      onSelected(const DiscoverRadiusSelection.world());
-                      Navigator.pop(context);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Same pill envelope as [_AudienceRadiusChip] — a flag/globe icon plus
-/// a short label instead of a distance value, backing the Ölkə üzrə/
-/// Dünya üzrə options.
-class _SpecialAudienceRadiusOption extends StatelessWidget {
-  final IconData? icon;
-  final String? flag;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _SpecialAudienceRadiusOption({
-    required this.icon,
-    required this.flag,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = selected ? ChatLightColors.contourLine : ChatLightColors.ink;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: selected ? AppColors.primary : ChatLightColors.composerFill,
-          borderRadius: BorderRadius.circular(AppRadii.button),
-          border: selected ? null : Border.all(color: Colors.black12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (flag != null)
-              Text(flag!, style: const TextStyle(fontSize: 20))
-            else
-              Icon(icon, size: 20, color: color),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
             ),
           ],
         ),

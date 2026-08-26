@@ -133,7 +133,11 @@ class VenueController {
     }
   }
 
-  Future<bool> updateVenue({
+  /// [sentForReReview] reflects the `updateVenue` Cloud Function's own
+  /// diff-based decision (see its doc comment) — false for a
+  /// radius-only edit or a venue that wasn't live yet, so callers can
+  /// tell whether to show a "sent back for review" notice.
+  Future<({bool success, bool sentForReReview})> updateVenue({
     required String venueId,
     required String name,
     required VenueCategory? category,
@@ -154,7 +158,7 @@ class VenueController {
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
     try {
-      await _ref
+      final sentForReReview = await _ref
           .read(updateVenueUseCaseProvider)
           .call(
             venueId: venueId,
@@ -175,14 +179,14 @@ class VenueController {
             onUploadTaskReady: onUploadTaskReady,
           );
       _ref.invalidate(nearbyVenuesProvider);
-      return true;
+      return (success: true, sentForReReview: sentForReReview);
     } on VenueValidationException catch (e) {
       onValidationError(e.missingFields);
-      return false;
+      return (success: false, sentForReReview: false);
     } catch (e, st) {
       logError('venue_providers.updateVenue', e, st);
       onError();
-      return false;
+      return (success: false, sentForReReview: false);
     }
   }
 

@@ -11,7 +11,7 @@ class UpdateVenueUseCase {
 
   final VenueRepository _repository;
 
-  Future<void> call({
+  Future<bool> call({
     required String venueId,
     required String name,
     required VenueCategory? category,

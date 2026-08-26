@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
-import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
 import '../../../../core/utils/firestore_retry.dart';
 import '../../domain/entities/venue.dart';
@@ -78,7 +77,7 @@ class FirebaseVenueRepository implements VenueRepository {
   }
 
   @override
-  Future<void> updateVenue({
+  Future<bool> updateVenue({
     required String venueId,
     required String name,
     required VenueCategory category,
@@ -105,27 +104,23 @@ class FirebaseVenueRepository implements VenueRepository {
       );
     }
 
-    await _datasource.updateVenue(venueId, {
+    final result = await _functions.httpsCallable('updateVenue').call<Map<String, dynamic>>({
+      'venueId': venueId,
       'name': name,
       'category': category.name,
+      if (photoUrl != null) 'photoUrl': photoUrl,
       'lat': lat,
       'lng': lng,
-      kVenueGeoField: GeoFirePoint(GeoPoint(lat, lng)).data,
       'address': address,
-      'country': country,
+      if (country != null) 'country': country,
       'openingHours': openingHours.toMap(),
-      // Always written (even as null) so removing a previously-set
-      // link in the edit form actually clears it — same reasoning as
-      // `country` above, not left out on the empty case.
-      'socialLinks': (socialLinks != null && !socialLinks.isEmpty)
-          ? socialLinks.toMap()
-          : null,
+      if (socialLinks != null && !socialLinks.isEmpty) 'socialLinks': socialLinks.toMap(),
       'audienceRadiusMode': audienceRadiusMode,
       'audienceRadiusKm': audienceRadiusKm,
       'birthdayNotificationsEnabled': birthdayNotificationsEnabled,
-      'updatedAt': FieldValue.serverTimestamp(),
-      if (photoUrl != null) 'photoUrl': photoUrl,
     });
+
+    return result.data['sentForReReview'] as bool;
   }
 
   @override
