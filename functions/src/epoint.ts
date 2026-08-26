@@ -20,11 +20,41 @@
  */
 import { createHash } from "crypto";
 
-const EPOINT_BASE_URL = "https://epoint.az/api/1";
+/**
+ * Epoint has only ever exposed one real API host — no distinct
+ * sandbox/test base URL is documented anywhere, or has ever been
+ * found working against this merchant account (see this file's own
+ * top doc comment on how the signature scheme itself was confirmed:
+ * no public REST reference exists beyond a merchant-portal PDF and a
+ * working PHP SDK, and neither mentions a second environment).
+ * "Environment" here is therefore a fail-safe CONFIRMATION gate, not
+ * a URL switch the way Stripe/PayPal's sandbox-vs-production split
+ * works — `env` must be explicitly `"production"` (the `EPOINT_ENV`
+ * secret) before any real checkout/charge/reverse call is allowed to
+ * run at all. Anything else (unset, a typo, "sandbox" left over from
+ * local dev) throws immediately, before any network request — this
+ * is what actually prevents accidentally processing a real payment
+ * with a not-yet-verified key pair, since the key VALUES themselves
+ * (`EPOINT_PUBLIC_KEY`/`EPOINT_PRIVATE_KEY`) are the only thing that
+ * otherwise distinguishes "test" from "real" money on Epoint's side.
+ */
+function resolveEpointBaseUrl(env: string): string {
+  if (env !== "production") {
+    throw new Error(
+      `EPOINT_ENV must be explicitly "production" to process a real Epoint request (got: ${JSON.stringify(env)}). ` +
+        "This is a deliberate fail-safe, not a real sandbox/production URL switch (Epoint has no separate " +
+        "sandbox host) — set the EPOINT_ENV secret to \"production\" once EPOINT_PUBLIC_KEY/EPOINT_PRIVATE_KEY " +
+        "are confirmed to be real production merchant credentials.",
+    );
+  }
+  return "https://epoint.az/api/1";
+}
 
 export interface EpointCheckoutRequest {
   publicKey: string;
   privateKey: string;
+  /** Must be `"production"` — see [resolveEpointBaseUrl]'s doc comment. */
+  env: string;
   orderId: string;
   amount: number;
   currency?: string;
@@ -42,6 +72,8 @@ export interface EpointCheckoutResult {
 export interface EpointTokenWidgetRequest {
   publicKey: string;
   privateKey: string;
+  /** Must be `"production"` — see [resolveEpointBaseUrl]'s doc comment. */
+  env: string;
   orderId: string;
   amount: number;
   description: string;
@@ -76,6 +108,7 @@ export function decodeEpointData(data: string): Record<string, unknown> {
  * silently leaving a `payments` doc pending forever.
  */
 export async function createEpointCheckout(req: EpointCheckoutRequest): Promise<EpointCheckoutResult> {
+  const baseUrl = resolveEpointBaseUrl(req.env);
   const { data, signature } = signPayload(req.privateKey, {
     public_key: req.publicKey,
     language: req.language ?? "az",
@@ -87,7 +120,7 @@ export async function createEpointCheckout(req: EpointCheckoutRequest): Promise<
     error_redirect_url: req.errorRedirectUrl,
   });
 
-  const response = await fetch(`${EPOINT_BASE_URL}/request`, {
+  const response = await fetch(`${baseUrl}/request`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ data, signature }).toString(),
@@ -134,6 +167,7 @@ const EPOINT_TOKEN_WIDGET_PATH = "/token/widget";
  * with the same order_id/signature.
  */
 export async function createEpointTokenWidget(req: EpointTokenWidgetRequest): Promise<EpointTokenWidgetResult> {
+  const baseUrl = resolveEpointBaseUrl(req.env);
   const { data, signature } = signPayload(req.privateKey, {
     public_key: req.publicKey,
     amount: req.amount.toFixed(2),
@@ -141,7 +175,7 @@ export async function createEpointTokenWidget(req: EpointTokenWidgetRequest): Pr
     description: req.description,
   });
 
-  const response = await fetch(`${EPOINT_BASE_URL}${EPOINT_TOKEN_WIDGET_PATH}`, {
+  const response = await fetch(`${baseUrl}${EPOINT_TOKEN_WIDGET_PATH}`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ data, signature }).toString(),
@@ -158,6 +192,8 @@ export async function createEpointTokenWidget(req: EpointTokenWidgetRequest): Pr
 export interface EpointCardRegistrationRequest {
   publicKey: string;
   privateKey: string;
+  /** Must be `"production"` — see [resolveEpointBaseUrl]'s doc comment. */
+  env: string;
   orderId: string;
   description: string;
   successRedirectUrl: string;
@@ -184,6 +220,7 @@ export interface EpointCardRegistrationResult {
 export async function createEpointCardRegistration(
   req: EpointCardRegistrationRequest,
 ): Promise<EpointCardRegistrationResult> {
+  const baseUrl = resolveEpointBaseUrl(req.env);
   const { data, signature } = signPayload(req.privateKey, {
     public_key: req.publicKey,
     language: req.language ?? "az",
@@ -194,7 +231,7 @@ export async function createEpointCardRegistration(
     error_redirect_url: req.errorRedirectUrl,
   });
 
-  const response = await fetch(`${EPOINT_BASE_URL}/card-registration`, {
+  const response = await fetch(`${baseUrl}/card-registration`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ data, signature }).toString(),
@@ -211,6 +248,8 @@ export async function createEpointCardRegistration(
 export interface EpointSavedCardPaymentRequest {
   publicKey: string;
   privateKey: string;
+  /** Must be `"production"` — see [resolveEpointBaseUrl]'s doc comment. */
+  env: string;
   epointCardId: string;
   amount: number;
   orderId: string;
@@ -234,6 +273,7 @@ export interface EpointSavedCardPaymentResult {
 export async function chargeEpointSavedCard(
   req: EpointSavedCardPaymentRequest,
 ): Promise<EpointSavedCardPaymentResult> {
+  const baseUrl = resolveEpointBaseUrl(req.env);
   const { data, signature } = signPayload(req.privateKey, {
     public_key: req.publicKey,
     language: req.language ?? "az",
@@ -244,7 +284,7 @@ export async function chargeEpointSavedCard(
     description: req.description,
   });
 
-  const response = await fetch(`${EPOINT_BASE_URL}/execute-pay`, {
+  const response = await fetch(`${baseUrl}/execute-pay`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ data, signature }).toString(),
@@ -258,6 +298,8 @@ export async function chargeEpointSavedCard(
 export interface EpointCardStatusRequest {
   publicKey: string;
   privateKey: string;
+  /** Must be `"production"` — see [resolveEpointBaseUrl]'s doc comment. */
+  env: string;
   epointCardId: string;
 }
 
@@ -273,12 +315,13 @@ export interface EpointCardStatusResult {
  * a registration is confirmed, to fill in the saved card's expiry.
  */
 export async function getEpointCardStatus(req: EpointCardStatusRequest): Promise<EpointCardStatusResult> {
+  const baseUrl = resolveEpointBaseUrl(req.env);
   const { data, signature } = signPayload(req.privateKey, {
     public_key: req.publicKey,
     card_id: req.epointCardId,
   });
 
-  const response = await fetch(`${EPOINT_BASE_URL}/get-status-card`, {
+  const response = await fetch(`${baseUrl}/get-status-card`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ data, signature }).toString(),
@@ -291,6 +334,8 @@ export async function getEpointCardStatus(req: EpointCardStatusRequest): Promise
 export interface EpointReverseRequest {
   publicKey: string;
   privateKey: string;
+  /** Must be `"production"` — see [resolveEpointBaseUrl]'s doc comment. */
+  env: string;
   /** Epoint's own transaction id (the webhook callback's `transaction`
    * field, captured at confirmed-success time — NOT the merchant's own
    * `order_id`) — the only identifier `/reverse` accepts. */
@@ -324,6 +369,7 @@ export interface EpointReverseResult {
  * details to relay back, unlike every other endpoint in this file.
  */
 export async function reverseEpointTransaction(req: EpointReverseRequest): Promise<EpointReverseResult> {
+  const baseUrl = resolveEpointBaseUrl(req.env);
   const { data, signature } = signPayload(req.privateKey, {
     public_key: req.publicKey,
     language: req.language ?? "az",
@@ -332,7 +378,7 @@ export async function reverseEpointTransaction(req: EpointReverseRequest): Promi
     currency: req.currency ?? "AZN",
   });
 
-  const response = await fetch(`${EPOINT_BASE_URL}/reverse`, {
+  const response = await fetch(`${baseUrl}/reverse`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ data, signature }).toString(),

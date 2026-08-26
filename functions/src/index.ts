@@ -78,6 +78,16 @@ const resendApiKey = defineSecret("RESEND_API_KEY");
 const epointPublicKey = defineSecret("EPOINT_PUBLIC_KEY");
 const epointPrivateKey = defineSecret("EPOINT_PRIVATE_KEY");
 
+// Fail-safe confirmation gate (see `resolveEpointBaseUrl`, epoint.ts) —
+// must be set to exactly "production" in Secret Manager before any
+// Epoint request is allowed to run at all. Epoint has no real
+// sandbox host, so this doesn't select a URL the way an env var
+// normally would; it exists purely so a missing/wrong value (an
+// empty secret, a leftover "sandbox" from local dev) fails loudly
+// instead of silently processing a real charge against
+// not-yet-verified EPOINT_PUBLIC_KEY/EPOINT_PRIVATE_KEY credentials.
+const epointEnv = defineSecret("EPOINT_ENV");
+
 // `.value()` is used raw everywhere below — Secret Manager (and
 // `firebase functions:secrets:set` piping a value in non-interactively)
 // can silently carry a trailing newline the merchant's real key never
@@ -90,6 +100,9 @@ function epointPublicKeyValue(): string {
 }
 function epointPrivateKeyValue(): string {
   return epointPrivateKey.value().trim();
+}
+function epointEnvValue(): string {
+  return epointEnv.value().trim();
 }
 
 /**
@@ -2890,7 +2903,7 @@ export const cleanupExpiredIdentityVerificationImages = onSchedule(
  * most of them resolve themselves.
  */
 export const processPaymentRefund = onDocumentUpdated(
-  { document: "payments/{paymentId}", secrets: [epointPublicKey, epointPrivateKey] },
+  { document: "payments/{paymentId}", secrets: [epointPublicKey, epointPrivateKey, epointEnv] },
   async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
@@ -2932,6 +2945,7 @@ export const processPaymentRefund = onDocumentUpdated(
       result = await reverseEpointTransaction({
         publicKey: epointPublicKeyValue(),
         privateKey: epointPrivateKeyValue(),
+        env: epointEnvValue(),
         epointTransaction,
         amount,
         currency,
@@ -3119,7 +3133,7 @@ async function ensurePendingSubscriptionPayment(
  * see that table's own doc comment) is skipped and logged.
  */
 export const renewVenueSubscriptions = onSchedule(
-  { schedule: "every 24 hours", region: "europe-west1", secrets: [epointPublicKey, epointPrivateKey] },
+  { schedule: "every 24 hours", region: "europe-west1", secrets: [epointPublicKey, epointPrivateKey, epointEnv] },
   async () => {
     const now = new Date();
     const snap = await db
@@ -3179,7 +3193,7 @@ export const renewVenueSubscriptions = onSchedule(
  * this can't be used to prepay/skip ahead of the real due date.
  */
 export const retryVenueSubscriptionPayment = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -3226,7 +3240,7 @@ export const retryVenueSubscriptionPayment = onCall(
  * now the only way a venue doc gets created.
  */
 export const submitVenue = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -3307,7 +3321,7 @@ export const submitVenue = onCall(
  * `awaiting_payment` venue has none yet). Mirrors `retryOfferPayment`.
  */
 export const retryVenueCreationPayment = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -3386,7 +3400,7 @@ const BOOST_FEE_BY_HOURS: Record<number, number> = { 6: 2, 12: 4, 18: 6 };
  * `epointWebhook` on a confirmed charge, never here.
  */
 export const createBoostCheckout = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -3435,7 +3449,7 @@ const VENUE_PREMIUM_FEE_BY_MONTHS: Record<number, number> = { 1: 22, 6: 99, 12: 
  * firestore.rules' venues update rule).
  */
 export const createVenuePremiumCheckout = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -3986,7 +4000,7 @@ export const notifyOnNewDeviceSignIn = beforeUserSignedIn({ region: "us-central1
  * moment this function returns.
  */
 export const reservePinBoxOrder = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -4281,6 +4295,7 @@ async function startEpointCheckoutForPayment(
   const { redirectUrl } = await createEpointCheckout({
     publicKey: epointPublicKeyValue(),
     privateKey: epointPrivateKeyValue(),
+    env: epointEnvValue(),
     orderId: paymentId,
     amount,
     description,
@@ -4306,7 +4321,7 @@ async function startEpointCheckoutForPayment(
  * now that creation itself moved server-side.
  */
 export const submitOffer = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -4434,7 +4449,7 @@ export const submitOffer = onCall(
  * never needed payment in the first place.
  */
 export const retryOfferPayment = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -5003,6 +5018,7 @@ async function applyCardRegistrationOutcome(
     const status = await getEpointCardStatus({
       publicKey: epointPublicKeyValue(),
       privateKey: epointPrivateKeyValue(),
+      env: epointEnvValue(),
       epointCardId,
     });
     expiry = parseEpointExpiry(status.expiredDate);
@@ -5045,7 +5061,7 @@ async function applyCardRegistrationOutcome(
  * with; nothing here is trusted before that check passes.
  */
 export const epointWebhook = onRequest(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv] },
   async (req, res) => {
     const body = req.body as Record<string, unknown>;
     const data = body?.data as string | undefined;
@@ -5141,7 +5157,7 @@ async function loadOwnedPendingPayment(uid: string, paymentId: string): Promise<
  * replaced.)
  */
 export const createEpointWidgetCheckout = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -5153,6 +5169,7 @@ export const createEpointWidgetCheckout = onCall(
     const { widgetUrl } = await createEpointTokenWidget({
       publicKey: epointPublicKeyValue(),
       privateKey: epointPrivateKeyValue(),
+      env: epointEnvValue(),
       orderId: paymentId,
       amount: payment.amount as number,
       description: (payment.description as string | undefined) ?? "PeakPin",
@@ -5173,7 +5190,7 @@ export const createEpointWidgetCheckout = onCall(
 // ---------------------------------------------------------------------------
 
 export const startCardRegistration = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -5184,6 +5201,7 @@ export const startCardRegistration = onCall(
     const { redirectUrl } = await createEpointCardRegistration({
       publicKey: epointPublicKeyValue(),
       privateKey: epointPrivateKeyValue(),
+      env: epointEnvValue(),
       orderId: cardRef.id,
       description: "PeakPin kart qeydiyyatı",
       successRedirectUrl: EPOINT_SUCCESS_REDIRECT_URL,
@@ -5212,7 +5230,7 @@ async function loadOwnedActiveCard(uid: string, cardId: string): Promise<Firebas
  * order_id (see `startEpointCheckoutForPayment`'s own doc comment).
  */
 export const payWithSavedCard = onCall(
-  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -5227,6 +5245,7 @@ export const payWithSavedCard = onCall(
     const result = await chargeEpointSavedCard({
       publicKey: epointPublicKeyValue(),
       privateKey: epointPrivateKeyValue(),
+      env: epointEnvValue(),
       epointCardId: card.epointCardId as string,
       amount: payment.amount as number,
       orderId: `${paymentId}-sc`,
