@@ -148,6 +148,14 @@ abstract class VenueRepository {
   /// `retryVenueCreationPayment`, functions/src/index.ts).
   Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueCreationPayment(String venueId);
 
+  /// Starts an Epoint checkout for one of the 1/6/12-month "Məkanı
+  /// premium et" tiers. `Venue.isPremium`/`premiumSince`/
+  /// `premiumExpiresAt` are set only by `applyPaymentOutcome`'s
+  /// `venue_premium` branch (functions/src/index.ts) once the charge
+  /// is confirmed — never directly from here (see firestore.rules'
+  /// venues update rule).
+  Future<({String checkoutUrl, double feeAmount, String paymentId})> createVenuePremiumCheckout(String venueId, int months);
+
   /// Clears [Venue.firstPaymentAnnouncementPending] once the owner has
   /// seen/dismissed the first-payment confirmation card — a plain,
   /// unrestricted owner field (not grant-of-trust, see firestore.rules),

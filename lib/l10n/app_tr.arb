@@ -866,6 +866,35 @@
       }
     }
   },
+  "venuePremiumInfoActiveUntilLabel": "Premium: {date} tarihine kadar aktif",
+  "@venuePremiumInfoActiveUntilLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "venuePremiumRenewEarlyButton": "Erken yenile",
+  "venuePremiumSheetTitle": "Mekanı premium yap",
+  "venuePremiumSheetSubtitle": "Premium mekanlar arama sonuçlarında en üstte gösterilir, adının yanında altın rozet alır ve daha çok müşteri çeker.",
+  "venuePremium1mo": "1 ay",
+  "venuePremium6mo": "6 ay",
+  "venuePremium12mo": "12 ay",
+  "venuePremium1moHint": "Denemek için harika",
+  "venuePremium6moHint": "En avantajlı seçenek",
+  "venuePremium12moHint": "Bir yıl boyunca maksimum görünürlük",
+  "venuePremiumPriceSuffix": "{amount} AZN",
+  "@venuePremiumPriceSuffix": {
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
+  },
+  "venuePremiumCtaButton": "Premium yap ({amount} AZN)",
+  "@venuePremiumCtaButton": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "venueLiveAudienceCount": "Etrafınızda {count} kişi",
   "@venueLiveAudienceCount": {
     "placeholders": {
@@ -1251,6 +1280,24 @@
   "notifVenueSubscriptionRenewedTitle": "Abonelik yenilendi",
   "notifVenueSubscriptionRenewedBody": "\"{name}\" için abonelik ödemesi onaylandı.",
   "notifVenueSubscriptionRenewedBodyGeneric": "Mekanınızın abonelik ödemesi onaylandı.",
+  "notifVenuePremiumActivatedTitle": "Premium durum aktifleşti",
+  "notifVenuePremiumActivatedBody": "\"{name}\" artık premium durumda ({months} ay).",
+  "@notifVenuePremiumActivatedBody": {
+    "placeholders": { "name": { "type": "String" }, "months": { "type": "int" } }
+  },
+  "notifVenuePremiumActivatedBodyGeneric": "Mekanınız artık premium durumda ({months} ay).",
+  "@notifVenuePremiumActivatedBodyGeneric": {
+    "placeholders": { "months": { "type": "int" } }
+  },
+  "notifVenuePremiumExpiringSoonTitle": "Premium durumunuz bitiyor",
+  "notifVenuePremiumExpiringSoonBody": "\"{name}\" premium durumu {daysLeft} gün sonra bitiyor.",
+  "@notifVenuePremiumExpiringSoonBody": {
+    "placeholders": { "name": { "type": "String" }, "daysLeft": { "type": "int" } }
+  },
+  "notifVenuePremiumExpiringSoonBodyGeneric": "Mekanınızın premium durumu {daysLeft} gün sonra bitiyor.",
+  "@notifVenuePremiumExpiringSoonBodyGeneric": {
+    "placeholders": { "daysLeft": { "type": "int" } }
+  },
   "notifPinboxOrderConfirmedTitle": "Sipariş onaylandı",
   "notifPinboxOrderConfirmedBody": "\"{title}\" siparişiniz onaylandı, QR biletiniz hazır.",
   "notifPinboxOrderConfirmedBodyGeneric": "PinBox siparişiniz onaylandı, QR biletiniz hazır.",

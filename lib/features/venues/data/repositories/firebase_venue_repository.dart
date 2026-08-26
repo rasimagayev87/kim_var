@@ -264,6 +264,20 @@ class FirebaseVenueRepository implements VenueRepository {
   }
 
   @override
+  Future<({String checkoutUrl, double feeAmount, String paymentId})> createVenuePremiumCheckout(String venueId, int months) async {
+    final result = await _functions.httpsCallable('createVenuePremiumCheckout').call<Map<String, dynamic>>({
+      'venueId': venueId,
+      'months': months,
+    });
+    final data = result.data;
+    return (
+      checkoutUrl: data['checkoutUrl'] as String,
+      feeAmount: (data['feeAmount'] as num).toDouble(),
+      paymentId: data['paymentId'] as String,
+    );
+  }
+
+  @override
   Future<void> dismissFirstPaymentAnnouncement(String venueId) {
     return _datasource.updateVenue(venueId, {'firstPaymentAnnouncementPending': false});
   }

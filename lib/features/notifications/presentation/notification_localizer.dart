@@ -153,6 +153,24 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: name.isEmpty ? loc.notifVenueSubscriptionRenewedBodyGeneric : loc.notifVenueSubscriptionRenewedBody(name),
       );
 
+    case NotificationType.venuePremiumActivated:
+      final name = str('name');
+      final months = intVal('months');
+      return LocalizedNotificationText(
+        title: loc.notifVenuePremiumActivatedTitle,
+        body: name.isEmpty ? loc.notifVenuePremiumActivatedBodyGeneric(months) : loc.notifVenuePremiumActivatedBody(name, months),
+      );
+
+    case NotificationType.venuePremiumExpiringSoon:
+      final name = str('name');
+      final daysLeft = intVal('daysLeft');
+      return LocalizedNotificationText(
+        title: loc.notifVenuePremiumExpiringSoonTitle,
+        body: name.isEmpty
+            ? loc.notifVenuePremiumExpiringSoonBodyGeneric(daysLeft)
+            : loc.notifVenuePremiumExpiringSoonBody(name, daysLeft),
+      );
+
     case NotificationType.pinboxOrderConfirmed:
       final title = str('title');
       return LocalizedNotificationText(

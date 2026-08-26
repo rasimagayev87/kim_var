@@ -931,6 +931,35 @@
       }
     }
   },
+  "venuePremiumInfoActiveUntilLabel": "Premium: active until {date}",
+  "@venuePremiumInfoActiveUntilLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "venuePremiumRenewEarlyButton": "Renew early",
+  "venuePremiumSheetTitle": "Make venue premium",
+  "venuePremiumSheetSubtitle": "Premium venues appear at the top of search results, get a gold badge next to their name, and attract more customers.",
+  "venuePremium1mo": "1 month",
+  "venuePremium6mo": "6 months",
+  "venuePremium12mo": "12 months",
+  "venuePremium1moHint": "Great for a first try",
+  "venuePremium6moHint": "Best value",
+  "venuePremium12moHint": "Maximum visibility, all year",
+  "venuePremiumPriceSuffix": "{amount} AZN",
+  "@venuePremiumPriceSuffix": {
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
+  },
+  "venuePremiumCtaButton": "Make premium ({amount} AZN)",
+  "@venuePremiumCtaButton": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "venueLiveAudienceCount": "{count} nearby",
   "@venueLiveAudienceCount": {
     "placeholders": {
@@ -1365,6 +1394,24 @@
   "notifVenueSubscriptionRenewedTitle": "Subscription renewed",
   "notifVenueSubscriptionRenewedBody": "Subscription payment for \"{name}\" was confirmed.",
   "notifVenueSubscriptionRenewedBodyGeneric": "Your venue's subscription payment was confirmed.",
+  "notifVenuePremiumActivatedTitle": "Premium status activated",
+  "notifVenuePremiumActivatedBody": "\"{name}\" is now premium ({months} months).",
+  "@notifVenuePremiumActivatedBody": {
+    "placeholders": { "name": { "type": "String" }, "months": { "type": "int" } }
+  },
+  "notifVenuePremiumActivatedBodyGeneric": "Your venue is now premium ({months} months).",
+  "@notifVenuePremiumActivatedBodyGeneric": {
+    "placeholders": { "months": { "type": "int" } }
+  },
+  "notifVenuePremiumExpiringSoonTitle": "Your premium status is ending",
+  "notifVenuePremiumExpiringSoonBody": "\"{name}\"'s premium status ends in {daysLeft} days.",
+  "@notifVenuePremiumExpiringSoonBody": {
+    "placeholders": { "name": { "type": "String" }, "daysLeft": { "type": "int" } }
+  },
+  "notifVenuePremiumExpiringSoonBodyGeneric": "Your venue's premium status ends in {daysLeft} days.",
+  "@notifVenuePremiumExpiringSoonBodyGeneric": {
+    "placeholders": { "daysLeft": { "type": "int" } }
+  },
   "notifPinboxOrderConfirmedTitle": "Order confirmed",
   "notifPinboxOrderConfirmedBody": "Your order for \"{title}\" was confirmed, your QR ticket is ready.",
   "notifPinboxOrderConfirmedBodyGeneric": "Your PinBox order was confirmed, your QR ticket is ready.",

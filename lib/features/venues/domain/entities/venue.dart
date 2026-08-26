@@ -477,20 +477,41 @@ class Venue with _$Venue {
     /// to 1km since venues have no other stored radius to default from.
     @Default(1.0) double audienceRadiusKm,
 
-    /// Set only by a future paid-upgrade flow (never by the owner's own
-    /// create/edit form — no client write path exists for this yet).
-    /// Premium venues sort first within their radius in
-    /// [nearbyVenuesProvider] and get a crown badge next to their name.
+    /// Set either by a real Epoint payment (`applyPaymentOutcome`'s
+    /// `venue_premium` branch, functions/src/index.ts, via the owner's
+    /// own "Məkanı premium et" checkout) or by the admin panel's
+    /// manual toggle (`admin-panel/src/lib/actions/venues.ts`) — never
+    /// directly by the client (blocked in firestore.rules). Premium
+    /// venues sort first within their radius in [nearbyVenuesProvider]
+    /// (rotating among themselves every 5 minutes if more than one)
+    /// and get a crown badge next to their name.
     @Default(false) bool isPremium,
 
-    /// When [isPremium] most recently turned on, from the admin
-    /// panel's toggle (`admin-panel/src/lib/actions/venues.ts`) — the
-    /// only write path for this field. Re-toggling premium on again
-    /// after turning it off resets this to the new grant time, since
-    /// nothing tracks premium history beyond "currently on since X".
-    /// Shown on `VenuePremiumInfoScreen`; `null` on venues predating
-    /// this field.
+    /// When [isPremium] most recently turned on — either a real
+    /// payment's first activation or the admin panel's toggle. Only
+    /// resets on a not-premium → premium transition; a renewal
+    /// purchased while already premium (see [premiumExpiresAt]) does
+    /// NOT touch this, since nothing tracks premium history beyond
+    /// "currently on since X". Shown on `VenuePremiumInfoScreen`;
+    /// `null` on venues predating this field.
     @NullableTimestampConverter() DateTime? premiumSince,
+
+    /// When the current premium period ends — set/extended only by
+    /// `applyPaymentOutcome`'s `venue_premium` branch (functions/src/
+    /// index.ts), never by the client (blocked in firestore.rules). A
+    /// renewal purchased before expiry EXTENDS this (adds to the
+    /// existing date) rather than resetting it from now — see that
+    /// Cloud Function branch. `null` for venues never premium via a
+    /// real payment (including admin-toggled-only venues).
+    @NullableTimestampConverter() DateTime? premiumExpiresAt,
+
+    /// True once the "N gün sonra bitir" reminder has been sent for
+    /// the CURRENT [premiumExpiresAt] — stops `expireVenuePremium`'s
+    /// (scheduled Cloud Function) reminder pass from refiring daily
+    /// inside the 3-5-day window. Reset to `false` by
+    /// `applyPaymentOutcome` on every new premium payment, so a
+    /// renewed venue gets its own future reminder.
+    @Default(false) bool premiumExpiryReminderSent,
 
     /// Whether `computeBirthdayMatches` (the daily birthday-offer
     /// matching Cloud Function) considers this venue at all — defaults

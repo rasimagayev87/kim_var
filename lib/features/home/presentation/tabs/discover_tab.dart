@@ -41,6 +41,7 @@ import '../../../venues/presentation/providers/venue_providers.dart';
 import '../../../venues/presentation/screens/create_venue_screen.dart';
 import '../../../venues/presentation/screens/my_venues_screen.dart';
 import '../../../venues/presentation/screens/venue_premium_info_screen.dart';
+import '../../../venues/presentation/widgets/venue_premium_bottom_sheet.dart';
 import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../../../venues/presentation/widgets/venue_filter_sheet.dart';
 import '../../../venues/presentation/widgets/venue_star_rating.dart';
@@ -1712,7 +1713,7 @@ class _VenueCard extends ConsumerWidget {
               // same reason they can't check in at their own venue), so
               // the owner gets a premium-upsell menu here instead.
               onTap: isOwner
-                  ? () => _openVenuePremiumMenu(context, venue)
+                  ? () => _openVenuePremiumMenu(context, ref, venue)
                   : () => ref.read(venueControllerProvider).toggleLike(venue.id, isCurrentlyLiked: isLiked),
               child: Container(
                 width: 30,
@@ -1750,20 +1751,21 @@ class _VenueCard extends ConsumerWidget {
     );
   }
 
-  void _openVenuePremiumMenu(BuildContext context, Venue venue) {
+  Future<void> _openVenuePremiumMenu(BuildContext context, WidgetRef ref, Venue venue) async {
     if (venue.isPremium) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => VenuePremiumInfoScreen(premiumSince: venue.premiumSince)),
+        MaterialPageRoute(
+          builder: (_) => VenuePremiumInfoScreen(
+            venueId: venue.id,
+            premiumSince: venue.premiumSince,
+            premiumExpiresAt: venue.premiumExpiresAt,
+          ),
+        ),
       );
       return;
     }
-    final sheetLoc = AppLocalizations.of(context);
-    showPremiumUpsellSheet(
-      context,
-      title: sheetLoc.venuePremiumMenuItem,
-      message: sheetLoc.venuePremiumUpsellMessage,
-    );
+    await openVenuePremiumCheckout(context, ref, venue.id);
   }
 
   String _hoursSummary(OpeningHours hours) {

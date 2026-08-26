@@ -58,6 +58,11 @@ _$VenueImpl _$$VenueImplFromJson(Map<String, dynamic> json) => _$VenueImpl(
   premiumSince: const NullableTimestampConverter().fromJson(
     json['premiumSince'],
   ),
+  premiumExpiresAt: const NullableTimestampConverter().fromJson(
+    json['premiumExpiresAt'],
+  ),
+  premiumExpiryReminderSent:
+      json['premiumExpiryReminderSent'] as bool? ?? false,
   birthdayNotificationsEnabled:
       json['birthdayNotificationsEnabled'] as bool? ?? false,
   availableSeats: (json['availableSeats'] as num?)?.toInt(),
@@ -112,6 +117,10 @@ Map<String, dynamic> _$$VenueImplToJson(
   'premiumSince': const NullableTimestampConverter().toJson(
     instance.premiumSince,
   ),
+  'premiumExpiresAt': const NullableTimestampConverter().toJson(
+    instance.premiumExpiresAt,
+  ),
+  'premiumExpiryReminderSent': instance.premiumExpiryReminderSent,
   'birthdayNotificationsEnabled': instance.birthdayNotificationsEnabled,
   'availableSeats': instance.availableSeats,
   'seatsUpdatedAt': const NullableTimestampConverter().toJson(

@@ -74,11 +74,22 @@ enum NotificationType {
   /// subscription charge cleared.
   /// [pinboxOrderConfirmed]: buyer-side — a PinBox order charge
   /// cleared, the QR ticket is ready.
+  /// [venuePremiumActivated]: a "Məkanı premium et" charge cleared —
+  /// `Venue.isPremium`/`premiumExpiresAt` are set, live immediately
+  /// (not an admin-review gate, unlike the subscription ones above).
   offerPaymentConfirmed,
   offerBoosted,
   venuePaymentConfirmed,
   venueSubscriptionRenewed,
+  venuePremiumActivated,
   pinboxOrderConfirmed,
+
+  /// A venue's premium period ends in 3-5 days — see
+  /// `expireVenuePremium` (scheduled Cloud Function). No auto-renewal
+  /// exists (Epoint's `card_uid` token needs a fresh user-present
+  /// checkout every time), so this is purely informational, pointing
+  /// the owner at `VenuePremiumInfoScreen`'s "erkən yenilə" button.
+  venuePremiumExpiringSoon,
 
   /// The bank declined the charge — same producer/reasoning as the 4
   /// above, `params: {name, reason}` where `reason` is Epoint's own

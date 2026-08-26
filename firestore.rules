@@ -489,12 +489,18 @@ service cloud.firestore {
       // list — only `onReviewWritten` (functions/src/index.ts) may set
       // them, recomputed from `reviews` on every write, same reasoning
       // as `likeCount`/`rating` above but for the separate review-based
-      // score.
+      // score. `isPremium`/`premiumSince`/`premiumExpiresAt`/
+      // `premiumExpiryReminderSent` are the same again — only
+      // `applyPaymentOutcome`'s `venue_premium` branch (a real Epoint
+      // charge), `expireVenuePremium` (the scheduled expiry/reminder
+      // sweep), and the admin panel's manual toggle (Admin SDK, bypasses
+      // these rules) may set them, so an owner can't self-grant premium
+      // status or extend their own expiry by editing their own venue.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd']);
+          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }

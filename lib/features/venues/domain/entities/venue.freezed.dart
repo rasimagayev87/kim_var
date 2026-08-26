@@ -178,21 +178,43 @@ mixin _$Venue {
   /// to 1km since venues have no other stored radius to default from.
   double get audienceRadiusKm => throw _privateConstructorUsedError;
 
-  /// Set only by a future paid-upgrade flow (never by the owner's own
-  /// create/edit form — no client write path exists for this yet).
-  /// Premium venues sort first within their radius in
-  /// [nearbyVenuesProvider] and get a crown badge next to their name.
+  /// Set either by a real Epoint payment (`applyPaymentOutcome`'s
+  /// `venue_premium` branch, functions/src/index.ts, via the owner's
+  /// own "Məkanı premium et" checkout) or by the admin panel's
+  /// manual toggle (`admin-panel/src/lib/actions/venues.ts`) — never
+  /// directly by the client (blocked in firestore.rules). Premium
+  /// venues sort first within their radius in [nearbyVenuesProvider]
+  /// (rotating among themselves every 5 minutes if more than one)
+  /// and get a crown badge next to their name.
   bool get isPremium => throw _privateConstructorUsedError;
 
-  /// When [isPremium] most recently turned on, from the admin
-  /// panel's toggle (`admin-panel/src/lib/actions/venues.ts`) — the
-  /// only write path for this field. Re-toggling premium on again
-  /// after turning it off resets this to the new grant time, since
-  /// nothing tracks premium history beyond "currently on since X".
-  /// Shown on `VenuePremiumInfoScreen`; `null` on venues predating
-  /// this field.
+  /// When [isPremium] most recently turned on — either a real
+  /// payment's first activation or the admin panel's toggle. Only
+  /// resets on a not-premium → premium transition; a renewal
+  /// purchased while already premium (see [premiumExpiresAt]) does
+  /// NOT touch this, since nothing tracks premium history beyond
+  /// "currently on since X". Shown on `VenuePremiumInfoScreen`;
+  /// `null` on venues predating this field.
   @NullableTimestampConverter()
   DateTime? get premiumSince => throw _privateConstructorUsedError;
+
+  /// When the current premium period ends — set/extended only by
+  /// `applyPaymentOutcome`'s `venue_premium` branch (functions/src/
+  /// index.ts), never by the client (blocked in firestore.rules). A
+  /// renewal purchased before expiry EXTENDS this (adds to the
+  /// existing date) rather than resetting it from now — see that
+  /// Cloud Function branch. `null` for venues never premium via a
+  /// real payment (including admin-toggled-only venues).
+  @NullableTimestampConverter()
+  DateTime? get premiumExpiresAt => throw _privateConstructorUsedError;
+
+  /// True once the "N gün sonra bitir" reminder has been sent for
+  /// the CURRENT [premiumExpiresAt] — stops `expireVenuePremium`'s
+  /// (scheduled Cloud Function) reminder pass from refiring daily
+  /// inside the 3-5-day window. Reset to `false` by
+  /// `applyPaymentOutcome` on every new premium payment, so a
+  /// renewed venue gets its own future reminder.
+  bool get premiumExpiryReminderSent => throw _privateConstructorUsedError;
 
   /// Whether `computeBirthdayMatches` (the daily birthday-offer
   /// matching Cloud Function) considers this venue at all — defaults
@@ -274,6 +296,8 @@ abstract class $VenueCopyWith<$Res> {
     double audienceRadiusKm,
     bool isPremium,
     @NullableTimestampConverter() DateTime? premiumSince,
+    @NullableTimestampConverter() DateTime? premiumExpiresAt,
+    bool premiumExpiryReminderSent,
     bool birthdayNotificationsEnabled,
     int? availableSeats,
     @NullableTimestampConverter() DateTime? seatsUpdatedAt,
@@ -330,6 +354,8 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? audienceRadiusKm = null,
     Object? isPremium = null,
     Object? premiumSince = freezed,
+    Object? premiumExpiresAt = freezed,
+    Object? premiumExpiryReminderSent = null,
     Object? birthdayNotificationsEnabled = null,
     Object? availableSeats = freezed,
     Object? seatsUpdatedAt = freezed,
@@ -474,6 +500,14 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
                 ? _value.premiumSince
                 : premiumSince // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            premiumExpiresAt: freezed == premiumExpiresAt
+                ? _value.premiumExpiresAt
+                : premiumExpiresAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            premiumExpiryReminderSent: null == premiumExpiryReminderSent
+                ? _value.premiumExpiryReminderSent
+                : premiumExpiryReminderSent // ignore: cast_nullable_to_non_nullable
+                      as bool,
             birthdayNotificationsEnabled: null == birthdayNotificationsEnabled
                 ? _value.birthdayNotificationsEnabled
                 : birthdayNotificationsEnabled // ignore: cast_nullable_to_non_nullable
@@ -539,6 +573,8 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     double audienceRadiusKm,
     bool isPremium,
     @NullableTimestampConverter() DateTime? premiumSince,
+    @NullableTimestampConverter() DateTime? premiumExpiresAt,
+    bool premiumExpiryReminderSent,
     bool birthdayNotificationsEnabled,
     int? availableSeats,
     @NullableTimestampConverter() DateTime? seatsUpdatedAt,
@@ -594,6 +630,8 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? audienceRadiusKm = null,
     Object? isPremium = null,
     Object? premiumSince = freezed,
+    Object? premiumExpiresAt = freezed,
+    Object? premiumExpiryReminderSent = null,
     Object? birthdayNotificationsEnabled = null,
     Object? availableSeats = freezed,
     Object? seatsUpdatedAt = freezed,
@@ -737,6 +775,14 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.premiumSince
             : premiumSince // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        premiumExpiresAt: freezed == premiumExpiresAt
+            ? _value.premiumExpiresAt
+            : premiumExpiresAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        premiumExpiryReminderSent: null == premiumExpiryReminderSent
+            ? _value.premiumExpiryReminderSent
+            : premiumExpiryReminderSent // ignore: cast_nullable_to_non_nullable
+                  as bool,
         birthdayNotificationsEnabled: null == birthdayNotificationsEnabled
             ? _value.birthdayNotificationsEnabled
             : birthdayNotificationsEnabled // ignore: cast_nullable_to_non_nullable
@@ -796,6 +842,8 @@ class _$VenueImpl extends _Venue {
     this.audienceRadiusKm = 1.0,
     this.isPremium = false,
     @NullableTimestampConverter() this.premiumSince,
+    @NullableTimestampConverter() this.premiumExpiresAt,
+    this.premiumExpiryReminderSent = false,
     this.birthdayNotificationsEnabled = false,
     this.availableSeats,
     @NullableTimestampConverter() this.seatsUpdatedAt,
@@ -1016,24 +1064,49 @@ class _$VenueImpl extends _Venue {
   @JsonKey()
   final double audienceRadiusKm;
 
-  /// Set only by a future paid-upgrade flow (never by the owner's own
-  /// create/edit form — no client write path exists for this yet).
-  /// Premium venues sort first within their radius in
-  /// [nearbyVenuesProvider] and get a crown badge next to their name.
+  /// Set either by a real Epoint payment (`applyPaymentOutcome`'s
+  /// `venue_premium` branch, functions/src/index.ts, via the owner's
+  /// own "Məkanı premium et" checkout) or by the admin panel's
+  /// manual toggle (`admin-panel/src/lib/actions/venues.ts`) — never
+  /// directly by the client (blocked in firestore.rules). Premium
+  /// venues sort first within their radius in [nearbyVenuesProvider]
+  /// (rotating among themselves every 5 minutes if more than one)
+  /// and get a crown badge next to their name.
   @override
   @JsonKey()
   final bool isPremium;
 
-  /// When [isPremium] most recently turned on, from the admin
-  /// panel's toggle (`admin-panel/src/lib/actions/venues.ts`) — the
-  /// only write path for this field. Re-toggling premium on again
-  /// after turning it off resets this to the new grant time, since
-  /// nothing tracks premium history beyond "currently on since X".
-  /// Shown on `VenuePremiumInfoScreen`; `null` on venues predating
-  /// this field.
+  /// When [isPremium] most recently turned on — either a real
+  /// payment's first activation or the admin panel's toggle. Only
+  /// resets on a not-premium → premium transition; a renewal
+  /// purchased while already premium (see [premiumExpiresAt]) does
+  /// NOT touch this, since nothing tracks premium history beyond
+  /// "currently on since X". Shown on `VenuePremiumInfoScreen`;
+  /// `null` on venues predating this field.
   @override
   @NullableTimestampConverter()
   final DateTime? premiumSince;
+
+  /// When the current premium period ends — set/extended only by
+  /// `applyPaymentOutcome`'s `venue_premium` branch (functions/src/
+  /// index.ts), never by the client (blocked in firestore.rules). A
+  /// renewal purchased before expiry EXTENDS this (adds to the
+  /// existing date) rather than resetting it from now — see that
+  /// Cloud Function branch. `null` for venues never premium via a
+  /// real payment (including admin-toggled-only venues).
+  @override
+  @NullableTimestampConverter()
+  final DateTime? premiumExpiresAt;
+
+  /// True once the "N gün sonra bitir" reminder has been sent for
+  /// the CURRENT [premiumExpiresAt] — stops `expireVenuePremium`'s
+  /// (scheduled Cloud Function) reminder pass from refiring daily
+  /// inside the 3-5-day window. Reset to `false` by
+  /// `applyPaymentOutcome` on every new premium payment, so a
+  /// renewed venue gets its own future reminder.
+  @override
+  @JsonKey()
+  final bool premiumExpiryReminderSent;
 
   /// Whether `computeBirthdayMatches` (the daily birthday-offer
   /// matching Cloud Function) considers this venue at all — defaults
@@ -1074,7 +1147,7 @@ class _$VenueImpl extends _Venue {
 
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, isFoundingVenue: $isFoundingVenue, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, firstPaymentAnnouncementPending: $firstPaymentAnnouncementPending, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, ratingAverage: $ratingAverage, ratingCount: $ratingCount, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, isFoundingVenue: $isFoundingVenue, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, firstPaymentAnnouncementPending: $firstPaymentAnnouncementPending, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, ratingAverage: $ratingAverage, ratingCount: $ratingCount, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, premiumExpiresAt: $premiumExpiresAt, premiumExpiryReminderSent: $premiumExpiryReminderSent, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
   }
 
   @override
@@ -1144,6 +1217,13 @@ class _$VenueImpl extends _Venue {
                 other.isPremium == isPremium) &&
             (identical(other.premiumSince, premiumSince) ||
                 other.premiumSince == premiumSince) &&
+            (identical(other.premiumExpiresAt, premiumExpiresAt) ||
+                other.premiumExpiresAt == premiumExpiresAt) &&
+            (identical(
+                  other.premiumExpiryReminderSent,
+                  premiumExpiryReminderSent,
+                ) ||
+                other.premiumExpiryReminderSent == premiumExpiryReminderSent) &&
             (identical(
                   other.birthdayNotificationsEnabled,
                   birthdayNotificationsEnabled,
@@ -1196,6 +1276,8 @@ class _$VenueImpl extends _Venue {
     audienceRadiusKm,
     isPremium,
     premiumSince,
+    premiumExpiresAt,
+    premiumExpiryReminderSent,
     birthdayNotificationsEnabled,
     availableSeats,
     seatsUpdatedAt,
@@ -1252,6 +1334,8 @@ abstract class _Venue extends Venue {
     final double audienceRadiusKm,
     final bool isPremium,
     @NullableTimestampConverter() final DateTime? premiumSince,
+    @NullableTimestampConverter() final DateTime? premiumExpiresAt,
+    final bool premiumExpiryReminderSent,
     final bool birthdayNotificationsEnabled,
     final int? availableSeats,
     @NullableTimestampConverter() final DateTime? seatsUpdatedAt,
@@ -1449,23 +1533,47 @@ abstract class _Venue extends Venue {
   @override
   double get audienceRadiusKm;
 
-  /// Set only by a future paid-upgrade flow (never by the owner's own
-  /// create/edit form — no client write path exists for this yet).
-  /// Premium venues sort first within their radius in
-  /// [nearbyVenuesProvider] and get a crown badge next to their name.
+  /// Set either by a real Epoint payment (`applyPaymentOutcome`'s
+  /// `venue_premium` branch, functions/src/index.ts, via the owner's
+  /// own "Məkanı premium et" checkout) or by the admin panel's
+  /// manual toggle (`admin-panel/src/lib/actions/venues.ts`) — never
+  /// directly by the client (blocked in firestore.rules). Premium
+  /// venues sort first within their radius in [nearbyVenuesProvider]
+  /// (rotating among themselves every 5 minutes if more than one)
+  /// and get a crown badge next to their name.
   @override
   bool get isPremium;
 
-  /// When [isPremium] most recently turned on, from the admin
-  /// panel's toggle (`admin-panel/src/lib/actions/venues.ts`) — the
-  /// only write path for this field. Re-toggling premium on again
-  /// after turning it off resets this to the new grant time, since
-  /// nothing tracks premium history beyond "currently on since X".
-  /// Shown on `VenuePremiumInfoScreen`; `null` on venues predating
-  /// this field.
+  /// When [isPremium] most recently turned on — either a real
+  /// payment's first activation or the admin panel's toggle. Only
+  /// resets on a not-premium → premium transition; a renewal
+  /// purchased while already premium (see [premiumExpiresAt]) does
+  /// NOT touch this, since nothing tracks premium history beyond
+  /// "currently on since X". Shown on `VenuePremiumInfoScreen`;
+  /// `null` on venues predating this field.
   @override
   @NullableTimestampConverter()
   DateTime? get premiumSince;
+
+  /// When the current premium period ends — set/extended only by
+  /// `applyPaymentOutcome`'s `venue_premium` branch (functions/src/
+  /// index.ts), never by the client (blocked in firestore.rules). A
+  /// renewal purchased before expiry EXTENDS this (adds to the
+  /// existing date) rather than resetting it from now — see that
+  /// Cloud Function branch. `null` for venues never premium via a
+  /// real payment (including admin-toggled-only venues).
+  @override
+  @NullableTimestampConverter()
+  DateTime? get premiumExpiresAt;
+
+  /// True once the "N gün sonra bitir" reminder has been sent for
+  /// the CURRENT [premiumExpiresAt] — stops `expireVenuePremium`'s
+  /// (scheduled Cloud Function) reminder pass from refiring daily
+  /// inside the 3-5-day window. Reset to `false` by
+  /// `applyPaymentOutcome` on every new premium payment, so a
+  /// renewed venue gets its own future reminder.
+  @override
+  bool get premiumExpiryReminderSent;
 
   /// Whether `computeBirthdayMatches` (the daily birthday-offer
   /// matching Cloud Function) considers this venue at all — defaults

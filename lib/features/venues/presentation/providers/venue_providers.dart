@@ -285,6 +285,21 @@ class VenueController {
     }
   }
 
+  /// "Məkanı premium et" — the owner-only premium checkout on Discover
+  /// → Məkanlar (see `_openVenuePremiumMenu` in `discover_tab.dart`).
+  /// No client-side ownership re-check here; the UI only ever exposes
+  /// this control to the venue's own owner in the first place. Doesn't
+  /// set anything itself — `Venue.isPremium`/`premiumExpiresAt` only
+  /// move once `epointWebhook` confirms the charge.
+  Future<({String checkoutUrl, double feeAmount, String paymentId})?> createVenuePremiumCheckout(String venueId, int months) async {
+    try {
+      return await _ref.read(venueRepositoryProvider).createVenuePremiumCheckout(venueId, months);
+    } catch (e, st) {
+      logError('venue_providers.createVenuePremiumCheckout', e, st);
+      return null;
+    }
+  }
+
   /// "Boş yer sayı" quick-edit sheet's Save action — see
   /// `VenueRepository.updateAvailableSeats`'s doc comment for why this
   /// is a standalone write, separate from [updateVenue].
@@ -384,9 +399,11 @@ final selectedVenueCategoryFilterProvider = StateProvider<VenueCategory?>(
 /// before.
 ///
 /// The radius/mode filter always runs first and is never widened —
-/// sorting only reorders the venues already inside it (premium first,
-/// then highest-rated, distance as the final tie-breaker), it never
-/// pulls in anything from outside the selected radius. This is a
+/// sorting only reorders the venues already inside it (premium first;
+/// among multiple premium venues, an equal-weight random rotation that
+/// reshuffles every 5 minutes, see [_premiumRotationHash]; non-premium
+/// venues sort by highest-rated, distance as the final tie-breaker),
+/// it never pulls in anything from outside the selected radius. This is a
 /// deliberate product policy: users must never see results sorted
 /// past what they chose.
 final nearbyVenuesProvider =
@@ -424,12 +441,22 @@ final nearbyVenuesProvider =
         }(),
       };
 
+      final epochBucket = (DateTime.now().millisecondsSinceEpoch / (5 * 60 * 1000)).floor();
       final sorted = [...result]
         ..sort((a, b) {
           final byPremium = (b.venue.isPremium ? 1 : 0).compareTo(
             a.venue.isPremium ? 1 : 0,
           );
           if (byPremium != 0) return byPremium;
+          if (a.venue.isPremium && b.venue.isPremium) {
+            final byRotation = _premiumRotationHash(
+              b.venue.id,
+              epochBucket,
+            ).compareTo(_premiumRotationHash(a.venue.id, epochBucket));
+            return byRotation != 0
+                ? byRotation
+                : a.distanceMeters.compareTo(b.distanceMeters);
+          }
           final byRating = b.venue.rating.compareTo(a.venue.rating);
           return byRating != 0
               ? byRating
@@ -437,3 +464,23 @@ final nearbyVenuesProvider =
         });
       return sorted;
     });
+
+/// Cheap deterministic hash combining a 5-minute epoch bucket with a
+/// venue id — used ONLY to rotate ordering among simultaneously
+/// premium venues (equal-weight lottery, not weighted by payment
+/// amount/tier — see [nearbyVenuesProvider]'s own doc comment). Every
+/// device computes the same bucket from wall-clock time, so ordering
+/// is consistent across viewers within the same 5-minute window
+/// without any server call or stored doc — plain FNV-1a, good enough
+/// distribution for this, no crypto needed. The next window's order is
+/// unknowable ahead of time since it depends on a bucket number that
+/// hasn't happened yet.
+int _premiumRotationHash(String venueId, int epochBucket) {
+  final input = '$epochBucket:$venueId';
+  var hash = 0x811c9dc5;
+  for (final codeUnit in input.codeUnits) {
+    hash ^= codeUnit;
+    hash = (hash * 0x01000193) & 0xFFFFFFFF;
+  }
+  return hash;
+}

@@ -866,6 +866,35 @@
       }
     }
   },
+  "venuePremiumInfoActiveUntilLabel": "Премиум: активен до {date}",
+  "@venuePremiumInfoActiveUntilLabel": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "venuePremiumRenewEarlyButton": "Продлить заранее",
+  "venuePremiumSheetTitle": "Сделать заведение премиум",
+  "venuePremiumSheetSubtitle": "Премиум-заведения показываются первыми в результатах поиска, получают золотой значок рядом с названием и привлекают больше клиентов.",
+  "venuePremium1mo": "1 месяц",
+  "venuePremium6mo": "6 месяцев",
+  "venuePremium12mo": "12 месяцев",
+  "venuePremium1moHint": "Отлично для пробы",
+  "venuePremium6moHint": "Самый выгодный вариант",
+  "venuePremium12moHint": "Максимальная видимость на весь год",
+  "venuePremiumPriceSuffix": "{amount} AZN",
+  "@venuePremiumPriceSuffix": {
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
+  },
+  "venuePremiumCtaButton": "Сделать премиум ({amount} AZN)",
+  "@venuePremiumCtaButton": {
+    "placeholders": { "amount": { "type": "int" } }
+  },
   "venueLiveAudienceCount": "{count} человек рядом",
   "@venueLiveAudienceCount": {
     "placeholders": {
@@ -1251,6 +1280,24 @@
   "notifVenueSubscriptionRenewedTitle": "Подписка продлена",
   "notifVenueSubscriptionRenewedBody": "Оплата подписки за \"{name}\" подтверждена.",
   "notifVenueSubscriptionRenewedBodyGeneric": "Оплата подписки вашего заведения подтверждена.",
+  "notifVenuePremiumActivatedTitle": "Премиум-статус активирован",
+  "notifVenuePremiumActivatedBody": "\"{name}\" теперь премиум ({months} мес.).",
+  "@notifVenuePremiumActivatedBody": {
+    "placeholders": { "name": { "type": "String" }, "months": { "type": "int" } }
+  },
+  "notifVenuePremiumActivatedBodyGeneric": "Ваше заведение теперь премиум ({months} мес.).",
+  "@notifVenuePremiumActivatedBodyGeneric": {
+    "placeholders": { "months": { "type": "int" } }
+  },
+  "notifVenuePremiumExpiringSoonTitle": "Ваш премиум-статус скоро истекает",
+  "notifVenuePremiumExpiringSoonBody": "Премиум-статус \"{name}\" истекает через {daysLeft} дн.",
+  "@notifVenuePremiumExpiringSoonBody": {
+    "placeholders": { "name": { "type": "String" }, "daysLeft": { "type": "int" } }
+  },
+  "notifVenuePremiumExpiringSoonBodyGeneric": "Премиум-статус вашего заведения истекает через {daysLeft} дн.",
+  "@notifVenuePremiumExpiringSoonBodyGeneric": {
+    "placeholders": { "daysLeft": { "type": "int" } }
+  },
   "notifPinboxOrderConfirmedTitle": "Заказ подтверждён",
   "notifPinboxOrderConfirmedBody": "Ваш заказ \"{title}\" подтверждён, QR-билет готов.",
   "notifPinboxOrderConfirmedBodyGeneric": "Ваш заказ PinBox подтверждён, QR-билет готов.",

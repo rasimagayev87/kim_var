@@ -3312,6 +3312,55 @@ export const createBoostCheckout = onCall(
   },
 );
 
+/** 1/6/12 ay → 22/99/199 AZN — must match `VenuePremiumBottomSheet`'s own tiers exactly. */
+const VENUE_PREMIUM_FEE_BY_MONTHS: Record<number, number> = { 1: 22, 6: 99, 12: 199 };
+
+/**
+ * "Məkanı premium et" checkout — same pending-payment-then-webhook
+ * shape as `createBoostCheckout`. `isPremium`/`premiumSince`/
+ * `premiumExpiresAt` are set ONLY by `applyPaymentOutcome`'s
+ * `venue_premium` branch on a confirmed charge, never here (see
+ * firestore.rules' venues update rule).
+ */
+export const createVenuePremiumCheckout = onCall(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    const venueId = request.data?.venueId as string | undefined;
+    const months = request.data?.months as number | undefined;
+    if (!venueId || months === undefined || !(months in VENUE_PREMIUM_FEE_BY_MONTHS)) {
+      throw new HttpsError("invalid-argument", "Düzgün venueId/months tələb olunur.");
+    }
+
+    const venueSnap = await db.collection("venues").doc(venueId).get();
+    const venue = venueSnap.data();
+    if (!venue) throw new HttpsError("not-found", "Məkan tapılmadı.");
+    if (venue.ownerId !== uid) throw new HttpsError("permission-denied", "Bu məkanın sahibi deyilsiniz.");
+
+    const amount = VENUE_PREMIUM_FEE_BY_MONTHS[months];
+    const description = `Məkanı premium et — ${months} ay`;
+    const paymentRef = db.collection("payments").doc();
+    await paymentRef.set({
+      ownerId: uid,
+      listingType: "venue",
+      listingId: venueId,
+      type: "venue_premium",
+      premiumMonths: months,
+      description,
+      amount,
+      currency: "AZN",
+      status: "pending",
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, amount, description);
+    return { checkoutUrl, feeAmount: amount, paymentId: paymentRef.id };
+  },
+);
+
 /**
  * Cleans up a deleted post's `likes`/`comments` subcollections —
  * Firestore doesn't cascade-delete them, and the client CAN'T (each
@@ -4427,7 +4476,9 @@ async function applyPaymentOutcome(
     // to write the venuePayouts obligation row below — all reads
     // happen up front regardless of which payment type this actually is.
     const venueRef =
-      succeeded && payment.type === "venue_subscription" && payment.listingType === "venue"
+      succeeded &&
+      (payment.type === "venue_subscription" || payment.type === "venue_premium") &&
+      payment.listingType === "venue"
         ? db.collection("venues").doc(payment.listingId as string)
         : null;
     const venueSnap = venueRef ? await tx.get(venueRef) : null;
@@ -4535,6 +4586,32 @@ async function applyPaymentOutcome(
           updatedAt: FieldValue.serverTimestamp(),
         });
       }
+    } else if (payment.type === "venue_premium" && payment.listingType === "venue" && venueRef) {
+      if (succeeded) {
+        const months = payment.premiumMonths as number;
+        const currentExpiresAt = (venueSnap?.data()?.premiumExpiresAt as Timestamp | undefined)?.toDate();
+        const now = new Date();
+        // Extend, don't overwrite — a renewal purchased before expiry
+        // stacks the new period on top of the remaining time instead
+        // of resetting the clock to zero.
+        const base = currentExpiresAt && currentExpiresAt > now ? currentExpiresAt : now;
+        const wasAlreadyPremium = venueSnap?.data()?.isPremium === true;
+        tx.update(venueRef, {
+          isPremium: true,
+          // Only reset on a not-premium -> premium transition — a
+          // renewal of an already-active venue keeps its original
+          // grant date (see Venue.premiumSince's doc comment).
+          ...(wasAlreadyPremium ? {} : { premiumSince: Timestamp.fromDate(now) }),
+          // 30-day months, same fixed-millisecond approximation this
+          // file already uses for SUBSCRIPTION_CYCLE_MS elsewhere.
+          premiumExpiresAt: Timestamp.fromDate(new Date(base.getTime() + months * 30 * 24 * 60 * 60 * 1000)),
+          premiumExpiryReminderSent: false,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+      // On failure the venue's premium status just stays whatever it
+      // already was — nothing to undo, the owner can simply retry the
+      // checkout from the same "Məkanı premium et" entry point.
     } else if (pinboxOrderRef && pinboxOrderSnap?.exists) {
       if (succeeded) {
         // `reservePinBoxOrder` already decremented stock and created
@@ -4681,6 +4758,28 @@ async function applyPaymentOutcome(
         targetType: "venue",
         targetId: payment.listingId as string,
       });
+    } else if (payment.type === "venue_premium") {
+      const freshVenueSnap = await db.collection("venues").doc(payment.listingId as string).get();
+      const name = (freshVenueSnap.data()?.name as string | undefined) ?? "";
+      const months = payment.premiumMonths as number;
+      const owner = await getUserDisplayInfo(ownerId);
+      const quoted = name ? `"${name}"` : "Məkanınız";
+      await notifyUser({
+        uid: ownerId,
+        category: "venueUpdates",
+        type: "venuePremiumActivated",
+        title: "Premium status aktivləşdi",
+        body: `${quoted} indi premium statusundadır (${months} ay).`,
+        params: { name, months },
+        targetId: payment.listingId as string,
+        targetType: "venue",
+      });
+      await notifyAdmins({
+        type: "payment.succeeded",
+        message: `${owner.name} → ${quoted} (${months} ay premium): ${amount} ${currency}`,
+        targetType: "venue",
+        targetId: payment.listingId as string,
+      });
     } else if (payment.type === "pinbox_order") {
       const freshOrderSnap = await db.collection("pinboxOrders").doc(payment.listingId as string).get();
       const pinboxId = freshOrderSnap.data()?.pinboxId as string | undefined;
@@ -4720,7 +4819,7 @@ async function applyPaymentOutcome(
       const offerSnap = await db.collection("offers").doc(payment.listingId as string).get();
       name = (offerSnap.data()?.title as string | undefined) ?? "";
       targetType = "offer";
-    } else if (payment.type === "venue_subscription") {
+    } else if (payment.type === "venue_subscription" || payment.type === "venue_premium") {
       const freshVenueSnap = await db.collection("venues").doc(payment.listingId as string).get();
       name = (freshVenueSnap.data()?.name as string | undefined) ?? "";
       targetType = "venue";
@@ -5361,4 +5460,63 @@ export const expireLapsedPremium = onSchedule({ schedule: "every 24 hours", regi
 
   await Promise.all(snap.docs.map((doc) => doc.ref.update({ premium: false, updatedAt: FieldValue.serverTimestamp() })));
   logger.info("expireLapsedPremium: expired lapsed VIP subscriptions", { count: snap.docs.length });
+});
+
+/**
+ * Venue counterpart to `expireLapsedPremium` (users/VIP) — flips
+ * `Venue.isPremium` back to `false` once `premiumExpiresAt` passes.
+ * UNLIKE the users version, this ALSO sends a one-time "N gün sonra
+ * bitir" reminder push 3-5 days before expiry, deduped by
+ * `premiumExpiryReminderSent` (reset to `false` by
+ * `applyPaymentOutcome`'s `venue_premium` branch on every new
+ * payment, so a renewed venue gets a fresh reminder for its new
+ * expiry). No auto-renewal exists (Epoint's `card_uid` token model
+ * requires a fresh user-present checkout every time) — the reminder is
+ * purely informational, pointing the owner at
+ * `VenuePremiumInfoScreen`'s "erkən yenilə" button.
+ */
+export const expireVenuePremium = onSchedule({ schedule: "every 24 hours", region: "europe-west1" }, async () => {
+  const now = Timestamp.now();
+
+  const expiredSnap = await db.collection("venues").where("isPremium", "==", true).where("premiumExpiresAt", "<=", now).get();
+  if (!expiredSnap.empty) {
+    await Promise.all(
+      expiredSnap.docs.map((doc) => doc.ref.update({ isPremium: false, updatedAt: FieldValue.serverTimestamp() })),
+    );
+    logger.info("expireVenuePremium: expired lapsed venue premium", { count: expiredSnap.docs.length });
+  }
+
+  const windowStart = Timestamp.fromMillis(now.toMillis() + 3 * 24 * 60 * 60 * 1000);
+  const windowEnd = Timestamp.fromMillis(now.toMillis() + 5 * 24 * 60 * 60 * 1000);
+  const reminderSnap = await db
+    .collection("venues")
+    .where("isPremium", "==", true)
+    .where("premiumExpiresAt", ">=", windowStart)
+    .where("premiumExpiresAt", "<=", windowEnd)
+    .where("premiumExpiryReminderSent", "==", false)
+    .get();
+
+  for (const doc of reminderSnap.docs) {
+    const venue = doc.data();
+    const ownerId = venue.ownerId as string | undefined;
+    if (!ownerId) continue;
+    const expiresAt = (venue.premiumExpiresAt as Timestamp).toDate();
+    const daysLeft = Math.max(1, Math.round((expiresAt.getTime() - now.toMillis()) / (24 * 60 * 60 * 1000)));
+    const name = (venue.name as string | undefined) ?? "";
+    const quoted = name ? `"${name}"` : "Məkanınızın";
+    await notifyUser({
+      uid: ownerId,
+      category: "venueUpdates",
+      type: "venuePremiumExpiringSoon",
+      title: "Premium statusunuz bitir",
+      body: `${quoted} premium statusu ${daysLeft} gün sonra bitir.`,
+      params: { name, daysLeft },
+      targetId: doc.id,
+      targetType: "venue",
+    });
+    await doc.ref.update({ premiumExpiryReminderSent: true, updatedAt: FieldValue.serverTimestamp() });
+  }
+  if (reminderSnap.docs.length > 0) {
+    logger.info("expireVenuePremium: sent premium expiry reminders", { count: reminderSnap.docs.length });
+  }
 });
