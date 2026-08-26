@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/payments/epoint_card_checkout_screen.dart';
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_text_styles.dart';
-import '../../../../../core/widgets/coming_soon_screen.dart';
 import '../../../../../core/widgets/settings_group.dart';
 import '../../../../../l10n/app_localizations.dart';
 import '../../domain/entities/saved_card.dart';
@@ -11,19 +11,20 @@ import '../providers/payment_providers.dart';
 import '../widgets/saved_card_row.dart';
 import 'payment_history_screen.dart';
 
-/// No card-tokenization provider (Stripe et al.) is connected yet —
-/// see `savedCardsProvider`'s doc comment — so "Kartlarım" always
-/// shows the empty state right now, and "Kart əlavə et" opens
-/// [ComingSoonScreen] rather than a real add-card flow. The list UI
-/// and the per-card options sheet are real and ready for whenever a
-/// provider is wired up.
-class PaymentsScreen extends ConsumerWidget {
+class PaymentsScreen extends ConsumerStatefulWidget {
   const PaymentsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PaymentsScreen> createState() => _PaymentsScreenState();
+}
+
+class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
+  bool _addingCard = false;
+
+  @override
+  Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final cards = ref.watch(savedCardsProvider);
+    final cards = ref.watch(savedCardsProvider).valueOrNull ?? const <SavedCard>[];
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -54,17 +55,19 @@ class PaymentsScreen extends ConsumerWidget {
             Text(loc.myCardsTitle, style: AppTextStyles.sectionTitle.copyWith(fontSize: 17)),
             const SizedBox(height: 12),
             if (cards.isEmpty)
-              _EmptyCardsState(onAddCard: () => _openAddCard(context))
+              _EmptyCardsState(loading: _addingCard, onAddCard: _openAddCard)
             else ...[
               SettingsGroup(
                 children: [
-                  for (final card in cards) SavedCardRow(card: card, onTap: () => _showCardOptions(context, card)),
+                  for (final card in cards) SavedCardRow(card: card, onTap: () => _showCardOptions(card)),
                 ],
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: () => _openAddCard(context),
-                icon: const Icon(Icons.add, size: 18),
+                onPressed: _addingCard ? null : _openAddCard,
+                icon: _addingCard
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.add, size: 18),
                 label: Text(loc.addCardButton),
               ),
             ],
@@ -74,12 +77,23 @@ class PaymentsScreen extends ConsumerWidget {
     );
   }
 
-  void _openAddCard(BuildContext context) {
+  Future<void> _openAddCard() async {
+    if (_addingCard) return;
     final loc = AppLocalizations.of(context);
-    Navigator.push(context, MaterialPageRoute(builder: (_) => ComingSoonScreen(title: loc.addCardButton)));
+    setState(() => _addingCard = true);
+    try {
+      final checkoutUrl = await ref.read(savedCardRepositoryProvider).startCardRegistration();
+      if (!mounted) return;
+      await Navigator.push(context, MaterialPageRoute(builder: (_) => EpointCardCheckoutScreen(checkoutUrl: checkoutUrl)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
+    } finally {
+      if (mounted) setState(() => _addingCard = false);
+    }
   }
 
-  void _showCardOptions(BuildContext context, SavedCard card) {
+  void _showCardOptions(SavedCard card) {
     final loc = AppLocalizations.of(context);
     showModalBottomSheet<void>(
       context: context,
@@ -95,12 +109,18 @@ class PaymentsScreen extends ConsumerWidget {
               ListTile(
                 leading: const Icon(Icons.check_circle_outline, color: AppColors.primary),
                 title: Text(loc.cardOptionsSetDefault, style: AppTextStyles.body.copyWith(fontSize: 15)),
-                onTap: () => Navigator.pop(sheetContext),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _setDefault(card);
+                },
               ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: AppColors.error),
               title: Text(loc.cardOptionsDelete, style: AppTextStyles.body.copyWith(fontSize: 15, color: AppColors.error)),
-              onTap: () => Navigator.pop(sheetContext),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                _confirmDelete(card);
+              },
             ),
             const SizedBox(height: 8),
           ],
@@ -108,12 +128,51 @@ class PaymentsScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _setDefault(SavedCard card) async {
+    final loc = AppLocalizations.of(context);
+    try {
+      await ref.read(savedCardRepositoryProvider).setDefaultCard(card.id);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
+    }
+  }
+
+  Future<void> _confirmDelete(SavedCard card) async {
+    final loc = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        title: Text(loc.cardOptionsDelete, style: const TextStyle(fontWeight: FontWeight.w700)),
+        content: Text(loc.cardDeleteConfirmMessage),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: Text(loc.actionDelete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref.read(savedCardRepositoryProvider).deleteCard(card.id);
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
+    }
+  }
 }
 
 class _EmptyCardsState extends StatelessWidget {
+  final bool loading;
   final VoidCallback onAddCard;
 
-  const _EmptyCardsState({required this.onAddCard});
+  const _EmptyCardsState({required this.loading, required this.onAddCard});
 
   @override
   Widget build(BuildContext context) {
@@ -128,8 +187,14 @@ class _EmptyCardsState extends StatelessWidget {
           Text(loc.noCardsMessage, style: AppTextStyles.caption),
           const SizedBox(height: 16),
           ElevatedButton.icon(
-            onPressed: onAddCard,
-            icon: const Icon(Icons.add, size: 18, color: AppColors.onAccent),
+            onPressed: loading ? null : onAddCard,
+            icon: loading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent),
+                  )
+                : const Icon(Icons.add, size: 18, color: AppColors.onAccent),
             label: Text(loc.addCardButton),
           ),
         ],

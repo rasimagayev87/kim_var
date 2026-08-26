@@ -692,6 +692,8 @@
   "epointApplePaySubtitle": "Fast, secure payment with a tap",
   "epointGooglePayOption": "Google Pay",
   "epointGooglePaySubtitle": "Fast, secure payment with a tap",
+  "epointSavedCardOption": "Pay with saved card",
+  "epointSavedCardSubtitle": "No need to re-enter your card details",
   "epointCheckoutSecurityNote": "256-bit SSL Secure Payment",
   "epointCheckoutPayButton": "Pay {amount} AZN",
   "@epointCheckoutPayButton": {
@@ -1492,6 +1494,8 @@
   "noCardsMessage": "No cards added yet",
   "cardOptionsSetDefault": "Set as default",
   "cardOptionsDelete": "Delete",
+  "cardDeleteConfirmMessage": "Are you sure you want to delete this card?",
+  "savedCardPickerTitle": "Choose a card",
   "paymentHistoryEmptyMessage": "No transactions yet",
   "paymentTypePurchase": "Purchase",
   "paymentTypeRenewal": "Renewal",

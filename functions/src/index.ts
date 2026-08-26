@@ -12,9 +12,12 @@ import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 import { createHash, randomInt } from "crypto";
 import {
+  chargeEpointSavedCard,
+  createEpointCardRegistration,
   createEpointCheckout,
   createEpointTokenWidget,
   decodeEpointData,
+  getEpointCardStatus,
   reverseEpointTransaction,
   verifyEpointSignature,
 } from "./epoint";
@@ -4698,51 +4701,150 @@ async function applyPaymentOutcome(
   return true;
 }
 
+/** Epoint never returns a card brand — inferred from the mask's leading digit(s), the same convention every card network itself uses. */
+function inferCardBrand(mask: string | undefined): "visa" | "mastercard" | "other" {
+  const digits = (mask ?? "").replace(/\D/g, "");
+  if (digits.startsWith("4")) return "visa";
+  if (/^5[1-5]/.test(digits) || /^2(2[2-9]|[3-6]\d|7[01])/.test(digits)) return "mastercard";
+  return "other";
+}
+
+/** `/get-status-card`'s `expired_date` format isn't documented anywhere; handles both "MM/YY" and "MMYY" defensively. */
+function parseEpointExpiry(expiredDate: string | undefined): { expMonth: number; expYear: number } | null {
+  const match = (expiredDate ?? "").match(/^(\d{2})\D?(\d{2,4})$/);
+  if (!match) return null;
+  const expMonth = parseInt(match[1], 10);
+  const expYear = match[2].length === 2 ? 2000 + parseInt(match[2], 10) : parseInt(match[2], 10);
+  if (expMonth < 1 || expMonth > 12) return null;
+  return { expMonth, expYear };
+}
+
+/**
+ * The `savedCards/{orderId}` sibling of `applyPaymentOutcome` — same
+ * idempotency guard (no-op if the doc is missing or already resolved).
+ * On failure the pending doc is deleted outright rather than marked
+ * `'failed'`: a card that was never actually saved shouldn't leave a
+ * stub row in "Kartlarım". On success, makes one extra `/get-status-card`
+ * call for the expiry date (`createEpointCardRegistration`'s own
+ * response/webhook payload doesn't include it) and marks this the
+ * user's default card iff it's their first active one.
+ */
+async function applyCardRegistrationOutcome(
+  orderId: string,
+  succeeded: boolean,
+  decoded: Record<string, unknown>,
+): Promise<boolean> {
+  const cardRef = db.collection("savedCards").doc(orderId);
+  const cardSnap = await cardRef.get();
+  const card = cardSnap.data();
+  if (!card || card.status !== "pending") return false;
+
+  const epointCardId = decoded.card_id as string | undefined;
+  if (!succeeded || !epointCardId) {
+    await cardRef.delete();
+    return true;
+  }
+
+  const cardMask = decoded.card_mask as string | undefined;
+  let expiry: { expMonth: number; expYear: number } | null = null;
+  try {
+    const status = await getEpointCardStatus({
+      publicKey: epointPublicKeyValue(),
+      privateKey: epointPrivateKeyValue(),
+      epointCardId,
+    });
+    expiry = parseEpointExpiry(status.expiredDate);
+  } catch (e) {
+    logger.error("applyCardRegistrationOutcome: get-status-card failed", { orderId, error: e });
+  }
+
+  const existingActive = await db
+    .collection("savedCards")
+    .where("ownerId", "==", card.ownerId)
+    .where("status", "==", "active")
+    .limit(1)
+    .get();
+
+  await cardRef.update({
+    status: "active",
+    epointCardId,
+    cardMask: cardMask ?? null,
+    cardBrand: inferCardBrand(cardMask),
+    expMonth: expiry?.expMonth ?? null,
+    expYear: expiry?.expYear ?? null,
+    isDefault: existingActive.empty,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  return true;
+}
+
 /**
  * Epoint's server-to-server callback for every card-based checkout —
- * the standard redirect flow AND the Apple Pay/Google Pay Token Widget
- * both resolve through this SAME endpoint (Epoint's widget posts its
- * result back the identical way a card checkout does), so no separate
- * webhook was needed for either. Not `onCall`, since Epoint has no
- * Firebase Auth token OR App Check token to present (both are
- * Firebase-client-SDK mechanisms; Epoint is an external server, same
- * reasoning as `appStoreServerNotifications` below) — trust comes
- * entirely from `verifyEpointSignature` recomputing the signature with
- * the same private key Epoint signed with; nothing here is trusted
- * before that check passes.
+ * the standard redirect flow, the Apple Pay/Google Pay Token Widget,
+ * AND card registration (`savedCards/{orderId}`) all resolve through
+ * this SAME endpoint (Epoint has one callback URL per merchant
+ * account, not one per request/flow) — `payments/{orderId}` is tried
+ * first (the common case), `savedCards/{orderId}` second. Not
+ * `onCall`, since Epoint has no Firebase Auth token OR App Check token
+ * to present (both are Firebase-client-SDK mechanisms; Epoint is an
+ * external server, same reasoning as `appStoreServerNotifications`
+ * below) — trust comes entirely from `verifyEpointSignature`
+ * recomputing the signature with the same private key Epoint signed
+ * with; nothing here is trusted before that check passes.
  */
-export const epointWebhook = onRequest({ region: "us-central1", secrets: [epointPrivateKey] }, async (req, res) => {
-  const body = req.body as Record<string, unknown>;
-  const data = body?.data as string | undefined;
-  const signature = body?.signature as string | undefined;
-  if (!data || !signature) {
-    res.status(400).send("missing data/signature");
-    return;
-  }
+export const epointWebhook = onRequest(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey] },
+  async (req, res) => {
+    const body = req.body as Record<string, unknown>;
+    const data = body?.data as string | undefined;
+    const signature = body?.signature as string | undefined;
+    if (!data || !signature) {
+      res.status(400).send("missing data/signature");
+      return;
+    }
 
-  if (!verifyEpointSignature(epointPrivateKeyValue(), data, signature)) {
-    logger.error("epointWebhook: signature mismatch");
-    res.status(400).send("invalid signature");
-    return;
-  }
+    if (!verifyEpointSignature(epointPrivateKeyValue(), data, signature)) {
+      logger.error("epointWebhook: signature mismatch");
+      res.status(400).send("invalid signature");
+      return;
+    }
 
-  const decoded = decodeEpointData(data);
-  const orderId = decoded.order_id as string | undefined;
-  const epointStatus = decoded.status as string | undefined;
-  if (!orderId) {
-    res.status(400).send("missing order_id");
-    return;
-  }
+    const decoded = decodeEpointData(data);
+    const orderId = decoded.order_id as string | undefined;
+    const epointStatus = decoded.status as string | undefined;
+    if (!orderId) {
+      res.status(400).send("missing order_id");
+      return;
+    }
 
-  const succeeded = epointStatus === "success";
-  const applied = await applyPaymentOutcome(
-    orderId,
-    succeeded,
-    succeeded ? undefined : { code: decoded.code as string | undefined, message: decoded.message as string | undefined },
-    succeeded ? (decoded.transaction as string | undefined) : undefined,
-  );
-  res.status(200).send(applied ? "ok" : "already processed or unknown order_id");
-});
+    const succeeded = epointStatus === "success";
+    const failureDetail = succeeded
+      ? undefined
+      : { code: decoded.code as string | undefined, message: decoded.message as string | undefined };
+
+    const paymentSnap = await db.collection("payments").doc(orderId).get();
+    if (paymentSnap.exists) {
+      const applied = await applyPaymentOutcome(
+        orderId,
+        succeeded,
+        failureDetail,
+        succeeded ? (decoded.transaction as string | undefined) : undefined,
+      );
+      res.status(200).send(applied ? "ok" : "already processed or unknown order_id");
+      return;
+    }
+
+    const cardSnap = await db.collection("savedCards").doc(orderId).get();
+    if (cardSnap.exists) {
+      const applied = await applyCardRegistrationOutcome(orderId, succeeded, decoded);
+      res.status(200).send(applied ? "ok" : "already processed or unknown order_id");
+      return;
+    }
+
+    logger.error("epointWebhook: unknown order_id", { orderId });
+    res.status(200).send("unknown order_id");
+  },
+);
 
 // ---------------------------------------------------------------------------
 // Apple Pay / Google Pay — one shared entry point per method, reused by every
@@ -4807,6 +4909,146 @@ export const createEpointWidgetCheckout = onCall(
     return { widgetUrl };
   },
 );
+
+// ---------------------------------------------------------------------------
+// Saved cards ("Kartlarım") — register a card once via Epoint's own hosted
+// page (`startCardRegistration`), then charge it synchronously for any of
+// the 4 checkout flows above (`payWithSavedCard`) without a redirect/webview
+// step. Registration completion reaches `epointWebhook` exactly like every
+// other Epoint flow (see `applyCardRegistrationOutcome` above); a saved-card
+// CHARGE doesn't need the webhook at all — `/execute-pay` is synchronous, so
+// `payWithSavedCard` calls `applyPaymentOutcome` itself, inline.
+// ---------------------------------------------------------------------------
+
+export const startCardRegistration = onCall(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    const cardRef = db.collection("savedCards").doc();
+    await cardRef.set({ ownerId: uid, status: "pending", createdAt: FieldValue.serverTimestamp() });
+
+    const { redirectUrl } = await createEpointCardRegistration({
+      publicKey: epointPublicKeyValue(),
+      privateKey: epointPrivateKeyValue(),
+      orderId: cardRef.id,
+      description: "PeakPin kart qeydiyyatı",
+      successRedirectUrl: EPOINT_SUCCESS_REDIRECT_URL,
+      errorRedirectUrl: EPOINT_ERROR_REDIRECT_URL,
+    });
+
+    return { checkoutUrl: redirectUrl };
+  },
+);
+
+/** Loads a `savedCards/{cardId}` doc the CALLING user actually owns and can charge, or throws. */
+async function loadOwnedActiveCard(uid: string, cardId: string): Promise<FirebaseFirestore.DocumentData> {
+  const snap = await db.collection("savedCards").doc(cardId).get();
+  const card = snap.data();
+  if (!card) throw new HttpsError("not-found", "Kart tapılmadı.");
+  if (card.ownerId !== uid) throw new HttpsError("permission-denied", "Bu kartın sahibi deyilsiniz.");
+  if (card.status !== "active") throw new HttpsError("failed-precondition", "Bu kart hazır deyil.");
+  return card;
+}
+
+/**
+ * A distinct `-sc` suffix on the order_id, not the plain `paymentId` —
+ * this payment doc may already have gone through `startEpointCheckoutForPayment`
+ * once (a card/Apple/Google Pay attempt the customer abandoned before
+ * switching to a saved card), and Epoint permanently rejects a reused
+ * order_id (see `startEpointCheckoutForPayment`'s own doc comment).
+ */
+export const payWithSavedCard = onCall(
+  { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey], enforceAppCheck: false },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+    const paymentId = request.data?.paymentId as string | undefined;
+    const cardId = request.data?.cardId as string | undefined;
+    if (!paymentId || !cardId) throw new HttpsError("invalid-argument", "paymentId və cardId tələb olunur.");
+
+    const payment = await loadOwnedPendingPayment(uid, paymentId);
+    const card = await loadOwnedActiveCard(uid, cardId);
+
+    const result = await chargeEpointSavedCard({
+      publicKey: epointPublicKeyValue(),
+      privateKey: epointPrivateKeyValue(),
+      epointCardId: card.epointCardId as string,
+      amount: payment.amount as number,
+      orderId: `${paymentId}-sc`,
+      description: (payment.description as string | undefined) ?? "PeakPin",
+    });
+
+    await applyPaymentOutcome(
+      paymentId,
+      result.succeeded,
+      result.succeeded ? undefined : { message: result.message },
+      result.succeeded ? result.transaction : undefined,
+    );
+
+    return { succeeded: result.succeeded, failureMessage: result.succeeded ? undefined : result.message };
+  },
+);
+
+export const deleteSavedCard = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+  const cardId = request.data?.cardId as string | undefined;
+  if (!cardId) throw new HttpsError("invalid-argument", "cardId tələb olunur.");
+
+  const cardRef = db.collection("savedCards").doc(cardId);
+  const card = (await cardRef.get()).data();
+  if (!card) throw new HttpsError("not-found", "Kart tapılmadı.");
+  if (card.ownerId !== uid) throw new HttpsError("permission-denied", "Bu kartın sahibi deyilsiniz.");
+
+  await cardRef.delete();
+
+  // Epoint has no card-deregistration API — this only stops PeakPin
+  // from listing/using it, it doesn't remove it from Epoint's side.
+  if (card.isDefault) {
+    const nextDefault = await db
+      .collection("savedCards")
+      .where("ownerId", "==", uid)
+      .where("status", "==", "active")
+      .orderBy("createdAt", "desc")
+      .limit(1)
+      .get();
+    if (!nextDefault.empty) {
+      await nextDefault.docs[0].ref.update({ isDefault: true, updatedAt: FieldValue.serverTimestamp() });
+    }
+  }
+
+  return { deleted: true };
+});
+
+export const setDefaultSavedCard = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+
+  const cardId = request.data?.cardId as string | undefined;
+  if (!cardId) throw new HttpsError("invalid-argument", "cardId tələb olunur.");
+
+  await loadOwnedActiveCard(uid, cardId);
+
+  const otherCards = await db
+    .collection("savedCards")
+    .where("ownerId", "==", uid)
+    .where("status", "==", "active")
+    .get();
+
+  await db.runTransaction(async (tx) => {
+    for (const doc of otherCards.docs) {
+      if (doc.id === cardId) continue;
+      if (doc.data().isDefault) tx.update(doc.ref, { isDefault: false, updatedAt: FieldValue.serverTimestamp() });
+    }
+    tx.update(db.collection("savedCards").doc(cardId), { isDefault: true, updatedAt: FieldValue.serverTimestamp() });
+  });
+
+  return { ok: true };
+});
 
 // ---------------------------------------------------------------------------
 // VIP (`users/{uid}.premium`/`premiumExpiresAt`) — App Store/Play Store IAP,

@@ -627,6 +627,8 @@
   "epointApplePaySubtitle": "Быстрая и безопасная оплата одним касанием",
   "epointGooglePayOption": "Google Pay",
   "epointGooglePaySubtitle": "Быстрая и безопасная оплата одним касанием",
+  "epointSavedCardOption": "Оплатить сохранённой картой",
+  "epointSavedCardSubtitle": "Без повторного ввода данных карты",
   "epointCheckoutSecurityNote": "256-битная SSL защита платежей",
   "epointCheckoutPayButton": "Оплатить {amount} AZN",
   "@epointCheckoutPayButton": {
@@ -1378,6 +1380,8 @@
   "noCardsMessage": "Карты ещё не добавлены",
   "cardOptionsSetDefault": "Сделать основной",
   "cardOptionsDelete": "Удалить",
+  "cardDeleteConfirmMessage": "Вы уверены, что хотите удалить эту карту?",
+  "savedCardPickerTitle": "Выберите карту",
   "paymentHistoryEmptyMessage": "Пока нет операций",
   "paymentTypePurchase": "Покупка",
   "paymentTypeRenewal": "Продление",

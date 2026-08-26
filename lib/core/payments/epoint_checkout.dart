@@ -2,8 +2,12 @@ import 'dart:io';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/chat/presentation/theme/chat_light_theme.dart';
+import '../../features/settings/payments/domain/entities/saved_card.dart';
+import '../../features/settings/payments/presentation/providers/payment_providers.dart';
+import '../../features/settings/payments/presentation/widgets/saved_card_row.dart';
 import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
 import 'epoint_card_checkout_screen.dart';
@@ -18,7 +22,10 @@ import 'epoint_token_widget_screen.dart';
 /// Android — both go through Epoint's own hosted "Token Widget"
 /// (`createEpointWidgetCheckout`), which serves either wallet under
 /// EPOINT's own merchant accounts, so neither platform needs any
-/// merchant registration on PeakPin's side.
+/// merchant registration on PeakPin's side — and, whenever the owner
+/// has ≥1 saved card ("Kartlarım"), a "Saxlanmış kartla ödə" option
+/// that charges synchronously via `payWithSavedCard`, no
+/// redirect/webview step at all.
 /// Whichever method the owner picks, the actual payment confirmation
 /// always flows back through the SAME `epointWebhook`
 /// (functions/src/index.ts) — this function only ever gets the owner
@@ -45,9 +52,9 @@ Future<void> presentEpointCheckout(
   await Navigator.push(context, MaterialPageRoute(builder: (_) => EpointPaymentResultScreen(success: cardResult)));
 }
 
-enum _Method { card, applePay, googlePay }
+enum _Method { card, applePay, googlePay, savedCard }
 
-class _EpointCheckoutSheet extends StatefulWidget {
+class _EpointCheckoutSheet extends ConsumerStatefulWidget {
   final String checkoutUrl;
   final String paymentId;
   final double feeAmount;
@@ -55,12 +62,13 @@ class _EpointCheckoutSheet extends StatefulWidget {
   const _EpointCheckoutSheet({required this.checkoutUrl, required this.paymentId, required this.feeAmount});
 
   @override
-  State<_EpointCheckoutSheet> createState() => _EpointCheckoutSheetState();
+  ConsumerState<_EpointCheckoutSheet> createState() => _EpointCheckoutSheetState();
 }
 
-class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
+class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
   _Method _selected = _Method.card;
   bool _confirming = false;
+  String? _selectedCardId;
 
   Future<void> _payByCard() async {
     final cardResult = await Navigator.push<bool>(
@@ -89,6 +97,24 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
     }
   }
 
+  Future<void> _paySavedCard() async {
+    final cardId = _selectedCardId;
+    if (cardId == null) return;
+    final loc = AppLocalizations.of(context);
+    setState(() => _confirming = true);
+    try {
+      final result = await ref
+          .read(savedCardRepositoryProvider)
+          .payWithCard(paymentId: widget.paymentId, cardId: cardId);
+      if (!mounted) return;
+      Navigator.pop(context, result.succeeded);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _confirming = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
+    }
+  }
+
   Future<void> _confirm() async {
     if (_confirming) return;
     switch (_selected) {
@@ -97,13 +123,56 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
       case _Method.applePay:
       case _Method.googlePay:
         await _payByWidget();
+      case _Method.savedCard:
+        await _paySavedCard();
     }
+  }
+
+  Future<void> _onSavedCardTap(List<SavedCard> cards) async {
+    if (cards.length == 1) {
+      setState(() {
+        _selected = _Method.savedCard;
+        _selectedCardId = cards.first.id;
+      });
+      return;
+    }
+    final loc = AppLocalizations.of(context);
+    final chosen = await showModalBottomSheet<SavedCard>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      builder: (_) => Container(
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+        child: SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(loc.savedCardPickerTitle, style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink)),
+                const SizedBox(height: 8),
+                for (final card in cards) SavedCardRow(card: card, onTap: () => Navigator.pop(context, card)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    if (chosen == null || !mounted) return;
+    setState(() {
+      _selected = _Method.savedCard;
+      _selectedCardId = chosen.id;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final amountText = widget.feeAmount.toStringAsFixed(2);
+    final savedCards = ref.watch(savedCardsProvider).valueOrNull ?? const <SavedCard>[];
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -162,6 +231,15 @@ class _EpointCheckoutSheetState extends State<_EpointCheckoutSheet> {
                 title: loc.epointGooglePayOption,
                 subtitle: loc.epointGooglePaySubtitle,
                 onTap: () => setState(() => _selected = _Method.googlePay),
+              ),
+            if (savedCards.isNotEmpty)
+              _PaymentMethodCard(
+                selected: _selected == _Method.savedCard,
+                icon: Icons.credit_score_rounded,
+                iconColor: AppColors.primary,
+                title: loc.epointSavedCardOption,
+                subtitle: loc.epointSavedCardSubtitle,
+                onTap: () => _onSavedCardTap(savedCards),
               ),
             const SizedBox(height: 2),
             Row(

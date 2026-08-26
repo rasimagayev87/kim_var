@@ -627,6 +627,8 @@
   "epointApplePaySubtitle": "Dokunuşla hızlı ve güvenli ödeme",
   "epointGooglePayOption": "Google Pay",
   "epointGooglePaySubtitle": "Dokunuşla hızlı ve güvenli ödeme",
+  "epointSavedCardOption": "Kayıtlı kartla öde",
+  "epointSavedCardSubtitle": "Kart bilgilerini yeniden girmeden",
   "epointCheckoutSecurityNote": "256-bit SSL Güvenli Ödeme Sistemi",
   "epointCheckoutPayButton": "{amount} AZN Öde",
   "@epointCheckoutPayButton": {
@@ -1378,6 +1380,8 @@
   "noCardsMessage": "Henüz kart eklenmedi",
   "cardOptionsSetDefault": "Varsayılan yap",
   "cardOptionsDelete": "Sil",
+  "cardDeleteConfirmMessage": "Bu kartı silmek istediğinizden emin misiniz?",
+  "savedCardPickerTitle": "Kart seçin",
   "paymentHistoryEmptyMessage": "Henüz işlem yok",
   "paymentTypePurchase": "Satın alma",
   "paymentTypeRenewal": "Yenileme",

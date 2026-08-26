@@ -41,11 +41,13 @@ class SavedCardRow extends StatelessWidget {
                     '**** **** **** ${card.last4}',
                     style: AppTextStyles.body.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    '${card.expMonth.toString().padLeft(2, '0')}/${(card.expYear % 100).toString().padLeft(2, '0')}',
-                    style: AppTextStyles.caption,
-                  ),
+                  if (card.expMonth > 0 && card.expYear > 0) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '${card.expMonth.toString().padLeft(2, '0')}/${(card.expYear % 100).toString().padLeft(2, '0')}',
+                      style: AppTextStyles.caption,
+                    ),
+                  ],
                 ],
               ),
             ),

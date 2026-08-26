@@ -576,6 +576,15 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // "Kartlarım" — a saved Epoint card. Same shape/reasoning as
+    // `payments/{paymentId}` right above: only `startCardRegistration`/
+    // `epointWebhook`'s `applyCardRegistrationOutcome`/`deleteSavedCard`/
+    // `setDefaultSavedCard` (all Admin SDK) ever write here.
+    match /savedCards/{cardId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.ownerId;
+      allow write: if false;
+    }
+
     // Maps an Apple `originalTransactionId`/Google purchase token back
     // to the uid that purchased it — purely internal bookkeeping so
     // `appStoreServerNotifications`/`googlePlayRtdn` (functions/src/

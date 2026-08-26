@@ -155,6 +155,139 @@ export async function createEpointTokenWidget(req: EpointTokenWidgetRequest): Pr
   return { widgetUrl };
 }
 
+export interface EpointCardRegistrationRequest {
+  publicKey: string;
+  privateKey: string;
+  orderId: string;
+  description: string;
+  successRedirectUrl: string;
+  errorRedirectUrl: string;
+  language?: "az" | "en" | "ru";
+}
+
+export interface EpointCardRegistrationResult {
+  redirectUrl: string;
+  epointCardId?: string;
+}
+
+/**
+ * Confirmed against Epoint's own official PHP SDK
+ * (github.com/rafoabbas/epoint-php, `CardRegistrationRequest`) — POST
+ * `/card-registration` with `refund: '0'` (a `'1'` registers a
+ * refund-receiving card instead, which this app has no use for).
+ * Returns a `redirect_url` to Epoint's OWN hosted card-entry page
+ * (PashaBank ecomm) — same PCI boundary as every other checkout in
+ * this file, nothing new. Completion reaches `epointWebhook` the same
+ * way every other flow's does (Epoint has one callback URL per
+ * merchant account, not one per request).
+ */
+export async function createEpointCardRegistration(
+  req: EpointCardRegistrationRequest,
+): Promise<EpointCardRegistrationResult> {
+  const { data, signature } = signPayload(req.privateKey, {
+    public_key: req.publicKey,
+    language: req.language ?? "az",
+    refund: "0",
+    description: req.description,
+    order_id: req.orderId,
+    success_redirect_url: req.successRedirectUrl,
+    error_redirect_url: req.errorRedirectUrl,
+  });
+
+  const response = await fetch(`${EPOINT_BASE_URL}/card-registration`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ data, signature }).toString(),
+  });
+  const body = (await response.json()) as Record<string, unknown>;
+  const redirectUrl = body.redirect_url as string | undefined;
+  if (!response.ok || body.status !== "success" || !redirectUrl) {
+    throw new Error(`Epoint card registration failed: ${response.status} ${JSON.stringify(body)}`);
+  }
+
+  return { redirectUrl, epointCardId: body.card_id as string | undefined };
+}
+
+export interface EpointSavedCardPaymentRequest {
+  publicKey: string;
+  privateKey: string;
+  epointCardId: string;
+  amount: number;
+  orderId: string;
+  description: string;
+  currency?: string;
+  language?: "az" | "en" | "ru";
+}
+
+export interface EpointSavedCardPaymentResult {
+  succeeded: boolean;
+  transaction?: string;
+  message?: string;
+}
+
+/**
+ * POST `/execute-pay` — charges a card already registered via
+ * [createEpointCardRegistration], no redirect/webview involved: the
+ * response IS the final outcome, synchronously. Confirmed against the
+ * SDK's `SavedCardPaymentRequest`.
+ */
+export async function chargeEpointSavedCard(
+  req: EpointSavedCardPaymentRequest,
+): Promise<EpointSavedCardPaymentResult> {
+  const { data, signature } = signPayload(req.privateKey, {
+    public_key: req.publicKey,
+    language: req.language ?? "az",
+    currency: req.currency ?? "AZN",
+    card_id: req.epointCardId,
+    amount: req.amount.toFixed(2),
+    order_id: req.orderId,
+    description: req.description,
+  });
+
+  const response = await fetch(`${EPOINT_BASE_URL}/execute-pay`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ data, signature }).toString(),
+  });
+  const body = (await response.json()) as Record<string, unknown>;
+  const succeeded = response.ok && body.status === "success";
+
+  return { succeeded, transaction: body.transaction as string | undefined, message: body.message as string | undefined };
+}
+
+export interface EpointCardStatusRequest {
+  publicKey: string;
+  privateKey: string;
+  epointCardId: string;
+}
+
+export interface EpointCardStatusResult {
+  mask?: string;
+  expiredDate?: string;
+}
+
+/**
+ * POST `/get-status-card` — the only Epoint endpoint that returns a
+ * saved card's expiry date (`expired_date`); the card-registration
+ * webhook payload itself doesn't include it. Called once, right after
+ * a registration is confirmed, to fill in the saved card's expiry.
+ */
+export async function getEpointCardStatus(req: EpointCardStatusRequest): Promise<EpointCardStatusResult> {
+  const { data, signature } = signPayload(req.privateKey, {
+    public_key: req.publicKey,
+    card_id: req.epointCardId,
+  });
+
+  const response = await fetch(`${EPOINT_BASE_URL}/get-status-card`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ data, signature }).toString(),
+  });
+  const body = (await response.json()) as Record<string, unknown>;
+
+  return { mask: body.mask as string | undefined, expiredDate: body.expired_date as string | undefined };
+}
+
 export interface EpointReverseRequest {
   publicKey: string;
   privateKey: string;
