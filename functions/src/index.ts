@@ -825,6 +825,31 @@ export const onVenueLikeDeleted = onDocumentDeleted("venues/{venueId}/likes/{uid
   await bumpVenueLikeCount(event.params.venueId, -1);
 });
 
+/**
+ * Recomputes `venues/{venueId}.ratingAverage`/`ratingCount` on every
+ * `reviews/{reviewId}` create/update/delete — a full re-aggregate
+ * (query every review for the venue, average) rather than an
+ * incremental ±delta like `bumpVenueLikeCount`, since a review carries
+ * a 1-5 value that can itself CHANGE on edit, not just a boolean
+ * like/unlike. Deliberately separate from `rating`/`likeCount` above —
+ * see `Venue`'s own doc comment (Dart) for why the two coexist.
+ */
+export const onReviewWritten = onDocumentWritten("reviews/{reviewId}", async (event) => {
+  const venueId = (event.data?.after.data()?.venueId ?? event.data?.before.data()?.venueId) as string | undefined;
+  if (!venueId) return;
+
+  const reviewsSnap = await db.collection("reviews").where("venueId", "==", venueId).get();
+  const ratings = reviewsSnap.docs.map((d) => (d.data().rating as number | undefined) ?? 0);
+  const ratingCount = ratings.length;
+  const ratingAverage = ratingCount === 0 ? 0 : Math.round((ratings.reduce((a, b) => a + b, 0) / ratingCount) * 10) / 10;
+
+  try {
+    await db.collection("venues").doc(venueId).update({ ratingAverage, ratingCount });
+  } catch {
+    // Venue doc no longer exists — nothing to update.
+  }
+});
+
 // Matches FirebaseVenueRemoteDatasource._checkinExpiry on the Dart
 // side — both must agree on what "stale" means, since the client
 // live-counts only non-stale docs while this function is the one
@@ -1830,6 +1855,53 @@ export const expireStaleWaitlistCalls = onSchedule(
     await Promise.all(staleSnap.docs.map((doc) => doc.ref.update({ status: "no_show" })));
   }
 );
+
+/** 2h after a "Gəldi" (`seated`) mark — long enough to actually have had the visit, short enough the experience is still fresh. */
+const REVIEW_PROMPT_DELAY_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Nudges a guest to review the venue 2 hours after their waitlist
+ * entry was marked `seated` — `reviewPromptSentAt` (Admin-SDK-only,
+ * `firestore.rules` never lets the client touch it) is stamped right
+ * after so the same visit is never prompted twice. `notifyUser`'s
+ * `title`/`body` are the actual push payload text (exact copy the
+ * product spec requires); the in-app feed re-localizes the same
+ * message per-locale from `type: reviewPrompt` + `params` instead
+ * (see `notification_localizer.dart`), same split every other
+ * notification type already uses.
+ */
+export const sendReviewPrompts = onSchedule({ schedule: "every 15 minutes", region: "europe-west1" }, async () => {
+  const cutoff = Timestamp.fromMillis(Date.now() - REVIEW_PROMPT_DELAY_MS);
+  const dueSnap = await db.collectionGroup("waitlist").where("status", "==", "seated").where("seatedAt", "<=", cutoff).get();
+
+  await Promise.all(
+    dueSnap.docs.map(async (doc) => {
+      const data = doc.data();
+      if (data.reviewPromptSentAt) return;
+
+      const venueId = doc.ref.parent.parent?.id;
+      const userId = data.userId as string | undefined;
+      if (!venueId || !userId) return;
+
+      const venueSnap = await db.collection("venues").doc(venueId).get();
+      const venueName = (venueSnap.data()?.name as string | undefined) ?? "";
+      if (!venueSnap.exists) return;
+
+      await notifyUser({
+        uid: userId,
+        category: "venueUpdates",
+        type: "reviewPrompt",
+        title: venueName,
+        body: `Siz ${venueName}-nin qonağı olmusunuz, bu barədə təəssüratlarınızı yazın, digər müştərilər faydalansın.`,
+        params: { venueId, venueName, waitlistEntryId: doc.id },
+        targetId: venueId,
+        targetType: "venue",
+      });
+
+      await doc.ref.update({ reviewPromptSentAt: FieldValue.serverTimestamp() });
+    })
+  );
+});
 
 /**
  * Force-disables `Venue.waitlistEnabled` the moment an owner edits a
@@ -3455,6 +3527,45 @@ export const onEventReportCreated = onDocumentCreated(
       message: `${reporter.name} → "${eventTitle}": ${reason}`,
       targetType: "event",
       targetId: eventId,
+    });
+  }
+);
+
+/**
+ * Relays every new review report ("Rəy şikayətləri", `reportReview()`
+ * in firebase_review_repository.dart) — same shape as
+ * `onEventReportCreated` above. A review's own author/the venue owner
+ * can't delete it directly (see `Review`'s doc comment); this queue,
+ * resolved from the admin panel's "Review Reports" page, is the only
+ * removal path.
+ */
+export const onReviewReportCreated = onDocumentCreated(
+  { document: "reviewReports/{reportId}", secrets: [resendApiKey] },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+
+    const reviewId = data.reviewId as string | undefined;
+    const reporterId = data.reporterId as string | undefined;
+    const reason = (data.reason as string | undefined) ?? "(səbəb qeyd edilməyib)";
+    if (!reviewId || !reporterId) return;
+
+    const [reporter, reviewSnap] = await Promise.all([getUserDisplayInfo(reporterId), db.collection("reviews").doc(reviewId).get()]);
+    const reviewComment = (reviewSnap.data()?.comment as string | undefined) ?? reviewId;
+
+    await sendPrivacyNotificationEmail(
+      "Yeni rəy şikayəti — PeakPin",
+      `<p><strong>Şikayətçi:</strong> ${reporter.name} (${reporterId})</p>
+       <p><strong>Rəy:</strong> ${reviewComment} (${reviewId})</p>
+       <p><strong>Səbəb:</strong> ${reason}</p>
+       <p>Baxmaq üçün admin paneldəki "Rəy şikayətləri" bölümünə keçin.</p>`
+    );
+
+    await notifyAdmins({
+      type: "report.review",
+      message: `${reporter.name} → "${reviewComment}": ${reason}`,
+      targetType: "review",
+      targetId: reviewId,
     });
   }
 );

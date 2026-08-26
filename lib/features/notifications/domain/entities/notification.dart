@@ -214,6 +214,14 @@ enum NotificationType {
   /// Admin-authored broadcast — see [system]'s doc comment, the same
   /// `sendBroadcast` mechanism.
   announcement,
+
+  /// 2 hours after a waitlist entry is marked `seated` ("Gəldi") — see
+  /// `sendReviewPrompts` (scheduled Cloud Function). `targetType:
+  /// 'venue'`, so it opens `VenueProfileScreen` the same way any other
+  /// venue-targeted notification already does; the guest taps "Rəy
+  /// yaz" themselves once there. `params: {venueId, venueName,
+  /// waitlistEntryId}`.
+  reviewPrompt,
   other,
 }
 

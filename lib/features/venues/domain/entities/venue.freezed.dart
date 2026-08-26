@@ -142,6 +142,15 @@ mixin _$Venue {
   /// triggers that maintain it (base 3.0 + 0.1 per 5 likes, capped at
   /// 5.0). Never set directly by the client.
   double get rating => throw _privateConstructorUsedError;
+
+  /// The review-based rating — plain average of every `reviews`
+  /// doc's `rating` field for this venue, recomputed from scratch by
+  /// `onReviewWritten` (functions/src/index.ts) on every review
+  /// create/update/delete. 0 with [ratingCount] 0 means "no reviews
+  /// yet", not "reviewed as zero stars" — `VenueReviewsSection`
+  /// never renders this pair at all in that case.
+  double get ratingAverage => throw _privateConstructorUsedError;
+  int get ratingCount => throw _privateConstructorUsedError;
   @TimestampConverter()
   DateTime get createdAt => throw _privateConstructorUsedError;
   @NullableTimestampConverter()
@@ -256,6 +265,8 @@ abstract class $VenueCopyWith<$Res> {
     bool verified,
     int likeCount,
     double rating,
+    double ratingAverage,
+    int ratingCount,
     @TimestampConverter() DateTime createdAt,
     @NullableTimestampConverter() DateTime? updatedAt,
     @VenueSocialLinksConverter() VenueSocialLinks? socialLinks,
@@ -310,6 +321,8 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? verified = null,
     Object? likeCount = null,
     Object? rating = null,
+    Object? ratingAverage = null,
+    Object? ratingCount = null,
     Object? createdAt = null,
     Object? updatedAt = freezed,
     Object? socialLinks = freezed,
@@ -425,6 +438,14 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
                 ? _value.rating
                 : rating // ignore: cast_nullable_to_non_nullable
                       as double,
+            ratingAverage: null == ratingAverage
+                ? _value.ratingAverage
+                : ratingAverage // ignore: cast_nullable_to_non_nullable
+                      as double,
+            ratingCount: null == ratingCount
+                ? _value.ratingCount
+                : ratingCount // ignore: cast_nullable_to_non_nullable
+                      as int,
             createdAt: null == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -509,6 +530,8 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     bool verified,
     int likeCount,
     double rating,
+    double ratingAverage,
+    int ratingCount,
     @TimestampConverter() DateTime createdAt,
     @NullableTimestampConverter() DateTime? updatedAt,
     @VenueSocialLinksConverter() VenueSocialLinks? socialLinks,
@@ -562,6 +585,8 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? verified = null,
     Object? likeCount = null,
     Object? rating = null,
+    Object? ratingAverage = null,
+    Object? ratingCount = null,
     Object? createdAt = null,
     Object? updatedAt = freezed,
     Object? socialLinks = freezed,
@@ -676,6 +701,14 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.rating
             : rating // ignore: cast_nullable_to_non_nullable
                   as double,
+        ratingAverage: null == ratingAverage
+            ? _value.ratingAverage
+            : ratingAverage // ignore: cast_nullable_to_non_nullable
+                  as double,
+        ratingCount: null == ratingCount
+            ? _value.ratingCount
+            : ratingCount // ignore: cast_nullable_to_non_nullable
+                  as int,
         createdAt: null == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -754,6 +787,8 @@ class _$VenueImpl extends _Venue {
     this.verified = false,
     this.likeCount = 0,
     this.rating = 3.0,
+    this.ratingAverage = 0.0,
+    this.ratingCount = 0,
     @TimestampConverter() required this.createdAt,
     @NullableTimestampConverter() this.updatedAt,
     @VenueSocialLinksConverter() this.socialLinks,
@@ -934,6 +969,19 @@ class _$VenueImpl extends _Venue {
   @override
   @JsonKey()
   final double rating;
+
+  /// The review-based rating — plain average of every `reviews`
+  /// doc's `rating` field for this venue, recomputed from scratch by
+  /// `onReviewWritten` (functions/src/index.ts) on every review
+  /// create/update/delete. 0 with [ratingCount] 0 means "no reviews
+  /// yet", not "reviewed as zero stars" — `VenueReviewsSection`
+  /// never renders this pair at all in that case.
+  @override
+  @JsonKey()
+  final double ratingAverage;
+  @override
+  @JsonKey()
+  final int ratingCount;
   @override
   @TimestampConverter()
   final DateTime createdAt;
@@ -1026,7 +1074,7 @@ class _$VenueImpl extends _Venue {
 
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, isFoundingVenue: $isFoundingVenue, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, firstPaymentAnnouncementPending: $firstPaymentAnnouncementPending, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, isFoundingVenue: $isFoundingVenue, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, firstPaymentAnnouncementPending: $firstPaymentAnnouncementPending, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, ratingAverage: $ratingAverage, ratingCount: $ratingCount, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
   }
 
   @override
@@ -1078,6 +1126,10 @@ class _$VenueImpl extends _Venue {
             (identical(other.likeCount, likeCount) ||
                 other.likeCount == likeCount) &&
             (identical(other.rating, rating) || other.rating == rating) &&
+            (identical(other.ratingAverage, ratingAverage) ||
+                other.ratingAverage == ratingAverage) &&
+            (identical(other.ratingCount, ratingCount) ||
+                other.ratingCount == ratingCount) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt) &&
             (identical(other.updatedAt, updatedAt) ||
@@ -1135,6 +1187,8 @@ class _$VenueImpl extends _Venue {
     verified,
     likeCount,
     rating,
+    ratingAverage,
+    ratingCount,
     createdAt,
     updatedAt,
     socialLinks,
@@ -1189,6 +1243,8 @@ abstract class _Venue extends Venue {
     final bool verified,
     final int likeCount,
     final double rating,
+    final double ratingAverage,
+    final int ratingCount,
     @TimestampConverter() required final DateTime createdAt,
     @NullableTimestampConverter() final DateTime? updatedAt,
     @VenueSocialLinksConverter() final VenueSocialLinks? socialLinks,
@@ -1350,6 +1406,17 @@ abstract class _Venue extends Venue {
   /// 5.0). Never set directly by the client.
   @override
   double get rating;
+
+  /// The review-based rating — plain average of every `reviews`
+  /// doc's `rating` field for this venue, recomputed from scratch by
+  /// `onReviewWritten` (functions/src/index.ts) on every review
+  /// create/update/delete. 0 with [ratingCount] 0 means "no reviews
+  /// yet", not "reviewed as zero stars" — `VenueReviewsSection`
+  /// never renders this pair at all in that case.
+  @override
+  double get ratingAverage;
+  @override
+  int get ratingCount;
   @override
   @TimestampConverter()
   DateTime get createdAt;

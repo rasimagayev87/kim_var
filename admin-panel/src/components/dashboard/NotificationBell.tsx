@@ -21,17 +21,20 @@ import { PENDING_SECTION_META, type PendingCounts } from "@/lib/pending-sections
 const TYPE_LABELS: Record<string, string> = {
   "report.user": "İstifadəçi şikayəti",
   "report.event": "Tədbir şikayəti",
+  "report.review": "Rəy şikayəti",
   "payment.succeeded": "Ödəniş təsdiqləndi",
   "refund.manual": "Əl ilə geri qaytarma tələb olunur",
 };
 
 /** `/users/{id}`/`/offers/{id}`/`/venues/{id}` have real detail pages;
- * event reports and PinBox orders don't have a per-item route yet, so
- * they land on the list page instead — see `src/app/(protected)/
- * event-reports/page.tsx` and `.../payments/page.tsx`. */
+ * event reports, review reports, and PinBox orders don't have a
+ * per-item route yet, so they land on the list page instead — see
+ * `src/app/(protected)/event-reports/page.tsx`,
+ * `.../review-reports/page.tsx`, and `.../payments/page.tsx`. */
 function targetHref(row: AdminNotificationRow): string {
   if (row.targetType === "user") return `/users/${row.targetId}`;
   if (row.targetType === "event") return "/event-reports";
+  if (row.targetType === "review") return "/review-reports";
   if (row.targetType === "offer") return `/offers/${row.targetId}`;
   if (row.targetType === "venue") return `/venues/${row.targetId}`;
   if (row.targetType === "pinbox_order") return "/payments";

@@ -68,6 +68,13 @@ const EXISTING_NAV: {
     permission: "moderateVenues",
     countKey: "eventReports",
   },
+  {
+    href: "/review-reports",
+    label: "Rəy şikayətləri",
+    icon: Flag,
+    permission: "moderateVenues",
+    countKey: "reviewReports",
+  },
   { href: "/notifications", label: "Bildirişlər", icon: Bell, permission: "broadcastNotifications" },
   { href: "/logs", label: "Loglar", icon: ScrollText },
   { href: "/admins", label: "Admin idarəetməsi", icon: ShieldCheck, permission: "manageAdmins" },

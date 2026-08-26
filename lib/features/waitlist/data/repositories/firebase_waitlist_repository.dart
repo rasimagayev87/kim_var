@@ -56,6 +56,17 @@ class FirebaseWaitlistRepository implements WaitlistRepository {
   }
 
   @override
+  Stream<WaitlistEntry?> watchMyLatestSeatedEntry({required String venueId, required String userId}) {
+    return _waitlist(venueId)
+        .where('userId', isEqualTo: userId)
+        .where('status', isEqualTo: WaitlistEntryStatus.seated.name)
+        .orderBy('seatedAt', descending: true)
+        .limit(1)
+        .snapshots()
+        .map((snap) => snap.docs.isEmpty ? null : WaitlistEntry.fromFirestore(snap.docs.first.id, venueId, snap.docs.first.data()));
+  }
+
+  @override
   Future<void> cancelEntry({required String venueId, required String entryId}) {
     return _waitlist(venueId).doc(entryId).update({'status': WaitlistEntryStatus.cancelled.name});
   }
@@ -70,7 +81,10 @@ class FirebaseWaitlistRepository implements WaitlistRepository {
 
   @override
   Future<void> markSeated({required String venueId, required String entryId}) {
-    return _waitlist(venueId).doc(entryId).update({'status': WaitlistEntryStatus.seated.name});
+    return _waitlist(venueId).doc(entryId).update({
+      'status': WaitlistEntryStatus.seated.name,
+      'seatedAt': FieldValue.serverTimestamp(),
+    });
   }
 
   @override

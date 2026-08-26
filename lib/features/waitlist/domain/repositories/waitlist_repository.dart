@@ -54,4 +54,12 @@ abstract class WaitlistRepository {
   /// whose category is no longer waitlist-eligible but still has
   /// entries to resolve (see `waitlistCategoryConfigProvider`).
   Future<bool> hasAnyEntry(String venueId);
+
+  /// The signed-in user's most recent `seated` entry at [venueId], if
+  /// any — proof of a real, staff-confirmed visit. Powers the Reviews
+  /// section's "Rəy yaz" eligibility gate AND supplies the
+  /// `waitlistEntryId` a review is built on (`ReviewRepository
+  /// .submitReview`). Unlike [watchMyEntry] (which only ever returns
+  /// `waiting`/`called`), this deliberately looks at `seated` only.
+  Stream<WaitlistEntry?> watchMyLatestSeatedEntry({required String venueId, required String userId});
 }

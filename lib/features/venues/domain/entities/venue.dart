@@ -6,8 +6,13 @@ part 'venue.freezed.dart';
 part 'venue.g.dart';
 
 /// Self-service-submitted local businesses (Kəşf et → Məkanlar).
-/// Deliberately no review/rating fields — no review system exists yet,
-/// and this app never shows fabricated numbers.
+/// [likeCount]/[rating] (below) are the pre-existing like-based score;
+/// [ratingAverage]/[ratingCount] are the separate, review-based one
+/// (Faza 1: waitlist-`seated`-verified visits only — see
+/// `VenueReviewsSection`/`firestore.rules`' `reviews` collection). The
+/// two coexist deliberately rather than merging, since one is "how
+/// many people liked this venue" and the other is an actual star
+/// rating from confirmed guests.
 ///
 /// This exact ordering is the client-specified list and drives the
 /// category picker's default (pre-search) order. [other] is not part
@@ -439,6 +444,15 @@ class Venue with _$Venue {
     /// triggers that maintain it (base 3.0 + 0.1 per 5 likes, capped at
     /// 5.0). Never set directly by the client.
     @Default(3.0) double rating,
+
+    /// The review-based rating — plain average of every `reviews`
+    /// doc's `rating` field for this venue, recomputed from scratch by
+    /// `onReviewWritten` (functions/src/index.ts) on every review
+    /// create/update/delete. 0 with [ratingCount] 0 means "no reviews
+    /// yet", not "reviewed as zero stars" — `VenueReviewsSection`
+    /// never renders this pair at all in that case.
+    @Default(0.0) double ratingAverage,
+    @Default(0) int ratingCount,
     @TimestampConverter() required DateTime createdAt,
     @NullableTimestampConverter() DateTime? updatedAt,
 

@@ -45,6 +45,8 @@ _$VenueImpl _$$VenueImplFromJson(Map<String, dynamic> json) => _$VenueImpl(
   verified: json['verified'] as bool? ?? false,
   likeCount: (json['likeCount'] as num?)?.toInt() ?? 0,
   rating: (json['rating'] as num?)?.toDouble() ?? 3.0,
+  ratingAverage: (json['ratingAverage'] as num?)?.toDouble() ?? 0.0,
+  ratingCount: (json['ratingCount'] as num?)?.toInt() ?? 0,
   createdAt: const TimestampConverter().fromJson(json['createdAt']),
   updatedAt: const NullableTimestampConverter().fromJson(json['updatedAt']),
   socialLinks: const VenueSocialLinksConverter().fromJson(
@@ -99,6 +101,8 @@ Map<String, dynamic> _$$VenueImplToJson(
   'verified': instance.verified,
   'likeCount': instance.likeCount,
   'rating': instance.rating,
+  'ratingAverage': instance.ratingAverage,
+  'ratingCount': instance.ratingCount,
   'createdAt': const TimestampConverter().toJson(instance.createdAt),
   'updatedAt': const NullableTimestampConverter().toJson(instance.updatedAt),
   'socialLinks': const VenueSocialLinksConverter().toJson(instance.socialLinks),

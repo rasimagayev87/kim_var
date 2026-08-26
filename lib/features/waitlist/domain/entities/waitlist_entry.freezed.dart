@@ -43,6 +43,15 @@ mixin _$WaitlistEntry {
   @NullableTimestampConverter()
   DateTime? get calledAt => throw _privateConstructorUsedError;
 
+  /// Set alongside `status: seated` by the same `markSeated` write —
+  /// the review system's proof of a real, timestamped visit (see
+  /// `ReviewRepository`/`firestore.rules`' `reviews` collection,
+  /// which `get()`s this entry and checks `status == seated`). Also
+  /// what `sendReviewPrompts` (Cloud Function) waits 2 hours past
+  /// before nudging the guest to leave a review.
+  @NullableTimestampConverter()
+  DateTime? get seatedAt => throw _privateConstructorUsedError;
+
   /// Only ever set while [status] is [WaitlistEntryStatus.waiting] —
   /// null for every other status (a called/seated/cancelled/no-show
   /// entry isn't "in line" anymore).
@@ -75,6 +84,7 @@ abstract class $WaitlistEntryCopyWith<$Res> {
     @WaitlistEntryStatusConverter() WaitlistEntryStatus status,
     @TimestampConverter() DateTime joinedAt,
     @NullableTimestampConverter() DateTime? calledAt,
+    @NullableTimestampConverter() DateTime? seatedAt,
     int? queuePosition,
   });
 }
@@ -103,6 +113,7 @@ class _$WaitlistEntryCopyWithImpl<$Res, $Val extends WaitlistEntry>
     Object? status = null,
     Object? joinedAt = null,
     Object? calledAt = freezed,
+    Object? seatedAt = freezed,
     Object? queuePosition = freezed,
   }) {
     return _then(
@@ -143,6 +154,10 @@ class _$WaitlistEntryCopyWithImpl<$Res, $Val extends WaitlistEntry>
                 ? _value.calledAt
                 : calledAt // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            seatedAt: freezed == seatedAt
+                ? _value.seatedAt
+                : seatedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
             queuePosition: freezed == queuePosition
                 ? _value.queuePosition
                 : queuePosition // ignore: cast_nullable_to_non_nullable
@@ -172,6 +187,7 @@ abstract class _$$WaitlistEntryImplCopyWith<$Res>
     @WaitlistEntryStatusConverter() WaitlistEntryStatus status,
     @TimestampConverter() DateTime joinedAt,
     @NullableTimestampConverter() DateTime? calledAt,
+    @NullableTimestampConverter() DateTime? seatedAt,
     int? queuePosition,
   });
 }
@@ -199,6 +215,7 @@ class __$$WaitlistEntryImplCopyWithImpl<$Res>
     Object? status = null,
     Object? joinedAt = null,
     Object? calledAt = freezed,
+    Object? seatedAt = freezed,
     Object? queuePosition = freezed,
   }) {
     return _then(
@@ -239,6 +256,10 @@ class __$$WaitlistEntryImplCopyWithImpl<$Res>
             ? _value.calledAt
             : calledAt // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        seatedAt: freezed == seatedAt
+            ? _value.seatedAt
+            : seatedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
         queuePosition: freezed == queuePosition
             ? _value.queuePosition
             : queuePosition // ignore: cast_nullable_to_non_nullable
@@ -261,6 +282,7 @@ class _$WaitlistEntryImpl extends _WaitlistEntry {
     @WaitlistEntryStatusConverter() this.status = WaitlistEntryStatus.waiting,
     @TimestampConverter() required this.joinedAt,
     @NullableTimestampConverter() this.calledAt,
+    @NullableTimestampConverter() this.seatedAt,
     this.queuePosition,
   }) : super._();
 
@@ -299,6 +321,16 @@ class _$WaitlistEntryImpl extends _WaitlistEntry {
   @NullableTimestampConverter()
   final DateTime? calledAt;
 
+  /// Set alongside `status: seated` by the same `markSeated` write —
+  /// the review system's proof of a real, timestamped visit (see
+  /// `ReviewRepository`/`firestore.rules`' `reviews` collection,
+  /// which `get()`s this entry and checks `status == seated`). Also
+  /// what `sendReviewPrompts` (Cloud Function) waits 2 hours past
+  /// before nudging the guest to leave a review.
+  @override
+  @NullableTimestampConverter()
+  final DateTime? seatedAt;
+
   /// Only ever set while [status] is [WaitlistEntryStatus.waiting] —
   /// null for every other status (a called/seated/cancelled/no-show
   /// entry isn't "in line" anymore).
@@ -307,7 +339,7 @@ class _$WaitlistEntryImpl extends _WaitlistEntry {
 
   @override
   String toString() {
-    return 'WaitlistEntry(id: $id, venueId: $venueId, userId: $userId, partySize: $partySize, phoneNumber: $phoneNumber, note: $note, status: $status, joinedAt: $joinedAt, calledAt: $calledAt, queuePosition: $queuePosition)';
+    return 'WaitlistEntry(id: $id, venueId: $venueId, userId: $userId, partySize: $partySize, phoneNumber: $phoneNumber, note: $note, status: $status, joinedAt: $joinedAt, calledAt: $calledAt, seatedAt: $seatedAt, queuePosition: $queuePosition)';
   }
 
   @override
@@ -328,6 +360,8 @@ class _$WaitlistEntryImpl extends _WaitlistEntry {
                 other.joinedAt == joinedAt) &&
             (identical(other.calledAt, calledAt) ||
                 other.calledAt == calledAt) &&
+            (identical(other.seatedAt, seatedAt) ||
+                other.seatedAt == seatedAt) &&
             (identical(other.queuePosition, queuePosition) ||
                 other.queuePosition == queuePosition));
   }
@@ -345,6 +379,7 @@ class _$WaitlistEntryImpl extends _WaitlistEntry {
     status,
     joinedAt,
     calledAt,
+    seatedAt,
     queuePosition,
   );
 
@@ -373,6 +408,7 @@ abstract class _WaitlistEntry extends WaitlistEntry {
     @WaitlistEntryStatusConverter() final WaitlistEntryStatus status,
     @TimestampConverter() required final DateTime joinedAt,
     @NullableTimestampConverter() final DateTime? calledAt,
+    @NullableTimestampConverter() final DateTime? seatedAt,
     final int? queuePosition,
   }) = _$WaitlistEntryImpl;
   const _WaitlistEntry._() : super._();
@@ -410,6 +446,16 @@ abstract class _WaitlistEntry extends WaitlistEntry {
   @override
   @NullableTimestampConverter()
   DateTime? get calledAt;
+
+  /// Set alongside `status: seated` by the same `markSeated` write —
+  /// the review system's proof of a real, timestamped visit (see
+  /// `ReviewRepository`/`firestore.rules`' `reviews` collection,
+  /// which `get()`s this entry and checks `status == seated`). Also
+  /// what `sendReviewPrompts` (Cloud Function) waits 2 hours past
+  /// before nudging the guest to leave a review.
+  @override
+  @NullableTimestampConverter()
+  DateTime? get seatedAt;
 
   /// Only ever set while [status] is [WaitlistEntryStatus.waiting] —
   /// null for every other status (a called/seated/cancelled/no-show

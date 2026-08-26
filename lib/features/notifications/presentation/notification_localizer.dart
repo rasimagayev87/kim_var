@@ -67,6 +67,12 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: venueName.isEmpty ? loc.notifVenuePeakHourBodyGeneric : loc.notifVenuePeakHourBody(venueName),
       );
 
+    case NotificationType.reviewPrompt:
+      return LocalizedNotificationText(
+        title: str('venueName'),
+        body: loc.notifReviewPromptBody(str('venueName')),
+      );
+
     case NotificationType.birthdayMatch:
       return LocalizedNotificationText(
         title: loc.notifBirthdayMatchTitle,

@@ -16,6 +16,7 @@ import '../../../events/domain/entities/venue_event.dart';
 import '../../../events/presentation/providers/venue_event_providers.dart';
 import '../../../events/presentation/screens/category_label.dart';
 import '../../../events/presentation/screens/event_details_screen.dart';
+import '../../../reviews/presentation/widgets/venue_reviews_section.dart';
 import '../../../venue_follow/presentation/providers/venue_follow_providers.dart';
 import '../../../waitlist/presentation/widgets/waitlist_status_section.dart';
 import '../../domain/entities/venue.dart';
@@ -31,11 +32,13 @@ import 'create_venue_screen.dart';
 /// "Mənim məkanlarım") is reflected here immediately if this screen is
 /// still open.
 ///
-/// Deliberately no Gallery/Offers/Events/Reviews/Followers sections —
-/// none of those features exist yet, and this app never ships a
-/// visible placeholder for something that isn't real. The
-/// [Venue.gallery] field already exists schema-wise for when a real
-/// gallery upload flow is built.
+/// Deliberately no Gallery/Offers/Followers sections — none of those
+/// features exist yet, and this app never ships a visible placeholder
+/// for something that isn't real. The [Venue.gallery] field already
+/// exists schema-wise for when a real gallery upload flow is built.
+/// Events (`_VenueEventsSection`) and Reviews (`VenueReviewsSection`)
+/// DO exist, each rendering nothing of its own when there's nothing
+/// to show.
 class VenueProfileScreen extends ConsumerWidget {
   final String venueId;
 
@@ -199,6 +202,7 @@ class _VenueProfileContent extends StatelessWidget {
                 ],
                 _CheckinSection(venue: venue, isOwner: isOwner),
                 _VenueEventsSection(venueId: venue.id),
+                VenueReviewsSection(venue: venue),
                 const SizedBox(height: 28),
                 Text(
                   loc.venueScheduleLabel,

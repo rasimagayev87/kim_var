@@ -21,6 +21,7 @@ _$WaitlistEntryImpl _$$WaitlistEntryImplFromJson(Map<String, dynamic> json) =>
             ),
       joinedAt: const TimestampConverter().fromJson(json['joinedAt']),
       calledAt: const NullableTimestampConverter().fromJson(json['calledAt']),
+      seatedAt: const NullableTimestampConverter().fromJson(json['seatedAt']),
       queuePosition: (json['queuePosition'] as num?)?.toInt(),
     );
 
@@ -35,5 +36,6 @@ Map<String, dynamic> _$$WaitlistEntryImplToJson(_$WaitlistEntryImpl instance) =>
       'status': const WaitlistEntryStatusConverter().toJson(instance.status),
       'joinedAt': const TimestampConverter().toJson(instance.joinedAt),
       'calledAt': const NullableTimestampConverter().toJson(instance.calledAt),
+      'seatedAt': const NullableTimestampConverter().toJson(instance.seatedAt),
       'queuePosition': instance.queuePosition,
     };

@@ -471,13 +471,88 @@ service cloud.firestore {
       // approval) and `submitOffer`'s free-quota transaction (both
       // functions/src/index.ts) may touch these, so an owner can't
       // self-grant founding status or reset their own free-offer count.
+      // `ratingAverage`/`ratingCount` join that same grant-of-trust
+      // list — only `onReviewWritten` (functions/src/index.ts) may set
+      // them, recomputed from `reviews` on every write, same reasoning
+      // as `likeCount`/`rating` above but for the separate review-based
+      // score.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['likeCount', 'rating', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd']);
+          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
+    }
+
+    // Verified Reviews (Faza 1) — a review can only exist backed by a
+    // real, staff-confirmed visit (a `seated` waitlist entry), which
+    // is exactly what makes this different from a normal open review
+    // system. `reviewId` is always `{venueId}_{userId}` (same composite
+    // -key convention as `follows/{viewerId}_{ownerId}` above) — that,
+    // not a rule searching for duplicates, is what makes "one review
+    // per user per venue" structural: a second attempt just overwrites
+    // the first doc.
+    match /reviews/{reviewId} {
+      // Faza 1: only the categories that already have the waitlist
+      // feature — same set as `config/waitlistCategories
+      // .enabledCategories` (admin-panel/scripts/set-waitlist
+      // -categories.ts). Hardcoded rather than a third `get()` per
+      // write; expand this list together with Faza 2.
+      function isEligibleCategory(venueId) {
+        return get(/databases/$(database)/documents/venues/$(venueId)).data.category in
+          ['restaurant', 'pub', 'fastFood', 'coffeeShop', 'teaHouse', 'karaoke', 'sweetsShop', 'gameHall', 'spa', 'carWash'];
+      }
+
+      // The actual "real visit" proof — a `get()`, not a query:
+      // Firestore rules can only inspect one already-known document
+      // path, never search, which is exactly why the client has to
+      // supply the entry id up front rather than the rule finding it.
+      function hasVerifiedVisit(venueId, waitlistEntryId, uid) {
+        let entry = get(/databases/$(database)/documents/venues/$(venueId)/waitlist/$(waitlistEntryId)).data;
+        return entry.status == 'seated' && entry.userId == uid;
+      }
+
+      function isValidRatingAndComment() {
+        return request.resource.data.rating is int &&
+          request.resource.data.rating >= 1 && request.resource.data.rating <= 5 &&
+          request.resource.data.comment is string &&
+          request.resource.data.comment.size() <= 500;
+      }
+
+      allow read: if true;
+
+      allow create: if request.auth != null &&
+        reviewId == request.resource.data.venueId + '_' + request.auth.uid &&
+        request.auth.uid == request.resource.data.userId &&
+        request.resource.data.keys().hasOnly(['venueId', 'userId', 'rating', 'comment', 'waitlistEntryId', 'createdAt', 'updatedAt']) &&
+        isValidRatingAndComment() &&
+        hasVerifiedVisit(request.resource.data.venueId, request.resource.data.waitlistEntryId, request.auth.uid) &&
+        isEligibleCategory(request.resource.data.venueId);
+
+      // Two disjoint paths: the review's own author re-proving the
+      // same waitlist condition as create (editing after a later
+      // visit), or the venue's owner setting their one-time public
+      // reply — see `Review.ownerReply`'s doc comment (Dart) for why
+      // it's a single shot, never editable after.
+      allow update: if request.auth != null &&
+        (
+          (request.auth.uid == resource.data.userId &&
+            request.resource.data.venueId == resource.data.venueId &&
+            request.resource.data.userId == resource.data.userId &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'comment', 'waitlistEntryId', 'updatedAt']) &&
+            isValidRatingAndComment() &&
+            hasVerifiedVisit(resource.data.venueId, request.resource.data.waitlistEntryId, request.auth.uid) &&
+            isEligibleCategory(resource.data.venueId)) ||
+          (request.auth.uid == get(/databases/$(database)/documents/venues/$(resource.data.venueId)).data.ownerId &&
+            resource.data.ownerReply == null &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerReply', 'updatedAt']))
+        );
+
+      // Only the admin panel (Admin SDK, bypasses this) deletes a
+      // review — via a resolved `reviewReports` entry. Neither the
+      // author nor the venue owner can remove one directly.
+      allow delete: if false;
     }
 
     // Top-level, separate from the (unrelated, still-unused) VIP-purchase
@@ -621,7 +696,10 @@ service cloud.firestore {
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
             request.resource.data.status == 'cancelled') ||
           (isVenueOwner() &&
-            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'calledAt']))
+            // `seatedAt` — stamped alongside `status: seated` by the
+            // same `markSeated` write (see `firebase_waitlist_
+            // repository.dart`), the review system's proof of visit.
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'calledAt', 'seatedAt']))
         );
 
       allow delete: if false;
@@ -924,6 +1002,14 @@ service cloud.firestore {
 
     // Write-only from clients — reviewed by moderators outside the app.
     match /reports/{reportId} {
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.reporterId;
+      allow read, update, delete: if false;
+    }
+
+    // "Şikayət et" on a review — same write-only-by-reporter shape as
+    // `reports`/`eventReports` above. Resolved from the admin panel's
+    // "Review Reports" page (`onReviewReportCreated` relays it there).
+    match /reviewReports/{reportId} {
       allow create: if request.auth != null && request.auth.uid == request.resource.data.reporterId;
       allow read, update, delete: if false;
     }

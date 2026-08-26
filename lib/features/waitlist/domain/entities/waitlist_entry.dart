@@ -51,6 +51,14 @@ class WaitlistEntry with _$WaitlistEntry {
     @TimestampConverter() required DateTime joinedAt,
     @NullableTimestampConverter() DateTime? calledAt,
 
+    /// Set alongside `status: seated` by the same `markSeated` write —
+    /// the review system's proof of a real, timestamped visit (see
+    /// `ReviewRepository`/`firestore.rules`' `reviews` collection,
+    /// which `get()`s this entry and checks `status == seated`). Also
+    /// what `sendReviewPrompts` (Cloud Function) waits 2 hours past
+    /// before nudging the guest to leave a review.
+    @NullableTimestampConverter() DateTime? seatedAt,
+
     /// Only ever set while [status] is [WaitlistEntryStatus.waiting] —
     /// null for every other status (a called/seated/cancelled/no-show
     /// entry isn't "in line" anymore).
