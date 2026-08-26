@@ -273,7 +273,7 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     final discountPercent = _discountPercent;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundDark.withValues(alpha: 0.92),
         elevation: 0,

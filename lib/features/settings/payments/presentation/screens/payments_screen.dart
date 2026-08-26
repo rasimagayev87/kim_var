@@ -27,7 +27,7 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
     final cards = ref.watch(savedCardsProvider).valueOrNull ?? const <SavedCard>[];
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.pop(context),

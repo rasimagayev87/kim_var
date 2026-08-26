@@ -46,7 +46,7 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> with Single
     final canView = isOwn || privacy.accountPrivacy == AccountPrivacy.public || isFollowing;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundDark,
         elevation: 0,

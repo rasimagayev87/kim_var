@@ -259,7 +259,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final loc = AppLocalizations.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(title: Text(loc.onboardingAppBarTitle)),
       body: SafeArea(
         child: Form(

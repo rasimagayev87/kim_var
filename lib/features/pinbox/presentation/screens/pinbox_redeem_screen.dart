@@ -72,7 +72,7 @@ class _PinBoxRedeemScreenState extends ConsumerState<PinBoxRedeemScreen> {
     final loc = AppLocalizations.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundDark.withValues(alpha: 0.92),
         elevation: 0,

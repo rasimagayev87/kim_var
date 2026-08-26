@@ -31,7 +31,7 @@ class MyVenuesScreen extends ConsumerWidget {
     final venuesAsync = ref.watch(myVenuesProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundDark.withValues(alpha: 0.92),
         elevation: 0,

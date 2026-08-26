@@ -52,7 +52,7 @@ class VenueProfileScreen extends ConsumerWidget {
         ref.watch(isVenueLikedByMeProvider(venueId)).valueOrNull ?? false;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
           venueAsync.when(

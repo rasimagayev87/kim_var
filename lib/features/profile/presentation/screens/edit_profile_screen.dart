@@ -220,7 +220,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final usernameHelper = _usernameHelperText(loc);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         centerTitle: true,

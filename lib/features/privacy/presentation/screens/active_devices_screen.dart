@@ -17,7 +17,7 @@ class ActiveDevicesScreen extends ConsumerWidget {
     final sessionsAsync = ref.watch(deviceSessionsProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.pop(context),

@@ -27,7 +27,7 @@ class EventDetailsScreen extends ConsumerWidget {
     final eventAsync = ref.watch(venueEventByIdProvider(eventId));
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
           eventAsync.when(

@@ -21,7 +21,7 @@ class LiveFeedAllSeatsScreen extends ConsumerWidget {
     final eligibleCategories = ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

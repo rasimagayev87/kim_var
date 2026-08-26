@@ -639,7 +639,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
             chat.status == ChatRequestStatus.declined));
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
           SafeArea(

@@ -21,7 +21,7 @@ class LegalDocumentScreen extends StatelessWidget {
     final blocks = content.trim().split('\n\n');
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.pop(context),

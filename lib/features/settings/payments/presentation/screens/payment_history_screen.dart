@@ -17,7 +17,7 @@ class PaymentHistoryScreen extends ConsumerWidget {
     final historyAsync = ref.watch(myPaymentHistoryProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.pop(context),

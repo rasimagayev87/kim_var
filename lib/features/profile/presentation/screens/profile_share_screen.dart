@@ -41,7 +41,7 @@ class ProfileShareScreen extends StatelessWidget {
     final loc = AppLocalizations.of(context);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

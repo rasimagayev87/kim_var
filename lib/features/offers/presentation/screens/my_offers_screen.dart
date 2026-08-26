@@ -26,7 +26,7 @@ class MyOffersScreen extends ConsumerWidget {
     final offersAsync = ref.watch(myOffersProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundDark.withValues(alpha: 0.92),
         elevation: 0,

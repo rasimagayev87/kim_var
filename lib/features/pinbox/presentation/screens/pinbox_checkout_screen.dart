@@ -144,7 +144,7 @@ class _PinBoxCheckoutScreenState extends ConsumerState<PinBoxCheckoutScreen> {
     final windowEnded = !pinbox.pickupWindowEnd.isAfter(DateTime.now());
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundDark.withValues(alpha: 0.92),
         elevation: 0,

@@ -34,7 +34,7 @@ class OfferDetailsScreen extends ConsumerWidget {
     final isFavorite = ref.watch(favoriteOfferIdsProvider.select((async) => async.valueOrNull?.contains(offerId) ?? false));
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       body: Stack(
         children: [
           offerAsync.when(

@@ -143,7 +143,7 @@ class _IdentityVerificationScreenState extends ConsumerState<IdentityVerificatio
     });
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         leading: IconButton(

@@ -21,7 +21,7 @@ class AccountScreen extends ConsumerWidget {
     final email = authUser?.email;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.pop(context),

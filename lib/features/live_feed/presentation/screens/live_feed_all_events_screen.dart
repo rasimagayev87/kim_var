@@ -17,7 +17,7 @@ class LiveFeedAllEventsScreen extends ConsumerWidget {
     final eventsAsync = ref.watch(nearbyEventsProvider);
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,

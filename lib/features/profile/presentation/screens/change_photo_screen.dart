@@ -76,7 +76,7 @@ class _ChangePhotoScreenState extends ConsumerState<ChangePhotoScreen> {
     });
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         leading: IconButton(

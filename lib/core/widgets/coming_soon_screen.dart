@@ -23,7 +23,7 @@ class ComingSoonScreen extends StatelessWidget {
     final resolvedMessage = message ?? AppLocalizations.of(context).comingSoonDefaultMessage;
 
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         foregroundColor: AppColors.white,
