@@ -1479,5 +1479,10 @@
   "signOutDeviceConfirmMessage": "Это устройство будет удалённо разлогинено. Если оно офлайн, выход произойдёт при следующем подключении.",
   "signOutDeviceErrorMessage": "Не удалось выйти. Попробуйте позже.",
   "privacyTwoFactorActivateTitle": "Включить двухфакторную аутентификацию",
-  "privacyTwoFactorDisableButton": "Отключить"
+  "privacyTwoFactorDisableButton": "Отключить",
+  "discoverSearchHint": "Поиск",
+  "discoverSearchUsersSection": "Люди",
+  "discoverSearchVenuesSection": "Места",
+  "discoverSearchNoResultsMessage": "Ничего не найдено",
+  "discoverVideoFeedEmptyMessage": "Пока нет видео"
 }

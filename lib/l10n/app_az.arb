@@ -1479,5 +1479,10 @@
   "signOutDeviceConfirmMessage": "Bu cihaz hesabdan uzaqdan çıxarılacaq. Əgər həmin cihaz internetə qoşulu deyilsə, növbəti qoşulanda çıxış ediləcək.",
   "signOutDeviceErrorMessage": "Çıxış edilə bilmədi. Bir az sonra yenidən cəhd edin.",
   "privacyTwoFactorActivateTitle": "İki mərhələli doğrulamanı aktivləşdir",
-  "privacyTwoFactorDisableButton": "Deaktiv et"
+  "privacyTwoFactorDisableButton": "Deaktiv et",
+  "discoverSearchHint": "Axtar",
+  "discoverSearchUsersSection": "İstifadəçilər",
+  "discoverSearchVenuesSection": "Məkanlar",
+  "discoverSearchNoResultsMessage": "Heç bir nəticə tapılmadı",
+  "discoverVideoFeedEmptyMessage": "Hələ heç bir video paylaşılmayıb"
 }

@@ -11,6 +11,7 @@ import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
+import '../../../discover_search/presentation/screens/discover_search_screen.dart';
 import '../../../follow/presentation/providers/follow_providers.dart';
 import '../../../follow/presentation/screens/follow_list_screen.dart';
 import '../../../post_share/domain/entities/post.dart';
@@ -84,6 +85,17 @@ class ProfileTab extends ConsumerWidget {
                                 },
                                 icon: const Icon(
                                   Icons.add_circle_outline,
+                                  color: ChatLightColors.ink,
+                                  size: 22,
+                                ),
+                              ),
+                              IconButton(
+                                onPressed: () => Navigator.push(
+                                  context,
+                                  MaterialPageRoute(builder: (_) => const DiscoverSearchScreen()),
+                                ),
+                                icon: const Icon(
+                                  Icons.search,
                                   color: ChatLightColors.ink,
                                   size: 22,
                                 ),

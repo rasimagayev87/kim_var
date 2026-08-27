@@ -1004,8 +1004,17 @@ service cloud.firestore {
       // Admin SDK) rather than another rules-only patch — rules
       // fundamentally can't make a privacy-conditional `list` query
       // provable this way.
+      // `resource.data.authorIsPublic == true` is what makes the
+      // discover/search video grid's cross-author LIST query provable
+      // — same reasoning as the `userId == request.auth.uid` branch
+      // above: Firestore can match a flat field compare against a
+      // query's `where` clause, but never a `get()`-based check like
+      // `canReadPost`. `authorIsPublic` is a denormalized, server-only
+      // copy of the author's `accountPrivacy` (set/kept in sync by
+      // `onPostCreated`/`onUserUpdated` in Cloud Functions) — clients
+      // can never write it themselves (see `allow update` below).
       allow read: if request.auth != null &&
-        (resource.data.userId == request.auth.uid || canReadPost(postId));
+        (resource.data.userId == request.auth.uid || resource.data.authorIsPublic == true || canReadPost(postId));
       allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
       allow update: if request.auth != null
         && request.auth.uid == resource.data.userId

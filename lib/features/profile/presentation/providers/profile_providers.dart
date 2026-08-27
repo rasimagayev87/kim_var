@@ -150,6 +150,7 @@ class ProfileController extends StateNotifier<UserProfile> {
       {
         'firstName': firstName,
         'lastName': lastName,
+        'nameLower': '$firstName $lastName'.trim().toLowerCase(),
         'birthDate': Timestamp.fromDate(birthDate),
         'bio': bio,
         if (gender != null) 'gender': gender,

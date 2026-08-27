@@ -763,6 +763,12 @@ export const onUserUpdated = onDocumentUpdated("users/{userId}", async (event) =
       params: { kind: "email_changed", newEmail: afterEmail },
     });
   }
+
+  const beforePrivacy = before.accountPrivacy as string | undefined;
+  const afterPrivacy = after.accountPrivacy as string | undefined;
+  if (beforePrivacy !== afterPrivacy) {
+    await syncAuthorIsPublicForUser(event.params.userId, afterPrivacy !== "private");
+  }
 });
 
 export const onPostLikeCreated = onDocumentCreated("posts/{postId}/likes/{uid}", async (event) => {
@@ -1394,11 +1400,47 @@ export const onPostCreated = onDocumentCreated("posts/{postId}", async (event) =
   const post = event.data?.data();
   if (!post) return;
   const authorId = post.userId as string | undefined;
-  const caption = post.caption as string | undefined;
-  if (!authorId || !caption) return;
+  if (!authorId) return;
 
+  // Denormalized copy of the author's CURRENT account privacy, set
+  // server-side (never trust the client for this — a false "true"
+  // here would leak a private account's video into the public
+  // discover grid) so that grid's query (`authorIsPublic == true`,
+  // across every author) is a plain list query Firestore rules can
+  // actually prove safe — `firestore.rules` can't prove a per-author
+  // `get()`-based privacy check the way it can a flat field compare.
+  // Kept in sync afterwards by `onUserUpdated` below, whenever
+  // `accountPrivacy` itself changes.
+  const authorSnap = await db.collection("users").doc(authorId).get();
+  const authorIsPublic = (authorSnap.data()?.accountPrivacy as string | undefined) !== "private";
+  await event.data?.ref.set({ authorIsPublic }, { merge: true });
+
+  const caption = post.caption as string | undefined;
+  if (!caption) return;
   await notifyMentionedUsers({ text: caption, authorId, postId: event.params.postId });
 });
+
+/** Firestore batch write cap — chunk any bulk update into groups this size. */
+const FIRESTORE_BATCH_LIMIT = 500;
+
+/**
+ * Fans a privacy-setting change out to every one of that author's
+ * existing posts' `authorIsPublic` copy (see `onPostCreated` above for
+ * why the denormalized copy exists at all). Chunked into
+ * [FIRESTORE_BATCH_LIMIT]-sized batches since a prolific poster can
+ * easily exceed Firestore's single-batch write cap.
+ */
+async function syncAuthorIsPublicForUser(uid: string, isPublic: boolean): Promise<void> {
+  const postsSnap = await db.collection("posts").where("userId", "==", uid).get();
+  const docs = postsSnap.docs.filter((d) => d.data().authorIsPublic !== isPublic);
+  for (let i = 0; i < docs.length; i += FIRESTORE_BATCH_LIMIT) {
+    const batch = db.batch();
+    for (const doc of docs.slice(i, i + FIRESTORE_BATCH_LIMIT)) {
+      batch.update(doc.ref, { authorIsPublic: isPublic });
+    }
+    await batch.commit();
+  }
+}
 
 export const onPostCommentCreated = onDocumentCreated("posts/{postId}/comments/{commentId}", async (event) => {
   await bumpPostCounter(event.params.postId, "commentsCount", 1);
@@ -2527,6 +2569,7 @@ export const updateVenue = onCall(
 
       tx.update(ref, {
         name,
+        nameLower: name.toLowerCase(),
         category,
         lat,
         lng,
@@ -3306,6 +3349,7 @@ export const submitVenue = onCall(
     await venueRef.set({
       ownerId: uid,
       name,
+      nameLower: name.toLowerCase(),
       category,
       photoUrl,
       lat,

@@ -1593,5 +1593,10 @@
   "signOutDeviceConfirmMessage": "This device will be signed out remotely. If it's offline, it'll be signed out the next time it connects.",
   "signOutDeviceErrorMessage": "Couldn't sign out. Please try again shortly.",
   "privacyTwoFactorActivateTitle": "Activate two-factor authentication",
-  "privacyTwoFactorDisableButton": "Turn off"
+  "privacyTwoFactorDisableButton": "Turn off",
+  "discoverSearchHint": "Search",
+  "discoverSearchUsersSection": "People",
+  "discoverSearchVenuesSection": "Places",
+  "discoverSearchNoResultsMessage": "No results found",
+  "discoverVideoFeedEmptyMessage": "No videos shared yet"
 }

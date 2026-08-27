@@ -27,6 +27,23 @@ abstract class PostRepository {
 
   Stream<List<Post>> watchUserPosts(String userId);
 
+  /// Newest-first, video-only posts from public accounts, across every
+  /// author — the discover/search screen's default grid (empty search
+  /// query). Real-time first page here + one-shot older pages via
+  /// [fetchMorePublicVideos], mirroring the app's existing
+  /// notification/chat-list pagination shape (realtime head, cursor'd
+  /// tail). `authorIsPublic` is a server-only denormalized copy of the
+  /// author's account privacy — see `firestore.rules`' own doc comment
+  /// on `posts` for why a plain per-author privacy `get()` can't back
+  /// a cross-author list query.
+  Stream<List<Post>> watchPublicVideoFeed({required int limit});
+
+  /// [startAfter] is the `createdAt` of the last item already loaded.
+  Future<List<Post>> fetchMorePublicVideos({
+    required DateTime startAfter,
+    required int limit,
+  });
+
   /// Posts [uid] has liked, newest-liked first — resolved from that
   /// user's own `likedPosts` mirror (see [toggleLike]'s doc comment),
   /// not a cross-user query on `posts` itself.

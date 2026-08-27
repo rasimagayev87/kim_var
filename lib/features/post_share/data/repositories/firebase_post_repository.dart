@@ -81,6 +81,32 @@ class FirebasePostRepository implements PostRepository {
   }
 
   @override
+  Stream<List<Post>> watchPublicVideoFeed({required int limit}) {
+    return _publicVideoQuery().limit(limit).snapshots().map(
+          (snap) => snap.docs.map((d) => _fromDoc(d.id, d.data())).toList(),
+        );
+  }
+
+  @override
+  Future<List<Post>> fetchMorePublicVideos({
+    required DateTime startAfter,
+    required int limit,
+  }) async {
+    final snap = await _publicVideoQuery()
+        .startAfter([Timestamp.fromDate(startAfter)])
+        .limit(limit)
+        .get();
+    return snap.docs.map((d) => _fromDoc(d.id, d.data())).toList();
+  }
+
+  Query<Map<String, dynamic>> _publicVideoQuery() {
+    return _posts
+        .where('authorIsPublic', isEqualTo: true)
+        .where('mediaType', isEqualTo: PostMediaType.video.name)
+        .orderBy('createdAt', descending: true);
+  }
+
+  @override
   Stream<List<Post>> watchLikedPosts(String uid) =>
       _watchMirroredPosts(uid, 'likedPosts');
 

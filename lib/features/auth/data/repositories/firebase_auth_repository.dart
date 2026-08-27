@@ -257,6 +257,12 @@ class FirebaseAuthRepository implements AuthRepository {
       'phoneNumber': phoneNumber,
       'firstName': firstName,
       'lastName': lastName,
+      // Lowercase copy of the display name, kept in sync wherever
+      // firstName/lastName can change (see `ProfileController.save`)
+      // — lets the discover/search screen prefix-match names via a
+      // plain Firestore range query, since Firestore can't do
+      // case-insensitive matching on the raw display-cased fields.
+      'nameLower': '$firstName $lastName'.trim().toLowerCase(),
       'birthDate': Timestamp.fromDate(birthDate),
       'gender': gender,
       'bio': bio ?? '',

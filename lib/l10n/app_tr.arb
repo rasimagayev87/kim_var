@@ -1479,5 +1479,10 @@
   "signOutDeviceConfirmMessage": "Bu cihaz hesaptan uzaktan çıkış yaptırılacak. Çevrimdışıysa, bir sonraki bağlantısında çıkış yapılacak.",
   "signOutDeviceErrorMessage": "Çıkış yapılamadı. Lütfen daha sonra tekrar deneyin.",
   "privacyTwoFactorActivateTitle": "İki aşamalı doğrulamayı etkinleştir",
-  "privacyTwoFactorDisableButton": "Kapat"
+  "privacyTwoFactorDisableButton": "Kapat",
+  "discoverSearchHint": "Ara",
+  "discoverSearchUsersSection": "Kişiler",
+  "discoverSearchVenuesSection": "Mekanlar",
+  "discoverSearchNoResultsMessage": "Sonuç bulunamadı",
+  "discoverVideoFeedEmptyMessage": "Henüz video paylaşılmadı"
 }
