@@ -1,21 +1,13 @@
-import 'dart:async';
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../auth/domain/entities/app_user.dart';
 import '../../domain/repositories/account_repository.dart';
-
-/// Same key `FirebaseAuthRepository` parks the pending sign-in address
-/// under — reused here so `EmailLinkSignInScreen` doesn't need to know
-/// whether the link it's completing is a fresh sign-in or a
-/// delete-account reauth; both cases read the same pref.
-const _kPendingEmailLinkAddressKey = 'pendingEmailLinkAddress';
 
 class FirebaseAccountRepository implements AccountRepository {
   FirebaseAccountRepository({
@@ -32,8 +24,6 @@ class FirebaseAccountRepository implements AccountRepository {
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
   final GoogleSignIn _googleSignIn;
-
-  static final _emailReauthCompletedController = StreamController<void>.broadcast();
 
   /// How recent "recent enough" means before attempting delete — well
   /// under Firebase's own (undocumented, server-enforced) threshold, so
@@ -185,41 +175,16 @@ class FirebaseAccountRepository implements AccountRepository {
   }
 
   @override
-  Future<void> sendReauthEmailLink() async {
-    final user = _auth.currentUser;
-    final email = user?.email;
-    if (email == null) throw StateError('Yenidən doğrulama üçün istifadəçinin e-poçtu yoxdur.');
-
-    await _auth.sendSignInLinkToEmail(
-      email: email,
-      actionCodeSettings: fb.ActionCodeSettings(
-        url: 'https://peakpin.app/auth-email-link',
-        handleCodeInApp: true,
-        iOSBundleId: 'com.peakpin.app',
-        androidPackageName: 'com.peakpin.app',
-        androidInstallApp: true,
-        androidMinimumVersion: '1',
-      ),
-    );
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kPendingEmailLinkAddressKey, email);
-  }
-
-  @override
-  Future<void> reauthenticateWithEmailLink(String link) async {
+  Future<void> reauthenticateWithPassword(String password) async {
     final user = _auth.currentUser;
     final email = user?.email;
     if (user == null || email == null) {
       throw StateError('Yenidən doğrulama üçün istifadəçi daxil olmayıb.');
     }
 
-    final credential = fb.EmailAuthProvider.credentialWithLink(email: email, emailLink: link);
+    final credential = fb.EmailAuthProvider.credential(email: email, password: password);
     await user.reauthenticateWithCredential(credential);
-    _emailReauthCompletedController.add(null);
   }
-
-  @override
-  Stream<void> get emailReauthCompleted => _emailReauthCompletedController.stream;
 
   @override
   Future<void> updateEmail(String newEmail) async {

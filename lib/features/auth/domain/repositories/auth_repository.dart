@@ -2,13 +2,18 @@ import '../entities/app_user.dart';
 
 /// Abstraction over the authentication backend (Firebase Auth).
 ///
-/// Sign-in is exactly 3 methods — Apple, Google, or a passwordless
-/// E-mail Link — never a password of any kind. Each returns whether
-/// the account is brand new (caller should route to
-/// [AuthRepository.completeOnboarding]) or already exists. A separate
-/// public `@username` handle is still collected during onboarding
-/// (see [isUsernameAvailable]/[updateUsername]) — purely a display
-/// name, never a sign-in credential.
+/// Sign-in is exactly 3 methods — Apple, Google, or email+password.
+/// (Phone/OTP was fully removed in an earlier pass, see
+/// `7d6f0bb`/`26fa8cf`; passwordless email-link was replaced by
+/// email+password because the Identity Toolkit project config already
+/// requires a password for the email provider — `signIn.email.
+/// passwordRequired: true` — and a real password is faster/more
+/// familiar than "go check your inbox for a link" anyway.) Each
+/// sign-in method returns whether the account is brand new (caller
+/// should route to [AuthRepository.completeOnboarding]) or already
+/// exists. A separate public `@username` handle is still collected
+/// during onboarding (see [isUsernameAvailable]/[updateUsername]) —
+/// purely a display name, never itself a sign-in credential.
 abstract class AuthRepository {
   Stream<AppUser?> authStateChanges();
 
@@ -39,26 +44,26 @@ abstract class AuthRepository {
   /// Signs in with Google (native `GoogleSignIn` account picker).
   Future<(AppUser user, bool isNewUser)> signInWithGoogle();
 
-  /// Sends a passwordless sign-in link to [email] (Firebase's Email
-  /// Link Sign-In — `sendSignInLinkToEmail`). The link opens
-  /// `https://peakpin.app/auth-email-link`, which this app already
-  /// intercepts as a Universal Link (see `deep_link_handler.dart`) —
-  /// no new domain/entitlement setup needed.
-  Future<void> sendEmailSignInLink(String email);
+  /// Signs in an EXISTING email+password account.
+  /// `firebase_auth: FirebaseAuthException` codes (`wrong-password`,
+  /// `user-not-found`, `invalid-credential`) are deliberately not
+  /// distinguished by the caller's error copy — showing one generic
+  /// "email or password is wrong" message either way avoids leaking
+  /// which part was incorrect (account-enumeration hygiene).
+  Future<(AppUser user, bool isNewUser)> signInWithEmailPassword(String email, String password);
 
-  /// True if [link] is a Firebase email sign-in link — the deep-link
-  /// handler uses this to tell an email-link open apart from any
-  /// other Universal Link this app handles.
-  bool isEmailSignInLink(String link);
+  /// Creates a brand-new email+password account. Always the
+  /// `isNewUser: true` case in practice, but routed through the same
+  /// `_afterSignIn`/doc-existence check every other provider uses,
+  /// rather than assumed, to stay consistent.
+  Future<(AppUser user, bool isNewUser)> registerWithEmailPassword(String email, String password);
 
-  /// Completes email-link sign-in. [email] must be the SAME address
-  /// [sendEmailSignInLink] was called with — Firebase itself doesn't
-  /// carry it inside the link, so the caller re-supplies it (see
-  /// where it's persisted for this purpose in the implementation).
-  Future<(AppUser user, bool isNewUser)> signInWithEmailLink({
-    required String email,
-    required String link,
-  });
+  /// Sends a Firebase password-reset email to [email]. Silently
+  /// succeeds even for an email with no account — Firebase's own
+  /// `sendPasswordResetEmail` behaves this way already, which is the
+  /// correct account-enumeration-safe default, so the caller shouldn't
+  /// try to detect/report "no such account" here either.
+  Future<void> sendPasswordResetEmail(String email);
 
   /// Called once, right after first sign-in, to create the Firestore
   /// user document with the onboarding data — including reserving

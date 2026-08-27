@@ -50,14 +50,16 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
 
   Future<(AppUser, bool)> signInWithGoogle() => _runSignIn(_repository.signInWithGoogle);
 
-  Future<void> sendEmailSignInLink(String email) {
-    return _repository.sendEmailSignInLink(email);
+  Future<(AppUser, bool)> signInWithEmailPassword(String email, String password) {
+    return _runSignIn(() => _repository.signInWithEmailPassword(email, password));
   }
 
-  bool isEmailSignInLink(String link) => _repository.isEmailSignInLink(link);
+  Future<(AppUser, bool)> registerWithEmailPassword(String email, String password) {
+    return _runSignIn(() => _repository.registerWithEmailPassword(email, password));
+  }
 
-  Future<(AppUser, bool)> signInWithEmailLink({required String email, required String link}) {
-    return _runSignIn(() => _repository.signInWithEmailLink(email: email, link: link));
+  Future<void> sendPasswordResetEmail(String email) {
+    return _repository.sendPasswordResetEmail(email);
   }
 
   Future<void> completeOnboarding({

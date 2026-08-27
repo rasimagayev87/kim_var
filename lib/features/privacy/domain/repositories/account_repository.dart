@@ -6,7 +6,7 @@ import '../../../auth/domain/entities/app_user.dart' show LoginProvider;
 /// *this* signed-in user (via `reauthenticateWithCredential`, not a
 /// fresh sign-in) — before retrying the delete, via whichever of
 /// [reauthenticateWithApple]/[reauthenticateWithGoogle]/
-/// [sendReauthEmailLink] matches [currentLoginProvider].
+/// [reauthenticateWithPassword] matches [currentLoginProvider].
 class ReauthenticationRequiredException implements Exception {
   const ReauthenticationRequiredException();
 }
@@ -53,22 +53,13 @@ abstract class AccountRepository {
   /// again and [deleteAccount] can be retried immediately.
   Future<void> reauthenticateWithGoogle();
 
-  /// Email: sends a fresh sign-in link to the current user's own
-  /// email — completion happens later, out-of-band, once they tap it
-  /// (see `EmailLinkSignInScreen`, which detects it was opened while
-  /// already signed in and calls [reauthenticateWithEmailLink] instead
-  /// of starting a new sign-in). Listen to [emailReauthCompleted] to
-  /// know when that finished.
-  Future<void> sendReauthEmailLink();
-
-  /// Completes the flow [sendReauthEmailLink] started, once the user
-  /// taps the emailed link.
-  Future<void> reauthenticateWithEmailLink(String link);
-
-  /// Fires once after each successful [reauthenticateWithEmailLink] —
-  /// lets the (possibly backgrounded) delete-account UI know the user
-  /// came back after tapping the link.
-  Stream<void> get emailReauthCompleted;
+  /// Email: re-links the current session's credential using the
+  /// account's own email plus a freshly-entered [password] via
+  /// `reauthenticateWithCredential`. Completes synchronously — unlike
+  /// the old magic-link flow, there's no "wait for the emailed link to
+  /// be tapped" step, so the session is fresh again as soon as this
+  /// returns and [deleteAccount] can be retried immediately.
+  Future<void> reauthenticateWithPassword(String password);
 
   /// Sends a confirmation link to [newEmail] via Firebase Auth
   /// (`verifyBeforeUpdateEmail`) — the account's real sign-in email

@@ -207,15 +207,9 @@ class AccountController {
     return _ref.read(accountRepositoryProvider).reauthenticateWithGoogle();
   }
 
-  Future<void> sendReauthEmailLink() {
-    return _ref.read(accountRepositoryProvider).sendReauthEmailLink();
+  Future<void> reauthenticateWithPassword(String password) {
+    return _ref.read(accountRepositoryProvider).reauthenticateWithPassword(password);
   }
-
-  Future<void> reauthenticateWithEmailLink(String link) {
-    return _ref.read(accountRepositoryProvider).reauthenticateWithEmailLink(link);
-  }
-
-  Stream<void> get emailReauthCompleted => _ref.read(accountRepositoryProvider).emailReauthCompleted;
 
   /// Sends the confirmation link — see [AccountRepository.updateEmail].
   /// [ReauthenticationRequiredException] is let through deliberately,

@@ -3,18 +3,11 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../legal/legal_versions.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
-
-/// Where [sendEmailSignInLink] parks the address it was sent to, so
-/// [signInWithEmailLink] has it once the user reopens the app from
-/// the link (Firebase's email-link itself never carries the address —
-/// this is Firebase's own documented pattern, not a workaround).
-const _kPendingEmailLinkAddressKey = 'pendingEmailLinkAddress';
 
 /// Production Firebase implementation of [AuthRepository].
 class FirebaseAuthRepository implements AuthRepository {
@@ -165,35 +158,20 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> sendEmailSignInLink(String email) async {
-    final normalized = email.trim();
-    await _auth.sendSignInLinkToEmail(
-      email: normalized,
-      actionCodeSettings: fb.ActionCodeSettings(
-        // Already a Universal Link this app intercepts — see
-        // `deep_link_handler.dart`. No separate Dynamic Links / new
-        // domain setup needed.
-        url: 'https://peakpin.app/auth-email-link',
-        handleCodeInApp: true,
-        iOSBundleId: 'com.peakpin.app',
-        androidPackageName: 'com.peakpin.app',
-        androidInstallApp: true,
-        androidMinimumVersion: '1',
-      ),
-    );
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_kPendingEmailLinkAddressKey, normalized);
+  Future<(AppUser, bool)> signInWithEmailPassword(String email, String password) async {
+    final result = await _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
+    return _afterSignIn(result.user!);
   }
 
   @override
-  bool isEmailSignInLink(String link) => _auth.isSignInWithEmailLink(link);
+  Future<(AppUser, bool)> registerWithEmailPassword(String email, String password) async {
+    final result = await _auth.createUserWithEmailAndPassword(email: email.trim(), password: password);
+    return _afterSignIn(result.user!);
+  }
 
   @override
-  Future<(AppUser, bool)> signInWithEmailLink({required String email, required String link}) async {
-    final result = await _auth.signInWithEmailLink(email: email, emailLink: link);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_kPendingEmailLinkAddressKey);
-    return _afterSignIn(result.user!);
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _auth.sendPasswordResetEmail(email: email.trim());
   }
 
   @override
