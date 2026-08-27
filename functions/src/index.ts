@@ -3950,6 +3950,19 @@ export const notifyOnNewDeviceSignIn = beforeUserSignedIn({ region: "us-central1
     const uid = event.data?.uid;
     if (!uid) return;
 
+    // A brand-new account has no `users/{uid}` doc yet — completeOnboarding
+    // (client-side, onboarding_screen.dart) is what creates it, once the
+    // owner actually fills in name/birth date/username. Touching the doc
+    // here (even just to record a device signature) would create it
+    // prematurely with none of that, which defeats the client's own
+    // "does users/{uid} exist yet" new-user gate (AuthRepository
+    // ._hydrateFromFirestore/_afterSignIn) — a first-time signer would
+    // silently skip the onboarding screen entirely, landing in the main
+    // app with an empty profile. There's also nothing meaningful to
+    // compare a "new device" against on someone's very first sign-in
+    // anyway (see this function's own doc comment above).
+    if (event.additionalUserInfo?.isNewUser) return;
+
     const signature = createHash("sha256").update(event.userAgent || "unknown").digest("hex").slice(0, 16);
 
     const userRef = db.collection("users").doc(uid);
