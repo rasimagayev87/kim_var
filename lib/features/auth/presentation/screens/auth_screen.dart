@@ -97,7 +97,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         _submitting = false;
         _emailLinkSent = true;
       });
-    } catch (e) {
+    } catch (e, st) {
+      // Unlike _handleResult's Apple/Google path, this one had no
+      // logging at all — a real failure here (e.g. a FirebaseAuthException
+      // whose code isn't the rate-limit one) was previously
+      // indistinguishable from any other cause behind the generic
+      // authSignInFailedError text, with nothing in Crashlytics/console
+      // to diagnose it from afterward.
+      logError('auth_screen._sendEmailLink', e, st);
       if (!mounted) return;
       final loc = AppLocalizations.of(context);
       setState(() {
