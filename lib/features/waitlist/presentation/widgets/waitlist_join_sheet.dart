@@ -146,7 +146,12 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
 
     return SafeArea(
       top: false,
-      child: Padding(
+      child: SingleChildScrollView(
+        // Without this, the keyboard opening just pushes the fixed-
+        // height Column below (padding doesn't create scroll capacity,
+        // only moves content down) — the submit button at the bottom
+        // ends up covered by the keyboard with no way to scroll it
+        // into view, especially with the 3-line note field open.
         padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
