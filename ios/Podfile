@@ -30,6 +30,14 @@ flutter_ios_podfile_setup
 target 'Runner' do
   use_frameworks!
 
+  # Firebase Auth's email/password sign-in (createUserWithEmailAndPassword /
+  # signInWithEmailAndPassword) verifies through reCAPTCHA Enterprise's iOS
+  # SDK now — without this pod linked, every call throws
+  # FirebaseAuthException(code: recaptcha-sdk-not-linked) instead of
+  # actually attempting the sign-in. See
+  # https://cloud.google.com/recaptcha-enterprise/docs/instrument-ios-apps
+  pod 'RecaptchaEnterprise'
+
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
   target 'RunnerTests' do
     inherit! :search_paths
