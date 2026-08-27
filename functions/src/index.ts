@@ -7,7 +7,7 @@ import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { onDocumentCreated, onDocumentDeleted, onDocumentUpdated, onDocumentWritten } from "firebase-functions/v2/firestore";
 import { onMessagePublished } from "firebase-functions/v2/pubsub";
 import { onSchedule } from "firebase-functions/v2/scheduler";
-import { beforeEmailSent, beforeUserSignedIn } from "firebase-functions/v2/identity";
+import { beforeUserSignedIn } from "firebase-functions/v2/identity";
 import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
 import { createHash, randomInt } from "crypto";
@@ -3809,141 +3809,14 @@ export const onReviewReportCreated = onDocumentCreated(
   }
 );
 
-// Stable marker embedded in the blocking error's message — Firebase
-// Auth's client SDKs don't reliably surface the HttpsError *code*
-// through a blocking-function rejection (it typically lands as a
-// generic FirebaseAuthException), but the message text does come
-// through intact. AuthScreen/DeleteAccountRow's error handlers grep
-// for this to show the friendly rate-limit copy instead of the
-// generic "sign-in failed" one.
-const RATE_LIMIT_MARKER = "RATE_LIMIT_EXCEEDED";
-
-const EMAIL_SEND_MIN_INTERVAL_MS = 60 * 1000; // 1 link per email per 60s
-const EMAIL_SEND_HOURLY_MAX = 5; // 5 links per email per hour
-const IP_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-const IP_DISTINCT_EMAIL_MAX = 5; // 5 distinct emails per IP per window
-
-const SPIKE_WINDOW_MS = 10 * 60 * 1000; // 10 minutes
-const SPIKE_ALERT_THRESHOLD = 100; // project-wide EMAIL_SIGN_IN attempts in that window
-const SPIKE_ALERT_COOLDOWN_MS = 30 * 60 * 1000; // don't re-alert for the same ongoing spike more than once per 30min
-
-/**
- * Faza 6 — best-effort project-wide anomaly alert, reusing the same
- * Resend-backed email helper `onUserReportCreated` already sends
- * moderation notices through (no separate monitoring stack). Counts
- * every EMAIL_SIGN_IN *attempt* (blocked or not) — a real attack shows
- * up as request volume regardless of how much of it the per-email/IP
- * limits above actually let through. Never throws: a failure here
- * must never block or unblock a send decision that's already been made.
- */
-async function checkEmailSendSpike(): Promise<void> {
-  try {
-    const now = Date.now();
-    const spikeRef = db.collection("rateLimits").doc("global:emailSignInSpike");
-    await db.runTransaction(async (tx) => {
-      const snap = await tx.get(spikeRef);
-      const data = snap.data();
-      const timestamps: number[] = (data?.timestamps ?? []).filter((t: number) => now - t < SPIKE_WINDOW_MS);
-      timestamps.push(now);
-
-      const lastAlertAt: number | undefined = data?.lastAlertAt;
-      const coolingDown = lastAlertAt !== undefined && now - lastAlertAt < SPIKE_ALERT_COOLDOWN_MS;
-
-      if (timestamps.length >= SPIKE_ALERT_THRESHOLD && !coolingDown) {
-        tx.set(spikeRef, { timestamps, lastAlertAt: now });
-        // Fires after the transaction would normally commit, but
-        // Firestore doesn't support side effects mid-transaction —
-        // acceptable here since a duplicate alert is harmless and the
-        // cooldown above already prevents the common case.
-        await sendPrivacyNotificationEmail(
-          "⚠️ Qeyri-adi yüksək giriş-linki trafiki — PeakPin",
-          `<p>Son ${SPIKE_WINDOW_MS / 60000} dəqiqədə <strong>${timestamps.length}</strong> e-poçt giriş linki sorğusu qeydə alındı (hədd: ${SPIKE_ALERT_THRESHOLD}).</p>
-           <p>Bu, sui-istifadə/bot hücumu cəhdi ola bilər. Firebase Console → Authentication → Usage bölümündən yoxlayın.</p>
-           <p>Növbəti xəbərdarlıq ən tez ${SPIKE_ALERT_COOLDOWN_MS / 60000} dəqiqə sonra göndəriləcək (davam edən bir hadisə üçün təkrar-təkrar bildiriş göndərilmir).</p>`
-        );
-      } else {
-        tx.set(spikeRef, { timestamps, lastAlertAt: lastAlertAt ?? null });
-      }
-    });
-  } catch (e) {
-    logger.error("checkEmailSendSpike failed", e);
-  }
-}
-
-/**
- * Server-side gate for the app's passwordless email sign-in link (see
- * `sendEmailSignInLink`/`sendReauthEmailLink` in the Flutter client) —
- * a Blocking Function fires here automatically, before Firebase sends
- * ANY auth email, for every provider/platform, with no client-side
- * change needed. Deliberately ignores `PASSWORD_RESET` (the admin
- * panel's separate email+password login) — this task is scoped to the
- * email *link* flow only.
- *
- * Firestore-backed sliding-window counters, not a queue or cache
- * service — `rateLimits/{key}` docs store recent-send timestamps and
- * self-prune (anything outside the window is dropped on the next
- * write), per the task's own "no new backend infra" constraint.
- *
- * Must run in us-central1 — Identity Platform blocking functions are
- * restricted to that region regardless of where the rest of this
- * codebase's functions are deployed.
- */
-export const enforceEmailLinkRateLimit = beforeEmailSent(
-  { region: "us-central1" },
-  async (event) => {
-    if (event.emailType !== "EMAIL_SIGN_IN") return;
-
-    // NOT event.data?.email — that's undefined for a not-yet-existing
-    // account (the common case: someone's first-ever sign-in link).
-    // Confirmed via a live debug log dump of the raw event.
-    const email = (event.additionalUserInfo?.email ?? "").toLowerCase().trim();
-    const ip = event.ipAddress || "unknown";
-    if (!email) return;
-
-    await checkEmailSendSpike();
-
-    const now = Date.now();
-    const emailRef = db.collection("rateLimits").doc(`email:${email}`);
-    const ipRef = db.collection("rateLimits").doc(`ip:${ip}`);
-
-    await db.runTransaction(async (tx) => {
-      const [emailSnap, ipSnap] = await Promise.all([tx.get(emailRef), tx.get(ipRef)]);
-
-      const emailTimestamps: number[] = (emailSnap.data()?.timestamps ?? []).filter(
-        (t: number) => now - t < 60 * 60 * 1000
-      );
-      const lastSend = emailTimestamps[emailTimestamps.length - 1];
-      if (lastSend && now - lastSend < EMAIL_SEND_MIN_INTERVAL_MS) {
-        throw new HttpsError("resource-exhausted", RATE_LIMIT_MARKER);
-      }
-      if (emailTimestamps.length >= EMAIL_SEND_HOURLY_MAX) {
-        throw new HttpsError("resource-exhausted", RATE_LIMIT_MARKER);
-      }
-
-      const ipEntries: { email: string; ts: number }[] = (ipSnap.data()?.entries ?? []).filter(
-        (e: { ts: number }) => now - e.ts < IP_WINDOW_MS
-      );
-      const distinctEmails = new Set(ipEntries.map((e) => e.email));
-      distinctEmails.add(email);
-      if (distinctEmails.size > IP_DISTINCT_EMAIL_MAX) {
-        throw new HttpsError("resource-exhausted", RATE_LIMIT_MARKER);
-      }
-
-      tx.set(emailRef, { timestamps: [...emailTimestamps, now] });
-      tx.set(ipRef, { entries: [...ipEntries.filter((e) => e.email !== email), { email, ts: now }] });
-    });
-  }
-);
-
 /** How many recent device signatures to remember per account — an
  * older one just quietly ages out (LRU-ish, most-recent-first) rather
  * than growing the array forever. */
 const KNOWN_DEVICE_SIGNATURE_LIMIT = 8;
 
 /**
- * Fires before every sign-in, across every provider/platform — same
- * "no client-side change needed" Blocking Function pattern as
- * `enforceEmailLinkRateLimit` above, and (unlike that one) purely
+ * Fires before every sign-in, across every provider/platform — a
+ * Blocking Function that needs no client-side change, and is purely
  * observational: this NEVER throws, so a bug here can never lock
  * anyone out of their own account — the entire body is wrapped in
  * try/catch specifically because blocking a sign-in is a far worse
@@ -3962,8 +3835,9 @@ const KNOWN_DEVICE_SIGNATURE_LIMIT = 8;
  * "new device" notice on someone's very first-ever sign-in would be
  * meaningless noise, not a security signal.
  *
- * Must run in us-central1 — same Identity Platform region restriction
- * `enforceEmailLinkRateLimit` documents.
+ * Must run in us-central1 — Identity Platform blocking functions are
+ * restricted to that region regardless of where the rest of this
+ * codebase's functions are deployed.
  */
 export const notifyOnNewDeviceSignIn = beforeUserSignedIn({ region: "us-central1" }, async (event) => {
   try {
