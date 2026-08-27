@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,19 +7,22 @@ import '../../../../core/animations/animated_background.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/app_logger.dart';
-import '../../../../core/utils/rate_limit_error.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../home/presentation/screens/home_screen.dart';
 import '../../../legal/presentation/widgets/consent_checkbox_row.dart';
 import '../providers/auth_providers.dart';
 import 'onboarding_screen.dart';
 
+const _kMinPasswordLength = 8;
+
 /// Replaces the old Login/Register screen pair — sign-in is now
 /// exactly 3 equally-weighted buttons (Apple's own requirement, since
 /// Google is offered too: see `AuthRepository`'s doc comment), gated
 /// behind the same consent checkbox the old registration screen used.
-/// Apple/Google resolve immediately; E-mail expands an inline field
-/// and sends a passwordless sign-in link instead of navigating away.
+/// Apple/Google resolve immediately; E-mail expands into an inline
+/// email+password form (sign-in by default, with a toggle link into
+/// registration, and a "forgot password?" link) instead of navigating
+/// away to a separate screen.
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
@@ -28,15 +32,20 @@ class AuthScreen extends ConsumerStatefulWidget {
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _consentAccepted = false;
-  bool _showEmailField = false;
-  bool _emailLinkSent = false;
+  bool _showEmailFields = false;
+  bool _isRegistering = false;
+  bool _obscurePassword = true;
   bool _submitting = false;
   String? _error;
   final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   @override
   void dispose() {
     _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -79,39 +88,96 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     await _handleResult(() => ref.read(authControllerProvider.notifier).signInWithGoogle());
   }
 
-  Future<void> _sendEmailLink() async {
+  /// Unlike [_handleResult]'s Apple/Google path, wrong-credential
+  /// errors here get ONE deliberately generic message regardless of
+  /// whether the email or the password was the actual problem — see
+  /// `AuthRepository.signInWithEmailPassword`'s doc comment for why
+  /// (account-enumeration hygiene).
+  Future<void> _submitEmailPassword() async {
     if (!_consentAccepted) return _requireConsent();
+    final loc = AppLocalizations.of(context);
     final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
     if (email.isEmpty || !email.contains('@')) {
-      setState(() => _error = AppLocalizations.of(context).authInvalidEmailError);
+      setState(() => _error = loc.authInvalidEmailError);
       return;
     }
+    if (password.length < _kMinPasswordLength) {
+      setState(() => _error = loc.authPasswordTooShortError);
+      return;
+    }
+    if (_isRegistering && password != _confirmPasswordController.text) {
+      setState(() => _error = loc.authPasswordMismatchError);
+      return;
+    }
+
     setState(() {
       _submitting = true;
       _error = null;
     });
+
     try {
-      await ref.read(authControllerProvider.notifier).sendEmailSignInLink(email);
+      final notifier = ref.read(authControllerProvider.notifier);
+      final (_, isNewUser) = _isRegistering
+          ? await notifier.registerWithEmailPassword(email, password)
+          : await notifier.signInWithEmailPassword(email, password);
+      if (!mounted) return;
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (_) => isNewUser ? const OnboardingScreen() : const HomeScreen()),
+        (route) => false,
+      );
+    } on FirebaseAuthException catch (e, st) {
+      logError('auth_screen._submitEmailPassword', e, st);
       if (!mounted) return;
       setState(() {
         _submitting = false;
-        _emailLinkSent = true;
+        _error = _mapAuthError(e, loc);
       });
     } catch (e, st) {
-      // Unlike _handleResult's Apple/Google path, this one had no
-      // logging at all — a real failure here (e.g. a FirebaseAuthException
-      // whose code isn't the rate-limit one) was previously
-      // indistinguishable from any other cause behind the generic
-      // authSignInFailedError text, with nothing in Crashlytics/console
-      // to diagnose it from afterward.
-      logError('auth_screen._sendEmailLink', e, st);
+      logError('auth_screen._submitEmailPassword', e, st);
       if (!mounted) return;
-      final loc = AppLocalizations.of(context);
       setState(() {
         _submitting = false;
-        _error = isRateLimitError(e) ? loc.authRateLimitError : loc.authSignInFailedError;
+        _error = loc.authSignInFailedError;
       });
     }
+  }
+
+  String _mapAuthError(FirebaseAuthException e, AppLocalizations loc) {
+    switch (e.code) {
+      case 'wrong-password':
+      case 'user-not-found':
+      case 'invalid-credential':
+        return loc.authWrongCredentialsError;
+      case 'email-already-in-use':
+        return loc.authEmailAlreadyInUseError;
+      case 'weak-password':
+        return loc.authWeakPasswordError;
+      case 'invalid-email':
+        return loc.authInvalidEmailError;
+      default:
+        return loc.authSignInFailedError;
+    }
+  }
+
+  void _toggleMode() {
+    setState(() {
+      _isRegistering = !_isRegistering;
+      _error = null;
+      _confirmPasswordController.clear();
+    });
+  }
+
+  Future<void> _showForgotPasswordSheet() {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (_) => _ForgotPasswordSheet(initialEmail: _emailController.text.trim()),
+    );
   }
 
   @override
@@ -133,56 +199,78 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   const SizedBox(height: 8),
                   Text(loc.authSubtitle, style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
                   const SizedBox(height: 36),
-                  if (_emailLinkSent) ...[
-                    Text(
-                      loc.authEmailLinkSentMessage(_emailController.text.trim()),
-                      style: AppTextStyles.body,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      loc.authEmailLinkSpamHint,
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
-                    ),
-                  ] else ...[
-                    _ProviderButton(
-                      icon: Icons.apple,
-                      label: loc.authContinueWithApple,
-                      dark: true,
-                      loading: _submitting,
-                      onPressed: _signInWithApple,
-                    ),
+                  _ProviderButton(
+                    icon: Icons.apple,
+                    label: loc.authContinueWithApple,
+                    dark: true,
+                    loading: _submitting,
+                    onPressed: _signInWithApple,
+                  ),
+                  const SizedBox(height: 14),
+                  _ProviderButton(
+                    icon: Icons.g_mobiledata_rounded,
+                    label: loc.authContinueWithGoogle,
+                    dark: false,
+                    loading: _submitting,
+                    onPressed: _signInWithGoogle,
+                  ),
+                  const SizedBox(height: 14),
+                  _ProviderButton(
+                    icon: Icons.email_outlined,
+                    label: loc.authContinueWithEmail,
+                    dark: false,
+                    loading: _submitting,
+                    onPressed: () => setState(() => _showEmailFields = !_showEmailFields),
+                  ),
+                  if (_showEmailFields) ...[
                     const SizedBox(height: 14),
-                    _ProviderButton(
-                      icon: Icons.g_mobiledata_rounded,
-                      label: loc.authContinueWithGoogle,
-                      dark: false,
-                      loading: _submitting,
-                      onPressed: _signInWithGoogle,
+                    TextField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: InputDecoration(hintText: loc.authEmailHint),
                     ),
-                    const SizedBox(height: 14),
-                    _ProviderButton(
-                      icon: Icons.email_outlined,
-                      label: loc.authContinueWithEmail,
-                      dark: false,
-                      loading: _submitting,
-                      onPressed: () => setState(() => _showEmailField = !_showEmailField),
-                    ),
-                    if (_showEmailField) ...[
-                      const SizedBox(height: 14),
-                      TextField(
-                        controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: InputDecoration(hintText: loc.authEmailHint),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: _passwordController,
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        hintText: loc.authPasswordHint,
+                        suffixIcon: IconButton(
+                          icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        ),
                       ),
+                    ),
+                    if (_isRegistering) ...[
                       const SizedBox(height: 10),
-                      _ProviderButton(
-                        icon: Icons.send_outlined,
-                        label: loc.authSendLinkButton,
-                        dark: false,
-                        loading: _submitting,
-                        onPressed: _sendEmailLink,
+                      TextField(
+                        controller: _confirmPasswordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(hintText: loc.authConfirmPasswordHint),
                       ),
                     ],
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        TextButton(
+                          onPressed: _submitting ? null : _toggleMode,
+                          child: Text(_isRegistering ? loc.authToggleToSignIn : loc.authToggleToRegister),
+                        ),
+                        if (!_isRegistering)
+                          TextButton(
+                            onPressed: _submitting ? null : _showForgotPasswordSheet,
+                            child: Text(loc.authForgotPasswordLink),
+                          ),
+                      ],
+                    ),
+                    _ProviderButton(
+                      icon: Icons.arrow_forward_rounded,
+                      label: _isRegistering ? loc.authRegisterButton : loc.authSignInButton,
+                      dark: false,
+                      loading: _submitting,
+                      onPressed: _submitEmailPassword,
+                    ),
                   ],
                   if (_error != null) ...[
                     const SizedBox(height: 16),
@@ -202,6 +290,104 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Small sheet opened via "Parolu unutdum?" — a single email field
+/// that calls `sendPasswordResetEmail` and swaps to a confirmation
+/// message on success (mirrors `waitlist_join_sheet.dart`'s shape).
+class _ForgotPasswordSheet extends ConsumerStatefulWidget {
+  final String initialEmail;
+
+  const _ForgotPasswordSheet({required this.initialEmail});
+
+  @override
+  ConsumerState<_ForgotPasswordSheet> createState() => _ForgotPasswordSheetState();
+}
+
+class _ForgotPasswordSheetState extends ConsumerState<_ForgotPasswordSheet> {
+  late final _emailController = TextEditingController(text: widget.initialEmail);
+  bool _submitting = false;
+  bool _sent = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final loc = AppLocalizations.of(context);
+    final email = _emailController.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _error = loc.authInvalidEmailError);
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+    try {
+      await ref.read(authControllerProvider.notifier).sendPasswordResetEmail(email);
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _sent = true;
+      });
+    } catch (e, st) {
+      logError('auth_screen._ForgotPasswordSheet._submit', e, st);
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = loc.authSignInFailedError;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(loc.authForgotPasswordSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 8),
+            if (_sent) ...[
+              Text(loc.authForgotPasswordSentMessage(_emailController.text.trim()), style: AppTextStyles.body),
+              const SizedBox(height: 20),
+            ] else ...[
+              Text(loc.authForgotPasswordSheetHint, style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+                decoration: InputDecoration(hintText: loc.authEmailHint),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 10),
+                Text(_error!, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+              ],
+              const SizedBox(height: 18),
+              _ProviderButton(
+                icon: Icons.send_outlined,
+                label: loc.authForgotPasswordSubmitButton,
+                dark: false,
+                loading: _submitting,
+                onPressed: _submit,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
