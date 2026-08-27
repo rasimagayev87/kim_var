@@ -3855,7 +3855,17 @@ export const notifyOnNewDeviceSignIn = beforeUserSignedIn({ region: "us-central1
     // app with an empty profile. There's also nothing meaningful to
     // compare a "new device" against on someone's very first sign-in
     // anyway (see this function's own doc comment above).
-    if (event.additionalUserInfo?.isNewUser) return;
+    //
+    // event.additionalUserInfo?.isNewUser alone isn't reliable here —
+    // confirmed via a live repro that it's falsy on this event for a
+    // brand-new EMAIL_PASSWORD sign-up (unlike Apple/Google), which let
+    // this function slip through and create the doc anyway. Comparing
+    // creationTime/lastSignInTime is Firebase's own documented
+    // work-around for exactly this gap and holds for every provider.
+    const creationTime = event.data?.metadata?.creationTime;
+    const lastSignInTime = event.data?.metadata?.lastSignInTime;
+    const isNewUser = event.additionalUserInfo?.isNewUser || (!!creationTime && creationTime === lastSignInTime);
+    if (isNewUser) return;
 
     const signature = createHash("sha256").update(event.userAgent || "unknown").digest("hex").slice(0, 16);
 
