@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/animations/animated_background.dart';
+import '../../../../core/animations/glow_logo.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/app_logger.dart';
@@ -14,15 +15,17 @@ import '../providers/auth_providers.dart';
 import 'onboarding_screen.dart';
 
 const _kMinPasswordLength = 8;
+const _kMaxPasswordLength = 14;
+final _kSpecialCharPattern = RegExp(r'[,_.!]');
 
-/// Replaces the old Login/Register screen pair — sign-in is now
-/// exactly 3 equally-weighted buttons (Apple's own requirement, since
-/// Google is offered too: see `AuthRepository`'s doc comment), gated
-/// behind the same consent checkbox the old registration screen used.
-/// Apple/Google resolve immediately; E-mail expands into an inline
-/// email+password form (sign-in by default, with a toggle link into
-/// registration, and a "forgot password?" link) instead of navigating
-/// away to a separate screen.
+/// Sign-in/registration in one screen — email+password fields are
+/// always visible (no more "tap to reveal" step), Apple/Google sit
+/// below as an equally-weighted pair (Apple's own requirement that a
+/// 3rd-party provider not visually outrank Sign in with Apple, now
+/// satisfied by giving both the exact same outlined style rather than
+/// the old stacked full-width buttons). A single "Davam et" submit
+/// covers both sign-in and registration — which mode is active is
+/// conveyed by the toggle link below the fields, not the button label.
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
@@ -32,14 +35,45 @@ class AuthScreen extends ConsumerStatefulWidget {
 
 class _AuthScreenState extends ConsumerState<AuthScreen> {
   bool _consentAccepted = false;
-  bool _showEmailFields = false;
   bool _isRegistering = false;
   bool _obscurePassword = true;
   bool _submitting = false;
   String? _error;
+  String? _passwordFieldError;
+  String? _confirmPasswordFieldError;
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+
+  /// Only applied when creating a NEW password (registering) — an
+  /// existing account's password predates whichever rule is current,
+  /// so re-validating it on every sign-in would risk locking someone
+  /// out of their own already-working account.
+  bool _isPasswordStrongEnough(String password) {
+    if (password.length < _kMinPasswordLength || password.length > _kMaxPasswordLength) return false;
+    final hasLetter = RegExp(r'\p{L}', unicode: true).hasMatch(password);
+    final hasDigit = RegExp(r'\d').hasMatch(password);
+    final hasSpecial = _kSpecialCharPattern.hasMatch(password);
+    return hasLetter && hasDigit && hasSpecial;
+  }
+
+  void _onPasswordChanged(String value) {
+    if (_passwordFieldError != null) setState(() => _passwordFieldError = null);
+    if (_isRegistering && _confirmPasswordController.text.isNotEmpty) {
+      _revalidateConfirmPassword();
+    }
+  }
+
+  void _onConfirmPasswordChanged(String value) => _revalidateConfirmPassword();
+
+  void _revalidateConfirmPassword() {
+    final loc = AppLocalizations.of(context);
+    final confirm = _confirmPasswordController.text;
+    setState(() {
+      _confirmPasswordFieldError =
+          confirm.isNotEmpty && confirm != _passwordController.text ? loc.authPasswordMismatchError : null;
+    });
+  }
 
   @override
   void dispose() {
@@ -99,16 +133,26 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final email = _emailController.text.trim();
     final password = _passwordController.text;
 
+    setState(() {
+      _passwordFieldError = null;
+      _confirmPasswordFieldError = null;
+    });
+
     if (email.isEmpty || !email.contains('@')) {
       setState(() => _error = loc.authInvalidEmailError);
       return;
     }
-    if (password.length < _kMinPasswordLength) {
-      setState(() => _error = loc.authPasswordTooShortError);
-      return;
-    }
-    if (_isRegistering && password != _confirmPasswordController.text) {
-      setState(() => _error = loc.authPasswordMismatchError);
+    if (_isRegistering) {
+      if (!_isPasswordStrongEnough(password)) {
+        setState(() => _passwordFieldError = loc.authPasswordTooShortError);
+        return;
+      }
+      if (password != _confirmPasswordController.text) {
+        setState(() => _confirmPasswordFieldError = loc.authPasswordMismatchError);
+        return;
+      }
+    } else if (password.isEmpty) {
+      setState(() => _passwordFieldError = loc.authPasswordTooShortError);
       return;
     }
 
@@ -166,6 +210,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     setState(() {
       _isRegistering = !_isRegistering;
       _error = null;
+      _passwordFieldError = null;
+      _confirmPasswordFieldError = null;
       _confirmPasswordController.clear();
     });
   }
@@ -194,64 +240,81 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 40),
-                  Text(loc.authTitle, style: AppTextStyles.h1.copyWith(fontSize: 30)).animate().fadeIn(duration: 400.ms),
-                  const SizedBox(height: 8),
-                  Text(loc.authSubtitle, style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
-                  const SizedBox(height: 36),
-                  _ProviderButton(
-                    icon: Icons.apple,
-                    label: loc.authContinueWithApple,
-                    dark: true,
-                    loading: _submitting,
-                    onPressed: _signInWithApple,
-                  ),
-                  const SizedBox(height: 14),
-                  _ProviderButton(
-                    icon: Icons.g_mobiledata_rounded,
-                    label: loc.authContinueWithGoogle,
-                    dark: false,
-                    loading: _submitting,
-                    onPressed: _signInWithGoogle,
-                  ),
-                  const SizedBox(height: 14),
-                  _ProviderButton(
-                    icon: Icons.email_outlined,
-                    label: loc.authContinueWithEmail,
-                    dark: false,
-                    loading: _submitting,
-                    onPressed: () => setState(() => _showEmailFields = !_showEmailFields),
-                  ),
-                  if (_showEmailFields) ...[
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(hintText: loc.authEmailHint),
+                  const SizedBox(height: 28),
+                  Center(
+                    child: GlowLogo(
+                      child: Container(
+                        width: 68,
+                        height: 68,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Image.asset('assets/icon_foreground.png', fit: BoxFit.contain),
+                      ),
                     ),
+                  ).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.85, 0.85), end: const Offset(1, 1)),
+                  const SizedBox(height: 20),
+                  Text(
+                    loc.authTitle,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.h1.copyWith(fontSize: 26),
+                  ).animate().fadeIn(duration: 400.ms),
+                  const SizedBox(height: 8),
+                  Text(
+                    loc.authSubtitle,
+                    textAlign: TextAlign.center,
+                    style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 32),
+                  TextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: InputDecoration(
+                      hintText: loc.authEmailHint,
+                      prefixIcon: const Icon(Icons.mail_outline_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: _obscurePassword,
+                    maxLength: _isRegistering ? _kMaxPasswordLength : null,
+                    onChanged: _onPasswordChanged,
+                    decoration: InputDecoration(
+                      hintText: loc.authPasswordHint,
+                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                      errorText: _passwordFieldError,
+                      errorMaxLines: 2,
+                      helperText: _isRegistering ? loc.authPasswordRequirementsHint : null,
+                      helperMaxLines: 2,
+                      counterText: '',
+                      suffixIcon: IconButton(
+                        icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                      ),
+                    ),
+                  ),
+                  if (_isRegistering) ...[
                     const SizedBox(height: 10),
                     TextField(
-                      controller: _passwordController,
+                      controller: _confirmPasswordController,
                       obscureText: _obscurePassword,
+                      maxLength: _kMaxPasswordLength,
+                      onChanged: _onConfirmPasswordChanged,
                       decoration: InputDecoration(
-                        hintText: loc.authPasswordHint,
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
-                        ),
+                        hintText: loc.authConfirmPasswordHint,
+                        prefixIcon: const Icon(Icons.lock_outline_rounded),
+                        errorText: _confirmPasswordFieldError,
+                        counterText: '',
                       ),
                     ),
-                    if (_isRegistering) ...[
-                      const SizedBox(height: 10),
-                      TextField(
-                        controller: _confirmPasswordController,
-                        obscureText: _obscurePassword,
-                        decoration: InputDecoration(hintText: loc.authConfirmPasswordHint),
-                      ),
-                    ],
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  ],
+                  const SizedBox(height: 6),
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         TextButton(
                           onPressed: _submitting ? null : _toggleMode,
@@ -264,18 +327,52 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           ),
                       ],
                     ),
-                    _ProviderButton(
-                      icon: Icons.arrow_forward_rounded,
-                      label: _isRegistering ? loc.authRegisterButton : loc.authSignInButton,
-                      dark: false,
-                      loading: _submitting,
-                      onPressed: _submitEmailPassword,
-                    ),
-                  ],
+                  ),
+                  const SizedBox(height: 10),
+                  _PrimaryButton(
+                    label: loc.authContinueButton,
+                    loading: _submitting,
+                    onPressed: _submitEmailPassword,
+                  ),
                   if (_error != null) ...[
                     const SizedBox(height: 16),
                     Text(_error!, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
                   ],
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: AppColors.divider)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(loc.authOrDivider, style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                      ),
+                      Expanded(child: Divider(color: AppColors.divider)),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _SocialButton(
+                          icon: Icons.apple,
+                          label: loc.authContinueWithApple,
+                          loading: _submitting,
+                          tinted: true,
+                          onPressed: _signInWithApple,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _SocialButton(
+                          icon: Icons.g_mobiledata_rounded,
+                          iconSize: 28,
+                          label: loc.authContinueWithGoogle,
+                          loading: _submitting,
+                          onPressed: _signInWithGoogle,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 24),
                   ConsentCheckboxRow(
                     value: _consentAccepted,
@@ -371,17 +468,15 @@ class _ForgotPasswordSheetState extends ConsumerState<_ForgotPasswordSheet> {
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(hintText: loc.authEmailHint),
+                decoration: InputDecoration(hintText: loc.authEmailHint, prefixIcon: const Icon(Icons.mail_outline_rounded)),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 10),
                 Text(_error!, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
               ],
               const SizedBox(height: 18),
-              _ProviderButton(
-                icon: Icons.send_outlined,
+              _PrimaryButton(
                 label: loc.authForgotPasswordSubmitButton,
-                dark: false,
                 loading: _submitting,
                 onPressed: _submit,
               ),
@@ -393,60 +488,80 @@ class _ForgotPasswordSheetState extends ConsumerState<_ForgotPasswordSheet> {
   }
 }
 
-/// One of the 3 sign-in options — same envelope for all 3 (Apple's own
-/// requirement that a 3rd-party provider button not visually outrank
-/// Sign in with Apple), just [dark] flips fill vs outline to match
-/// each provider's own conventional treatment.
-class _ProviderButton extends StatelessWidget {
-  final IconData icon;
+/// The one accent-filled call-to-action per screen — plain
+/// [ElevatedButton] so it picks up the app's global primary-button
+/// theme (cyan fill, dark ink text) rather than redeclaring it here.
+class _PrimaryButton extends StatelessWidget {
   final String label;
-  final bool dark;
   final bool loading;
   final VoidCallback onPressed;
 
-  const _ProviderButton({
+  const _PrimaryButton({required this.label, required this.loading, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: loading ? null : onPressed,
+      child: loading
+          ? const SizedBox(
+              height: 20,
+              width: 20,
+              child: CircularProgressIndicator(strokeWidth: 2.2, valueColor: AlwaysStoppedAnimation<Color>(AppColors.onAccent)),
+            )
+          : Text(label),
+    );
+  }
+}
+
+/// Apple/Google — same size and shape for both (Apple's own HIG
+/// requirement that a 3rd-party provider not visually outrank Sign in
+/// with Apple), just [tinted] gives Apple a soft dark fill instead of
+/// Google's plain outlined one — a platform-conventional distinction,
+/// not a size/weight difference, so it doesn't reintroduce the outrank
+/// problem.
+class _SocialButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool loading;
+  final VoidCallback onPressed;
+  final double iconSize;
+  final bool tinted;
+
+  const _SocialButton({
     required this.icon,
     required this.label,
-    required this.dark,
     required this.loading,
     required this.onPressed,
+    this.iconSize = 22,
+    this.tinted = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    // AppColors.white/.onAccent are the SAME dark navy (a light-theme
-    // app despite the name) — using either for both would make the
-    // Apple button's text invisible against its own background, so
-    // this one spot reaches past the design tokens for a real black
-    // button + real white text, matching Apple's own HIG button style.
-    final foreground = dark ? Colors.white : AppColors.white;
-    final background = dark ? Colors.black : AppColors.card;
+    final foreground = tinted ? Colors.white : AppColors.white;
 
-    return SizedBox(
-      height: 52,
-      child: ElevatedButton(
-        onPressed: loading ? null : onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: background,
-          foregroundColor: foreground,
-          side: dark ? null : const BorderSide(color: AppColors.divider),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        ),
-        child: loading
-            ? SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2.2, valueColor: AlwaysStoppedAnimation<Color>(foreground)),
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 22),
-                  const SizedBox(width: 10),
-                  Text(label, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w600)),
-                ],
-              ),
+    return OutlinedButton(
+      onPressed: loading ? null : onPressed,
+      style: OutlinedButton.styleFrom(
+        backgroundColor: tinted ? AppColors.white : null,
+        foregroundColor: foreground,
+        side: tinted ? BorderSide.none : null,
+        padding: const EdgeInsets.symmetric(vertical: 12),
       ),
+      child: loading
+          ? SizedBox(
+              height: 18,
+              width: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(foreground)),
+            )
+          : Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: iconSize, color: foreground),
+                const SizedBox(width: 8),
+                Flexible(child: Text(label, overflow: TextOverflow.ellipsis, style: TextStyle(color: foreground))),
+              ],
+            ),
     );
   }
 }

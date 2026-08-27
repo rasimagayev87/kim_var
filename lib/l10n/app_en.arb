@@ -1,6 +1,7 @@
 {
   "@@locale": "en",
-  "welcomeSubtitle": "Discover people around you,\nmake new connections and friendships.",
+  "welcomeHeadline": "Discover the world around you, now",
+  "welcomeSubtitle": "The people, places, and live opportunities closest to you, in one radius.",
   "@welcomeSubtitle": {
     "description": "Welcome screen tagline"
   },
@@ -8,16 +9,16 @@
   "@welcomeStartButton": {
     "description": "Welcome screen primary CTA"
   },
-  "authTitle": "Welcome",
-  "authSubtitle": "Choose a way to continue",
-  "authContinueWithApple": "Continue with Apple",
-  "authContinueWithGoogle": "Continue with Google",
+  "authTitle": "Welcome to PeakPin",
+  "authSubtitle": "Discover people and businesses around you",
+  "authContinueWithApple": "Apple",
+  "authContinueWithGoogle": "Google",
   "authContinueWithEmail": "Continue with Email",
   "authEmailHint": "email@example.com",
   "authPasswordHint": "Password",
   "authConfirmPasswordHint": "Confirm password",
-  "authSignInButton": "Sign in",
-  "authRegisterButton": "Register",
+  "authContinueButton": "Continue",
+  "authOrDivider": "or",
   "authToggleToRegister": "Don't have an account? Register",
   "authToggleToSignIn": "Already have an account? Sign in",
   "authForgotPasswordLink": "Forgot password?",
@@ -28,7 +29,8 @@
   "authWrongCredentialsError": "Email or password is incorrect",
   "authEmailAlreadyInUseError": "This email is already in use",
   "authWeakPasswordError": "This password is too weak, choose a stronger one",
-  "authPasswordTooShortError": "Password must be at least 8 characters",
+  "authPasswordRequirementsHint": "8-14 characters, at least 1 letter, 1 digit, and one of: , _ . !",
+  "authPasswordTooShortError": "Password must be 8-14 characters, with at least 1 letter, 1 digit, and one of: , _ . !",
   "authPasswordMismatchError": "Passwords don't match",
   "authConsentRequiredError": "Accept the Privacy Policy and Terms of Service to continue",
   "authSignInFailedError": "Sign-in failed. Please try again.",
