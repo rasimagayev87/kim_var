@@ -161,6 +161,16 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: name.isEmpty ? loc.notifVenuePremiumActivatedBodyGeneric(months) : loc.notifVenuePremiumActivatedBody(name, months),
       );
 
+    case NotificationType.venueWaitlistJoined:
+      final name = str('name');
+      final partySize = intVal('partySize');
+      return LocalizedNotificationText(
+        title: loc.notifVenueWaitlistJoinedTitle,
+        body: name.isEmpty
+            ? loc.notifVenueWaitlistJoinedBodyGeneric(partySize)
+            : loc.notifVenueWaitlistJoinedBody(name, partySize),
+      );
+
     case NotificationType.venuePremiumExpiringSoon:
       final name = str('name');
       final daysLeft = intVal('daysLeft');

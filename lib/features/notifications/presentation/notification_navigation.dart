@@ -11,8 +11,10 @@ import '../../pinbox/presentation/screens/pinbox_ticket_screen.dart';
 import '../../post_share/presentation/screens/post_detail_screen.dart';
 import '../../profile/presentation/providers/profile_providers.dart';
 import '../../profile/presentation/screens/user_profile_screen.dart';
+import '../../venues/presentation/providers/venue_providers.dart';
 import '../../venues/presentation/screens/my_venues_screen.dart';
 import '../../venues/presentation/screens/venue_profile_screen.dart';
+import '../../waitlist/presentation/screens/venue_waitlist_screen.dart';
 import '../domain/entities/notification.dart';
 
 /// Routes a tapped [AppNotification] to its real destination screen,
@@ -97,5 +99,17 @@ Future<void> openNotificationTarget(BuildContext context, WidgetRef ref, AppNoti
     // `_OrderCard` itself navigates to from "Aldıqlarım".
     case 'pinbox_order':
       Navigator.push(context, MaterialPageRoute(builder: (_) => PinBoxTicketScreen(orderId: targetId)));
+  }
+
+  // A customer joined this venue's waitlist (`joinWaitlist`) — skips
+  // straight to VenueWaitlistScreen (not just the venue profile) so
+  // the owner can call/seat the new entry immediately. Needs an async
+  // fetch first (VenueWaitlistScreen takes a full Venue, not just an
+  // id), same shape as `pinbox`/`birthday_match` above — kept outside
+  // the switch for the same reason those two are.
+  if (notification.targetType == 'venue_waitlist') {
+    final venue = await ref.read(venueByIdProvider(targetId).future);
+    if (venue == null || !context.mounted) return;
+    Navigator.push(context, MaterialPageRoute(builder: (_) => VenueWaitlistScreen(venue: venue)));
   }
 }

@@ -1298,6 +1298,15 @@
   "@notifVenuePremiumExpiringSoonBodyGeneric": {
     "placeholders": { "daysLeft": { "type": "int" } }
   },
+  "notifVenueWaitlistJoinedTitle": "Новая запись в очередь",
+  "notifVenueWaitlistJoinedBody": "В очередь \"{name}\" записались {partySize} чел.",
+  "@notifVenueWaitlistJoinedBody": {
+    "placeholders": { "name": { "type": "String" }, "partySize": { "type": "int" } }
+  },
+  "notifVenueWaitlistJoinedBodyGeneric": "В очередь вашего заведения записались {partySize} чел.",
+  "@notifVenueWaitlistJoinedBodyGeneric": {
+    "placeholders": { "partySize": { "type": "int" } }
+  },
   "notifPinboxOrderConfirmedTitle": "Заказ подтверждён",
   "notifPinboxOrderConfirmedBody": "Ваш заказ \"{title}\" подтверждён, QR-билет готов.",
   "notifPinboxOrderConfirmedBodyGeneric": "Ваш заказ PinBox подтверждён, QR-билет готов.",

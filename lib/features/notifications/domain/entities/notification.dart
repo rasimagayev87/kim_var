@@ -91,6 +91,15 @@ enum NotificationType {
   /// the owner at `VenuePremiumInfoScreen`'s "erkən yenilə" button.
   venuePremiumExpiringSoon,
 
+  /// A customer joined this venue's "Növbə" (walk-in waitlist) — see
+  /// `joinWaitlist`, functions/src/index.ts. Owner-only. Previously the
+  /// owner had no signal at all beyond manually reopening
+  /// `VenueWaitlistScreen` and noticing a new row; `targetType:
+  /// 'venue_waitlist'` (not plain `'venue'`) routes a tap straight to
+  /// that screen so they can act on it (call/seat) immediately — see
+  /// `notification_navigation.dart`.
+  venueWaitlistJoined,
+
   /// The bank declined the charge — same producer/reasoning as the 4
   /// above, `params: {name, reason}` where `reason` is Epoint's own
   /// bank-decline code translated to AZ (`bankDeclineMessage` in

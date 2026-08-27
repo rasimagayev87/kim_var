@@ -1298,6 +1298,15 @@
   "@notifVenuePremiumExpiringSoonBodyGeneric": {
     "placeholders": { "daysLeft": { "type": "int" } }
   },
+  "notifVenueWaitlistJoinedTitle": "Növbəyə yeni yazılış",
+  "notifVenueWaitlistJoinedBody": "\"{name}\" növbəsinə {partySize} nəfərlik yeni yazılış oldu.",
+  "@notifVenueWaitlistJoinedBody": {
+    "placeholders": { "name": { "type": "String" }, "partySize": { "type": "int" } }
+  },
+  "notifVenueWaitlistJoinedBodyGeneric": "Məkanınızın növbəsinə {partySize} nəfərlik yeni yazılış oldu.",
+  "@notifVenueWaitlistJoinedBodyGeneric": {
+    "placeholders": { "partySize": { "type": "int" } }
+  },
   "notifPinboxOrderConfirmedTitle": "Sifariş təsdiqləndi",
   "notifPinboxOrderConfirmedBody": "\"{title}\" sifarişiniz təsdiqləndi, QR biletiniz hazırdır.",
   "notifPinboxOrderConfirmedBodyGeneric": "PinBox sifarişiniz təsdiqləndi, QR biletiniz hazırdır.",

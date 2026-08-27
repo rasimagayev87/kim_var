@@ -1828,6 +1828,26 @@ export const joinWaitlist = onCall({ region: "us-central1", enforceAppCheck: fal
     });
   });
 
+  // Owner-facing signal — previously the ONLY way an owner found out
+  // someone joined was manually opening VenueWaitlistScreen and
+  // noticing a new row. `targetType: "venue_waitlist"` (not plain
+  // "venue") so tapping the notification skips straight to the
+  // waitlist itself, not just the venue profile — see
+  // `notification_navigation.dart`.
+  const ownerId = venueSnap.data()!.ownerId as string;
+  const venueName = (venueSnap.data()?.name as string | undefined) ?? "";
+  const quotedVenue = venueName ? `"${venueName}"` : "Məkanınız";
+  await notifyUser({
+    uid: ownerId,
+    category: "venueUpdates",
+    type: "venueWaitlistJoined",
+    title: "Növbəyə yeni yazılış",
+    body: `${quotedVenue} növbəsinə ${partySize} nəfərlik yeni yazılış oldu.`,
+    params: { name: venueName, partySize },
+    targetId: venueId,
+    targetType: "venue_waitlist",
+  });
+
   return { entryId: newEntryRef.id };
 });
 

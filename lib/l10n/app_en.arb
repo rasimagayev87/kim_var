@@ -1412,6 +1412,15 @@
   "@notifVenuePremiumExpiringSoonBodyGeneric": {
     "placeholders": { "daysLeft": { "type": "int" } }
   },
+  "notifVenueWaitlistJoinedTitle": "New waitlist join",
+  "notifVenueWaitlistJoinedBody": "\"{name}\" got a new waitlist join for {partySize}.",
+  "@notifVenueWaitlistJoinedBody": {
+    "placeholders": { "name": { "type": "String" }, "partySize": { "type": "int" } }
+  },
+  "notifVenueWaitlistJoinedBodyGeneric": "Your venue got a new waitlist join for {partySize}.",
+  "@notifVenueWaitlistJoinedBodyGeneric": {
+    "placeholders": { "partySize": { "type": "int" } }
+  },
   "notifPinboxOrderConfirmedTitle": "Order confirmed",
   "notifPinboxOrderConfirmedBody": "Your order for \"{title}\" was confirmed, your QR ticket is ready.",
   "notifPinboxOrderConfirmedBodyGeneric": "Your PinBox order was confirmed, your QR ticket is ready.",
