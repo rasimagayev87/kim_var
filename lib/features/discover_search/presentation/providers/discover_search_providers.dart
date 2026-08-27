@@ -69,35 +69,41 @@ class DiscoverSearchController extends StateNotifier<DiscoverSearchState> {
     _debounce = Timer(_kSearchDebounce, () => _runSearch(query));
   }
 
+  /// Each of the 3 queries is caught independently — a `Future.wait`
+  /// over all 3 together would fail the whole search (wiping out
+  /// results from the other two, which may have succeeded) the moment
+  /// any ONE of them throws, e.g. a security-rules gap on just the
+  /// username query. Confirmed happening: `usernames`' rules only had
+  /// `allow get`, not `allow list`, so the username query's
+  /// permission-denied was silently blanking name/venue results too
+  /// even though those were never actually broken.
   Future<void> _runSearch(String query) async {
     state = state.copyWith(isSearching: true);
+
+    final byUsername = await _guarded(() => _repository.searchUsersByUsername(query), 'searchUsersByUsername');
+    final byName = await _guarded(() => _repository.searchUsersByName(query), 'searchUsersByName');
+    final venues = await _guarded(() => _repository.searchVenues(query), 'searchVenues');
+
+    // The user may have kept typing while this was in flight — a
+    // stale response for an earlier query landing after a newer one
+    // would otherwise flicker the results backwards.
+    if (state.query != query) return;
+
+    final seen = <String>{};
+    final users = <PublicProfile>[
+      for (final user in [...byUsername, ...byName])
+        if (seen.add(user.id)) user,
+    ];
+
+    state = state.copyWith(users: users, venues: venues, isSearching: false);
+  }
+
+  Future<List<T>> _guarded<T>(Future<List<T>> Function() query, String site) async {
     try {
-      final results = await Future.wait([
-        _repository.searchUsersByUsername(query),
-        _repository.searchUsersByName(query),
-        _repository.searchVenues(query),
-      ]);
-
-      // The user may have kept typing while this was in flight — a
-      // stale response for an earlier query landing after a newer one
-      // would otherwise flicker the results backwards.
-      if (state.query != query) return;
-
-      final byUsername = results[0] as List<PublicProfile>;
-      final byName = results[1] as List<PublicProfile>;
-      final venues = results[2] as List<Venue>;
-
-      final seen = <String>{};
-      final users = <PublicProfile>[
-        for (final user in [...byUsername, ...byName])
-          if (seen.add(user.id)) user,
-      ];
-
-      state = state.copyWith(users: users, venues: venues, isSearching: false);
+      return await query();
     } catch (e, st) {
-      logError('discover_search_providers.DiscoverSearchController._runSearch', e, st);
-      if (state.query != query) return;
-      state = state.copyWith(isSearching: false);
+      logError('discover_search_providers.DiscoverSearchController.$site', e, st);
+      return const [];
     }
   }
 

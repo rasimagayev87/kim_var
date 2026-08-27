@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:video_player/video_player.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_image.dart';
@@ -268,35 +270,126 @@ class _PublicVideoGrid extends ConsumerWidget {
   }
 }
 
-class _VideoGridTile extends StatelessWidget {
+/// Grid tiles preview like Instagram/TikTok's do: once >60% on-screen,
+/// a muted, silently-initialized player starts looping just the first
+/// [_kPreviewWindow] of the clip (not the whole thing — seeking back
+/// to zero itself once it reaches that point, rather than relying on
+/// `looping: true`, which would loop the entire video). Tiles that
+/// scroll off-screen dispose their controller immediately — `GridView.
+/// builder`'s own lazy building already bounds how many tiles exist as
+/// widgets at once, so this never has more concurrent decoders running
+/// than roughly a couple of screens' worth.
+class _VideoGridTile extends StatefulWidget {
   final List<Post> videos;
   final int index;
 
   const _VideoGridTile({required this.videos, required this.index});
 
-  Post get post => videos[index];
+  @override
+  State<_VideoGridTile> createState() => _VideoGridTileState();
+}
+
+const _kPreviewWindow = Duration(seconds: 6);
+
+class _VideoGridTileState extends State<_VideoGridTile> {
+  Post get _post => widget.videos[widget.index];
+
+  VideoPlayerController? _controller;
+  bool _startingOrPlaying = false;
+
+  @override
+  void dispose() {
+    _controller?.removeListener(_loopWithinPreviewWindow);
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  void _onVisibilityChanged(VisibilityInfo info) {
+    final visible = info.visibleFraction > 0.6;
+    if (visible && !_startingOrPlaying) {
+      _startPreview();
+    } else if (!visible && _startingOrPlaying) {
+      _stopPreview();
+    }
+  }
+
+  Future<void> _startPreview() async {
+    _startingOrPlaying = true;
+    final controller = VideoPlayerController.networkUrl(Uri.parse(_post.mediaUrl));
+    _controller = controller;
+    try {
+      await controller.initialize();
+      // The tile may have scrolled away (or been disposed) while
+      // `initialize` was in flight — `_controller` no longer being
+      // THIS controller means a newer call already superseded it.
+      if (!mounted || _controller != controller) {
+        await controller.dispose();
+        return;
+      }
+      await controller.setVolume(0);
+      controller.addListener(_loopWithinPreviewWindow);
+      await controller.play();
+      if (mounted) setState(() {});
+    } catch (_) {
+      // Best-effort — the static thumbnail underneath is still shown.
+      if (_controller == controller) _controller = null;
+    }
+  }
+
+  void _loopWithinPreviewWindow() {
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) return;
+    if (controller.value.position >= _kPreviewWindow) {
+      controller.seekTo(Duration.zero);
+    }
+  }
+
+  void _stopPreview() {
+    _startingOrPlaying = false;
+    final controller = _controller;
+    _controller = null;
+    controller?.removeListener(_loopWithinPreviewWindow);
+    controller?.dispose();
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => PostReelViewerScreen(posts: videos, initialIndex: index)),
-      ),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          AppImage(
-            post.thumbnailUrl ?? post.mediaUrl,
-            fit: BoxFit.cover,
-            errorBuilder: (_, _, _) => const PhotoPlaceholderPattern(),
-          ),
-          const Positioned(
-            top: 6,
-            right: 6,
-            child: Icon(Icons.play_arrow_outlined, color: Colors.white, size: 18),
-          ),
-        ],
+    final controller = _controller;
+    final showVideo = controller != null && controller.value.isInitialized;
+
+    return VisibilityDetector(
+      key: ValueKey('discover_video_tile_${_post.id}'),
+      onVisibilityChanged: _onVisibilityChanged,
+      child: GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => PostReelViewerScreen(posts: widget.videos, initialIndex: widget.index)),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            AppImage(
+              _post.thumbnailUrl ?? _post.mediaUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const PhotoPlaceholderPattern(),
+            ),
+            if (showVideo)
+              FittedBox(
+                fit: BoxFit.cover,
+                child: SizedBox(
+                  width: controller.value.size.width,
+                  height: controller.value.size.height,
+                  child: VideoPlayer(controller),
+                ),
+              ),
+            const Positioned(
+              top: 6,
+              right: 6,
+              child: Icon(Icons.play_arrow_outlined, color: Colors.white, size: 18),
+            ),
+          ],
+        ),
       ),
     );
   }

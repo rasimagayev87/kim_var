@@ -252,6 +252,19 @@ service cloud.firestore {
     // client-side check only approximates.
     match /usernames/{usernameId} {
       allow get: if true;
+
+      // `list` is a SEPARATE permission from `get` in Firestore rules
+      // (both fall under `read`, but neither implies the other) — the
+      // discover/search screen's username-prefix query (`orderBy(
+      // FieldPath.documentId).startAt/endAt(...)`, in
+      // FirebaseDiscoverSearchRepository) is a `list`, so without this
+      // it was rejected outright with permission-denied, silently
+      // surfacing as "no results found" in the app (the query's error
+      // is caught and swallowed into an empty result list). Doc IDs
+      // here are just lowercase username strings and each doc is only
+      // `{uid, createdAt}` — nothing sensitive to gate behind auth.
+      allow list: if true;
+
       allow create: if request.auth != null &&
         resource == null &&
         request.auth.uid == request.resource.data.uid &&
