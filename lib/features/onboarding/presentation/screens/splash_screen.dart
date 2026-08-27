@@ -32,10 +32,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     // deliberately does NOT route straight to OnboardingScreen here —
     // it goes through WelcomeScreen/AuthScreen like any other
     // unauthenticated cold start. Landing on Onboarding again is the
-    // natural result of _that_ sign-in succeeding (see AuthScreen /
-    // EmailLinkSignInScreen, which both already route to Onboarding
-    // vs Home based on the sign-in result's `isNewUser`) — not
-    // something this splash check should short-circuit into.
+    // natural result of _that_ sign-in succeeding (see AuthScreen,
+    // which already routes to Onboarding vs Home based on the
+    // sign-in result's `isNewUser`) — not something this splash check
+    // should short-circuit into.
     final destination = user != null ? const HomeScreen() : const WelcomeScreen();
 
     Navigator.pushReplacement(

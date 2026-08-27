@@ -1,10 +1,8 @@
 import 'package:app_links/app_links.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_branch_sdk/flutter_branch_sdk.dart';
 
-import '../../features/auth/presentation/screens/email_link_sign_in_screen.dart';
 import '../../features/post_share/presentation/screens/post_detail_screen.dart';
 import '../../features/profile/presentation/screens/user_profile_screen.dart';
 import '../utils/app_logger.dart';
@@ -30,17 +28,6 @@ void startDeepLinkListener() {
 }
 
 void _handleUri(Uri uri) {
-  // Firebase's own email sign-in link — see `AuthRepository.
-  // sendEmailSignInLink`'s doc comment for why this rides the same
-  // Universal Link infrastructure as `/p/{postId}` below, rather than
-  // needing a separate Dynamic Links setup.
-  if (fb.FirebaseAuth.instance.isSignInWithEmailLink(uri.toString())) {
-    navigatorKey.currentState?.push(
-      MaterialPageRoute(builder: (_) => EmailLinkSignInScreen(link: uri.toString())),
-    );
-    return;
-  }
-
   final segments = uri.pathSegments;
   if (segments.length >= 2 && segments[0] == 'p') {
     final postId = segments[1];
