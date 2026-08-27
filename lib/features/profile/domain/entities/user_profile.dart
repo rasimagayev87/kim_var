@@ -60,6 +60,13 @@ class UserProfile {
   /// sync with the stored birth date.
   int? get age => birthDate == null ? null : calculateAge(birthDate!);
 
+  /// Mirrors `AppUser.name` — kept as a separate getter (not shared)
+  /// because this one reads from the LIVE `profileControllerProvider`
+  /// stream, where `AppUser.name` is a one-time snapshot from sign-in
+  /// that never updates after a profile edit. Screens showing the
+  /// signed-in user's own name should read this, not `AppUser.name`.
+  String get name => '$firstName $lastName'.trim();
+
   UserProfile copyWith({
     String? username,
     String? firstName,

@@ -171,11 +171,10 @@ class _ProfileSummaryCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final profile = ref.watch(profileControllerProvider);
-    final authUser = ref.watch(authControllerProvider).valueOrNull;
     final isPremium = ref.watch(isPremiumProvider);
 
-    final displayName = authUser?.name ?? loc.profileNamePlaceholder;
-    final handle = authUser?.username != null ? '@${authUser!.username}' : '';
+    final displayName = profile.name.isEmpty ? loc.profileNamePlaceholder : profile.name;
+    final handle = profile.username != null ? '@${profile.username}' : '';
     final locationText = _formatLocation(profile.city, profile.country);
 
     return GestureDetector(

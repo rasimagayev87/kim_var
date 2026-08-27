@@ -10,7 +10,6 @@ import '../../../../core/utils/app_logger.dart';
 import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/photo_placeholder_pattern.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../follow/presentation/providers/follow_providers.dart';
 import '../../../follow/presentation/screens/follow_list_screen.dart';
@@ -34,7 +33,6 @@ class ProfileTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final profile = ref.watch(profileControllerProvider);
-    final authUser = ref.watch(authControllerProvider).valueOrNull;
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
     final followingCount = myUid == null
         ? 0
@@ -53,7 +51,7 @@ class ProfileTab extends ConsumerWidget {
         : ref.watch(userRepostedPostsProvider(myUid));
     final newVisitorsCount = ref.watch(newProfileVisitorsCountProvider);
 
-    final displayName = authUser?.name ?? loc.profileNamePlaceholder;
+    final displayName = profile.name.isEmpty ? loc.profileNamePlaceholder : profile.name;
 
     return DefaultTabController(
           length: 3,
@@ -168,14 +166,14 @@ class ProfileTab extends ConsumerWidget {
                                   minWidth: 36,
                                   minHeight: 36,
                                 ),
-                                onPressed: (authUser?.username ?? '').isEmpty
+                                onPressed: (profile.username ?? '').isEmpty
                                     ? null
                                     : () => Navigator.push(
                                         context,
                                         MaterialPageRoute(
                                           builder: (_) => ProfileShareScreen(
                                             name: displayName,
-                                            username: authUser!.username!,
+                                            username: profile.username!,
                                             photoUrl: profile.photoUrl,
                                           ),
                                         ),
@@ -237,11 +235,11 @@ class ProfileTab extends ConsumerWidget {
                               ],
                             ),
                           ),
-                          if ((authUser?.username ?? '').isNotEmpty) ...[
+                          if ((profile.username ?? '').isNotEmpty) ...[
                             const SizedBox(height: 3),
                             Center(
                               child: Text(
-                                '@${authUser!.username}',
+                                '@${profile.username}',
                                 style: GoogleFonts.manrope(
                                   fontSize: 13.5,
                                   color: ChatLightColors.inkSoft,
