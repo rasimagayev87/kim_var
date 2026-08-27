@@ -1,13 +1,9 @@
-import 'dart:async';
-
-import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/app_logger.dart';
-import '../../../../core/utils/rate_limit_error.dart';
 import '../../../../core/widgets/premium_upsell_sheet.dart';
 import '../../../../core/widgets/settings_group.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -673,12 +669,11 @@ class _TwoFactorSheet extends ConsumerStatefulWidget {
 class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
   bool _busy = false;
   bool _disabling = false;
-  bool _emailLinkSent = false;
-  StreamSubscription<void>? _emailReauthSub;
+  final _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    _emailReauthSub?.cancel();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -699,8 +694,7 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
     setState(() => _busy = false);
-    final message = isRateLimitError(e) ? loc.authRateLimitError : loc.deleteAccountReauthFailedMessage;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
   }
 
   Future<void> _reauthApple() async {
@@ -723,19 +717,13 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
     }
   }
 
-  Future<void> _sendEmailLink() async {
+  Future<void> _reauthPassword() async {
     setState(() => _busy = true);
     try {
-      final controller = ref.read(accountControllerProvider);
-      _emailReauthSub ??= controller.emailReauthCompleted.listen((_) => _afterReauth());
-      await controller.sendReauthEmailLink();
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _emailLinkSent = true;
-      });
+      await ref.read(accountControllerProvider).reauthenticateWithPassword(_passwordController.text);
+      await _afterReauth();
     } catch (e, st) {
-      _fail(e, st, 'privacy_security_screen.twoFactor.sendReauthEmailLink');
+      _fail(e, st, 'privacy_security_screen.twoFactor.reauthPassword');
     }
   }
 
@@ -759,7 +747,6 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final provider = ref.read(accountControllerProvider).currentLoginProvider();
-    final email = fb.FirebaseAuth.instance.currentUser?.email ?? '';
 
     return SafeArea(
       top: false,
@@ -794,13 +781,18 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
                 onPressed: _busy ? null : _reauthGoogle,
                 child: _busy ? _spinner() : Text(loc.deleteAccountReauthGoogleButton),
               )
-            else if (_emailLinkSent)
-              Text(loc.deleteAccountReauthEmailSentMessage(email), style: AppTextStyles.body)
-            else
+            else ...[
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: InputDecoration(hintText: loc.authPasswordHint),
+              ),
+              const SizedBox(height: 12),
               ElevatedButton(
-                onPressed: _busy ? null : _sendEmailLink,
+                onPressed: _busy ? null : _reauthPassword,
                 child: _busy ? _spinner() : Text(loc.deleteAccountReauthEmailButton),
               ),
+            ],
           ],
         ),
       ),

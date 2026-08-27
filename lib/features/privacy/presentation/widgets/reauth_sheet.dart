@@ -1,13 +1,9 @@
-import 'dart:async';
-
-import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/app_logger.dart';
-import '../../../../core/utils/rate_limit_error.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../auth/domain/entities/app_user.dart' show LoginProvider;
 import '../providers/privacy_providers.dart';
@@ -16,12 +12,10 @@ import '../providers/privacy_providers.dart';
 /// [ReauthenticationRequiredException] doc comment), scoped to
 /// whichever provider they originally signed in with — pops `true`
 /// once reauthentication succeeds, so the caller knows it can retry
-/// whatever threw [ReauthenticationRequiredException]. Apple/Google
-/// complete synchronously (native popup); Email sends a fresh sign-in
-/// link and waits on [AccountController.emailReauthCompleted], since
-/// that half of the flow finishes later, out-of-band, in
-/// `EmailLinkSignInScreen`. Shared by delete-account and change-email,
-/// both of which can hit a stale-session error.
+/// whatever threw [ReauthenticationRequiredException]. All 3 providers
+/// (Apple/Google native popup, Email a password field) complete
+/// synchronously now. Shared by delete-account and change-email, both
+/// of which can hit a stale-session error.
 class ReauthSheet extends ConsumerStatefulWidget {
   const ReauthSheet({super.key});
 
@@ -31,12 +25,11 @@ class ReauthSheet extends ConsumerStatefulWidget {
 
 class _ReauthSheetState extends ConsumerState<ReauthSheet> {
   bool _busy = false;
-  bool _emailLinkSent = false;
-  StreamSubscription<void>? _emailReauthSub;
+  final _passwordController = TextEditingController();
 
   @override
   void dispose() {
-    _emailReauthSub?.cancel();
+    _passwordController.dispose();
     super.dispose();
   }
 
@@ -45,8 +38,7 @@ class _ReauthSheetState extends ConsumerState<ReauthSheet> {
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
     setState(() => _busy = false);
-    final message = isRateLimitError(e) ? loc.authRateLimitError : loc.deleteAccountReauthFailedMessage;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
   }
 
   Future<void> _reauthApple() async {
@@ -71,22 +63,14 @@ class _ReauthSheetState extends ConsumerState<ReauthSheet> {
     }
   }
 
-  Future<void> _sendEmailLink() async {
+  Future<void> _reauthPassword() async {
     setState(() => _busy = true);
     try {
-      final controller = ref.read(accountControllerProvider);
-      _emailReauthSub ??= controller.emailReauthCompleted.listen((_) {
-        if (!mounted) return;
-        Navigator.pop(context, true);
-      });
-      await controller.sendReauthEmailLink();
+      await ref.read(accountControllerProvider).reauthenticateWithPassword(_passwordController.text);
       if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _emailLinkSent = true;
-      });
+      Navigator.pop(context, true);
     } catch (e, st) {
-      _fail(e, st, 'reauth_sheet.sendReauthEmailLink');
+      _fail(e, st, 'reauth_sheet.reauthPassword');
     }
   }
 
@@ -97,7 +81,6 @@ class _ReauthSheetState extends ConsumerState<ReauthSheet> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final provider = ref.read(accountControllerProvider).currentLoginProvider();
-    final email = fb.FirebaseAuth.instance.currentUser?.email ?? '';
 
     return SafeArea(
       top: false,
@@ -121,13 +104,18 @@ class _ReauthSheetState extends ConsumerState<ReauthSheet> {
                 onPressed: _busy ? null : _reauthGoogle,
                 child: _busy ? _spinner() : Text(loc.deleteAccountReauthGoogleButton),
               )
-            else if (_emailLinkSent)
-              Text(loc.deleteAccountReauthEmailSentMessage(email), style: AppTextStyles.body)
-            else
+            else ...[
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                decoration: InputDecoration(hintText: loc.authPasswordHint),
+              ),
+              const SizedBox(height: 12),
               ElevatedButton(
-                onPressed: _busy ? null : _sendEmailLink,
+                onPressed: _busy ? null : _reauthPassword,
                 child: _busy ? _spinner() : Text(loc.deleteAccountReauthEmailButton),
               ),
+            ],
           ],
         ),
       ),
