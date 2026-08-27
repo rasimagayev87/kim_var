@@ -82,7 +82,18 @@ class FirebaseAuthRepository implements AuthRepository {
     final doc = await _firestore.collection('users').doc(user.uid).get();
     final data = doc.data();
 
-    if (data == null) return null;
+    // NOT just `data == null` — several other providers (location,
+    // presence, device-signature tracking, the legal-consent dialog)
+    // merge-write their own fields onto `users/{uid}` the moment a
+    // session exists, independent of onboarding. If any of those races
+    // ahead of completeOnboarding (confirmed happening: a slow
+    // cold-started `notifyOnNewDeviceSignIn` invocation once created
+    // this doc before the client-side new-user check ever ran), a
+    // pure existence check would wrongly read as "onboarding done" and
+    // skip it entirely. `username` is only ever set by
+    // completeOnboarding, so it's the one field that actually means a
+    // profile was completed.
+    if (data == null || data['username'] == null) return null;
 
     return AppUser(
       id: user.uid,
@@ -166,6 +177,12 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<(AppUser, bool)> registerWithEmailPassword(String email, String password) async {
     final result = await _auth.createUserWithEmailAndPassword(email: email.trim(), password: password);
+    // Best-effort: nothing today actually confirms the typed address is
+    // real/owned by this person (Apple/Google sign-in don't have this
+    // gap — those emails are already provider-verified). A failed send
+    // here shouldn't block registration itself; the account exists
+    // either way, so this never blocks or rethrows.
+    unawaited(result.user!.sendEmailVerification());
     return _afterSignIn(result.user!);
   }
 
