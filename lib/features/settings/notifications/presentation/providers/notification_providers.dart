@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 
 import '../../../../../core/utils/app_logger.dart';
+import '../../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/repositories/firebase_notification_preferences_repository.dart';
 import '../../domain/entities/notification_preferences.dart';
 import '../../domain/repositories/notification_preferences_repository.dart';
@@ -39,6 +40,13 @@ final notificationPermissionStatusProvider = FutureProvider.autoDispose<ph.Permi
 String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
 
 final notificationPreferencesProvider = StreamProvider.autoDispose<NotificationPreferences>((ref) {
+  // Forces a rebuild on sign-out/sign-in — without it, a quick account
+  // switch can resurrect this provider still bound to the previous
+  // uid before autoDispose's own teardown-triggered disposal fires,
+  // silently showing the PREVIOUS account's notification toggles
+  // under the new session. Same fix pattern as
+  // `chatListControllerProvider`/`_premiumStatusProvider`.
+  ref.watch(authStateProvider);
   final uid = _currentUid();
   if (uid == null) return Stream.value(const NotificationPreferences());
   return ref.watch(notificationPreferencesRepositoryProvider).watchPreferences(uid);

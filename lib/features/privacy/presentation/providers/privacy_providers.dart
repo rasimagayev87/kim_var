@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../auth/domain/entities/app_user.dart' show LoginProvider;
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/repositories/firebase_account_repository.dart';
 import '../../data/repositories/firebase_device_session_repository.dart';
 import '../../data/repositories/firebase_privacy_settings_repository.dart';
@@ -80,7 +81,19 @@ final exportUserDataUseCaseProvider = Provider<ExportUserDataUseCase>((ref) {
 
 String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
 
-final privacySettingsProvider = StreamProvider<PrivacySettings>((ref) {
+final privacySettingsProvider = StreamProvider.autoDispose<PrivacySettings>((ref) {
+  // Was a plain (non-autoDispose) StreamProvider — the only one of
+  // its siblings in this file that was, and with no watch on
+  // authStateProvider either, meaning it never rebuilt on a sign-out
+  // followed by a different account signing in: it just kept its
+  // FIRST uid's live listener open forever, silently showing the
+  // previous account's toggle values under the new session. Same bug
+  // class as `chatListControllerProvider`'s fix (chat_providers.dart)
+  // and `_premiumStatusProvider`'s (premium_providers.dart) — watching
+  // authStateProvider is what makes this rebuild on every real auth
+  // transition instead of relying on autoDispose's own (unreliable,
+  // timing-dependent) widget-teardown-triggered disposal.
+  ref.watch(authStateProvider);
   final uid = _currentUid();
   if (uid == null) return Stream.value(const PrivacySettings());
   return ref.watch(privacySettingsRepositoryProvider).watchSettings(uid);
@@ -227,6 +240,12 @@ final deviceSessionRepositoryProvider = Provider<DeviceSessionRepository>((ref) 
 /// current device's own entry in this list fresh — this provider only
 /// watches, it doesn't write.
 final deviceSessionsProvider = StreamProvider.autoDispose<List<DeviceSession>>((ref) {
+  // See privacySettingsProvider's doc comment above — same
+  // sign-out-then-different-account resurrection bug, here surfacing
+  // as a real permission-denied (users/{oldUid}/sessions) instead of
+  // silently-wrong data, since autoDispose's own teardown-triggered
+  // disposal isn't synchronous/reliable enough on its own.
+  ref.watch(authStateProvider);
   final uid = _currentUid();
   if (uid == null) return Stream.value(const []);
   return ref.watch(deviceSessionRepositoryProvider).watchSessions(uid);

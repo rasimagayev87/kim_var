@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../profile/domain/storage_failure.dart';
 import '../../data/repositories/firebase_identity_verification_repository.dart';
 import '../../domain/entities/identity_verification_request.dart';
@@ -17,6 +18,12 @@ final identityVerificationRepositoryProvider = Provider<IdentityVerificationRepo
 /// this only matters while [IdentityVerificationScreen] is open.
 final latestIdentityVerificationRequestProvider =
     StreamProvider.autoDispose<IdentityVerificationRequest?>((ref) {
+  // Forces a rebuild on sign-out/sign-in instead of relying on
+  // autoDispose's own (timing-dependent) teardown — without this, a
+  // quick account switch can resurrect this provider still bound to
+  // the previous uid, hitting `identityVerifications where
+  // userId==oldUid` under the new session's auth: permission-denied.
+  ref.watch(authStateProvider);
   final uid = fb.FirebaseAuth.instance.currentUser?.uid;
   if (uid == null) return Stream.value(null);
   return ref.watch(identityVerificationRepositoryProvider).watchLatestRequest(uid);

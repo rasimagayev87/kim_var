@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
 
 import '../../../../../core/utils/app_logger.dart';
 import '../../../../../core/utils/distance_unit.dart';
+import '../../../../auth/presentation/providers/auth_providers.dart';
 import '../../../../location/presentation/providers/location_providers.dart';
 import '../../data/repositories/firebase_map_location_settings_repository.dart';
 import '../../domain/entities/map_location_settings.dart';
@@ -32,6 +33,13 @@ final mapLocationSettingsRepositoryProvider = Provider<MapLocationSettingsReposi
 String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
 
 final mapLocationSettingsProvider = StreamProvider.autoDispose<MapLocationSettings>((ref) {
+  // Forces a rebuild on sign-out/sign-in — without it, a quick account
+  // switch can resurrect this provider still bound to the previous
+  // uid before autoDispose's own teardown-triggered disposal fires,
+  // silently showing the PREVIOUS account's map/location settings
+  // under the new session. Same fix pattern as
+  // `chatListControllerProvider`/`_premiumStatusProvider`.
+  ref.watch(authStateProvider);
   final uid = _currentUid();
   if (uid == null) return Stream.value(const MapLocationSettings());
   return ref.watch(mapLocationSettingsRepositoryProvider).watchSettings(uid);
