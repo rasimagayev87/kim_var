@@ -72,9 +72,12 @@ class FirebasePostRepository implements PostRepository {
   }
 
   @override
-  Stream<List<Post>> watchUserPosts(String userId) {
-    return _posts
-        .where('userId', isEqualTo: userId)
+  Stream<List<Post>> watchUserPosts(String userId, {required bool isOwnProfile}) {
+    Query<Map<String, dynamic>> query = _posts.where('userId', isEqualTo: userId);
+    if (!isOwnProfile) {
+      query = query.where('authorIsPublic', isEqualTo: true);
+    }
+    return query
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snap) => snap.docs.map((d) => _fromDoc(d.id, d.data())).toList());

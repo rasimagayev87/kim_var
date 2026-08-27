@@ -18,7 +18,7 @@ String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
 
 final userPostsProvider = StreamProvider.autoDispose.family<List<Post>, String>(
   (ref, userId) {
-    return ref.watch(postRepositoryProvider).watchUserPosts(userId);
+    return ref.watch(postRepositoryProvider).watchUserPosts(userId, isOwnProfile: userId == _currentUid());
   },
 );
 

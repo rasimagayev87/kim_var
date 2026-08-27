@@ -25,7 +25,18 @@ abstract class PostRepository {
     String caption,
   });
 
-  Stream<List<Post>> watchUserPosts(String userId);
+  /// [isOwnProfile] must be true only when [userId] is the SIGNED-IN
+  /// caller's own uid — it adds an `authorIsPublic == true` filter for
+  /// anyone else's posts, which is what makes this a LIST query
+  /// `firestore.rules` can actually prove safe (a per-author privacy
+  /// `get()` can't back a list query the way a flat field compare on
+  /// the query's own filter can — see that rule's own doc comment).
+  /// Without it, querying someone else's posts was rejected outright
+  /// with permission-denied. This only fixes the PUBLIC-account case —
+  /// a private account's posts, even for an accepted follower, still
+  /// need a server-side (Cloud Function) read to work; that's a known,
+  /// separate, not-yet-built gap, not a regression from this fix.
+  Stream<List<Post>> watchUserPosts(String userId, {required bool isOwnProfile});
 
   /// Newest-first, video-only posts from public accounts, across every
   /// author — the discover/search screen's default grid (empty search
