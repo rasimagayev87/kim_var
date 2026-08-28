@@ -2,10 +2,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../../../core/animations/animated_background.dart';
 import '../../../../core/animations/glow_logo.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -354,18 +356,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     children: [
                       Expanded(
                         child: _SocialButton(
-                          icon: Icons.apple,
+                          brand: _SocialBrand.apple,
                           label: loc.authContinueWithApple,
                           loading: _submitting,
-                          tinted: true,
                           onPressed: _signInWithApple,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _SocialButton(
-                          icon: Icons.g_mobiledata_rounded,
-                          iconSize: 28,
+                          brand: _SocialBrand.google,
                           label: loc.authContinueWithGoogle,
                           loading: _submitting,
                           onPressed: _signInWithGoogle,
@@ -513,55 +513,77 @@ class _PrimaryButton extends StatelessWidget {
   }
 }
 
-/// Apple/Google — same size and shape for both (Apple's own HIG
-/// requirement that a 3rd-party provider not visually outrank Sign in
-/// with Apple), just [tinted] gives Apple a soft dark fill instead of
-/// Google's plain outlined one — a platform-conventional distinction,
-/// not a size/weight difference, so it doesn't reintroduce the outrank
-/// problem.
+enum _SocialBrand { apple, google }
+
+/// The official 4-color Google "G" mark (Google's own brand asset for
+/// "Sign in with Google" buttons — https://developers.google.com/identity/branding-guidelines)
+/// inlined so the button doesn't need a bundled image asset.
+const _kGoogleLogoSvg = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <path fill="#4285F4" d="M45.12 24.5c0-1.56-.14-3.06-.4-4.5H24v8.51h11.84c-.51 2.75-2.06 5.08-4.39 6.64v5.52h7.11c4.16-3.83 6.56-9.47 6.56-16.17z"/>
+  <path fill="#34A853" d="M24 46c5.94 0 10.92-1.97 14.56-5.33l-7.11-5.52c-1.97 1.32-4.49 2.1-7.45 2.1-5.73 0-10.58-3.87-12.31-9.07H4.34v5.7C7.96 41.07 15.4 46 24 46z"/>
+  <path fill="#FBBC05" d="M11.69 28.18C11.25 26.86 11 25.45 11 24s.25-2.86.69-4.18v-5.7H4.34C2.85 17.09 2 20.45 2 24s.85 6.91 2.34 9.88l7.35-5.7z"/>
+  <path fill="#EA4335" d="M24 10.75c3.23 0 6.13 1.11 8.41 3.29l6.31-6.31C34.91 4.18 29.93 2 24 2 15.4 2 7.96 6.93 4.34 14.12l7.35 5.7c1.73-5.2 6.58-9.07 12.31-9.07z"/>
+</svg>
+''';
+
+/// Apple/Google — same size, shape, and white "on dark background"
+/// chrome for both (Apple's own HIG requirement that a 3rd-party
+/// provider not visually outrank Sign in with Apple), each brand's own
+/// mark rendered accurately (a plain [Icons.apple] glyph for Apple —
+/// already matches Apple's own black-mark guidance; the real 4-color
+/// [_kGoogleLogoSvg] for Google, replacing the old generic
+/// [Icons.g_mobiledata_rounded] placeholder glyph, which isn't Google's
+/// actual mark).
 class _SocialButton extends StatelessWidget {
-  final IconData icon;
+  final _SocialBrand brand;
   final String label;
   final bool loading;
   final VoidCallback onPressed;
-  final double iconSize;
-  final bool tinted;
 
-  const _SocialButton({
-    required this.icon,
-    required this.label,
-    required this.loading,
-    required this.onPressed,
-    this.iconSize = 22,
-    this.tinted = false,
-  });
+  const _SocialButton({required this.brand, required this.label, required this.loading, required this.onPressed});
 
   @override
   Widget build(BuildContext context) {
-    final foreground = tinted ? Colors.white : AppColors.white;
+    const foreground = Color(0xFF1A1A1A);
+    final Widget mark = brand == _SocialBrand.apple
+        ? const Icon(Icons.apple, size: 22, color: foreground)
+        : SvgPicture.string(_kGoogleLogoSvg, width: 20, height: 20);
 
-    return OutlinedButton(
-      onPressed: loading ? null : onPressed,
-      style: OutlinedButton.styleFrom(
-        backgroundColor: tinted ? AppColors.white : null,
-        foregroundColor: foreground,
-        side: tinted ? BorderSide.none : null,
-        padding: const EdgeInsets.symmetric(vertical: 12),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppRadii.button),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 10, offset: const Offset(0, 3))],
       ),
-      child: loading
-          ? SizedBox(
-              height: 18,
-              width: 18,
-              child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(foreground)),
-            )
-          : Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, size: iconSize, color: foreground),
-                const SizedBox(width: 8),
-                Flexible(child: Text(label, overflow: TextOverflow.ellipsis, style: TextStyle(color: foreground))),
-              ],
-            ),
+      child: OutlinedButton(
+        onPressed: loading ? null : onPressed,
+        style: OutlinedButton.styleFrom(
+          backgroundColor: Colors.white,
+          foregroundColor: foreground,
+          side: const BorderSide(color: Color(0xFFE3E6E8)),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        child: loading
+            ? const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(foreground)),
+              )
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  mark,
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: Text(
+                      label,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: foreground, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 }
