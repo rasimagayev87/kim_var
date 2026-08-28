@@ -5,6 +5,12 @@
          explicitly so the Play Console "advertising ID" declaration can
          honestly answer No instead of merging it in unused. -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" tools:node="remove"/>
+    <!-- Android 13+ "Privacy Sandbox" equivalent of the same thing —
+         a separate permission from the one above, pulled in by the
+         same kind of transitive dependency. Missing this one is
+         exactly why the Play Console "advertising ID" declaration
+         kept flagging an inconsistency even after the removal above. -->
+    <uses-permission android:name="android.permission.ACCESS_ADSERVICES_AD_ID" tools:node="remove"/>
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
