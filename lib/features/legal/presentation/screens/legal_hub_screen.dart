@@ -52,6 +52,12 @@ class LegalHubScreen extends ConsumerWidget {
                   title: loc.legalBusinessOfferTitle,
                   onTap: () => launchUrl(Uri.parse(config.urlBusinessOffer), mode: LaunchMode.externalApplication),
                 ),
+                SettingsMenuRow(
+                  icon: Icons.shield_outlined,
+                  title: loc.legalChildSafetyStandardsTitle,
+                  onTap: () =>
+                      launchUrl(Uri.parse(config.urlChildSafetyStandards), mode: LaunchMode.externalApplication),
+                ),
               ],
             ),
           ],

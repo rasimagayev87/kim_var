@@ -63,6 +63,7 @@ class AppConfig {
     this.urlBusinessOffer = 'https://peakpin.app/business-offer.html',
     this.businessOfferVersion = '1.0',
     this.businessOfferEffectiveDate = '2026-08-28',
+    this.urlChildSafetyStandards = 'https://peakpin.app/child-safety-standards.html',
     this.supportEmail = 'support@peakpin.app',
     this.privacyEmail = 'privacy@peakpin.app',
     this.supportPhone = '',
@@ -111,6 +112,7 @@ class AppConfig {
   /// banner — purely informational, not parsed/compared against
   /// anything.
   final String businessOfferEffectiveDate;
+  final String urlChildSafetyStandards;
   final String supportEmail;
   final String privacyEmail;
   final String supportPhone;

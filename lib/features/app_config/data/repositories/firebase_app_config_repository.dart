@@ -61,6 +61,7 @@ class FirebaseAppConfigRepository implements AppConfigRepository {
       urlBusinessOffer: _dataSource.getString('url_business_offer'),
       businessOfferVersion: _dataSource.getString('business_offer_version'),
       businessOfferEffectiveDate: _dataSource.getString('business_offer_effective_date'),
+      urlChildSafetyStandards: _dataSource.getString('url_child_safety_standards'),
       supportEmail: _dataSource.getString('support_email'),
       privacyEmail: _dataSource.getString('privacy_email'),
       supportPhone: _dataSource.getString('support_phone'),

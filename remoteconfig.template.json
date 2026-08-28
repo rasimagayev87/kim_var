@@ -17,6 +17,12 @@
         "value": "2026-08-28"
       },
       "description": "ISO date shown in the in-app \"offer updated\" banner when business_offer_version changes."
+    },
+    "url_child_safety_standards": {
+      "defaultValue": {
+        "value": "https://peakpin.app/child-safety-standards.html"
+      },
+      "description": "Google Play child safety standards page, linked from Settings → Legal."
     }
   },
   "parameterGroups": {}

@@ -54,6 +54,7 @@ final Map<String, dynamic> _defaults = {
   'url_business_offer': 'https://peakpin.app/business-offer.html',
   'business_offer_version': '1.0',
   'business_offer_effective_date': '2026-08-28',
+  'url_child_safety_standards': 'https://peakpin.app/child-safety-standards.html',
   'support_email': 'support@peakpin.app',
   'privacy_email': 'privacy@peakpin.app',
   'support_phone': '',
