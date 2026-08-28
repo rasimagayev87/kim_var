@@ -47,6 +47,19 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(uid)).data.get('businessStatus', 'active') != 'none';
     }
 
+    // Offer-only categories (Şərab evi/wineHouse, Təmizlik/homeServices,
+    // Ev alqı-satqısı/realEstate) — cannot create Events or PinBox
+    // listings; enforced here AND in `joinWaitlist`'s
+    // `OFFER_ONLY_VENUE_CATEGORIES` (functions/src/index.ts). Rules
+    // can't import that TS constant, so this literal list is a
+    // hand-synced mirror of it — see this file's own note at each call
+    // site below. Mirrors `kCategoryCapabilities` in
+    // lib/core/constants/category_capabilities.dart on the client side.
+    function isOfferOnlyCategory(venueId) {
+      return get(/databases/$(database)/documents/venues/$(venueId)).data.category
+        in ['wineHouse', 'homeServices', 'realEstate'];
+    }
+
     // App-wide config, read-only from the client — currently just
     // `config/legal` (currentTermsVersion/currentPrivacyVersion, see
     // `lib/features/legal/legal_versions.dart` and
@@ -525,11 +538,20 @@ service cloud.firestore {
       // sheet) and `firstPaymentAnnouncementPending` (dismissing the
       // one-time payment-confirmed card) — neither touches moderation-
       // relevant content, so neither needs to go through the function.
+      // `offerAcceptedVersion`/`offerAcceptedAt`/`offerAcceptedFrom`/
+      // `offerDocumentUrl` are the same grant-of-trust shape as
+      // `paymentId`/`subscriptionRenewsAt` above — only
+      // `applyPaymentOutcome`'s `venue_subscription` branch (Admin SDK)
+      // may set them, once a real Epoint charge attached to a fresh
+      // "Biznes Xidmətlərinin Publik Ofertası" acceptance actually
+      // succeeds (see `submitVenue`/`retryVenueSubscriptionPayment`'s
+      // `offerAcceptance` payload) — an owner can't self-grant
+      // acceptance of a version they never actually agreed to.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl']);
+          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl', 'offerAcceptedVersion', 'offerAcceptedAt', 'offerAcceptedFrom', 'offerDocumentUrl']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
@@ -594,7 +616,12 @@ service cloud.firestore {
             hasVerifiedVisit(resource.data.venueId, request.resource.data.waitlistEntryId, request.auth.uid) &&
             isEligibleCategory(resource.data.venueId)) ||
           (request.auth.uid == get(/databases/$(database)/documents/venues/$(resource.data.venueId)).data.ownerId &&
-            resource.data.ownerReply == null &&
+            // A freshly-created review never had `ownerReply` in its key
+            // list (see the `create` rule's `hasOnly` above) — the field
+            // is genuinely ABSENT, not present-and-null, and Firestore
+            // Rules throws on `resource.data.ownerReply` when the key
+            // doesn't exist at all. `in` is the safe existence check.
+            !('ownerReply' in resource.data) &&
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ownerReply', 'updatedAt']))
         );
 
@@ -776,6 +803,19 @@ service cloud.firestore {
       allow create, update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
+    // Audit trail proving which version of the "PeakPin Biznes
+    // Xidmətlərinin Publik Ofertası" this venue's owner accepted and
+    // when — one doc per acceptance (first payment, plus any later
+    // re-acceptance after a version bump), never overwritten. Same
+    // `write: if false` shape as `payments/{paymentId}` below — only
+    // `applyPaymentOutcome` (Admin SDK) may create these, exclusively
+    // on a confirmed charge, so this can't be faked client-side.
+    match /venues/{venueId}/offerAcceptances/{acceptanceId} {
+      allow read: if request.auth != null &&
+        request.auth.uid == get(/databases/$(database)/documents/venues/$(venueId)).data.ownerId;
+      allow write: if false;
+    }
+
     // Venue owner-submitted promotions (Kəşf et → Təkliflər). Same
     // open-read/owner-write shape as venues above — discovery is open
     // to everyone, only the submitting owner can create/update/delete.
@@ -845,6 +885,7 @@ service cloud.firestore {
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.ownerId &&
         isBusinessUser(request.auth.uid) &&
+        !isOfferOnlyCategory(request.resource.data.venueId) &&
         request.resource.data.status == 'pending' &&
         request.resource.data.stockRemaining == request.resource.data.stockTotal &&
         !('reviewNote' in request.resource.data) &&
@@ -895,6 +936,7 @@ service cloud.firestore {
 
       allow create: if request.auth != null &&
         request.auth.uid == get(/databases/$(database)/documents/venues/$(request.resource.data.venueId)).data.ownerId &&
+        !isOfferOnlyCategory(request.resource.data.venueId) &&
         request.resource.data.status == 'upcoming';
 
       // Two disjoint shapes: cancelling (status only, -> 'cancelled'),

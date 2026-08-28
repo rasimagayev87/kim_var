@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app_config/domain/entities/app_config.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
 import '../../../../core/localization/app_language.dart';
 import '../../../../core/localization/language_picker_sheet.dart';
 import '../../../../core/localization/locale_providers.dart';
@@ -98,10 +100,15 @@ class SettingsScreen extends ConsumerWidget {
                   title: loc.settingsVipRowTitle,
                   subtitle: loc.settingsVipRowSubtitle,
                   trailing: isPremium ? SettingsPill(label: loc.settingsVipActiveLabel) : null,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const VipScreen()),
-                  ),
+                  // Existing subscribers can always reach this screen to
+                  // manage what they already have — only *starting a new*
+                  // purchase is what `FeatureFlag.vipPurchase` gates.
+                  onTap: !isPremium && !ref.watch(featureFlagProvider(FeatureFlag.vipPurchase))
+                      ? null
+                      : () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const VipScreen()),
+                        ),
                 ),
                 SettingsMenuRow(
                   icon: Icons.map_outlined,

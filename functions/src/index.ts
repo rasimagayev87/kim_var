@@ -1847,6 +1847,11 @@ export const joinWaitlist = onCall({ region: "us-central1", enforceAppCheck: fal
   const venueSnap = await db.collection("venues").doc(venueId).get();
   if (!venueSnap.exists) throw new HttpsError("not-found", "Məkan tapılmadı.");
 
+  const venueCategory = venueSnap.data()?.category as string | undefined;
+  if (venueCategory && OFFER_ONLY_VENUE_CATEGORIES.includes(venueCategory)) {
+    throw new HttpsError("failed-precondition", "Bu məkan kateqoriyası növbə funksiyasını dəstəkləmir.");
+  }
+
   const waitlistRef = db.collection("venues").doc(venueId).collection("waitlist");
   const newEntryRef = waitlistRef.doc();
 
@@ -3115,8 +3120,21 @@ const venueSubscriptionFeeByCategory: Record<string, number> = {
   pharmacyOptics: 30, dentalClinic: 30, perfumeryCosmetics: 25, carWash: 20, carRepair: 20,
   supermarket: 30, bookstoreStationery: 20, petStore: 20, tailor: 15, dryCleaning: 25,
   applianceRepair: 20, tutoringCenter: 25,
+  // Offer-only categories — see OFFER_ONLY_VENUE_CATEGORIES below and
+  // lib/core/constants/category_capabilities.dart on the Dart side.
+  wineHouse: 30, homeServices: 20, realEstate: 25,
   independentArtist: 30, other: 25,
 };
+
+/** Categories restricted to offers-only — cannot create Events, PinBox
+ * listings, or waitlist entries. Enforced here (`joinWaitlist`) and
+ * mirrored as literal strings in firestore.rules' `isOfferOnlyCategory`
+ * (Rules can't import this constant — see that function's own comment
+ * for the duplication-risk note). Mirrors
+ * `lib/core/constants/category_capabilities.dart`'s `kCategoryCapabilities`
+ * on the Dart/client side.
+ */
+const OFFER_ONLY_VENUE_CATEGORIES = ["wineHouse", "homeServices", "realEstate"];
 
 const SUBSCRIPTION_CYCLE_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -3136,11 +3154,19 @@ const SUBSCRIPTION_CYCLE_MS = 30 * 24 * 60 * 60 * 1000;
  * `retryVenueSubscriptionPayment` (which always wants a checkout for
  * whatever's pending, new or not).
  */
+interface PendingOfferAcceptance {
+  version: string;
+  documentUrl: string;
+  appVersion: string;
+  platform: string;
+}
+
 async function ensurePendingSubscriptionPayment(
   venueId: string,
   ownerId: string,
   category: string,
   venueName: string,
+  offerAcceptance?: PendingOfferAcceptance,
 ): Promise<{ ref: FirebaseFirestore.DocumentReference; amount: number; isNew: boolean }> {
   const existing = await db
     .collection("payments")
@@ -3153,6 +3179,12 @@ async function ensurePendingSubscriptionPayment(
 
   const latest = existing.docs[0];
   if (latest && latest.data().status === "pending" && !latest.data().checkoutStartedAt) {
+    if (offerAcceptance) {
+      await latest.ref.update({
+        pendingOfferAcceptance: { ...offerAcceptance, acceptedAt: FieldValue.serverTimestamp() },
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    }
     return { ref: latest.ref, amount: latest.data().amount as number, isNew: false };
   }
   if (latest && latest.data().status === "pending" && latest.data().checkoutStartedAt) {
@@ -3172,6 +3204,7 @@ async function ensurePendingSubscriptionPayment(
     amount,
     currency: "AZN",
     status: "pending",
+    ...(offerAcceptance ? { pendingOfferAcceptance: { ...offerAcceptance, acceptedAt: FieldValue.serverTimestamp() } } : {}),
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
@@ -3277,8 +3310,39 @@ export const retryVenueSubscriptionPayment = onCall(
     const category = venue.category as string | undefined;
     if (!category) throw new HttpsError("failed-precondition", "Məkanın kateqoriyası tapılmadı.");
 
+    // Re-acceptance is only required when Remote Config's
+    // `business_offer_version` has moved past what this venue last
+    // accepted — the client only sends `offerAcceptance` when it
+    // detected that mismatch and the owner confirmed
+    // `showBusinessOfferReacceptSheet`. A venue with NO acceptance on
+    // file at all (pre-dates this feature) is blocked here the same
+    // way `submitVenue` blocks a first-time creation without one —
+    // every other venue (already has some accepted version, client
+    // didn't flag a mismatch) proceeds unchanged, exactly today's
+    // behavior.
+    const offerAcceptanceInput = request.data?.offerAcceptance as Record<string, unknown> | undefined;
+    let offerAcceptance: PendingOfferAcceptance | undefined;
+    if (offerAcceptanceInput) {
+      const offerVersion = offerAcceptanceInput.version as string | undefined;
+      const offerDocumentUrl = offerAcceptanceInput.documentUrl as string | undefined;
+      const offerAppVersion = offerAcceptanceInput.appVersion as string | undefined;
+      const offerPlatform = offerAcceptanceInput.platform as string | undefined;
+      if (!offerVersion || !offerDocumentUrl || !offerAppVersion || !offerPlatform) {
+        throw new HttpsError("invalid-argument", "Düzgün offerAcceptance tələb olunur.");
+      }
+      offerAcceptance = { version: offerVersion, documentUrl: offerDocumentUrl, appVersion: offerAppVersion, platform: offerPlatform };
+    } else if (!venue.offerAcceptedVersion) {
+      throw new HttpsError("failed-precondition", "Biznes Xidmətlərinin Publik Ofertasını qəbul etməlisiniz.");
+    }
+
     const venueName = (venue.name as string | undefined) ?? "";
-    const { ref: paymentRef, amount } = await ensurePendingSubscriptionPayment(venueId, uid, category, venueName);
+    const { ref: paymentRef, amount } = await ensurePendingSubscriptionPayment(
+      venueId,
+      uid,
+      category,
+      venueName,
+      offerAcceptance,
+    );
     const checkoutUrl = await startEpointCheckoutForPayment(paymentRef.id, amount, `Məkan abunəliyi — ${venueName}`);
 
     return { checkoutUrl, feeAmount: amount, paymentId: paymentRef.id };
@@ -3339,12 +3403,43 @@ export const submitVenue = onCall(
       throw new HttpsError("failed-precondition", "Bu məkan kateqoriyası üçün haqq cədvəli tapılmadı.");
     }
 
+    // "PeakPin Biznes Xidmətlərinin Publik Ofertası" — every venue's
+    // FIRST subscription payment must have a fresh acceptance attached
+    // (see `PendingOfferAcceptance`/`applyPaymentOutcome`'s
+    // `venue_subscription` branch, which promotes this to
+    // `venues/{id}.offerAcceptedVersion` + `offerAcceptances/{id}` only
+    // once the charge actually succeeds). No optional/legacy path here
+    // — every caller of `submitVenue` is on a build that shows the
+    // acceptance checkbox, so there's no old client to stay compatible
+    // with (checked: no active Play/App Store testers at the time this
+    // shipped).
+    const offerAcceptanceInput = data.offerAcceptance as Record<string, unknown> | undefined;
+    const offerVersion = offerAcceptanceInput?.version as string | undefined;
+    const offerDocumentUrl = offerAcceptanceInput?.documentUrl as string | undefined;
+    const offerAppVersion = offerAcceptanceInput?.appVersion as string | undefined;
+    const offerPlatform = offerAcceptanceInput?.platform as string | undefined;
+    if (!offerVersion || !offerDocumentUrl || !offerAppVersion || !offerPlatform) {
+      throw new HttpsError("failed-precondition", "Biznes Xidmətlərinin Publik Ofertasını qəbul etməlisiniz.");
+    }
+    const offerAcceptance: PendingOfferAcceptance = {
+      version: offerVersion,
+      documentUrl: offerDocumentUrl,
+      appVersion: offerAppVersion,
+      platform: offerPlatform,
+    };
+
     const venueRef = db.collection("venues").doc(clientVenueId);
     if ((await venueRef.get()).exists) {
       throw new HttpsError("already-exists", "Bu ID artıq istifadə olunub.");
     }
 
-    const { ref: paymentRef, amount } = await ensurePendingSubscriptionPayment(clientVenueId, uid, category, name);
+    const { ref: paymentRef, amount } = await ensurePendingSubscriptionPayment(
+      clientVenueId,
+      uid,
+      category,
+      name,
+      offerAcceptance,
+    );
 
     await venueRef.set({
       ownerId: uid,
@@ -4621,6 +4716,36 @@ async function applyPaymentOutcome(
       // undo here since the offer was never made visible.
     } else if (payment.type === "venue_subscription" && payment.listingType === "venue" && venueRef) {
       if (succeeded) {
+        // Promotes the draft acceptance `submitVenue`/
+        // `retryVenueSubscriptionPayment` attached to THIS payment doc
+        // (see `PendingOfferAcceptance`) into the venue's permanent,
+        // client-unwritable acceptance record — only now, because only
+        // now is the charge actually confirmed (see 3.2 of the offer's
+        // own terms: "checkbox işarələnəndə müvəqqəti... ödəniş uğurlu
+        // olduqda yazılsın"). Absent on a renewal that didn't need
+        // re-acceptance (RC version unchanged) — venue's existing
+        // acceptance fields are left untouched either way (never
+        // overwritten with nothing).
+        const pendingOfferAcceptance = payment.pendingOfferAcceptance as PendingOfferAcceptance | undefined;
+        const offerAcceptanceVenueUpdate = pendingOfferAcceptance
+          ? {
+              offerAcceptedVersion: pendingOfferAcceptance.version,
+              offerAcceptedAt: FieldValue.serverTimestamp(),
+              offerAcceptedFrom: `${pendingOfferAcceptance.appVersion} / ${pendingOfferAcceptance.platform}`,
+              offerDocumentUrl: pendingOfferAcceptance.documentUrl,
+            }
+          : {};
+        if (pendingOfferAcceptance) {
+          tx.set(venueRef.collection("offerAcceptances").doc(), {
+            version: pendingOfferAcceptance.version,
+            documentUrl: pendingOfferAcceptance.documentUrl,
+            appVersion: pendingOfferAcceptance.appVersion,
+            platform: pendingOfferAcceptance.platform,
+            acceptedAt: FieldValue.serverTimestamp(),
+            paymentId: paymentRef.id,
+          });
+        }
+
         const isFirstPayment = venueSnap?.data()?.status === "awaiting_payment";
         if (isFirstPayment) {
           // First-ever charge for a brand new venue (`submitVenue`) —
@@ -4646,6 +4771,7 @@ async function applyPaymentOutcome(
             // before the owner dismisses it.
             firstPaymentAnnouncementPending: true,
             updatedAt: FieldValue.serverTimestamp(),
+            ...offerAcceptanceVenueUpdate,
           });
         } else {
           const prevRenewsAt = (venueSnap?.data()?.subscriptionRenewsAt as Timestamp | undefined)?.toDate() ?? new Date();
@@ -4654,6 +4780,7 @@ async function applyPaymentOutcome(
             paymentId: paymentRef.id,
             subscriptionRenewsAt: Timestamp.fromDate(nextRenewsAt),
             updatedAt: FieldValue.serverTimestamp(),
+            ...offerAcceptanceVenueUpdate,
           });
         }
       }

@@ -1,6 +1,6 @@
 # PeakPin — Buraxılış Hazırlığı Checklist
 
-Son yenilənmə: 2026-08-26. Bu sənəd əvvəllər mövcud olmayıb — ilk dəfə bu tarixdə yaradılıb, bütün maddələr birbaşa kod/canlı sistem yoxlaması ilə doğrulanıb (sadəcə bəyanat kimi qəbul edilməyib).
+Son yenilənmə: 2026-08-26. İlk versiya 2026-08-26-da yaradılıb, bütün maddələr birbaşa kod/canlı sistem yoxlaması ilə doğrulanıb (sadəcə bəyanat kimi qəbul edilməyib). Bu yenilənmədə: Hissə 3-dəki 8 tapıntının **hamısı həll edildi** (kod yazıldı, `flutter analyze`/`npm run build` təmiz keçdi, commit+push+deploy edildi) — detallar üçün Hissə 3-ə bax.
 
 ---
 
@@ -29,25 +29,28 @@ Son yenilənmə: 2026-08-26. Bu sənəd əvvəllər mövcud olmayıb — ilk də
 | Store vitrin materialları — ikon | ✅ Mövcuddur | `assets/icon.png`, `assets/icon_foreground.png` — real fayllar |
 | **Store vitrin materialları — skrinşotlar** | 🔴 **Yarımçıq** | `screenshots/android/` — 6 skrinşot var (login, discover map/venues, chats, profile, VIP). **`screenshots/ios/` qovluğu ÜMUMİYYƏTLƏ YOXDUR** — iOS App Store təqdimatı üçün sıfır skrinşot hazır. Bu, real təqdim maneəsidir. |
 | Firebase-də köhnə app qeydləri | 🟡 Təmizlik tövsiyəsi | `com.meevima.app` (iOS+Android) və `com.example.kim_var` (Android) hələ Firebase-də qeydli qalıb — köhnə rebrand qalıqları, funksional problem yaratmır, amma qarışıqlıq üçün silinə bilər |
+| Cloud Functions runtime (Node.js 20) | 🟡 Diqqət tələb edir | `firebase deploy` zamanı rəsmi xəbərdarlıq: Node.js 20 dəstəyi 2026-04-30-da deprecated elan olunub, 2026-10-30-da tamamilə decommission ediləcək (bundan sonra bu runtime-la deploy mümkün olmayacaq). Buraxılışdan sonra Node 22-yə keçid planlaşdırılmalıdır — hazırda funksional problem yaratmır. |
 
 ---
 
-## 3. Bu sessiyanın tam funksionallıq auditindən (2026-08-26) tapılan maddələr
+## 3. Bu sessiyanın tam funksionallıq auditindən (2026-08-26) tapılan maddələr — HAMISI HƏLL EDİLDİ ✅
 
-Hamısı istifadəçi tərəfindən prioritetli elan edilib — heç biri ikinci dərəcəli sayılmır.
+Hamısı istifadəçi tərəfindən prioritetli elan edilmişdi. 2026-08-26 tarixində hamısı üzərində iş görülüb, kod dəyişiklikləri commit+push edilib (server tərəfli hissə üçün Cloud Function də deploy edilib).
 
-| # | Ekran/Komponent | Problem |
-|---|---|---|
-| 1 | `lib/core/widgets/premium_upsell_sheet.dart:84` | Premium kilidli funksiyaya toxunanda çıxan "Upgrade" düyməsi real VIP alış axınına deyil, `ComingSoonScreen`-ə aparır — halbuki real VIP alış axını tətbiqdə mövcuddur və Ayarlar → VIP-dən əlçatandır. Birbaşa gəlir itkisi riski. |
-| 2 | `lib/features/settings/account/.../change_email_sheet.dart` + `firebase_account_repository.dart:176` | E-poçt dəyişəndə yalnız Firestore sənədi yenilənir, **Firebase Auth hesabının özü yenilənmir**. İstifadəçi yeni e-poçtla giriş edə bilməyə bilər, iki mənbə arasında səssiz uyğunsuzluq yaranır. |
-| 3 | `lib/features/privacy/domain/usecases/update_visibility_radius_usecase.dart` | "Görünmə radiusu" sazlaması Firestore-a yazılır və geri göstərilir, amma **heç bir sorğuda oxunmur/tətbiq edilmir** — nə client tərəfdə (`nearbyUsersProvider`), nə server tərəfdə. Real təsiri sıfırdır. |
-| 4 | `lib/features/privacy/domain/usecases/update_two_factor_enabled_usecase.dart` | Yalnız `twoFactorEnabled` bayrağı dəyişdirilir, real ikinci amil (Firebase Auth MFA) heç vaxt tələb olunmur. Sonrakı girişlərə heç bir təsiri yoxdur. |
-| 5 | `lib/features/privacy/presentation/screens/export_data_screen.dart` | "Məlumatlarımı yüklə" yalnız `users/{uid}` sənədini JSON kimi göstərir (kopyalana bilər) — mesajlar/hadisələr daxil deyil, real fayl/e-poçt çatdırılması yoxdur. |
-| 6 | `lib/features/offers/presentation/screens/my_offers_screen.dart:48-50` | Şəbəkə/Firestore xətası zamanı istifadəçiyə xam exception mətni göstərilir (məs. `[cloud_firestore/permission-denied]...`), dost mesaj/yenidən cəhd düyməsi yoxdur. |
-| 7 | `lib/features/settings/notifications/.../notifications_screen.dart:111-117` | E-poçt bildirişləri toggle-ı açıq şəkildə "Coming soon" nişanlıdır və deaktivdir — buraxılış üçün gözləntini təsdiqləmək lazımdır (aldadıcı deyil, sadəcə funksional deyil). |
-| 8 | `lib/features/profile/presentation/screens/edit_profile_screen.dart` | "Yadda saxla" düyməsi digər formalardan fərqli olaraq boş məcburi sahələr üçün əvvəlcədən deaktiv edilmir — yalnız basılanda xəbərdarlıq göstərir. Funksional səhv deyil, UX-uyğunsuzluq. |
+| # | Ekran/Komponent | Problem | Həll |
+|---|---|---|---|
+| 1 | `lib/core/widgets/premium_upsell_sheet.dart` | "Upgrade" düyməsi real VIP alış axınına deyil, `ComingSoonScreen`-ə aparırdı. | ✅ Düymə indi real `VipScreen`-i açır. |
+| 2 | `change_email_sheet.dart` + `firebase_account_repository.dart` | E-poçt dəyişəndə yalnız Firestore sənədi yenilənirdi, Firebase Auth hesabının özü yenilənmirdi. | ✅ `verifyBeforeUpdateEmail()` ilə real Auth axını: yeni ünvana təsdiq linki göndərilir, yalnız link klik edildikdən sonra dəyişiklik qüvvəyə minir. Sessiya köhnədirsə (5 dəq-dən çox), paylaşılan `ReauthSheet` widget-i ilə yenidən doğrulama tələb olunur (Apple/Google/e-poçt link). Növbəti tətbiq açılışında Firestore avtomatik sinxronlaşır (`syncEmailFromAuth`). |
+| 3 | `update_visibility_radius_usecase.dart` | "Görünmə radiusu" sazlaması heç bir sorğuda oxunmur/tətbiq edilmirdi. | ✅ Client tərəfdə (`nearbyUsersProvider`, `radiusUserCountsProvider`, `venueAudienceCountProvider`) və server tərəfdə (`getDiscoverCandidates` Cloud Function) real tətbiq edilir. Deploy edildi. |
+| 4 | `update_two_factor_enabled_usecase.dart` | Bayraq dəyişdirilirdi, amma real ikinci amil heç vaxt tələb olunmurdu. | ✅ İstifadəçi qərarı: real MFA hazır olana qədər UI-dan gizlədildi (Ayarlar → Məxfilik siyahısından sətir silindi). Aldadıcı deyildi, sadəcə hazır deyildi — indi ümumiyyətlə görünmür. |
+| 5 | `export_data_screen.dart` | Yalnız `users/{uid}` sənədi göstərilirdi. | ✅ İstifadəçinin öz sahibi olduğu bütün məlumatlar əlavə edildi: paylaşımlar, rəylər, ödəniş tarixçəsi, saxlanmış kartlar (yalnız maskalanmış sahələr), izlədikləri/izləyiciləri, bildirişlər. Mesaj yazışmaları qəsdən xaricdə qalır (başqa istifadəçilərin məlumatını əhatə etdiyi üçün, ayrıca server-side pipeline tələb edir). |
+| 6 | `my_offers_screen.dart` | Xam exception mətni göstərilirdi. | ✅ `FriendlyErrorState` (dost mesaj + "Yenidən cəhd et" düyməsi) ilə əvəz edildi. |
+| 7 | `notifications_screen.dart` | E-poçt bildirişləri toggle-ı deaktiv "Coming soon" vəziyyətində görünürdü. | ✅ İstifadəçi qərarı: real hazır olana qədər sətir tamamilə gizlədildi (2FA ilə eyni qərar). |
+| 8 | `edit_profile_screen.dart` | "Yadda saxla" düyməsi boş məcburi sahələr üçün əvvəlcədən deaktiv edilmirdi. | ✅ Digər formalarla eyni nümunə: bütün məcburi sahələr (ad, soyad, doğum tarixi, username statusu) doğru olana qədər düymə deaktiv qalır. |
 
-**Əlavə qeyd (audit zamanı aşkarlanan, "Canlı" tab adlandırması):** "Canlı" tab canlı video yayım deyil, geo-sorğulara əsaslanan canlı aktivlik lentidir (yaxınlıqdakı yer/tədbir/təklif/PinBox). Marketinq mesajının bununla üst-üstə düşdüyünə əmin olunmalıdır.
+**Əlavə qeyd (audit zamanı aşkarlanan, "Canlı" tab adlandırması):** "Canlı" tab canlı video yayım deyil, geo-sorğulara əsaslanan canlı aktivlik lentidir (yaxınlıqdakı yer/tədbir/təklif/PinBox). Marketinq mesajının bununla üst-üstə düşdüyünə əmin olunmalıdır. *(Hələ açıq — bu, kod dəyişikliyi deyil, marketinq/mətn qərarı tələb edir.)*
+
+**Bu batch-dən kənar, əlavə tapılıb düzəldilən UI qüsuru:** Ekranlar arası keçid (push/pop) zamanı ~300ms ərzində köhnə ekranın məzmunu yeni ekranın altından "sızırdı" (şəffaf `Scaffold` fonu + tətbiq-geneli Cupertino slide keçidinin birləşməsi səbəbindən). ~48 ekranda fon şəffaflıqdan `AppColors.background`-a keçirildi, vizual fərq yoxdur, keçid artıq təmizdir. Commit edildi.
 
 ---
 
@@ -67,4 +70,10 @@ Hamısı istifadəçi tərəfindən prioritetli elan edilib — heç biri ikinci
 
 ## Növbəti addım
 
-Hissə 1-in 8 tapıntısı prioritetli elan edilib — bunların hansı ardıcıllıqla həll ediləcəyi növbəti addımdır.
+Hissə 3-ün 8 tapıntısı həll edildi. Buraxılış üçün real bloklayıcı qalan yeganə maddələr:
+
+1. **iOS App Store skrinşotları** (Hissə 2) — `screenshots/ios/` qovluğu yoxdur, təqdimat üçün mütləq lazımdır.
+2. **Firebase App Check enforcement** (Hissə 2) — server tərəfdə hələ "UNENFORCED", aktivləşdirmədən əvvəl real cihazda test tələb olunur.
+3. **Apple Developer Organization (DUNS)** (Hissə 2) — xarici proses, davam edir.
+
+Bunlardan başqa, item 2/3/5 (e-poçt sinxronizasiyası, görünmə radiusu, məlumat ixracı) kod səviyyəsində doğrulanıb, amma real signed-in sessiya ilə uçdan-uca sınaqdan keçirilməyib — buraxılışdan əvvəl real cihazda bir dəfə yoxlanılması tövsiyə olunur.

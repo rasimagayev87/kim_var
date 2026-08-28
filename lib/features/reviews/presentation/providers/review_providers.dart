@@ -2,6 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
+import '../../../app_config/presentation/utils/read_only_guard.dart';
 import '../../../waitlist/domain/entities/waitlist_entry.dart';
 import '../../../waitlist/presentation/providers/waitlist_providers.dart';
 import '../../data/repositories/firebase_review_repository.dart';
@@ -44,6 +46,7 @@ class ReviewController {
   }) async {
     final uid = _currentUid();
     if (uid == null) return false;
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
       await _ref.read(reviewRepositoryProvider).submitReview(
             venueId: venueId,
@@ -60,6 +63,7 @@ class ReviewController {
   }
 
   Future<bool> submitOwnerReply({required String reviewId, required String text}) async {
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
       await _ref.read(reviewRepositoryProvider).submitOwnerReply(reviewId: reviewId, text: text);
       return true;

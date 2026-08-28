@@ -45,6 +45,9 @@ abstract class VenueRepository {
     String audienceRadiusMode,
     double audienceRadiusKm,
     bool birthdayNotificationsEnabled,
+    required String offerAcceptanceVersion,
+    required String offerAcceptanceDocumentUrl,
+    required String offerAcceptanceAppVersion,
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   });
@@ -147,7 +150,18 @@ abstract class VenueRepository {
   /// subscription cycle — backs the "Ödə" button on `MyVenuesScreen`'s
   /// overdue banner. Throws if the venue isn't actually overdue yet
   /// (see `retryVenueSubscriptionPayment`, functions/src/index.ts).
-  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueSubscriptionPayment(String venueId);
+  ///
+  /// [offerAcceptance] is only passed when the caller detected the
+  /// venue's stored `offerAcceptedVersion` no longer matches the
+  /// current `AppConfig.businessOfferVersion` and the owner re-accepted
+  /// via `showBusinessOfferReacceptSheet` — omitted otherwise, in which
+  /// case the Cloud Function proceeds using the existing acceptance on
+  /// file (see that function's own doc comment for the backward-compat
+  /// case of a venue with no acceptance at all).
+  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueSubscriptionPayment(
+    String venueId, {
+    ({String version, String documentUrl, String appVersion})? offerAcceptance,
+  });
 
   /// Re-opens a checkout for a brand new venue's FIRST subscription
   /// payment, still `awaiting_payment` because the owner abandoned or a

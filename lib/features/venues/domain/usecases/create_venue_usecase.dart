@@ -114,6 +114,9 @@ class CreateVenueUseCase {
     String audienceRadiusMode = 'distance',
     double audienceRadiusKm = 1.0,
     bool birthdayNotificationsEnabled = false,
+    required String offerAcceptanceVersion,
+    required String offerAcceptanceDocumentUrl,
+    required String offerAcceptanceAppVersion,
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
@@ -145,6 +148,9 @@ class CreateVenueUseCase {
       audienceRadiusMode: audienceRadiusMode,
       audienceRadiusKm: audienceRadiusKm,
       birthdayNotificationsEnabled: birthdayNotificationsEnabled,
+      offerAcceptanceVersion: offerAcceptanceVersion,
+      offerAcceptanceDocumentUrl: offerAcceptanceDocumentUrl,
+      offerAcceptanceAppVersion: offerAcceptanceAppVersion,
       onUploadProgress: onUploadProgress,
       onUploadTaskReady: onUploadTaskReady,
     );

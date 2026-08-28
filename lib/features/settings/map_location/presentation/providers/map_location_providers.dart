@@ -5,6 +5,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart' as gmaps;
 
 import '../../../../../core/utils/app_logger.dart';
 import '../../../../../core/utils/distance_unit.dart';
+import '../../../../app_config/presentation/providers/app_config_providers.dart';
+import '../../../../app_config/presentation/utils/read_only_guard.dart';
 import '../../../../auth/presentation/providers/auth_providers.dart';
 import '../../../../location/presentation/providers/location_providers.dart';
 import '../../data/repositories/firebase_map_location_settings_repository.dart';
@@ -94,6 +96,7 @@ class MapLocationSettingsController {
   Future<bool> _run(Map<String, dynamic> changes) async {
     final uid = _currentUid();
     if (uid == null) return false;
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
       await _ref.read(mapLocationSettingsRepositoryProvider).updateSettings(uid, changes);
       return true;

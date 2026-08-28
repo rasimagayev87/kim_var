@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/constants/category_capabilities.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/relative_time_formatter.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -60,6 +61,7 @@ class _SeatAvailabilityCardState extends ConsumerState<SeatAvailabilityCard> {
     final level = widget.venue.seatAvailabilityLevel;
     if (level == null) return const SizedBox.shrink();
 
+    if (!widget.venue.category.capabilities.canUseWaitlist) return const SizedBox.shrink();
     final eligibleCategories = ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
     if (!eligibleCategories.contains(widget.venue.category)) return const SizedBox.shrink();
 

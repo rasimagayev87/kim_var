@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app_config/domain/entities/app_config.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
+import '../../../../core/constants/category_capabilities.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
@@ -35,7 +38,15 @@ class WaitlistStatusSection extends ConsumerWidget {
 
     if (entry == null) {
       final eligibleCategories = ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
-      if (!venue.waitlistEnabled || !eligibleCategories.contains(venue.category)) return const SizedBox.shrink();
+      final waitlistFeatureEnabled = ref.watch(featureFlagProvider(FeatureFlag.waitlist));
+      final capabilities = venue.category.capabilities;
+      if (!waitlistFeatureEnabled ||
+          !venue.waitlistEnabled ||
+          !capabilities.canUseWaitlist ||
+          !capabilities.canUseQueue ||
+          !eligibleCategories.contains(venue.category)) {
+        return const SizedBox.shrink();
+      }
       return _JoinButton(venueId: venue.id);
     }
 

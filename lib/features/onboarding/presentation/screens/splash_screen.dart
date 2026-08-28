@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/animations/animated_background.dart';
+import '../../../app_config/domain/entities/app_config.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
+import '../../../app_config/presentation/screens/force_update_screen.dart';
+import '../../../app_config/presentation/screens/maintenance_screen.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../home/presentation/screens/home_screen.dart';
 import 'welcome_screen.dart';
@@ -22,6 +26,21 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   void _tryNavigate() {
     if (_navigated) return;
 
+    // Read-only from whatever's already cached — never blocks on a
+    // network fetch (see RemoteConfigDataSource.init()'s own doc
+    // comment for why this is safe to check unconditionally here).
+    final config = ref.read(appConfigProvider);
+    if (config.maintenanceModeEnabled) {
+      _navigated = true;
+      _push(const MaintenanceScreen());
+      return;
+    }
+    if (ref.read(updateStatusProvider) == UpdateStatus.forceUpdateRequired) {
+      _navigated = true;
+      _push(const ForceUpdateScreen());
+      return;
+    }
+
     final authState = ref.read(authControllerProvider);
     if (authState.isLoading) return; // still restoring session, wait
 
@@ -37,7 +56,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     // sign-in result's `isNewUser`) — not something this splash check
     // should short-circuit into.
     final destination = user != null ? const HomeScreen() : const WelcomeScreen();
+    _push(destination);
+  }
 
+  void _push(Widget destination) {
     Navigator.pushReplacement(
       context,
       PageRouteBuilder(

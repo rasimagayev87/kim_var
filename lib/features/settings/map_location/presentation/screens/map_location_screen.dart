@@ -107,6 +107,8 @@ class MapLocationScreen extends ConsumerWidget {
                       if (!ok && context.mounted) showError();
                       return;
                     }
+                    final confirmed = await _showBackgroundLocationDisclosure(context, loc);
+                    if (confirmed != true || !context.mounted) return;
                     final result = await controller.enableBackgroundLocation();
                     if (!context.mounted) return;
                     switch (result) {
@@ -154,6 +156,32 @@ class _Option<T> {
   final String label;
 
   const _Option(this.value, this.label);
+}
+
+/// Google Play's Background Location policy requires an in-app
+/// disclosure — clearly distinguishable from the OS's own runtime
+/// permission dialog — shown BEFORE that system prompt, not just the
+/// system prompt alone. This is that disclosure; [enableBackgroundLocation]
+/// (which triggers the actual OS "Always Allow" request) only runs if
+/// the user confirms here first.
+Future<bool?> _showBackgroundLocationDisclosure(BuildContext context, AppLocalizations loc) {
+  return showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: Text(loc.backgroundLocationDisclosureTitle),
+      content: Text(loc.backgroundLocationDisclosureMessage),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: Text(loc.actionCancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: Text(loc.backgroundLocationDisclosureContinueButton),
+        ),
+      ],
+    ),
+  );
 }
 
 void _showOptionsSheet<T>({

@@ -1,16 +1,22 @@
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_branch_sdk/flutter_branch_sdk.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/localization/locale_providers.dart';
 import 'core/navigation/deep_link_handler.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/premium_background_wrapper.dart';
+import 'features/app_config/data/repositories/firebase_app_config_repository.dart';
+import 'features/app_config/presentation/providers/app_config_providers.dart';
+import 'features/app_config/presentation/widgets/app_config_lifecycle_observer.dart';
 import 'features/calls/presentation/widgets/call_pip_overlay.dart';
+import 'features/location/presentation/providers/location_providers.dart';
 import 'features/onboarding/presentation/screens/splash_screen.dart';
 import 'features/premium/presentation/providers/vip_purchase_listener.dart';
 import 'firebase_options.dart';
@@ -21,6 +27,20 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Crash reporting must never be the reason the app fails to start —
+  // same fail-open shape as the App Check block right below. A failure
+  // initializing Crashlytics itself just means crashes go unreported,
+  // not that the app can't open.
+  try {
+    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    PlatformDispatcher.instance.onError = (error, stack) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      return true;
+    };
+  } catch (_) {
+    // Best-effort, see above.
+  }
 
   // Real device attestation (Play Integrity/App Attest) in release
   // builds; the debug provider in dev builds, since a locally
@@ -75,9 +95,22 @@ void main() async {
   final prefs = await SharedPreferences.getInstance();
   final initialLocale = await resolveInitialLocale(prefs);
 
+  // Cache-first: on a returning install this resolves near-instantly
+  // from the last-activated Remote Config values (no network wait); the
+  // only bounded wait is a genuinely first-ever install with no cache
+  // yet — see RemoteConfigDataSource.init()'s own doc comment.
+  final appConfigRepository = FirebaseAppConfigRepository();
+  await appConfigRepository.init();
+  applyRemoteRadiusOptions(
+    appConfigRepository.current(languageCode: initialLocale.languageCode).radiusOptionsKm,
+  );
+  final packageInfo = await PackageInfo.fromPlatform();
+
   runApp(ProviderScope(
     overrides: [
       localeProvider.overrideWith((ref) => LocaleController(initialLocale, prefs)),
+      appConfigRepositoryProvider.overrideWithValue(appConfigRepository),
+      installedAppVersionProvider.overrideWithValue(packageInfo.version),
     ],
     child: const PeakPinApp(),
   ));
@@ -110,11 +143,13 @@ class PeakPinApp extends ConsumerWidget {
       // live here, above the Navigator, rather than inside any one
       // screen, since minimizing a call is specifically meant to let
       // the user navigate freely underneath it.
-      builder: (context, child) => Stack(
-        children: [
-          if (child != null) PremiumBackgroundWrapper(child: child),
-          const CallPipOverlay(),
-        ],
+      builder: (context, child) => AppConfigLifecycleObserver(
+        child: Stack(
+          children: [
+            if (child != null) PremiumBackgroundWrapper(child: child),
+            const CallPipOverlay(),
+          ],
+        ),
       ),
     );
   }

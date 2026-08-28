@@ -5,6 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_thumbnail/video_thumbnail.dart' as vt;
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
+import '../../../app_config/presentation/utils/read_only_guard.dart';
 import '../../data/repositories/firebase_post_repository.dart';
 import '../../domain/entities/post.dart';
 import '../../domain/entities/post_comment.dart';
@@ -101,6 +103,7 @@ class PostController {
   }) async {
     final uid = _currentUid();
     if (uid == null) return false;
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
       final repo = _ref.read(postRepositoryProvider);
       final mediaUrl = await repo.uploadMedia(
@@ -156,6 +159,7 @@ class PostController {
   }
 
   Future<bool> updateCaption(String postId, String caption) async {
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
       await _ref
           .read(postRepositoryProvider)
@@ -172,6 +176,7 @@ class PostController {
     String mediaUrl, {
     String? thumbnailUrl,
   }) async {
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
       await _ref
           .read(postRepositoryProvider)
@@ -190,6 +195,7 @@ class PostController {
   Future<bool> toggleLike(String postId, bool like) async {
     final uid = _currentUid();
     if (uid == null) return false;
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
       await _ref
           .read(postRepositoryProvider)
@@ -204,6 +210,7 @@ class PostController {
   Future<bool> toggleRepost(String postId, bool repost) async {
     final uid = _currentUid();
     if (uid == null) return false;
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
       await _ref
           .read(postRepositoryProvider)
@@ -222,6 +229,7 @@ class PostController {
   }) async {
     final uid = _currentUid();
     if (uid == null) return false;
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
       await _ref
           .read(postRepositoryProvider)
@@ -243,6 +251,7 @@ class PostController {
     String commentId,
     String text,
   ) async {
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
       await _ref
           .read(postRepositoryProvider)
@@ -255,6 +264,7 @@ class PostController {
   }
 
   Future<bool> deleteComment(String postId, String commentId) async {
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
       await _ref
           .read(postRepositoryProvider)
@@ -273,6 +283,7 @@ class PostController {
   ) async {
     final uid = _currentUid();
     if (uid == null) return false;
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
       await _ref
           .read(postRepositoryProvider)

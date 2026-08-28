@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/app_config/domain/entities/app_config.dart';
+import '../../features/app_config/presentation/providers/app_config_providers.dart';
 import '../../features/premium/presentation/screens/vip_screen.dart';
 import '../../l10n/app_localizations.dart';
 import '../theme/app_colors.dart';
@@ -8,12 +11,21 @@ import '../theme/app_text_styles.dart';
 /// Bottom sheet shown whenever a user without an active Premium
 /// subscription taps a feature gated behind Premium (e.g. a locked map
 /// radius). Callers only supply the headline/body copy so the same sheet
-/// can be reused for other Premium gates beyond radius.
+/// can be reused for other Premium gates beyond radius. This sheet exists
+/// solely to lead into [VipScreen], so when `FeatureFlag.vipPurchase` is
+/// off it simply doesn't open at all — there'd be nothing useful for it
+/// to offer.
 Future<void> showPremiumUpsellSheet(
   BuildContext context, {
   required String title,
   required String message,
 }) {
+  final vipPurchaseEnabled = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(featureFlagProvider(FeatureFlag.vipPurchase));
+  if (!vipPurchaseEnabled) return Future.value();
+
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.surface,

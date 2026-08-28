@@ -1,25 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/settings_group.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
 
-/// Served from peakpin.app (peakpin-landing's public/ dir) rather than
-/// the internal kim-var-73ce9.web.app Firebase Hosting domain — that
-/// domain still hosts the same files (see kim_var/legal/ +
-/// firebase.json) as a mirror, but user-facing links should always
-/// show the branded peakpin.app domain, not the old project id.
-const String kPrivacyPolicyUrl = 'https://peakpin.app/privacy-policy.html';
-const String kTermsOfServiceUrl = 'https://peakpin.app/terms-of-service.html';
-const String kCommunityGuidelinesUrl = 'https://peakpin.app/community-guidelines.html';
-
-class LegalHubScreen extends StatelessWidget {
+class LegalHubScreen extends ConsumerWidget {
   const LegalHubScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
+    final config = ref.watch(appConfigProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -40,17 +34,23 @@ class LegalHubScreen extends StatelessWidget {
                 SettingsMenuRow(
                   icon: Icons.privacy_tip_outlined,
                   title: loc.legalPrivacyPolicyTitle,
-                  onTap: () => launchUrl(Uri.parse(kPrivacyPolicyUrl), mode: LaunchMode.externalApplication),
+                  onTap: () => launchUrl(Uri.parse(config.urlPrivacyPolicy), mode: LaunchMode.externalApplication),
                 ),
                 SettingsMenuRow(
                   icon: Icons.description_outlined,
                   title: loc.legalTermsOfServiceTitle,
-                  onTap: () => launchUrl(Uri.parse(kTermsOfServiceUrl), mode: LaunchMode.externalApplication),
+                  onTap: () => launchUrl(Uri.parse(config.urlTermsOfService), mode: LaunchMode.externalApplication),
                 ),
                 SettingsMenuRow(
                   icon: Icons.groups_outlined,
                   title: loc.legalCommunityGuidelinesTitle,
-                  onTap: () => launchUrl(Uri.parse(kCommunityGuidelinesUrl), mode: LaunchMode.externalApplication),
+                  onTap: () =>
+                      launchUrl(Uri.parse(config.urlCommunityGuidelines), mode: LaunchMode.externalApplication),
+                ),
+                SettingsMenuRow(
+                  icon: Icons.storefront_outlined,
+                  title: loc.legalBusinessOfferTitle,
+                  onTap: () => launchUrl(Uri.parse(config.urlBusinessOffer), mode: LaunchMode.externalApplication),
                 ),
               ],
             ),

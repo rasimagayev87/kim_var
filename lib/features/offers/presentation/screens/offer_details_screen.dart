@@ -5,6 +5,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../app_config/domain/entities/app_config.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
 import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_image.dart';
@@ -253,6 +255,7 @@ class _HeroImage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUid = fb.FirebaseAuth.instance.currentUser?.uid;
     final isOwner = currentUid != null && offer.isOwnedBy(currentUid);
+    final boostEnabled = ref.watch(featureFlagProvider(FeatureFlag.boostPayment));
 
     return Stack(
       children: [
@@ -270,7 +273,7 @@ class _HeroImage extends ConsumerWidget {
         Positioned(
           top: MediaQuery.paddingOf(context).top + 12,
           right: 16,
-          child: isOwner
+          child: isOwner && boostEnabled
               ? _OverlayCircleButton(
                   icon: Icons.more_vert_outlined,
                   iconSize: 18,

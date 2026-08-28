@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/review.dart';
 import '../../domain/repositories/review_repository.dart';
 
@@ -12,13 +13,24 @@ class FirebaseReviewRepository implements ReviewRepository {
 
   String _reviewId(String venueId, String userId) => '${venueId}_$userId';
 
+  /// See `FirebaseVenueRepository._safeVenue`'s doc comment — same
+  /// per-document isolation, applied here for `Review`.
+  Review? _safeReview(String id, Map<String, dynamic> data) {
+    try {
+      return Review.fromFirestore(id, data);
+    } catch (e, st) {
+      logError('firebase_review_repository.Review.fromFirestore($id)', e, st);
+      return null;
+    }
+  }
+
   @override
   Stream<List<Review>> watchVenueReviews(String venueId) {
     return _reviews
         .where('venueId', isEqualTo: venueId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => Review.fromFirestore(d.id, d.data())).toList());
+        .map((snap) => snap.docs.map((d) => _safeReview(d.id, d.data())).whereType<Review>().toList());
   }
 
   @override
@@ -26,7 +38,7 @@ class FirebaseReviewRepository implements ReviewRepository {
     return _reviews.doc(_reviewId(venueId, userId)).snapshots().map((snap) {
       final data = snap.data();
       if (data == null) return null;
-      return Review.fromFirestore(snap.id, data);
+      return _safeReview(snap.id, data);
     });
   }
 

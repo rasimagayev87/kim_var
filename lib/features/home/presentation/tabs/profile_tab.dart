@@ -5,6 +5,8 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../app_config/domain/entities/app_config.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../../core/widgets/app_image.dart';
@@ -78,17 +80,18 @@ class ProfileTab extends ConsumerWidget {
                         children: [
                           Row(
                             children: [
-                              IconButton(
-                                onPressed: () async {
-                                  if (!context.mounted) return;
-                                  startCreatePostFlow(context);
-                                },
-                                icon: const Icon(
-                                  Icons.add_circle_outline,
-                                  color: ChatLightColors.ink,
-                                  size: 22,
+                              if (ref.watch(featureFlagProvider(FeatureFlag.mediaUpload)))
+                                IconButton(
+                                  onPressed: () async {
+                                    if (!context.mounted) return;
+                                    startCreatePostFlow(context);
+                                  },
+                                  icon: const Icon(
+                                    Icons.add_circle_outline,
+                                    color: ChatLightColors.ink,
+                                    size: 22,
+                                  ),
                                 ),
-                              ),
                               IconButton(
                                 onPressed: () => Navigator.push(
                                   context,
@@ -410,6 +413,7 @@ class _AvatarWithRing extends ConsumerWidget {
     final activeStories =
         ref.watch(myActiveStoriesProvider).valueOrNull ?? const [];
     final hasActiveStory = activeStories.isNotEmpty;
+    final storiesEnabled = ref.watch(featureFlagProvider(FeatureFlag.stories));
 
     return Stack(
       clipBehavior: Clip.none,
@@ -425,7 +429,7 @@ class _AvatarWithRing extends ConsumerWidget {
               );
               return;
             }
-            if (!context.mounted) return;
+            if (!storiesEnabled || !context.mounted) return;
             startCreateStoryFlow(context);
           },
           child: Container(
@@ -465,26 +469,27 @@ class _AvatarWithRing extends ConsumerWidget {
             ),
           ),
         ),
-        Positioned(
-          bottom: 2,
-          right: 2,
-          child: GestureDetector(
-            onTap: () async {
-              if (!context.mounted) return;
-              startCreateStoryFlow(context);
-            },
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppColors.primary,
-                border: Border.all(color: ChatLightColors.bg1, width: 3),
+        if (storiesEnabled)
+          Positioned(
+            bottom: 2,
+            right: 2,
+            child: GestureDetector(
+              onTap: () async {
+                if (!context.mounted) return;
+                startCreateStoryFlow(context);
+              },
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.primary,
+                  border: Border.all(color: ChatLightColors.bg1, width: 3),
+                ),
+                child: const Icon(Icons.add, color: Colors.white, size: 18),
               ),
-              child: const Icon(Icons.add, color: Colors.white, size: 18),
             ),
           ),
-        ),
       ],
     );
   }

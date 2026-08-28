@@ -1,11 +1,12 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../l10n/app_localizations.dart';
-import '../screens/legal_hub_screen.dart' show kPrivacyPolicyUrl, kTermsOfServiceUrl;
+import '../../../app_config/presentation/providers/app_config_providers.dart';
 
 /// "I have read and agree to the [Terms of Service] and [Privacy
 /// Policy]" — a controlled checkbox (parent owns [value]) with the two
@@ -20,15 +21,16 @@ import '../screens/legal_hub_screen.dart' show kPrivacyPolicyUrl, kTermsOfServic
 /// ("İstifadə Şərtləri**ni**") — [AppLocalizations.consentLinkSuffix]
 /// is plain (non-linked) text appended right after each link for that;
 /// it's empty for EN/RU, where the sentence structure doesn't need it.
-class ConsentCheckboxRow extends StatelessWidget {
+class ConsentCheckboxRow extends ConsumerWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
   const ConsentCheckboxRow({super.key, required this.value, required this.onChanged});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
+    final config = ref.watch(appConfigProvider);
     final linkStyle = AppTextStyles.caption.copyWith(
       color: AppColors.primary,
       fontWeight: FontWeight.w700,
@@ -62,7 +64,8 @@ class ConsentCheckboxRow extends StatelessWidget {
                     text: loc.legalTermsOfServiceTitle,
                     style: linkStyle,
                     recognizer: TapGestureRecognizer()
-                      ..onTap = () => launchUrl(Uri.parse(kTermsOfServiceUrl), mode: LaunchMode.externalApplication),
+                      ..onTap = () =>
+                          launchUrl(Uri.parse(config.urlTermsOfService), mode: LaunchMode.externalApplication),
                   ),
                   TextSpan(text: loc.consentLinkSuffix),
                   TextSpan(text: loc.consentMiddle),
@@ -70,7 +73,8 @@ class ConsentCheckboxRow extends StatelessWidget {
                     text: loc.legalPrivacyPolicyTitle,
                     style: linkStyle,
                     recognizer: TapGestureRecognizer()
-                      ..onTap = () => launchUrl(Uri.parse(kPrivacyPolicyUrl), mode: LaunchMode.externalApplication),
+                      ..onTap = () =>
+                          launchUrl(Uri.parse(config.urlPrivacyPolicy), mode: LaunchMode.externalApplication),
                   ),
                   TextSpan(text: loc.consentLinkSuffix),
                   TextSpan(text: loc.consentSuffix),

@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
+import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/firestore_retry.dart';
 import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../domain/entities/pinbox.dart';
@@ -20,6 +21,26 @@ class FirebasePinBoxRepository implements PinBoxRepository {
 
   final PinBoxRemoteDatasource _datasource;
   final FirebaseFunctions _functions;
+
+  /// See `FirebaseVenueRepository._safeVenue`'s doc comment — same
+  /// per-document isolation, applied here for `PinBox`/`PinBoxOrder`.
+  PinBox? _safePinBox(String id, Map<String, dynamic> data) {
+    try {
+      return PinBox.fromFirestore(id, data);
+    } catch (e, st) {
+      logError('firebase_pinbox_repository.PinBox.fromFirestore($id)', e, st);
+      return null;
+    }
+  }
+
+  PinBoxOrder? _safePinBoxOrder(String id, Map<String, dynamic> data) {
+    try {
+      return PinBoxOrder.fromFirestore(id, data);
+    } catch (e, st) {
+      logError('firebase_pinbox_repository.PinBoxOrder.fromFirestore($id)', e, st);
+      return null;
+    }
+  }
 
   @override
   Future<String> createPinBox({
@@ -132,14 +153,14 @@ class FirebasePinBoxRepository implements PinBoxRepository {
 
   @override
   Stream<PinBox?> watchPinBox(String pinboxId) {
-    return _datasource.watchPinBox(pinboxId).map((doc) => doc.exists ? PinBox.fromFirestore(doc.id, doc.data()!) : null);
+    return _datasource.watchPinBox(pinboxId).map((doc) => doc.exists ? _safePinBox(doc.id, doc.data()!) : null);
   }
 
   @override
   Stream<List<PinBox>> watchMyPinBoxes(String ownerId) {
     return _datasource
         .watchPinBoxesByOwner(ownerId)
-        .map((snap) => snap.docs.map((doc) => PinBox.fromFirestore(doc.id, doc.data())).toList());
+        .map((snap) => snap.docs.map((doc) => _safePinBox(doc.id, doc.data())).whereType<PinBox>().toList());
   }
 
   /// Excludes a box whose same-day pickup window has already ended,
@@ -166,21 +187,22 @@ class FirebasePinBoxRepository implements PinBoxRepository {
         ));
 
     return results
-        .map((r) => (pinbox: PinBox.fromFirestore(r.$1.id, r.$1.data()!), distanceMeters: r.$2 * 1000))
-        .where((r) => _isWithinPickupWindow(r.pinbox))
+        .map((r) => (pinbox: _safePinBox(r.$1.id, r.$1.data()!), distanceMeters: r.$2 * 1000))
+        .where((r) => r.pinbox != null && _isWithinPickupWindow(r.pinbox!))
+        .map((r) => (pinbox: r.pinbox!, distanceMeters: r.distanceMeters))
         .toList();
   }
 
   @override
   Future<List<PinBox>> fetchPinBoxesByCountry(String country, {VenueCategory? category}) async {
     final snap = await withPermissionRetry(() => _datasource.queryByCountry(country, category: category?.name));
-    return snap.docs.map((d) => PinBox.fromFirestore(d.id, d.data())).where(_isWithinPickupWindow).toList();
+    return snap.docs.map((d) => _safePinBox(d.id, d.data())).whereType<PinBox>().where(_isWithinPickupWindow).toList();
   }
 
   @override
   Future<List<PinBox>> fetchAllActivePinBoxes({int limit = 300, VenueCategory? category}) async {
     final snap = await withPermissionRetry(() => _datasource.queryAllActive(limit: limit, category: category?.name));
-    return snap.docs.map((d) => PinBox.fromFirestore(d.id, d.data())).where(_isWithinPickupWindow).toList();
+    return snap.docs.map((d) => _safePinBox(d.id, d.data())).whereType<PinBox>().where(_isWithinPickupWindow).toList();
   }
 
   @override
@@ -204,14 +226,14 @@ class FirebasePinBoxRepository implements PinBoxRepository {
   Stream<PinBoxOrder?> watchPinBoxOrder(String orderId) {
     return _datasource
         .watchPinBoxOrder(orderId)
-        .map((doc) => doc.exists ? PinBoxOrder.fromFirestore(doc.id, doc.data()!) : null);
+        .map((doc) => doc.exists ? _safePinBoxOrder(doc.id, doc.data()!) : null);
   }
 
   @override
   Stream<List<PinBoxOrder>> watchMyOrders(String buyerId) {
     return _datasource
         .watchOrdersByBuyer(buyerId)
-        .map((snap) => snap.docs.map((doc) => PinBoxOrder.fromFirestore(doc.id, doc.data())).toList());
+        .map((snap) => snap.docs.map((doc) => _safePinBoxOrder(doc.id, doc.data())).whereType<PinBoxOrder>().toList());
   }
 
   @override

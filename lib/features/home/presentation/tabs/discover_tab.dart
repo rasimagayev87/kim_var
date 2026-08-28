@@ -35,6 +35,9 @@ import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../profile/presentation/screens/user_profile_screen.dart';
 import '../../../settings/map_location/domain/entities/map_location_settings.dart';
 import '../../../settings/map_location/presentation/providers/map_location_providers.dart';
+import '../../../app_config/domain/entities/app_config.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
+import '../../../../core/constants/category_capabilities.dart';
 import '../../../venues/domain/entities/venue.dart';
 import '../../../venues/domain/venue_open_status.dart';
 import '../../../venues/presentation/providers/venue_providers.dart';
@@ -87,9 +90,36 @@ class DiscoverTab extends ConsumerStatefulWidget {
   ConsumerState<DiscoverTab> createState() => _DiscoverTabState();
 }
 
-class _DiscoverTabState extends ConsumerState<DiscoverTab> {
+class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingObserver {
   GoogleMapController? _mapController;
   _DiscoverView _view = _DiscoverView.map;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// The "Ayarları aç" action for a disabled-location-service error just
+  /// launches the OS Settings screen and has no way to know when the user
+  /// comes back — without this, re-enabling location there and returning
+  /// left the error stuck on screen until the app was fully restarted.
+  /// Re-checking here (only when currently in an error state, to avoid an
+  /// unnecessary GPS read on every ordinary foreground) is what actually
+  /// clears it.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed &&
+        ref.read(locationControllerProvider).hasError) {
+      ref.read(locationControllerProvider.notifier).refresh();
+    }
+  }
 
   // Keyed by 'userId|photoUrl' so a changed photo invalidates its own
   // entry rather than showing a stale avatar. Never evicted — bounded
@@ -141,10 +171,14 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
     final listingFilter = ref.watch(listingFilterProvider);
     final myVenues = ref.watch(myVenuesProvider).valueOrNull ?? const [];
     final eligibleEventCategories = ref.watch(eventCategoryConfigProvider).valueOrNull ?? const {};
-    final myEventVenues = myVenues.where((v) => eligibleEventCategories.contains(v.category)).toList();
+    final myEventVenues = myVenues
+        .where((v) => v.category.capabilities.canCreateEvents && eligibleEventCategories.contains(v.category))
+        .toList();
     // PinBox eligibility is a fixed constant (kPinboxEligibleVenueCategories,
     // in venue.dart), not Firestore-config-driven like events above.
-    final myPinboxVenues = myVenues.where((v) => kPinboxEligibleVenueCategories.contains(v.category)).toList();
+    final myPinboxVenues = myVenues
+        .where((v) => v.category.capabilities.canUsePinBox && kPinboxEligibleVenueCategories.contains(v.category))
+        .toList();
 
     return SafeArea(
       child: Column(
@@ -170,25 +204,27 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> {
                     ),
                     icon: const Icon(Icons.storefront_outlined, color: AppColors.textSecondary),
                   ),
-                  IconButton(
-                    tooltip: loc.venueAddButtonTooltip,
-                    onPressed: () async {
-                      if (!context.mounted) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const CreateVenueScreen()),
-                      );
-                    },
-                    icon: const Icon(Icons.add_circle_outline, color: AppColors.textSecondary),
-                  ),
+                  if (ref.watch(featureFlagProvider(FeatureFlag.venueSubmission)))
+                    IconButton(
+                      tooltip: loc.venueAddButtonTooltip,
+                      onPressed: () async {
+                        if (!context.mounted) return;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const CreateVenueScreen()),
+                        );
+                      },
+                      icon: const Icon(Icons.add_circle_outline, color: AppColors.textSecondary),
+                    ),
                 ],
                 if (_view == _DiscoverView.offers && hasBusinessAccess) ...[
                   _buildListingManageIcon(loc, listingFilter, myEventVenues, myPinboxVenues),
-                  IconButton(
-                    tooltip: loc.offerAddButtonTooltip,
-                    onPressed: () => _openCreateOptionsSheet(loc, myEventVenues, myPinboxVenues),
-                    icon: const Icon(Icons.add_circle_outline, color: AppColors.textSecondary),
-                  ),
+                  if (ref.watch(featureFlagProvider(FeatureFlag.offers)))
+                    IconButton(
+                      tooltip: loc.offerAddButtonTooltip,
+                      onPressed: () => _openCreateOptionsSheet(loc, myEventVenues, myPinboxVenues),
+                      icon: const Icon(Icons.add_circle_outline, color: AppColors.textSecondary),
+                    ),
                 ],
               ],
             ),

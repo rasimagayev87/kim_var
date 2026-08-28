@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
+import '../../../app_config/presentation/utils/read_only_guard.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../privacy/presentation/providers/privacy_providers.dart';
 import '../../data/repositories/firebase_chat_repository.dart';
@@ -306,6 +308,7 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
   Future<bool> sendText({required String otherUid, required String text}) async {
     final uid = _currentUid();
     if (uid == null) return false;
+    if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     state = const AsyncValue.loading();
     try {
       await _ref.read(sendTextMessageUseCaseProvider).call(

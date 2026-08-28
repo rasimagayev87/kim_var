@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/firestore_retry.dart';
 import '../../domain/entities/venue.dart';
 import '../../domain/repositories/venue_repository.dart';
@@ -25,6 +26,21 @@ class FirebaseVenueRepository implements VenueRepository {
   final VenueRemoteDatasource _datasource;
   final FirebaseFunctions _functions;
 
+  /// [Venue.fromFirestore]'s generated `fromJson` throws on a missing/
+  /// mistyped required field — this isolates that failure to just the
+  /// one malformed document (logged, then dropped) instead of letting
+  /// it propagate and blank the whole list/stream it came from. See
+  /// this feature's own backward-compatibility plan for why this
+  /// matters more once the backend starts evolving post-launch.
+  Venue? _safeVenue(String id, Map<String, dynamic> data) {
+    try {
+      return Venue.fromFirestore(id, data);
+    } catch (e, st) {
+      logError('firebase_venue_repository.Venue.fromFirestore($id)', e, st);
+      return null;
+    }
+  }
+
   @override
   Future<SubmitVenueResult> createVenue({
     required String ownerId,
@@ -40,6 +56,9 @@ class FirebaseVenueRepository implements VenueRepository {
     String audienceRadiusMode = 'distance',
     double audienceRadiusKm = 1.0,
     bool birthdayNotificationsEnabled = false,
+    required String offerAcceptanceVersion,
+    required String offerAcceptanceDocumentUrl,
+    required String offerAcceptanceAppVersion,
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
@@ -65,6 +84,12 @@ class FirebaseVenueRepository implements VenueRepository {
       'audienceRadiusMode': audienceRadiusMode,
       'audienceRadiusKm': audienceRadiusKm,
       'birthdayNotificationsEnabled': birthdayNotificationsEnabled,
+      'offerAcceptance': {
+        'version': offerAcceptanceVersion,
+        'documentUrl': offerAcceptanceDocumentUrl,
+        'appVersion': offerAcceptanceAppVersion,
+        'platform': Platform.operatingSystem,
+      },
     });
 
     final data = result.data;
@@ -134,7 +159,7 @@ class FirebaseVenueRepository implements VenueRepository {
     return _datasource
         .watchVenue(venueId)
         .map(
-          (doc) => doc.exists ? Venue.fromFirestore(doc.id, doc.data()!) : null,
+          (doc) => doc.exists ? _safeVenue(doc.id, doc.data()!) : null,
         );
   }
 
@@ -144,7 +169,8 @@ class FirebaseVenueRepository implements VenueRepository {
         .watchVenuesByOwner(ownerId)
         .map(
           (snap) => snap.docs
-              .map((d) => Venue.fromFirestore(d.id, d.data()))
+              .map((d) => _safeVenue(d.id, d.data()))
+              .whereType<Venue>()
               .toList(),
         );
   }
@@ -163,12 +189,9 @@ class FirebaseVenueRepository implements VenueRepository {
           category: category?.name,
         ));
     return results
-        .map(
-          (r) => (
-            venue: Venue.fromFirestore(r.$1.id, r.$1.data()!),
-            distanceMeters: r.$2 * 1000,
-          ),
-        )
+        .map((r) => (venue: _safeVenue(r.$1.id, r.$1.data()!), distanceMeters: r.$2 * 1000))
+        .where((r) => r.venue != null)
+        .map((r) => (venue: r.venue!, distanceMeters: r.distanceMeters))
         .toList();
   }
 
@@ -181,7 +204,7 @@ class FirebaseVenueRepository implements VenueRepository {
           country,
           category: category?.name,
         ));
-    return snap.docs.map((d) => Venue.fromFirestore(d.id, d.data())).toList();
+    return snap.docs.map((d) => _safeVenue(d.id, d.data())).whereType<Venue>().toList();
   }
 
   @override
@@ -193,7 +216,7 @@ class FirebaseVenueRepository implements VenueRepository {
           limit: limit,
           category: category?.name,
         ));
-    return snap.docs.map((d) => Venue.fromFirestore(d.id, d.data())).toList();
+    return snap.docs.map((d) => _safeVenue(d.id, d.data())).whereType<Venue>().toList();
   }
 
   @override
@@ -233,9 +256,19 @@ class FirebaseVenueRepository implements VenueRepository {
   }
 
   @override
-  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueSubscriptionPayment(String venueId) async {
+  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueSubscriptionPayment(
+    String venueId, {
+    ({String version, String documentUrl, String appVersion})? offerAcceptance,
+  }) async {
     final result = await _functions.httpsCallable('retryVenueSubscriptionPayment').call<Map<String, dynamic>>({
       'venueId': venueId,
+      if (offerAcceptance != null)
+        'offerAcceptance': {
+          'version': offerAcceptance.version,
+          'documentUrl': offerAcceptance.documentUrl,
+          'appVersion': offerAcceptance.appVersion,
+          'platform': Platform.operatingSystem,
+        },
     });
     final data = result.data;
     return (

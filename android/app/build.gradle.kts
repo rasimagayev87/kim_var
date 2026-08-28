@@ -22,7 +22,16 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.peakpin.app"
-    compileSdk = flutter.compileSdkVersion
+    // Pinned to explicit literals rather than floating with
+    // `flutter.compileSdkVersion`/`minSdkVersion`/`targetSdkVersion` —
+    // see docs/BACKWARD_COMPATIBILITY.md for why: these values resolve
+    // from whatever Flutter SDK happens to build the app, so an
+    // unrelated `flutter upgrade` on a developer's machine could
+    // silently raise the real minimum OS version this app requires
+    // without that ever being a deliberate, reviewed decision. 24/36/36
+    // match what this project's current Flutter SDK already resolved
+    // them to at the time of pinning.
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -31,12 +40,11 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.peakpin.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        minSdk = 24
+        targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }

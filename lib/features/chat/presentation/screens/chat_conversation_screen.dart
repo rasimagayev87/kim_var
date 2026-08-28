@@ -13,6 +13,8 @@ import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
+import '../../../app_config/domain/entities/app_config.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/app_logger.dart';
@@ -672,7 +674,8 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                   onVideoCall: () => _startCall(video: true),
                   callLabel: loc.chatVoiceCallLabel,
                   videoCallLabel: loc.chatVideoCallLabel,
-                  callsEnabled: chat?.status == ChatRequestStatus.accepted,
+                  callsEnabled: chat?.status == ChatRequestStatus.accepted &&
+                      ref.watch(featureFlagProvider(FeatureFlag.calls)),
                   callsDisabledTooltip: loc.chatCallDisabledTooltip,
                 ),
                 _OngoingCallBanner(otherUid: widget.otherUid),

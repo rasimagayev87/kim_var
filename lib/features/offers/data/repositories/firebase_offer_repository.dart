@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../../core/utils/app_logger.dart';
 import '../../../../core/utils/firestore_retry.dart';
 import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../domain/entities/offer.dart';
@@ -18,6 +19,17 @@ class FirebaseOfferRepository implements OfferRepository {
 
   final OfferRemoteDatasource _datasource;
   final FirebaseFunctions _functions;
+
+  /// See `FirebaseVenueRepository._safeVenue`'s doc comment — same
+  /// per-document isolation, applied here for `Offer`.
+  Offer? _safeOffer(String id, Map<String, dynamic> data) {
+    try {
+      return Offer.fromFirestore(id, data);
+    } catch (e, st) {
+      logError('firebase_offer_repository.Offer.fromFirestore($id)', e, st);
+      return null;
+    }
+  }
 
   @override
   Future<SubmitOfferResult> createOffer({
@@ -140,14 +152,14 @@ class FirebaseOfferRepository implements OfferRepository {
 
   @override
   Stream<Offer?> watchOffer(String offerId) {
-    return _datasource.watchOffer(offerId).map((doc) => doc.exists ? Offer.fromFirestore(doc.id, doc.data()!) : null);
+    return _datasource.watchOffer(offerId).map((doc) => doc.exists ? _safeOffer(doc.id, doc.data()!) : null);
   }
 
   @override
   Stream<List<Offer>> watchMyOffers(String ownerId) {
     return _datasource
         .watchOffersByOwner(ownerId)
-        .map((snap) => snap.docs.map((d) => Offer.fromFirestore(d.id, d.data())).toList());
+        .map((snap) => snap.docs.map((d) => _safeOffer(d.id, d.data())).whereType<Offer>().toList());
   }
 
   @override
@@ -156,7 +168,8 @@ class FirebaseOfferRepository implements OfferRepository {
     final now = DateTime.now();
     return snap.docs
         .where((d) => d.id != excludeOfferId)
-        .map((d) => Offer.fromFirestore(d.id, d.data()))
+        .map((d) => _safeOffer(d.id, d.data()))
+        .whereType<Offer>()
         .where((offer) => offer.endDate.isAfter(now))
         .toList();
   }
@@ -177,8 +190,9 @@ class FirebaseOfferRepository implements OfferRepository {
 
     final now = DateTime.now();
     return results
-        .map((r) => (offer: Offer.fromFirestore(r.$1.id, r.$1.data()!), distanceMeters: r.$2 * 1000))
-        .where((entry) => entry.offer.endDate.isAfter(now))
+        .map((r) => (offer: _safeOffer(r.$1.id, r.$1.data()!), distanceMeters: r.$2 * 1000))
+        .where((entry) => entry.offer != null && entry.offer!.endDate.isAfter(now))
+        .map((entry) => (offer: entry.offer!, distanceMeters: entry.distanceMeters))
         .toList();
   }
 
@@ -187,7 +201,8 @@ class FirebaseOfferRepository implements OfferRepository {
     final snap = await withPermissionRetry(() => _datasource.queryByCountry(country, category: category?.name));
     final now = DateTime.now();
     return snap.docs
-        .map((d) => Offer.fromFirestore(d.id, d.data()))
+        .map((d) => _safeOffer(d.id, d.data()))
+        .whereType<Offer>()
         .where((offer) => offer.endDate.isAfter(now))
         .toList();
   }
@@ -197,7 +212,8 @@ class FirebaseOfferRepository implements OfferRepository {
     final snap = await withPermissionRetry(() => _datasource.queryAllActive(limit: limit, category: category?.name));
     final now = DateTime.now();
     return snap.docs
-        .map((d) => Offer.fromFirestore(d.id, d.data()))
+        .map((d) => _safeOffer(d.id, d.data()))
+        .whereType<Offer>()
         .where((offer) => offer.endDate.isAfter(now))
         .toList();
   }

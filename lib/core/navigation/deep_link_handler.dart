@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_branch_sdk/flutter_branch_sdk.dart';
 
+import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/post_share/presentation/screens/post_detail_screen.dart';
 import '../../features/profile/presentation/screens/user_profile_screen.dart';
 import '../utils/app_logger.dart';
@@ -49,6 +50,18 @@ void _handleUri(Uri uri) {
   // handled separately here rather than folding into the https check.
   if (uri.scheme == 'peakpin' && uri.host == 'u' && segments.isNotEmpty) {
     _openProfileByUsername(segments[0]);
+    return;
+  }
+
+  // No recognized pattern (a future link shape this build predates,
+  // or a genuinely malformed one) — land on the home screen rather
+  // than silently doing nothing, so the tap that brought the user
+  // here doesn't feel like it went nowhere. `pushReplacement` (not
+  // `push`) so this doesn't stack underneath whatever screen happened
+  // to be open when the link arrived.
+  final navigator = navigatorKey.currentState;
+  if (navigator != null && navigator.mounted) {
+    navigator.pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
   }
 }
 

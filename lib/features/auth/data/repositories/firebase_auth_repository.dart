@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import '../../../../core/utils/app_logger.dart';
 import '../../../legal/legal_versions.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -95,6 +98,8 @@ class FirebaseAuthRepository implements AuthRepository {
     // profile was completed.
     if (data == null || data['username'] == null) return null;
 
+    unawaited(_maybeWriteVersionTelemetry(user.uid, data));
+
     return AppUser(
       id: user.uid,
       firstName: data['firstName'] as String? ?? '',
@@ -106,6 +111,40 @@ class FirebaseAuthRepository implements AuthRepository {
       gender: data['gender'] as String?,
       loginProvider: _providerFrom(user),
     );
+  }
+
+  /// Writes `appVersion`/`buildNumber`/`platform`/`osVersion`/
+  /// `lastSeenAt` onto `users/{uid}` — but only when the installed
+  /// version has actually changed since [existingUserData] was last
+  /// written, or it's been >24h since [existingUserData]'s own
+  /// `lastSeenAt`, not on every single restore/resume. This is the
+  /// only source of "which app version is actually still out there"
+  /// (see the admin panel's version-breakdown view, planned
+  /// separately) that the post-launch backward-compatibility policy
+  /// depends on to decide when it's safe to drop a legacy field —
+  /// best-effort, never surfaced as an error to the caller.
+  Future<void> _maybeWriteVersionTelemetry(String uid, Map<String, dynamic> existingUserData) async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final currentVersion = info.version;
+
+      final storedVersion = existingUserData['appVersion'] as String?;
+      final storedLastSeenAt = existingUserData['lastSeenAt'] as Timestamp?;
+      final staleByTime =
+          storedLastSeenAt == null || DateTime.now().difference(storedLastSeenAt.toDate()) > const Duration(hours: 24);
+
+      if (storedVersion == currentVersion && !staleByTime) return;
+
+      await _firestore.collection('users').doc(uid).set({
+        'appVersion': currentVersion,
+        'buildNumber': info.buildNumber,
+        'platform': Platform.operatingSystem,
+        'osVersion': Platform.operatingSystemVersion,
+        'lastSeenAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e, st) {
+      logError('firebase_auth_repository._maybeWriteVersionTelemetry', e, st);
+    }
   }
 
   @override

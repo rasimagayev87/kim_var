@@ -4,17 +4,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:image_cropper/image_cropper.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_spacing.dart';
 import '../../../../core/widgets/media_photo_picker.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../location/presentation/providers/location_providers.dart';
+import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../domain/entities/venue.dart';
 import '../../domain/venue_failure.dart';
 import '../providers/venue_providers.dart';
+import '../widgets/business_offer_consent_row.dart';
 import '../widgets/opening_hours_editor.dart';
 import 'venue_location_picker_screen.dart';
 
@@ -78,6 +82,10 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
   File? _photo;
   bool _submitting = false;
   Set<VenueFieldError> _fieldErrors = {};
+
+  /// Only shown/required on first creation — [_submitEdit] never
+  /// triggers a payment, so re-accepting the offer doesn't apply there.
+  bool _offerAccepted = false;
 
   /// Non-null only while the photo is actively uploading (0.0–1.0) —
   /// drives the progress bar shown in place of the submit button's
@@ -213,6 +221,8 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
     });
 
     final loc = AppLocalizations.of(context);
+    final config = ref.read(appConfigProvider);
+    final packageInfo = await PackageInfo.fromPlatform();
 
     final result = await ref
         .read(venueControllerProvider)
@@ -229,6 +239,9 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
           audienceRadiusMode: _audienceRadiusModeString,
           audienceRadiusKm: _audienceRadiusKmValue,
           birthdayNotificationsEnabled: _birthdayNotificationsEnabled,
+          offerAcceptanceVersion: config.businessOfferVersion,
+          offerAcceptanceDocumentUrl: config.urlBusinessOffer,
+          offerAcceptanceAppVersion: packageInfo.version,
           onValidationError: (missing) {
             if (!mounted) return;
             setState(() => _fieldErrors = missing.toSet());
@@ -468,6 +481,13 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
                         setState(() => _birthdayNotificationsEnabled = v),
                   ),
                 ],
+                if (!_isEditing && ref.watch(hasBusinessAccessProvider)) ...[
+                  const SizedBox(height: AppSpacing.xxl),
+                  BusinessOfferConsentRow(
+                    value: _offerAccepted,
+                    onChanged: (v) => setState(() => _offerAccepted = v),
+                  ),
+                ],
                 const SizedBox(height: AppSpacing.xxxl),
                 if (_submitting && _uploadProgress != null)
                   _UploadProgressCard(
@@ -479,7 +499,7 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: _submitting ? null : _submit,
+                      onPressed: _submitting || (!_isEditing && !_offerAccepted) ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         disabledBackgroundColor: AppColors.primary.withValues(
@@ -557,6 +577,9 @@ String venueCategoryLabel(AppLocalizations loc, VenueCategory category) {
     VenueCategory.dryCleaning => loc.venueCategoryDryCleaning,
     VenueCategory.applianceRepair => loc.venueCategoryApplianceRepair,
     VenueCategory.tutoringCenter => loc.venueCategoryTutoringCenter,
+    VenueCategory.wineHouse => loc.venueCategoryWineHouse,
+    VenueCategory.homeServices => loc.venueCategoryHomeServices,
+    VenueCategory.realEstate => loc.venueCategoryRealEstate,
     VenueCategory.independentArtist => loc.venueCategoryIndependentArtist,
     VenueCategory.other => loc.venueCategoryOther,
   };

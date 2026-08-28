@@ -125,15 +125,47 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
 /// non-distance modes, Ölkə üzrə/Dünya üzrə (see [DiscoverRadiusMode]),
 /// remain VIP-only. That lock is hardcoded at each call site (not
 /// derived from this list), since it isn't a km value.
-const kRadiusOptionsKm = <double>[0.1, 0.5, 1, 5, 10, 30];
+///
+/// Sourced from Remote Config's `radius_options_json` (see
+/// `AppConfig.radiusOptionsKm`/`FirebaseAppConfigRepository`) — set once
+/// in `main()` right after the config repository's `init()` resolves,
+/// same as [kDefaultRadiusOptionsKm]/[kExtraRadiusOptionsKm] below.
+/// Deliberately a plain mutable top-level list rather than threading
+/// `ref` through the ~15 call sites across `discover_tab.dart`,
+/// `privacy_security_screen.dart`, and `create_venue_screen.dart` that
+/// already reference these by name: a changed radius list isn't an
+/// emergency kill-switch value the way `maintenance_mode_enabled`/
+/// `force_update_enabled` are, so "picks up on next app start" is an
+/// acceptable, explicitly-chosen trade-off for the simpler wiring. The
+/// literal default below is what every one of those call sites already
+/// saw before this became remote-configurable, so a build that somehow
+/// runs before `main()`'s assignment (e.g. a widget test) behaves
+/// identically to before this field existed.
+List<double> kRadiusOptionsKm = const [0.1, 0.5, 1, 5, 10, 30];
 
 /// The 3 options shown in the "Daha çox" panel alongside Ölkə üzrə/
-/// Dünya üzrə — free, same as [kDefaultRadiusOptionsKm].
-const kExtraRadiusOptionsKm = <double>[5, 10, 30];
+/// Dünya üzrə — free, same as [kDefaultRadiusOptionsKm]. Derived from
+/// [kRadiusOptionsKm] by [applyRemoteRadiusOptions] the same way it
+/// always was, just re-derived from the remote list instead of a
+/// hardcoded one.
+List<double> kExtraRadiusOptionsKm = const [5, 10, 30];
 
 /// The 3 options shown in the always-visible row — everything else
 /// (5/10/30 km, plus Ölkə/Dünya) lives behind the "Daha çox" trigger.
-const kDefaultRadiusOptionsKm = <double>[0.1, 0.5, 1];
+List<double> kDefaultRadiusOptionsKm = const [0.1, 0.5, 1];
+
+/// Re-derives [kRadiusOptionsKm]/[kDefaultRadiusOptionsKm]/
+/// [kExtraRadiusOptionsKm] from a freshly-resolved [AppConfig.radiusOptionsKm].
+/// Call once from `main()` after the app-config repository's `init()`
+/// resolves. A list shorter than 3 entries is treated as malformed and
+/// ignored (keeps whatever was there before) — the always-visible row
+/// needs at least 3 options to render sensibly.
+void applyRemoteRadiusOptions(List<double> remoteOptions) {
+  if (remoteOptions.length < 3) return;
+  kRadiusOptionsKm = remoteOptions;
+  kDefaultRadiusOptionsKm = remoteOptions.take(3).toList();
+  kExtraRadiusOptionsKm = remoteOptions.skip(3).toList();
+}
 
 /// Which of the 8 "Kəşf et" view modes is active: a distance ring
 /// ([km] set), Ölkə üzrə, or Dünya üzrə. Only one at a time — country

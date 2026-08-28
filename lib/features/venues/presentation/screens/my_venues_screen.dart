@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
+import '../../../../core/constants/category_capabilities.dart';
 import '../../../../core/payments/epoint_checkout.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../pinbox/presentation/screens/pinbox_redeem_screen.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
@@ -13,7 +16,10 @@ import '../../../waitlist/presentation/providers/waitlist_providers.dart';
 import '../../../waitlist/presentation/screens/venue_waitlist_screen.dart';
 import '../../domain/entities/venue.dart';
 import '../../domain/venue_open_status.dart';
+import '../../domain/business_offer_acceptance.dart';
 import '../providers/venue_providers.dart';
+import '../widgets/business_offer_consent_row.dart';
+import '../widgets/business_offer_updated_banner.dart';
 import '../widgets/seat_count_editor_sheet.dart';
 import 'create_venue_screen.dart';
 
@@ -82,12 +88,20 @@ class MyVenuesScreen extends ConsumerWidget {
                     .where((v) => v.status != 'rejected')
                     .toList();
                 if (venues.isEmpty) return _EmptyMyVenues(loc: loc, ref: ref);
-                return ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-                  itemCount: venues.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) =>
-                      _MyVenueCard(venue: venues[index]),
+                return Column(
+                  children: [
+                    const SizedBox(height: 12),
+                    BusinessOfferUpdatedBanner(venues: venues),
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                        itemCount: venues.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) =>
+                            _MyVenueCard(venue: venues[index]),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -113,9 +127,15 @@ class _MyVenueCard extends ConsumerWidget {
     // doc comment. (Tədbirlər/events management moved out of this menu
     // entirely — it now lives under Kəşf et → Fürsətlər's own "manage"
     // icon, see `discover_tab.dart`'s `_openMyEvents`.)
+    // `category.capabilities.canUseWaitlist`/`canUsePinBox` (see
+    // lib/core/constants/category_capabilities.dart) is checked FIRST
+    // and wins outright for offer-only categories — even the "existing
+    // history" carve-out below never applies to them, since a category
+    // that can never join a waitlist can also never have accrued one.
+    final waitlistCapable = venue.category.capabilities.canUseWaitlist;
     final eligibleWaitlistCategories = await ref.read(waitlistCategoryConfigProvider.future);
-    var showWaitlistMenuItem = eligibleWaitlistCategories.contains(venue.category);
-    if (!showWaitlistMenuItem) {
+    var showWaitlistMenuItem = waitlistCapable && eligibleWaitlistCategories.contains(venue.category);
+    if (!showWaitlistMenuItem && waitlistCapable) {
       showWaitlistMenuItem = await ref.read(waitlistRepositoryProvider).hasAnyEntry(venue.id);
     }
 
@@ -125,13 +145,14 @@ class _MyVenueCard extends ConsumerWidget {
     // doc comment). Unlike Növbə/Tədbirlər above, there's deliberately
     // no "existing history" carve-out here: an ineligible category
     // hides this row outright, full stop.
-    final showSeatsMenuItem = eligibleWaitlistCategories.contains(venue.category);
+    final showSeatsMenuItem = waitlistCapable && eligibleWaitlistCategories.contains(venue.category);
 
     // PinBox eligibility is a hardcoded product decision, not
     // Firestore-config-driven (see `kPinboxEligibleVenueCategories`'s own
     // doc comment) — no "existing history" carve-out, an ineligible
     // category hides this row outright, same as Boş yer sayı above.
-    final showPinboxRedeemMenuItem = kPinboxEligibleVenueCategories.contains(venue.category);
+    final showPinboxRedeemMenuItem =
+        venue.category.capabilities.canUsePinBox && kPinboxEligibleVenueCategories.contains(venue.category);
     if (!context.mounted) return;
 
     final action = await showModalBottomSheet<_MyVenueCardAction>(
@@ -415,7 +436,8 @@ class _MyVenueCard extends ConsumerWidget {
                   isFoundingVenue: venue.isFoundingVenue,
                   subscriptionRenewsAt: venue.subscriptionRenewsAt,
                 ),
-              if (isOverdue) _SubscriptionOverdueBanner(venueId: venue.id),
+              if (isOverdue)
+                _SubscriptionOverdueBanner(venueId: venue.id, offerAcceptedVersion: venue.offerAcceptedVersion),
             ],
           ),
           Positioned(
@@ -727,8 +749,9 @@ class _FirstPaymentConfirmedCardState extends ConsumerState<_FirstPaymentConfirm
 /// `_AwaitingPaymentBanner`.
 class _SubscriptionOverdueBanner extends ConsumerStatefulWidget {
   final String venueId;
+  final String? offerAcceptedVersion;
 
-  const _SubscriptionOverdueBanner({required this.venueId});
+  const _SubscriptionOverdueBanner({required this.venueId, required this.offerAcceptedVersion});
 
   @override
   ConsumerState<_SubscriptionOverdueBanner> createState() => _SubscriptionOverdueBannerState();
@@ -743,7 +766,23 @@ class _SubscriptionOverdueBannerState extends ConsumerState<_SubscriptionOverdue
     final loc = AppLocalizations.of(context);
 
     try {
-      final result = await ref.read(venueRepositoryProvider).retryVenueSubscriptionPayment(widget.venueId);
+      final config = ref.read(appConfigProvider);
+      final needsReaccept = needsBusinessOfferReacceptance(
+        acceptedVersion: widget.offerAcceptedVersion,
+        currentVersion: config.businessOfferVersion,
+      );
+
+      ({String version, String documentUrl, String appVersion})? offerAcceptance;
+      if (needsReaccept) {
+        final accepted = await showBusinessOfferReacceptSheet(context);
+        if (!accepted) return;
+        final packageInfo = await PackageInfo.fromPlatform();
+        offerAcceptance = (version: config.businessOfferVersion, documentUrl: config.urlBusinessOffer, appVersion: packageInfo.version);
+      }
+
+      final result = await ref
+          .read(venueRepositoryProvider)
+          .retryVenueSubscriptionPayment(widget.venueId, offerAcceptance: offerAcceptance);
       if (!mounted) return;
       await presentEpointCheckout(context, checkoutUrl: result.checkoutUrl, paymentId: result.paymentId, feeAmount: result.feeAmount);
     } catch (_) {

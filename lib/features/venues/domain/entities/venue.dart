@@ -60,6 +60,14 @@ enum VenueCategory {
   dryCleaning,
   applianceRepair,
   tutoringCenter,
+  // Offer-only categories — see `lib/core/constants/category_capabilities.dart`.
+  // These three can never create Events/PinBox/Waitlist entries,
+  // enforced both client-side (capability model) and server-side
+  // (firestore.rules' `isOfferOnlyCategory`, `joinWaitlist`'s
+  // `OFFER_ONLY_VENUE_CATEGORIES` in functions/src/index.ts).
+  wineHouse,
+  homeServices,
+  realEstate,
   // [independentArtist] is the odd one out — the one category with its
   // own venue-level "İzlə" (follow) feature, see `_VenueFollowButton`
   // in venue_profile_screen.dart. `wineBar`/`cleaningServices` were
@@ -148,6 +156,9 @@ const _venueCategoryIcons = <VenueCategory, IconData>{
   VenueCategory.dryCleaning: Icons.local_laundry_service_outlined,
   VenueCategory.applianceRepair: Icons.handyman_outlined,
   VenueCategory.tutoringCenter: Icons.school_outlined,
+  VenueCategory.wineHouse: Icons.wine_bar_outlined,
+  VenueCategory.homeServices: Icons.cleaning_services_outlined,
+  VenueCategory.realEstate: Icons.house_outlined,
   VenueCategory.independentArtist: Icons.campaign_outlined,
   VenueCategory.other: Icons.category_outlined,
 };
@@ -387,6 +398,30 @@ class Venue with _$Venue {
     /// existed — `renewVenueSubscriptions` treats a null the same as an
     /// overdue date so those venues enter the cycle on its next run.
     @NullableTimestampConverter() DateTime? subscriptionRenewsAt,
+
+    /// The "PeakPin Biznes Xidmətlərinin Publik Ofertası" version this
+    /// venue's owner most recently accepted — set only by
+    /// `applyPaymentOutcome` (functions/src/index.ts) once a payment it
+    /// was attached to actually succeeds, never by the client directly
+    /// (see firestore.rules). Compared against
+    /// `AppConfig.businessOfferVersion` to decide whether a fresh
+    /// acceptance is required before the next subscription payment.
+    /// Null on venues created before this feature existed.
+    String? offerAcceptedVersion,
+
+    /// Server time of the acceptance recorded in [offerAcceptedVersion].
+    /// Grant-of-trust, same as [subscriptionRenewsAt].
+    @NullableTimestampConverter() DateTime? offerAcceptedAt,
+
+    /// `"<appVersion> / <platform>"` the acceptance was made from —
+    /// audit trail only, same format as the version-telemetry fields on
+    /// `users/{uid}` (`firebase_auth_repository._maybeWriteVersionTelemetry`).
+    String? offerAcceptedFrom,
+
+    /// The exact document URL shown to the owner at acceptance time —
+    /// kept alongside [offerAcceptedVersion] since `AppConfig.urlBusinessOffer`
+    /// can change independently of the version number.
+    String? offerDocumentUrl,
 
     /// True for one of the first 1000 venues ever approved — see
     /// `assignFoundingVenueIfEligible` (Cloud Function, functions/src/

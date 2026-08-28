@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../../core/theme/app_colors.dart';
 import '../../../../../core/theme/app_text_styles.dart';
 import '../../../../../l10n/app_localizations.dart';
-
-/// Same support address published in the Privacy Policy / Terms of
-/// Service (see `legal_texts.dart`) — kept as one literal here since
-/// there's no shared constants file for legal/support contact info yet.
-const String kSupportEmail = 'support@peakpin.app';
+import '../../../../app_config/presentation/providers/app_config_providers.dart';
 
 void showContactUsSheet(BuildContext context) {
   final loc = AppLocalizations.of(context);
+  final supportEmail = ProviderScope.containerOf(context, listen: false).read(appConfigProvider).supportEmail;
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.surface,
@@ -36,12 +34,12 @@ void showContactUsSheet(BuildContext context) {
                     const Icon(Icons.email_outlined, color: AppColors.textSecondary, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(kSupportEmail, style: AppTextStyles.body.copyWith(fontSize: 15)),
+                      child: Text(supportEmail, style: AppTextStyles.body.copyWith(fontSize: 15)),
                     ),
                     IconButton(
                       icon: const Icon(Icons.copy_outlined, size: 18, color: AppColors.textMuted),
                       onPressed: () async {
-                        await Clipboard.setData(const ClipboardData(text: kSupportEmail));
+                        await Clipboard.setData(ClipboardData(text: supportEmail));
                         if (sheetContext.mounted) {
                           ScaffoldMessenger.of(sheetContext).showSnackBar(
                             SnackBar(content: Text(loc.contactUsEmailCopiedNotice)),
@@ -62,7 +60,7 @@ void showContactUsSheet(BuildContext context) {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                   ),
-                  onPressed: () => launchUrl(Uri(scheme: 'mailto', path: kSupportEmail)),
+                  onPressed: () => launchUrl(Uri(scheme: 'mailto', path: supportEmail)),
                   icon: const Icon(Icons.send_outlined, size: 18),
                   label: Text(loc.contactUsSendEmailButton),
                 ),

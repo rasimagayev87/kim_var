@@ -272,6 +272,9 @@ double offerPlacementFeeForCategory(VenueCategory category) {
     VenueCategory.dryCleaning => 5.0,
     VenueCategory.applianceRepair => 4.0,
     VenueCategory.tutoringCenter => 5.0,
+    VenueCategory.wineHouse => 7.0,
+    VenueCategory.homeServices => 4.0,
+    VenueCategory.realEstate => 5.0,
     VenueCategory.independentArtist => 7.0,
     VenueCategory.other => 5.0,
   };

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../../../core/utils/app_logger.dart';
 import '../../../profile/domain/entities/public_profile.dart';
 import '../../../venues/domain/entities/venue.dart';
 import '../../domain/repositories/discover_search_repository.dart';
@@ -65,7 +66,19 @@ class FirebaseDiscoverSearchRepository implements DiscoverSearchRepository {
         .limit(limit)
         .get();
 
-    return snap.docs.map((d) => Venue.fromFirestore(d.id, d.data())).toList();
+    return snap.docs
+        .map((d) {
+          try {
+            return Venue.fromFirestore(d.id, d.data());
+          } catch (e, st) {
+            // See `FirebaseVenueRepository._safeVenue`'s doc comment —
+            // same per-document isolation.
+            logError('firebase_discover_search_repository.Venue.fromFirestore(${d.id})', e, st);
+            return null;
+          }
+        })
+        .whereType<Venue>()
+        .toList();
   }
 
   /// Resolves matched uids to profiles with a plain `Future.wait` of

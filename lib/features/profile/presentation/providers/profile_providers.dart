@@ -17,6 +17,15 @@ final profileControllerProvider =
   return ProfileController();
 });
 
+/// Single source of truth for "does the current user currently have
+/// business access" — wraps [UserProfile.hasBusinessAccess] so every
+/// gate that depends on it (e.g. the business-offer acceptance step in
+/// venue creation) reads through one provider instead of re-deriving
+/// the condition at each call site.
+final hasBusinessAccessProvider = Provider<bool>((ref) {
+  return ref.watch(profileControllerProvider).hasBusinessAccess;
+});
+
 class ProfileController extends StateNotifier<UserProfile> {
   static const _keyPhotoUrl = 'profile_cache_photo_url';
   static const _keyBio = 'profile_cache_bio';

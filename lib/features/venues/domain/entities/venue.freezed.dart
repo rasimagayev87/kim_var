@@ -83,6 +83,31 @@ mixin _$Venue {
   @NullableTimestampConverter()
   DateTime? get subscriptionRenewsAt => throw _privateConstructorUsedError;
 
+  /// The "PeakPin Biznes Xidmətlərinin Publik Ofertası" version this
+  /// venue's owner most recently accepted — set only by
+  /// `applyPaymentOutcome` (functions/src/index.ts) once a payment it
+  /// was attached to actually succeeds, never by the client directly
+  /// (see firestore.rules). Compared against
+  /// `AppConfig.businessOfferVersion` to decide whether a fresh
+  /// acceptance is required before the next subscription payment.
+  /// Null on venues created before this feature existed.
+  String? get offerAcceptedVersion => throw _privateConstructorUsedError;
+
+  /// Server time of the acceptance recorded in [offerAcceptedVersion].
+  /// Grant-of-trust, same as [subscriptionRenewsAt].
+  @NullableTimestampConverter()
+  DateTime? get offerAcceptedAt => throw _privateConstructorUsedError;
+
+  /// `"<appVersion> / <platform>"` the acceptance was made from —
+  /// audit trail only, same format as the version-telemetry fields on
+  /// `users/{uid}` (`firebase_auth_repository._maybeWriteVersionTelemetry`).
+  String? get offerAcceptedFrom => throw _privateConstructorUsedError;
+
+  /// The exact document URL shown to the owner at acceptance time —
+  /// kept alongside [offerAcceptedVersion] since `AppConfig.urlBusinessOffer`
+  /// can change independently of the version number.
+  String? get offerDocumentUrl => throw _privateConstructorUsedError;
+
   /// True for one of the first 1000 venues ever approved — see
   /// `assignFoundingVenueIfEligible` (Cloud Function, functions/src/
   /// index.ts), which sets this (with [freeOffersUsed]/
@@ -163,10 +188,15 @@ mixin _$Venue {
   @VenueSocialLinksConverter()
   VenueSocialLinks? get socialLinks => throw _privateConstructorUsedError;
 
-  /// 'distance' | 'country' | 'world' — same 3 modes as Discover's own
-  /// `DiscoverRadiusSelection`, just persisted here since the owner
-  /// picks one and it stays fixed, where Discover's version is
-  /// transient per-viewer session state, never saved.
+  /// Distance-only going forward — the create/edit form's picker only
+  /// ever writes 'distance' now (a whole-country/worldwide live
+  /// audience count isn't a meaningful number the way nearby foot
+  /// traffic is). 'country'/'world' remain valid, READ-only values on
+  /// venues that already had them before this change — not force
+  /// -migrated, `venueAudienceCountProvider` still has working
+  /// branches for both. Reused from Discover's own
+  /// `DiscoverRadiusSelection` type purely for the 3-value string
+  /// shape, not because all 3 stay pickable here.
   String get audienceRadiusMode => throw _privateConstructorUsedError;
 
   /// Only meaningful when [audienceRadiusMode] is 'distance' — radius
@@ -174,8 +204,11 @@ mixin _$Venue {
   /// [VenueProfileScreen] scans around [lat]/[lng] for recently-active
   /// `users` docs — see `location_providers.dart`'s
   /// `venueAudienceCountProvider`. Owner-editable from the create/edit
-  /// form (same option set as Discover's own radius picker); defaults
-  /// to 1km since venues have no other stored radius to default from.
+  /// form's 6 fixed distance options (100m/500m/1/5/10/30km) — the
+  /// ONE field edit exempt from re-triggering moderation review, see
+  /// the `updateVenue` Cloud Function's own doc comment
+  /// (functions/src/index.ts); defaults to 1km since venues have no
+  /// other stored radius to default from.
   double get audienceRadiusKm => throw _privateConstructorUsedError;
 
   /// Set either by a real Epoint payment (`applyPaymentOutcome`'s
@@ -279,6 +312,10 @@ abstract class $VenueCopyWith<$Res> {
     @NullableTimestampConverter() DateTime? reviewedAt,
     String? paymentId,
     @NullableTimestampConverter() DateTime? subscriptionRenewsAt,
+    String? offerAcceptedVersion,
+    @NullableTimestampConverter() DateTime? offerAcceptedAt,
+    String? offerAcceptedFrom,
+    String? offerDocumentUrl,
     bool isFoundingVenue,
     int freeOffersUsed,
     @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
@@ -337,6 +374,10 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? reviewedAt = freezed,
     Object? paymentId = freezed,
     Object? subscriptionRenewsAt = freezed,
+    Object? offerAcceptedVersion = freezed,
+    Object? offerAcceptedAt = freezed,
+    Object? offerAcceptedFrom = freezed,
+    Object? offerDocumentUrl = freezed,
     Object? isFoundingVenue = null,
     Object? freeOffersUsed = null,
     Object? freeOfferWindowEnd = freezed,
@@ -431,6 +472,22 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
                 ? _value.subscriptionRenewsAt
                 : subscriptionRenewsAt // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            offerAcceptedVersion: freezed == offerAcceptedVersion
+                ? _value.offerAcceptedVersion
+                : offerAcceptedVersion // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            offerAcceptedAt: freezed == offerAcceptedAt
+                ? _value.offerAcceptedAt
+                : offerAcceptedAt // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            offerAcceptedFrom: freezed == offerAcceptedFrom
+                ? _value.offerAcceptedFrom
+                : offerAcceptedFrom // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            offerDocumentUrl: freezed == offerDocumentUrl
+                ? _value.offerDocumentUrl
+                : offerDocumentUrl // ignore: cast_nullable_to_non_nullable
+                      as String?,
             isFoundingVenue: null == isFoundingVenue
                 ? _value.isFoundingVenue
                 : isFoundingVenue // ignore: cast_nullable_to_non_nullable
@@ -556,6 +613,10 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     @NullableTimestampConverter() DateTime? reviewedAt,
     String? paymentId,
     @NullableTimestampConverter() DateTime? subscriptionRenewsAt,
+    String? offerAcceptedVersion,
+    @NullableTimestampConverter() DateTime? offerAcceptedAt,
+    String? offerAcceptedFrom,
+    String? offerDocumentUrl,
     bool isFoundingVenue,
     int freeOffersUsed,
     @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
@@ -613,6 +674,10 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? reviewedAt = freezed,
     Object? paymentId = freezed,
     Object? subscriptionRenewsAt = freezed,
+    Object? offerAcceptedVersion = freezed,
+    Object? offerAcceptedAt = freezed,
+    Object? offerAcceptedFrom = freezed,
+    Object? offerDocumentUrl = freezed,
     Object? isFoundingVenue = null,
     Object? freeOffersUsed = null,
     Object? freeOfferWindowEnd = freezed,
@@ -707,6 +772,22 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.subscriptionRenewsAt
             : subscriptionRenewsAt // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        offerAcceptedVersion: freezed == offerAcceptedVersion
+            ? _value.offerAcceptedVersion
+            : offerAcceptedVersion // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        offerAcceptedAt: freezed == offerAcceptedAt
+            ? _value.offerAcceptedAt
+            : offerAcceptedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        offerAcceptedFrom: freezed == offerAcceptedFrom
+            ? _value.offerAcceptedFrom
+            : offerAcceptedFrom // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        offerDocumentUrl: freezed == offerDocumentUrl
+            ? _value.offerDocumentUrl
+            : offerDocumentUrl // ignore: cast_nullable_to_non_nullable
+                  as String?,
         isFoundingVenue: null == isFoundingVenue
             ? _value.isFoundingVenue
             : isFoundingVenue // ignore: cast_nullable_to_non_nullable
@@ -825,6 +906,10 @@ class _$VenueImpl extends _Venue {
     @NullableTimestampConverter() this.reviewedAt,
     this.paymentId,
     @NullableTimestampConverter() this.subscriptionRenewsAt,
+    this.offerAcceptedVersion,
+    @NullableTimestampConverter() this.offerAcceptedAt,
+    this.offerAcceptedFrom,
+    this.offerDocumentUrl,
     this.isFoundingVenue = false,
     this.freeOffersUsed = 0,
     @NullableTimestampConverter() this.freeOfferWindowEnd,
@@ -945,6 +1030,35 @@ class _$VenueImpl extends _Venue {
   @NullableTimestampConverter()
   final DateTime? subscriptionRenewsAt;
 
+  /// The "PeakPin Biznes Xidmətlərinin Publik Ofertası" version this
+  /// venue's owner most recently accepted — set only by
+  /// `applyPaymentOutcome` (functions/src/index.ts) once a payment it
+  /// was attached to actually succeeds, never by the client directly
+  /// (see firestore.rules). Compared against
+  /// `AppConfig.businessOfferVersion` to decide whether a fresh
+  /// acceptance is required before the next subscription payment.
+  /// Null on venues created before this feature existed.
+  @override
+  final String? offerAcceptedVersion;
+
+  /// Server time of the acceptance recorded in [offerAcceptedVersion].
+  /// Grant-of-trust, same as [subscriptionRenewsAt].
+  @override
+  @NullableTimestampConverter()
+  final DateTime? offerAcceptedAt;
+
+  /// `"<appVersion> / <platform>"` the acceptance was made from —
+  /// audit trail only, same format as the version-telemetry fields on
+  /// `users/{uid}` (`firebase_auth_repository._maybeWriteVersionTelemetry`).
+  @override
+  final String? offerAcceptedFrom;
+
+  /// The exact document URL shown to the owner at acceptance time —
+  /// kept alongside [offerAcceptedVersion] since `AppConfig.urlBusinessOffer`
+  /// can change independently of the version number.
+  @override
+  final String? offerDocumentUrl;
+
   /// True for one of the first 1000 venues ever approved — see
   /// `assignFoundingVenueIfEligible` (Cloud Function, functions/src/
   /// index.ts), which sets this (with [freeOffersUsed]/
@@ -1045,10 +1159,15 @@ class _$VenueImpl extends _Venue {
   @VenueSocialLinksConverter()
   final VenueSocialLinks? socialLinks;
 
-  /// 'distance' | 'country' | 'world' — same 3 modes as Discover's own
-  /// `DiscoverRadiusSelection`, just persisted here since the owner
-  /// picks one and it stays fixed, where Discover's version is
-  /// transient per-viewer session state, never saved.
+  /// Distance-only going forward — the create/edit form's picker only
+  /// ever writes 'distance' now (a whole-country/worldwide live
+  /// audience count isn't a meaningful number the way nearby foot
+  /// traffic is). 'country'/'world' remain valid, READ-only values on
+  /// venues that already had them before this change — not force
+  /// -migrated, `venueAudienceCountProvider` still has working
+  /// branches for both. Reused from Discover's own
+  /// `DiscoverRadiusSelection` type purely for the 3-value string
+  /// shape, not because all 3 stay pickable here.
   @override
   @JsonKey()
   final String audienceRadiusMode;
@@ -1058,8 +1177,11 @@ class _$VenueImpl extends _Venue {
   /// [VenueProfileScreen] scans around [lat]/[lng] for recently-active
   /// `users` docs — see `location_providers.dart`'s
   /// `venueAudienceCountProvider`. Owner-editable from the create/edit
-  /// form (same option set as Discover's own radius picker); defaults
-  /// to 1km since venues have no other stored radius to default from.
+  /// form's 6 fixed distance options (100m/500m/1/5/10/30km) — the
+  /// ONE field edit exempt from re-triggering moderation review, see
+  /// the `updateVenue` Cloud Function's own doc comment
+  /// (functions/src/index.ts); defaults to 1km since venues have no
+  /// other stored radius to default from.
   @override
   @JsonKey()
   final double audienceRadiusKm;
@@ -1147,7 +1269,7 @@ class _$VenueImpl extends _Venue {
 
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, isFoundingVenue: $isFoundingVenue, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, firstPaymentAnnouncementPending: $firstPaymentAnnouncementPending, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, ratingAverage: $ratingAverage, ratingCount: $ratingCount, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, premiumExpiresAt: $premiumExpiresAt, premiumExpiryReminderSent: $premiumExpiryReminderSent, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, offerAcceptedVersion: $offerAcceptedVersion, offerAcceptedAt: $offerAcceptedAt, offerAcceptedFrom: $offerAcceptedFrom, offerDocumentUrl: $offerDocumentUrl, isFoundingVenue: $isFoundingVenue, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, firstPaymentAnnouncementPending: $firstPaymentAnnouncementPending, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, ratingAverage: $ratingAverage, ratingCount: $ratingCount, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, premiumExpiresAt: $premiumExpiresAt, premiumExpiryReminderSent: $premiumExpiryReminderSent, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
   }
 
   @override
@@ -1180,6 +1302,14 @@ class _$VenueImpl extends _Venue {
                 other.paymentId == paymentId) &&
             (identical(other.subscriptionRenewsAt, subscriptionRenewsAt) ||
                 other.subscriptionRenewsAt == subscriptionRenewsAt) &&
+            (identical(other.offerAcceptedVersion, offerAcceptedVersion) ||
+                other.offerAcceptedVersion == offerAcceptedVersion) &&
+            (identical(other.offerAcceptedAt, offerAcceptedAt) ||
+                other.offerAcceptedAt == offerAcceptedAt) &&
+            (identical(other.offerAcceptedFrom, offerAcceptedFrom) ||
+                other.offerAcceptedFrom == offerAcceptedFrom) &&
+            (identical(other.offerDocumentUrl, offerDocumentUrl) ||
+                other.offerDocumentUrl == offerDocumentUrl) &&
             (identical(other.isFoundingVenue, isFoundingVenue) ||
                 other.isFoundingVenue == isFoundingVenue) &&
             (identical(other.freeOffersUsed, freeOffersUsed) ||
@@ -1259,6 +1389,10 @@ class _$VenueImpl extends _Venue {
     reviewedAt,
     paymentId,
     subscriptionRenewsAt,
+    offerAcceptedVersion,
+    offerAcceptedAt,
+    offerAcceptedFrom,
+    offerDocumentUrl,
     isFoundingVenue,
     freeOffersUsed,
     freeOfferWindowEnd,
@@ -1317,6 +1451,10 @@ abstract class _Venue extends Venue {
     @NullableTimestampConverter() final DateTime? reviewedAt,
     final String? paymentId,
     @NullableTimestampConverter() final DateTime? subscriptionRenewsAt,
+    final String? offerAcceptedVersion,
+    @NullableTimestampConverter() final DateTime? offerAcceptedAt,
+    final String? offerAcceptedFrom,
+    final String? offerDocumentUrl,
     final bool isFoundingVenue,
     final int freeOffersUsed,
     @NullableTimestampConverter() final DateTime? freeOfferWindowEnd,
@@ -1424,6 +1562,35 @@ abstract class _Venue extends Venue {
   @NullableTimestampConverter()
   DateTime? get subscriptionRenewsAt;
 
+  /// The "PeakPin Biznes Xidmətlərinin Publik Ofertası" version this
+  /// venue's owner most recently accepted — set only by
+  /// `applyPaymentOutcome` (functions/src/index.ts) once a payment it
+  /// was attached to actually succeeds, never by the client directly
+  /// (see firestore.rules). Compared against
+  /// `AppConfig.businessOfferVersion` to decide whether a fresh
+  /// acceptance is required before the next subscription payment.
+  /// Null on venues created before this feature existed.
+  @override
+  String? get offerAcceptedVersion;
+
+  /// Server time of the acceptance recorded in [offerAcceptedVersion].
+  /// Grant-of-trust, same as [subscriptionRenewsAt].
+  @override
+  @NullableTimestampConverter()
+  DateTime? get offerAcceptedAt;
+
+  /// `"<appVersion> / <platform>"` the acceptance was made from —
+  /// audit trail only, same format as the version-telemetry fields on
+  /// `users/{uid}` (`firebase_auth_repository._maybeWriteVersionTelemetry`).
+  @override
+  String? get offerAcceptedFrom;
+
+  /// The exact document URL shown to the owner at acceptance time —
+  /// kept alongside [offerAcceptedVersion] since `AppConfig.urlBusinessOffer`
+  /// can change independently of the version number.
+  @override
+  String? get offerDocumentUrl;
+
   /// True for one of the first 1000 venues ever approved — see
   /// `assignFoundingVenueIfEligible` (Cloud Function, functions/src/
   /// index.ts), which sets this (with [freeOffersUsed]/
@@ -1516,10 +1683,15 @@ abstract class _Venue extends Venue {
   @VenueSocialLinksConverter()
   VenueSocialLinks? get socialLinks;
 
-  /// 'distance' | 'country' | 'world' — same 3 modes as Discover's own
-  /// `DiscoverRadiusSelection`, just persisted here since the owner
-  /// picks one and it stays fixed, where Discover's version is
-  /// transient per-viewer session state, never saved.
+  /// Distance-only going forward — the create/edit form's picker only
+  /// ever writes 'distance' now (a whole-country/worldwide live
+  /// audience count isn't a meaningful number the way nearby foot
+  /// traffic is). 'country'/'world' remain valid, READ-only values on
+  /// venues that already had them before this change — not force
+  /// -migrated, `venueAudienceCountProvider` still has working
+  /// branches for both. Reused from Discover's own
+  /// `DiscoverRadiusSelection` type purely for the 3-value string
+  /// shape, not because all 3 stay pickable here.
   @override
   String get audienceRadiusMode;
 
@@ -1528,8 +1700,11 @@ abstract class _Venue extends Venue {
   /// [VenueProfileScreen] scans around [lat]/[lng] for recently-active
   /// `users` docs — see `location_providers.dart`'s
   /// `venueAudienceCountProvider`. Owner-editable from the create/edit
-  /// form (same option set as Discover's own radius picker); defaults
-  /// to 1km since venues have no other stored radius to default from.
+  /// form's 6 fixed distance options (100m/500m/1/5/10/30km) — the
+  /// ONE field edit exempt from re-triggering moderation review, see
+  /// the `updateVenue` Cloud Function's own doc comment
+  /// (functions/src/index.ts); defaults to 1km since venues have no
+  /// other stored radius to default from.
   @override
   double get audienceRadiusKm;
 

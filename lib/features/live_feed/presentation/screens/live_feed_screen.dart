@@ -4,9 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../events/presentation/screens/event_details_screen.dart';
+import '../../../location/presentation/providers/location_providers.dart';
 import '../../../offers/presentation/screens/offer_details_screen.dart';
 import '../../../pinbox/presentation/providers/pinbox_providers.dart';
 import '../../../pinbox/presentation/screens/pinbox_checkout_screen.dart';
+import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../../domain/entities/live_feed_item.dart';
 import '../providers/live_feed_providers.dart';
@@ -94,10 +96,48 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
     }
   }
 
+  /// The exact same tiers Kəşf et's own picker offers
+  /// (`kDefaultRadiusOptionsKm` + `kExtraRadiusOptionsKm`), plus
+  /// Ölkə/Dünya for VIP users only — so cycling here can never land on
+  /// a value that isn't a real, selectable option anywhere else in the
+  /// app.
+  List<DiscoverRadiusSelection> _radiusCycle(bool isPremium) => [
+    for (final km in [...kDefaultRadiusOptionsKm, ...kExtraRadiusOptionsKm]) DiscoverRadiusSelection.distance(km),
+    if (isPremium) const DiscoverRadiusSelection.country(),
+    if (isPremium) const DiscoverRadiusSelection.world(),
+  ];
+
+  /// Updating that provider alone used to be silently invisible: the
+  /// poll loop only picks up the new radius on its next scheduled tick
+  /// (up to [liveFeedPollInterval] later), which read as "the button
+  /// does nothing" — [LiveFeedController.refreshNow] forces an
+  /// immediate fetch, and the snackbar confirms the tap registered
+  /// even on the (likely, right after this radius still finds
+  /// nothing) case where the list stays empty.
+  void _increaseRadius(BuildContext context, WidgetRef ref) {
+    final cycle = _radiusCycle(ref.read(isPremiumProvider));
+    final currentIndex = cycle.indexOf(ref.read(selectedDiscoverModeProvider));
+    final next = cycle[(currentIndex + 1) % cycle.length];
+    ref.read(selectedDiscoverModeProvider.notifier).state = next;
+    ref.read(liveFeedControllerProvider.notifier).refreshNow();
+
+    final loc = AppLocalizations.of(context);
+    final label = switch (next.mode) {
+      DiscoverRadiusMode.distance =>
+        next.km! < 1 ? '${(next.km! * 1000).round()} m' : '${next.km!.toStringAsFixed(0)} km',
+      DiscoverRadiusMode.country => loc.privacyRadiusCountryLabel,
+      DiscoverRadiusMode.world => loc.privacyRadiusWorldLabel,
+    };
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(loc.liveFeedRadiusIncreasedMessage(label))),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final itemsAsync = ref.watch(liveFeedControllerProvider);
+    final isEmpty = itemsAsync.valueOrNull?.isEmpty ?? false;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -123,25 +163,73 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
               loading: () => const SizedBox.shrink(),
               error: (_, _) => const SizedBox.shrink(),
             ),
-            const Expanded(
-              child: SingleChildScrollView(
-                padding: EdgeInsets.only(bottom: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 16),
-                    LiveFeedHeroSection(),
-                    SizedBox(height: 24),
-                    LiveFeedOffersSection(),
-                    SizedBox(height: 24),
-                    LiveFeedSeatsSection(),
-                    SizedBox(height: 24),
-                    LiveFeedPinboxSection(),
-                    SizedBox(height: 24),
-                    LiveFeedEventsSection(),
-                  ],
-                ),
+            Expanded(
+              child: isEmpty
+                  ? _LiveFeedEmptyState(onIncreaseRadius: () => _increaseRadius(context, ref))
+                  : const SingleChildScrollView(
+                      padding: EdgeInsets.only(bottom: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 16),
+                          LiveFeedHeroSection(),
+                          SizedBox(height: 24),
+                          LiveFeedOffersSection(),
+                          SizedBox(height: 24),
+                          LiveFeedSeatsSection(),
+                          SizedBox(height: 24),
+                          LiveFeedPinboxSection(),
+                          SizedBox(height: 24),
+                          LiveFeedEventsSection(),
+                        ],
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shown instead of the section carousels when [LiveFeedController]'s
+/// aggregate result is empty — the radius the user has selected simply
+/// has nothing live in it yet, so the way out is to widen it, not to
+/// stare at 5 empty sections one by one.
+class _LiveFeedEmptyState extends StatelessWidget {
+  final VoidCallback onIncreaseRadius;
+
+  const _LiveFeedEmptyState({required this.onIncreaseRadius});
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
               ),
+              child: const Icon(Icons.sensors_off_rounded, color: AppColors.primary, size: 30),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              loc.liveFeedEmptyMessage,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5),
+            ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: onIncreaseRadius,
+              style: TextButton.styleFrom(foregroundColor: AppColors.primary),
+              child: Text(loc.liveFeedIncreaseRadiusButton, style: const TextStyle(fontWeight: FontWeight.w700)),
             ),
           ],
         ),

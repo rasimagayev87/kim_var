@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
+import '../../../../core/utils/app_logger.dart';
 import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../domain/entities/venue_event.dart';
 import '../../domain/repositories/venue_event_repository.dart';
@@ -24,6 +25,17 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
   final FirebaseStorage _storage;
 
   CollectionReference<Map<String, dynamic>> get _events => _firestore.collection('venueEvents');
+
+  /// See `FirebaseVenueRepository._safeVenue`'s doc comment — same
+  /// per-document isolation, applied here for `VenueEvent`.
+  VenueEvent? _safeEvent(String id, Map<String, dynamic> data) {
+    try {
+      return VenueEvent.fromFirestore(id, data);
+    } catch (e, st) {
+      logError('firebase_venue_event_repository.VenueEvent.fromFirestore($id)', e, st);
+      return null;
+    }
+  }
 
   @override
   Future<String> createEvent({
@@ -138,7 +150,7 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
   Stream<VenueEvent?> watchEvent(String eventId) {
     return _events.doc(eventId).snapshots().map((doc) {
       final data = doc.data();
-      return data == null ? null : VenueEvent.fromFirestore(doc.id, data);
+      return data == null ? null : _safeEvent(doc.id, data);
     });
   }
 
@@ -148,7 +160,7 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
         .where('venueId', isEqualTo: venueId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => VenueEvent.fromFirestore(d.id, d.data())).toList());
+        .map((snap) => snap.docs.map((d) => _safeEvent(d.id, d.data())).whereType<VenueEvent>().toList());
   }
 
   @override
@@ -163,8 +175,9 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
         .where('venueId', isEqualTo: venueId)
         .where('status', whereIn: [VenueEventStatus.upcoming.name, VenueEventStatus.live.name])
         .get();
-    final events = snap.docs.map((d) => VenueEvent.fromFirestore(d.id, d.data())).where((e) => e.isToday).toList()
-      ..sort((a, b) => a.startAt.compareTo(b.startAt));
+    final events =
+        snap.docs.map((d) => _safeEvent(d.id, d.data())).whereType<VenueEvent>().where((e) => e.isToday).toList()
+          ..sort((a, b) => a.startAt.compareTo(b.startAt));
     return events.isEmpty ? null : events.first;
   }
 
@@ -190,9 +203,11 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
     );
     return results
         .map((r) => (
-              event: VenueEvent.fromFirestore(r.documentSnapshot.id, r.documentSnapshot.data()!),
+              event: _safeEvent(r.documentSnapshot.id, r.documentSnapshot.data()!),
               distanceMeters: r.distanceFromCenterInKm * 1000,
             ))
+        .where((r) => r.event != null)
+        .map((r) => (event: r.event!, distanceMeters: r.distanceMeters))
         .toList();
   }
 }
