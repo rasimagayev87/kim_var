@@ -1,0 +1,23 @@
+{
+  "parameters": {
+    "url_business_offer": {
+      "defaultValue": {
+        "value": "https://peakpin.app/business-offer.html"
+      },
+      "description": "Live document URL for the Business Services Public Offer, opened from Settings → Legal and the acceptance checkbox in venue creation/renewal."
+    },
+    "business_offer_version": {
+      "defaultValue": {
+        "value": "1.0"
+      },
+      "description": "Current version of the Business Services Public Offer. Compared against a venue's stored offerAcceptedVersion to decide whether re-acceptance is required before the next subscription payment."
+    },
+    "business_offer_effective_date": {
+      "defaultValue": {
+        "value": "2026-08-28"
+      },
+      "description": "ISO date shown in the in-app \"offer updated\" banner when business_offer_version changes."
+    }
+  },
+  "parameterGroups": {}
+}

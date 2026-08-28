@@ -61,18 +61,28 @@ void main() async {
   // user stuck on this path just gets rejected by server-side
   // enforcement on individual requests instead of never seeing the UI.
   try {
-    await FirebaseAppCheck.instance.activate(
-      androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
-      // Was AppleProvider.appAttest — real devices (confirmed: Google
-      // Sign-In itself succeeding, Gmail even sending its own "new
-      // sign-in" notification) were getting "Firebase App Check token is
-      // invalid" back from Identity Toolkit even with server-side
-      // enforcement OFF, meaning the SDK was generating a broken
-      // attestation and still attaching it. DeviceCheck is the older,
-      // simpler Apple attestation API — no per-install key generation to
-      // go stale/mismatch the way App Attest's can.
-      appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
-    );
+    // Bounded: `activate()` itself is a network round-trip on release
+    // providers (Play Integrity/DeviceCheck) with no built-in timeout —
+    // confirmed on a real device (wireless-debugged iPhone 12 Pro,
+    // release build) hanging indefinitely on the launch screen,
+    // meaning `runApp()` below never ran. `getToken()`'s own timeout a
+    // few lines down only protects the SECOND call, not this one — the
+    // exact "must never be the reason the app can't open" failure this
+    // whole block claims to prevent.
+    await FirebaseAppCheck.instance
+        .activate(
+          androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+          // Was AppleProvider.appAttest — real devices (confirmed: Google
+          // Sign-In itself succeeding, Gmail even sending its own "new
+          // sign-in" notification) were getting "Firebase App Check token is
+          // invalid" back from Identity Toolkit even with server-side
+          // enforcement OFF, meaning the SDK was generating a broken
+          // attestation and still attaching it. DeviceCheck is the older,
+          // simpler Apple attestation API — no per-install key generation to
+          // go stale/mismatch the way App Attest's can.
+          appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
+        )
+        .timeout(const Duration(seconds: 5));
     // activate() only registers the token provider — it does NOT mean
     // a token is actually cached yet. The real first fetch is a
     // network round-trip to Apple/Google's attestation servers, and

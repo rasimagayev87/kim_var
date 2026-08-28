@@ -40,8 +40,6 @@ void main() {
     const config = AppConfig();
     expect(config.urlBusinessOffer, isNotEmpty);
     expect(config.businessOfferVersion, isNotEmpty);
-    // No bundled default date makes sense (it's purely informational,
-    // shown in a banner) — empty is the correct, safe default here.
-    expect(config.businessOfferEffectiveDate, '');
+    expect(config.businessOfferEffectiveDate, isNotEmpty);
   });
 }

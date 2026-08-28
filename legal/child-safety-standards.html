@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uşaq Təhlükəsizliyi Standartları / Child Safety Standards — PeakPin</title>
+<style>
+  :root {
+    --bg: #F4F6F8;
+    --surface: #EEF2F4;
+    --card: #FFFFFF;
+    --text: #111827;
+    --text-secondary: #6B7280;
+    --accent: #12D6E8;
+    --divider: rgba(0,0,0,.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
+    line-height: 1.65;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 96px; }
+  .top-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 28px; flex-wrap: wrap; gap: 12px;
+  }
+  .logo { font-weight: 800; font-size: 19px; letter-spacing: -0.02em; color: var(--text); }
+  .logo span { color: #08BDD0; }
+  header { text-align: center; margin-bottom: 40px; }
+  header h1 { font-size: 22px; margin: 8px 0 4px; }
+  header .updated { color: var(--text-secondary); font-size: 14px; }
+  .lang-toggle { display: flex; background: var(--surface); border-radius: 99px; padding: 4px; gap: 2px; }
+  .lang-toggle button {
+    border: none; background: transparent; color: var(--text-secondary);
+    padding: 7px 16px; border-radius: 99px; font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    transition: .2s;
+  }
+  .lang-toggle button.active { background: var(--accent); color: #fff; }
+  section.card { background: var(--card); border-radius: 22px; padding: 32px 28px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  h2 { font-size: 17px; margin-top: 32px; margin-bottom: 10px; }
+  h2:first-child { margin-top: 0; }
+  p, li { color: var(--text); font-size: 15px; }
+  .warn { background: #FFF7ED; border: 1px solid #FDBA74; border-radius: 12px; padding: 14px 16px; font-weight: 600; }
+  ul { padding-left: 20px; }
+  a { color: var(--accent); }
+  .lang-block { display: none; }
+  .lang-block.active { display: block; }
+  footer { text-align: center; color: var(--text-secondary); font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-bar">
+    <div class="logo">Peak<span>Pin</span></div>
+    <div class="lang-toggle">
+      <button class="active" onclick="showLang('az', this)">AZ</button>
+      <button onclick="showLang('en', this)">EN</button>
+    </div>
+  </div>
+
+  <header>
+    <h1 id="page-title">Uşaq Təhlükəsizliyi Standartları</h1>
+    <div class="updated" id="updated-line">Son yenilənmə: 28 avqust 2026</div>
+  </header>
+
+  <section class="card">
+    <div class="lang-block active" id="az">
+      <h2>1. Sıfır tolerantlıq bəyanatı</h2>
+      <p class="warn">PeakPin uşaqların cinsi istismarı və istismarı (CSAE) daxil olmaqla, uşaqlara qarşı hər hansı zərərverici, təhqiredici və ya qanunsuz məzmuna, davranışa və ya əlaqəyə qarşı sıfır tolerantlıq siyasəti yürüdür. Bu cür məzmun və ya davranış aşkar edildikdə hesab dərhal və qeyri-müəyyən müddətə bloklanır və qanunla tələb olunan hallarda müvafiq orqanlara bildirilir.</p>
+
+      <h2>2. Yaş tələbi və hesab doğrulaması</h2>
+      <p>PeakPin-dən istifadə üçün minimum yaş həddi <strong>18</strong>-dir (bax: İstifadə Şərtləri, bənd 2). Hər hesab qeydiyyat zamanı real telefon nömrəsi ilə doğrulanır — bir nömrə, bir hesab. Yaşı 18-dən aşağı olduğu müəyyən edilən hesablar xəbərdarlıq edilmədən silinir.</p>
+
+      <h2>3. Məzmun moderasiyası</h2>
+      <p>Platformada yerləşdirilən biznes profilləri və kampaniyalar dərcdən əvvəl moderasiya prosesindən keçir (bax: İstifadə Şərtləri, bənd 7). İstifadəçi tərəfindən yaradılan bütün kontent İcma Qaydalarına tabedir; qaydaları pozan, o cümlədən uşaqlara zərər verə biləcək məzmun xəbərdarlıq edilmədən silinir.</p>
+
+      <h2>4. Bloklama və şikayət</h2>
+      <p>Hər istifadəçi tətbiq daxilində istənilən digər istifadəçini bir toxunuşla bloklaya və ya şikayət edə bilər. Şikayətlər PeakPin komandası tərəfindən nəzərdən keçirilir və müvafiq tədbirlər (xəbərdarlıq, hesabın müvəqqəti dayandırılması və ya silinməsi) görülür.</p>
+
+      <h2>5. Hesabatvermə və hüquq-mühafizə əməkdaşlığı</h2>
+      <p>PeakPin uşaqların cinsi istismarı ilə bağlı aşkar edilən və ya şübhə doğuran hər hansı məzmunu tətbiq olunan qanunvericiliyə (o cümlədən, müvafiq hallarda, ABŞ-ın 18 U.S.C. § 2258A qanununa) uyğun olaraq Milli İtkin və İstismar Edilən Uşaqlar Mərkəzinə (NCMEC) və/və ya səlahiyyətli hüquq-mühafizə orqanlarına bildirmək öhdəliyini qəbul edir və bu sahədə tam əməkdaşlıq göstərir.</p>
+
+      <h2>6. Əlaqə</h2>
+      <p>Uşaq təhlükəsizliyi ilə bağlı narahatlığınızı, şikayətinizi və ya hesabatınızı bildirmək üçün: <a href="mailto:privacy@peakpin.app">privacy@peakpin.app</a></p>
+      <p>Bütün hesabatlar prioritet qaydada nəzərdən keçirilir və mümkün qədər tez cavablandırılır.</p>
+    </div>
+
+    <div class="lang-block" id="en">
+      <h2>1. Zero-Tolerance Statement</h2>
+      <p class="warn">PeakPin maintains a zero-tolerance policy toward any content, conduct, or contact that is harmful, abusive, or unlawful with respect to children, including child sexual abuse and exploitation (CSAE). Upon detection of such content or conduct, the associated account is immediately and permanently blocked, and reported to the appropriate authorities where required by law.</p>
+
+      <h2>2. Age Requirement and Account Verification</h2>
+      <p>The minimum age to use PeakPin is <strong>18</strong> (see Terms of Service, section 2). Every account is verified with a real phone number at registration — one number, one account. Accounts found to belong to users under 18 are removed without notice.</p>
+
+      <h2>3. Content Moderation</h2>
+      <p>Business profiles and campaigns published on the platform go through a moderation process before going live (see Terms of Service, section 7). All user-generated content is subject to our Community Guidelines; content that violates these rules, including content that could harm children, is removed without notice.</p>
+
+      <h2>4. Blocking and Reporting</h2>
+      <p>Every user can block or report any other user in-app with a single tap. Reports are reviewed by the PeakPin team, and appropriate action is taken (warning, temporary suspension, or account deletion).</p>
+
+      <h2>5. Reporting and Law Enforcement Cooperation</h2>
+      <p>PeakPin commits to reporting any detected or suspected child sexual abuse and exploitation content to the National Center for Missing &amp; Exploited Children (NCMEC) and/or the appropriate law enforcement authorities, in accordance with applicable law (including, where applicable, 18 U.S.C. § 2258A), and to fully cooperate in any related investigation.</p>
+
+      <h2>6. Contact</h2>
+      <p>To report a child safety concern: <a href="mailto:privacy@peakpin.app">privacy@peakpin.app</a></p>
+      <p>All reports are reviewed as a priority and answered as promptly as possible.</p>
+    </div>
+  </section>
+
+  <footer>© 2026 PeakPin. Bütün hüquqlar qorunur. / All rights reserved.</footer>
+</div>
+
+<script>
+function showLang(lang, btn) {
+  document.querySelectorAll('.lang-block').forEach(el => el.classList.remove('active'));
+  document.getElementById(lang).classList.add('active');
+  document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('page-title').textContent = lang === 'az' ? 'Uşaq Təhlükəsizliyi Standartları' : 'Child Safety Standards';
+  document.getElementById('updated-line').textContent = lang === 'az'
+    ? 'Son yenilənmə: 28 avqust 2026'
+    : 'Last updated: August 28, 2026';
+}
+</script>
+</body>
+</html>

@@ -62,7 +62,7 @@ class AppConfig {
     this.urlCommunityGuidelines = 'https://peakpin.app/community-guidelines.html',
     this.urlBusinessOffer = 'https://peakpin.app/business-offer.html',
     this.businessOfferVersion = '1.0',
-    this.businessOfferEffectiveDate = '',
+    this.businessOfferEffectiveDate = '2026-08-28',
     this.supportEmail = 'support@peakpin.app',
     this.privacyEmail = 'privacy@peakpin.app',
     this.supportPhone = '',

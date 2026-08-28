@@ -53,7 +53,7 @@ final Map<String, dynamic> _defaults = {
   'url_community_guidelines': 'https://peakpin.app/community-guidelines.html',
   'url_business_offer': 'https://peakpin.app/business-offer.html',
   'business_offer_version': '1.0',
-  'business_offer_effective_date': '',
+  'business_offer_effective_date': '2026-08-28',
   'support_email': 'support@peakpin.app',
   'privacy_email': 'privacy@peakpin.app',
   'support_phone': '',
