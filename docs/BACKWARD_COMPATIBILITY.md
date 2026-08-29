@@ -118,7 +118,7 @@ Yuxarıdakı meyarlardan biri pozulan kimi (60 gün keçib **və ya** köhnə ve
 
 ### Uzaqdan sabitlər
 
-`AppConfig.urlPrivacyPolicy`/`urlTermsOfService`/`urlCommunityGuidelines`/`supportEmail`/`privacyEmail`/`radiusOptionsKm` — köhnə hardcoded dəyərlərin yerini tutur, default olaraq eyni qiymətlərlə bundle olunub. `lib/features/legal/legal_texts.dart`-dakı statik hüquqi mətnlər (istifadə olunmayan, "ölü kod") bilərəkdən toxunulmayıb — bunlar hər hansı ekranda göstərilmir, əvəzinə xarici `peakpin.app/privacy-policy.html` istifadə olunur.
+`AppConfig.urlPrivacyPolicy`/`urlTermsOfService`/`urlCommunityGuidelines`/`supportEmail`/`privacyEmail`/`radiusOptionsKm`/`nearbyRefreshSeconds` — köhnə hardcoded dəyərlərin yerini tutur, default olaraq eyni qiymətlərlə bundle olunub. `nearbyRefreshSeconds` (defolt 45) Düzəliş Prompt 4-də əlavə olundu — `findNearbyUsers` callable-inin nə qədər tez-tez sorğulandığını idarə edir. `lib/features/legal/legal_texts.dart`-dakı statik hüquqi mətnlər (istifadə olunmayan, "ölü kod") bilərəkdən toxunulmayıb — bunlar hər hansı ekranda göstərilmir, əvəzinə xarici `peakpin.app/privacy-policy.html` istifadə olunur.
 
 ---
 

@@ -18,7 +18,7 @@
  * The same formula both signs an outgoing request and verifies an
  * incoming webhook — Epoint just echoes the check back at you.
  */
-import { createHash } from "crypto";
+import { createHash, timingSafeEqual } from "crypto";
 
 /**
  * Epoint has only ever exposed one real API host — no distinct
@@ -89,10 +89,25 @@ function signPayload(privateKey: string, jsonData: Record<string, unknown>): { d
   return { data, signature };
 }
 
-/** Recomputes the signature the same way `signPayload` does, for verifying an inbound webhook's `data`/`signature` pair. */
+/**
+ * Recomputes the signature the same way `signPayload` does, for
+ * verifying an inbound webhook's `data`/`signature` pair. Düzəliş
+ * Prompt 6 / PAY-2 — `timingSafeEqual`, not `===`: a plain string
+ * compare short-circuits on the first mismatched byte, which leaks (via
+ * response timing) how many leading bytes of a forged signature happen
+ * to be correct, letting an attacker recover the expected signature
+ * byte-by-byte over many requests. `timingSafeEqual` throws on a length
+ * mismatch instead of comparing, so that's checked first — a forged
+ * signature of the wrong length is trivially invalid anyway, and the
+ * length check itself leaks nothing an attacker doesn't already know
+ * (SHA1-base64 output length never varies).
+ */
 export function verifyEpointSignature(privateKey: string, data: string, signature: string): boolean {
   const expected = createHash("sha1").update(`${privateKey}${data}${privateKey}`).digest("base64");
-  return expected === signature;
+  const expectedBuf = Buffer.from(expected);
+  const signatureBuf = Buffer.from(signature);
+  if (expectedBuf.length !== signatureBuf.length) return false;
+  return timingSafeEqual(expectedBuf, signatureBuf);
 }
 
 /** `data` decoded back to the JSON object Epoint signed — order_id, status, transaction, etc. */

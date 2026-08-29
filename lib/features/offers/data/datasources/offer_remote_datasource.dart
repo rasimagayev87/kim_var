@@ -12,8 +12,6 @@ abstract class OfferRemoteDatasource {
 
   Future<void> setOffer(String offerId, Map<String, dynamic> data);
 
-  Future<void> updateOffer(String offerId, Map<String, dynamic> data);
-
   Future<void> deleteOffer(String offerId);
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> watchOffer(String offerId);
@@ -46,14 +44,18 @@ abstract class OfferRemoteDatasource {
   /// Backs "Dünya üzrə" — mirrors `VenueRemoteDatasource.queryAllActive`.
   Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({required int limit, String? category});
 
+  /// [ownerId] is now part of the Storage path (Düzəliş Prompt 3 / K-6,
+  /// `offer_photos/{ownerId}/{offerId}.jpg`) — must equal the caller's
+  /// own uid, enforced by `storage.rules`.
   Future<String> uploadOfferPhoto(
+    String ownerId,
     String offerId,
     File photo, {
     ValueChanged<double>? onProgress,
     ValueChanged<VoidCallback>? onTaskReady,
   });
 
-  Future<void> deleteOfferPhoto(String offerId);
+  Future<void> deleteOfferPhoto(String ownerId, String offerId);
 
   /// Realtime set of offer ids the given user has favorited — mirrors
   /// `VenueRemoteDatasource.watchFavoriteVenueIds`, but stored under

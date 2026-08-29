@@ -14,13 +14,6 @@ class UserProfile {
   final String? email;
   final bool online;
   final DateTime? lastSeen;
-  final int heartCount;
-
-  /// The functional "Hesabı təsdiq et" gate — false until the phone-
-  /// linking verification flow succeeds. Gates interactive actions via
-  /// requireVerified(); no longer drives the profile checkmark badge —
-  /// see [identityVerified] for that.
-  final bool isVerified;
 
   /// The cosmetic profile checkmark badge — true only once the (not yet
   /// built) "Kimlik doğrulama" identity-document flow succeeds. Separate
@@ -49,8 +42,6 @@ class UserProfile {
     this.email,
     this.online = false,
     this.lastSeen,
-    this.heartCount = 0,
-    this.isVerified = false,
     this.identityVerified = false,
     this.businessStatus,
   });
@@ -81,8 +72,6 @@ class UserProfile {
     String? email,
     bool? online,
     DateTime? lastSeen,
-    int? heartCount,
-    bool? isVerified,
     String? businessStatus,
   }) {
     return UserProfile(
@@ -98,8 +87,6 @@ class UserProfile {
       email: email ?? this.email,
       online: online ?? this.online,
       lastSeen: lastSeen ?? this.lastSeen,
-      heartCount: heartCount ?? this.heartCount,
-      isVerified: isVerified ?? this.isVerified,
       businessStatus: businessStatus ?? this.businessStatus,
     );
   }

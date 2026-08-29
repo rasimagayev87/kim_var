@@ -4,8 +4,25 @@ import { getAdminDb } from "@/lib/firebase/admin";
 
 /** Mirrors the state machine in `functions/src/index.ts`
  * (`processPaymentRefund`/`expireListingRevisionDeadlines`) and
- * `setVenueStatus`/`setOfferStatus` (admin panel) exactly — same 5 strings. */
-export type PaymentStatus = "pending" | "completed" | "failed" | "revision_pending" | "refund_pending" | "refunded";
+ * `setVenueStatus`/`setOfferStatus` (admin panel) exactly.
+ * `superseded`/`amount_mismatch` — Düzəliş Prompt 6 / K-10, PAY-4:
+ * `superseded` is a payment doc replaced by a newer checkout attempt
+ * for the same listing (not a real decline — see
+ * `supersedeOtherPendingPayments`/`ensurePendingSubscriptionPayment`,
+ * functions/src/index.ts); `amount_mismatch` is a webhook whose amount/
+ * currency didn't match the payment doc's own — entitlement was NOT
+ * granted either way. Both MUST be listed here — the old fallback-to-
+ * "pending" `parseStatus` below would otherwise silently misrepresent
+ * either as a normal payable/pending row. */
+export type PaymentStatus =
+  | "pending"
+  | "completed"
+  | "failed"
+  | "revision_pending"
+  | "refund_pending"
+  | "refunded"
+  | "superseded"
+  | "amount_mismatch";
 export type PaymentStatusFilter = "all" | PaymentStatus;
 
 /** "pinboxOrder" payments (`type: "pinbox_order"`) point at a `pinboxOrders`
@@ -39,6 +56,13 @@ export interface AdminPaymentRow {
    * `applyPaymentOutcome`'s `venue_premium` branch, so this always
    * reflects where the venue's premium period stands NOW). */
   venuePremiumExpiresAt: string | null;
+  /** Düzəliş Prompt 6 / K-10 — true when this payment was `superseded`
+   * (a newer checkout replaced it) but a late webhook success still
+   * arrived and was honored anyway (`applyPaymentOutcome`'s own doc
+   * comment). Never silently dropped, so this must always be visible
+   * somewhere an admin can audit it — exact UI treatment (badge,
+   * filter) is Prompt 9's scope; the field itself is populated now. */
+  honoredAfterSupersede: boolean;
 }
 
 const FETCH_LIMIT = 200;
@@ -49,7 +73,9 @@ function parseStatus(value: unknown): PaymentStatus {
     value === "failed" ||
     value === "revision_pending" ||
     value === "refund_pending" ||
-    value === "refunded"
+    value === "refunded" ||
+    value === "superseded" ||
+    value === "amount_mismatch"
     ? value
     : "pending";
 }
@@ -148,6 +174,7 @@ export async function listPayments({
       updatedAt: updatedAt ? updatedAt.toDate().toISOString() : null,
       premiumMonths: (data.premiumMonths as number | undefined) ?? null,
       venuePremiumExpiresAt: venuePremiumExpiresAt ? venuePremiumExpiresAt.toDate().toISOString() : null,
+      honoredAfterSupersede: data.honoredAfterSupersede === true,
     };
   });
 }

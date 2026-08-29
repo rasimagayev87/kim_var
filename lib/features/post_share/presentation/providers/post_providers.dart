@@ -7,6 +7,7 @@ import 'package:video_thumbnail/video_thumbnail.dart' as vt;
 import '../../../../core/utils/app_logger.dart';
 import '../../../app_config/presentation/providers/app_config_providers.dart';
 import '../../../app_config/presentation/utils/read_only_guard.dart';
+import '../../../safety/presentation/providers/safety_providers.dart';
 import '../../data/repositories/firebase_post_repository.dart';
 import '../../domain/entities/post.dart';
 import '../../domain/entities/post_comment.dart';
@@ -64,9 +65,17 @@ final isPostRepostedByMeProvider = StreamProvider.autoDispose
       return ref.watch(postRepositoryProvider).watchIsRepostedByMe(postId, uid);
     });
 
+/// Excludes any commenter the signed-in user has blocked or been
+/// blocked by (Düzəliş Prompt 5 / K-3) — `firestore.rules` can't filter
+/// this out of the underlying `.snapshots()` list query itself, so it's
+/// done here (see `hiddenAuthorIdsProvider`'s own doc comment).
 final postCommentsProvider = StreamProvider.autoDispose
     .family<List<PostComment>, String>((ref, postId) {
-      return ref.watch(postRepositoryProvider).watchComments(postId);
+      final hidden = ref.watch(hiddenAuthorIdsProvider);
+      return ref
+          .watch(postRepositoryProvider)
+          .watchComments(postId)
+          .map((comments) => hidden.isEmpty ? comments : comments.where((c) => !hidden.contains(c.userId)).toList());
     });
 
 final postByIdProvider = StreamProvider.autoDispose.family<Post?, String>((

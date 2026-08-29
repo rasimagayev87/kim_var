@@ -10,7 +10,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { beforeUserSignedIn } from "firebase-functions/v2/identity";
 import { defineSecret } from "firebase-functions/params";
 import * as logger from "firebase-functions/logger";
-import { createHash, randomInt } from "crypto";
+import { createHash, randomInt, randomUUID } from "crypto";
 import {
   chargeEpointSavedCard,
   createEpointCardRegistration,
@@ -51,6 +51,97 @@ const messaging = getMessaging();
 const FRESH_SIGN_IN_WINDOW_SECONDS = 5 * 60;
 
 const DELETED_SENDER_PLACEHOLDER = "Bu istifadəçi hesabını silib";
+
+// Düzəliş Prompt 4 / K-1 — `users/{uid}` used to be fully world-readable
+// (`firestore.rules`: `allow read: if request.auth != null`) and carried
+// email, phoneNumber, birthDate, exact lat/lng, fcmTokens,
+// knownDeviceSignatures, and every self-preference toggle directly on
+// it — a single query against any uid handed over all of it. Those
+// fields now live in this owner-only subcollection instead
+// (`firestore.rules`' new `users/{uid}/private/{document}` block).
+// Three fields deliberately did NOT move despite being sensitive-ish —
+// each has a hard structural reason, not an oversight:
+//   - `country` — `getDiscoverCandidates`/`findNearbyUsers` filter with
+//     `db.collection("users").where("country", "==", ...)`, a top-level
+//     query. Firestore cannot filter a parent collection by a
+//     subcollection field, so this can't move without a much bigger
+//     redesign (a collectionGroup index) that isn't justified yet.
+//   - `blockedUsers` — `scrubFromOthersBlockLists` (account deletion)
+//     queries `where("blockedUsers", "array-contains", uid)` the same
+//     way; ALSO read cross-user by `firebase_chat_repository.dart`'s
+//     own block-check before sending a message — moving it would need
+//     Prompt 5's planned server-side block enforcement, not a half fix
+//     here.
+//   - `reportedCount` / `premiumExpiresAt` / `birthdayOffersOptIn` —
+//     `reportedCount` per Düzəliş Prompt 12's own finding (the only
+//     writer targets ANOTHER user's doc); `premiumExpiresAt` is
+//     compound-queried alongside `premium` in `expireLapsedPremium`
+//     (`where("premium","==",true).where("premiumExpiresAt","<=",now)`);
+//     `birthdayOffersOptIn` is queried directly in
+//     `computeBirthdayMatches`. Same "can't query across the split"
+//     constraint as `country`.
+function privateDataRef(uid: string): FirebaseFirestore.DocumentReference {
+  return db.collection("users").doc(uid).collection("private").doc("data");
+}
+
+// Düzəliş Prompt 11 / Y-1 — a deleted/banned account's Firebase ID
+// token stays cryptographically valid (signature + expiry only) for up
+// to its natural ~1h lifetime; neither `onCall`'s default auth context
+// nor Firestore Rules check token-revocation status. This checks live
+// Firestore state instead (independent of the token's own freshness),
+// mirroring `firestore.rules`' own `isActiveUser()` — see that
+// function's comment for why `bannedUsers/{uid}` exists as a separate
+// tombstone rather than a field on `users/{uid}` itself. Every
+// user-facing callable that creates/modifies content or money should
+// call this right after its `uid` guard — `completeOnboarding` (creates
+// the doc) and `deleteAccount` (self-deletion should work regardless of
+// ban status) are the deliberate exceptions.
+async function assertActiveUser(uid: string): Promise<void> {
+  const [userSnap, bannedSnap] = await Promise.all([
+    db.collection("users").doc(uid).get(),
+    db.collection("bannedUsers").doc(uid).get(),
+  ]);
+  if (!userSnap.exists) throw new HttpsError("permission-denied", "account-deleted");
+  if (bannedSnap.exists) throw new HttpsError("permission-denied", "account-banned");
+}
+
+// Düzəliş Prompt 8 / K-7 — generic per-key rate limiter, reusable across
+// any callable/HTTP function. Fixed-window counter (`{windowStart,
+// count}`), not the old `enforceEmailLinkRateLimit`'s ever-growing
+// sliding-window timestamp array (removed in 2742d8d) — cheaper (the
+// doc never grows) at the cost of the well-known fixed-window trait of
+// allowing up to ~2x the limit right at a window boundary, an accepted
+// trade-off at this app's actual volume. `scope` groups related call
+// sites under one shared counter (e.g. all 8 payment-checkout
+// callables share `"checkout"`) so an attacker can't dodge the limit by
+// spreading calls across functions that all do the same kind of thing.
+//
+// `HttpsError` is deliberately thrown AFTER the transaction resolves,
+// never from inside the callback — same reasoning as `completeOnboarding`'s
+// own doc comment: Admin SDK retries the callback on contention, and how
+// a non-Firestore error interacts with that retry isn't something to
+// rely on.
+async function enforceRateLimit(scope: string, key: string, limit: number, windowSeconds: number): Promise<void> {
+  const ref = db.collection("rateLimits").doc(`${scope}:${key}`);
+  const now = Date.now();
+  const windowMs = windowSeconds * 1000;
+  let exceeded = false;
+  await db.runTransaction(async (tx) => {
+    const data = (await tx.get(ref)).data();
+    const windowStart = data?.windowStart as number | undefined;
+    const count = (data?.count as number | undefined) ?? 0;
+    const windowActive = windowStart !== undefined && now - windowStart < windowMs;
+    if (windowActive && count >= limit) {
+      exceeded = true;
+      return;
+    }
+    tx.set(ref, windowActive ? { windowStart, count: count + 1 } : { windowStart: now, count: 1 });
+  });
+  if (exceeded) {
+    logger.warn(`rate-limit-exceeded scope=${scope} key=${key} limit=${limit}/${windowSeconds}s`);
+    throw new HttpsError("resource-exhausted", "rate-limit-exceeded");
+  }
+}
 
 // Cloudflare Realtime TURN key id + API token — set once via:
 //   firebase functions:secrets:set CLOUDFLARE_TURN_KEY_ID
@@ -145,9 +236,14 @@ async function sendPrivacyNotificationEmail(subject: string, html: string): Prom
 export const getTurnCredentials = onCall(
   { region: "us-central1", secrets: [cloudflareTurnKeyId, cloudflareTurnApiToken], enforceAppCheck: false },
   async (request) => {
-    if (!request.auth?.uid) {
+    const uid = request.auth?.uid;
+    if (!uid) {
       throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
     }
+    // Düzəliş Prompt 8 / RT-15 — mints real Cloudflare TURN relay
+    // credentials, a direct billing surface on the project's Cloudflare
+    // account; no legitimate call flow needs this often.
+    await enforceRateLimit("turn", uid, 30, 600);
 
     const keyId = cloudflareTurnKeyId.value();
     const apiToken = cloudflareTurnApiToken.value();
@@ -190,6 +286,17 @@ export const deleteAccount = onCall({ region: "us-central1", enforceAppCheck: fa
     throw new HttpsError("failed-precondition", "requires-recent-login");
   }
 
+  // Revoked FIRST, before any of the deletion steps below run (Düzəliş
+  // Prompt 11 / Y-1) — mirrors `removeAdmin`'s (admin-panel) own
+  // "revoke before the destructive work" ordering. This alone doesn't
+  // reject an already-issued ID token (Cloud Functions' `onCall`
+  // runtime and Firestore Rules don't check revocation status by
+  // default — see `assertActiveUser`'s comment for the mechanism that
+  // actually closes that), but it does stop this account from minting
+  // any NEW token from another signed-in device while this sequence of
+  // ~15 non-transactional steps is still in flight.
+  await auth.revokeRefreshTokens(uid);
+
   // Read before anything else is deleted — the phone number is only
   // available via the Auth record (deleted last, below), and this is
   // also the one place `getUser` is cheap to call.
@@ -204,7 +311,10 @@ export const deleteAccount = onCall({ region: "us-central1", enforceAppCheck: fa
   await deleteUserPosts(uid);
   await deleteUserVenues(uid);
   await deleteUserOffers(uid);
+  await anonymizePinBoxOrders(uid);
   await releasePhoneNumberReservation(uid, authUser.phoneNumber);
+  await releaseUsernameReservation(uid);
+  await deleteIdentityVerifications(uid);
   await deleteUserDocAndSubcollections(uid);
   await deleteStoragePrefix(`profile_photos/${uid}/`);
   await deleteStoragePrefix(`stories/${uid}/`);
@@ -215,11 +325,337 @@ export const deleteAccount = onCall({ region: "us-central1", enforceAppCheck: fa
   return { success: true };
 });
 
+// Minimum age (whole years) to use PeakPin — see legal/child-safety-standards.html
+// §2 and Terms of Service §2. This is the ONLY server-side enforcement point;
+// the client-side date-picker bound in onboarding_screen.dart/edit_profile_screen.dart
+// is UX only and can be bypassed by a modified client or a direct API call.
+const MINIMUM_AGE_YEARS = 18;
+
+/**
+ * Computes whole-years-old age from a birth date, matching the same
+ * "hasn't had this year's birthday yet" rule as the client's own
+ * `lib/core/utils/age_calculator.dart` — kept in sync deliberately so
+ * the two never disagree on ordinary calendar arithmetic.
+ *
+ * Deliberately uses UTC (`getUTCFullYear`/`getUTCMonth`/`getUTCDate`),
+ * NOT the client's local time. Azerbaijan is UTC+4 — Baku's calendar
+ * day begins 4 hours BEFORE UTC's. A UTC-based check can therefore
+ * compute someone as still 17 for up to ~4 hours after their 18th
+ * birthday has already passed in Baku local time, but it can NEVER
+ * compute someone as 18 before they actually are, in any real-world
+ * timezone. That asymmetry is intentional: for a minimum-age gate, a
+ * few hours of extra caution around the exact birthday moment is the
+ * safe failure mode — the alternative (admitting someone early) is not.
+ */
+function calculateAgeUtc(birthDate: Date, now: Date): number {
+  let age = now.getUTCFullYear() - birthDate.getUTCFullYear();
+  const hadBirthdayThisYear =
+    now.getUTCMonth() > birthDate.getUTCMonth() ||
+    (now.getUTCMonth() === birthDate.getUTCMonth() && now.getUTCDate() >= birthDate.getUTCDate());
+  if (!hadBirthdayThisYear) age--;
+  return age;
+}
+
+/**
+ * Düzəliş Prompt 10 / AUTH-6 — handles obviously impersonation-prone
+ * (support/admin/official-sounding) or structurally-reserved usernames
+ * that were previously free for anyone to claim first. Kept in sync BY
+ * HAND with the identical literal list in `firestore.rules`'
+ * `usernames/{usernameId}` create rule — this is the same
+ * "duplicate table, two runtimes" shape this codebase already accepts
+ * elsewhere (e.g. `venueSubscriptionFeeByCategory`'s own doc comment),
+ * since Cloud Functions (this file) and Firestore Rules can't share a
+ * constant. Compared against the ALREADY-lowercased username, so this
+ * list only needs lowercase entries.
+ */
+const RESERVED_USERNAMES = new Set([
+  "admin",
+  "administrator",
+  "support",
+  "help",
+  "helpdesk",
+  "peakpin",
+  "moderator",
+  "mod",
+  "official",
+  "team",
+  "staff",
+  "system",
+  "root",
+  "security",
+  "info",
+  "contact",
+  "billing",
+  "privacy",
+  "legal",
+  "abuse",
+  "noreply",
+  "null",
+  "undefined",
+]);
+
+/**
+ * Creates the CALLING user's `users/{uid}` profile document — the
+ * ONLY path allowed to do so (`firestore.rules`'s `users` collection
+ * `create` rule is `if false`; a raw client write can no longer create
+ * this document at all). Replaces the Flutter client's former direct
+ * `.set()` in `FirebaseAuthRepository.completeOnboarding` specifically
+ * so the minimum-age check below runs somewhere a modified client
+ * can't skip.
+ *
+ * Idempotent: if the document already exists (a retried call after a
+ * dropped response, for instance), this returns success without
+ * writing again rather than throwing — the caller can't tell the
+ * difference between "just created" and "already existed" from a
+ * dropped-response retry, and treating both as success is correct
+ * either way, since the document this function would have written is
+ * exactly the one already there.
+ */
+export const completeOnboarding = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "unauthenticated");
+  }
+  // Düzəliş Prompt 8 / Y-3 — defense-in-depth against a scripted
+  // account hammering onboarding attempts (the uid already exists —
+  // this is AFTER Auth account creation, so it doesn't stop account
+  // creation itself, only what happens once one exists).
+  await enforceRateLimit("onboard", uid, 10, 600);
+
+  const data = request.data ?? {};
+  const username = typeof data.username === "string" ? data.username.trim() : "";
+  const firstName = typeof data.firstName === "string" ? data.firstName.trim() : "";
+  const lastName = typeof data.lastName === "string" ? data.lastName.trim() : "";
+  const gender = typeof data.gender === "string" ? data.gender : "";
+  const country = typeof data.country === "string" ? data.country : "";
+  const city = typeof data.city === "string" ? data.city : "";
+  const phoneNumber = typeof data.phoneNumber === "string" ? data.phoneNumber.trim() : "";
+  const businessStatus = typeof data.businessStatus === "string" ? data.businessStatus : "";
+  const bio = typeof data.bio === "string" ? data.bio : "";
+  const birthDateMs = data.birthDateMs;
+
+  if (!username || !firstName || !lastName || !gender || !country || !city || !phoneNumber || !businessStatus) {
+    throw new HttpsError("invalid-argument", "missing-required-field");
+  }
+  if (typeof birthDateMs !== "number" || !Number.isFinite(birthDateMs)) {
+    throw new HttpsError("invalid-argument", "invalid-birth-date");
+  }
+
+  const birthDate = new Date(birthDateMs);
+  const now = new Date();
+  if (birthDate.getTime() > now.getTime()) {
+    throw new HttpsError("invalid-argument", "invalid-birth-date");
+  }
+  if (calculateAgeUtc(birthDate, now) < MINIMUM_AGE_YEARS) {
+    throw new HttpsError("failed-precondition", "age-under-18");
+  }
+
+  const usernameLower = username.toLowerCase();
+  if (RESERVED_USERNAMES.has(usernameLower)) {
+    throw new HttpsError("invalid-argument", "Bu istifadəçi adı ayrılıb.");
+  }
+  const userRef = db.collection("users").doc(uid);
+  const usernameRef = db.collection("usernames").doc(usernameLower);
+
+  const existing = await userRef.get();
+  if (existing.exists) {
+    return { success: true, alreadyOnboarded: true };
+  }
+
+  const authUser = await auth.getUser(uid);
+  // Mirrors `FirebaseAuthRepository._providerFrom` exactly — the client's
+  // `LoginProvider` enum serializes as 'email'/'google'/'apple' (`.name`),
+  // NOT the raw Firebase providerId strings ('google.com'/'apple.com'),
+  // so this must produce the same three values or every existing reader
+  // of `loginProvider` breaks.
+  const loginProvider = authUser.providerData.some((p) => p.providerId === "google.com")
+    ? "google"
+    : authUser.providerData.some((p) => p.providerId === "apple.com")
+      ? "apple"
+      : "email";
+
+  // Düzəliş Prompt 10 (əlavə) / AUTH-12 — Firebase Console-un "Link
+  // accounts that use the same email" ayarı aktiv olduğu üçün provider
+  // toqquşması (bax auth_screen.dart-ın `account-exists-with-different
+  // -credential` tutması) artıq baş vermir, AMMA bu, e-poçt sahibliyinin
+  // doğrulandığı demək DEYİL — password ilə qeydiyyatdan keçən istənilən
+  // kəs, başqasının e-poçtunu yazıb (heç vaxt təsdiqləmədən) hesab
+  // yarada, sonra bu hesabla tətbiqdən istifadə edə bilərdi (email
+  // sahibinin özü sonra Google ilə "daxil olanda" artıq bu HƏMİN hesaba
+  // bağlanacaq, amma bu ARADAKI pəncərədə saxta hesab funksionaldır).
+  // Google/Apple email-i artıq provayderin özü tərəfindən doğrulanmış
+  // sayılır (`request.auth.token.email_verified` bu 2 provayder üçün
+  // demək olar həmişə `true`-dur) — yoxlama YALNIZ password provayderinə
+  // aiddir. Client (`VerifyEmailScreen`) bu vəziyyəti onboarding-dən
+  // ƏVVƏL tutur, bu, yalnız modifikasiya edilmiş/köhnə client dəfi-in-
+  // depth-dir.
+  if (loginProvider === "email" && request.auth?.token.email_verified !== true) {
+    throw new HttpsError("permission-denied", "email-not-verified");
+  }
+
+  // `HttpsError` is deliberately never thrown from inside the
+  // transaction callback below — Admin SDK's `runTransaction` retries
+  // the callback on contention, and how a non-Firestore error thrown
+  // mid-callback interacts with that retry is not something to rely
+  // on. Instead the callback signals failure via a plain sentinel and
+  // returns without writing; the HttpsError is thrown after the
+  // transaction has resolved (successfully, with zero writes in the
+  // taken-username case).
+  let usernameTaken = false;
+  await db.runTransaction(async (tx) => {
+    const usernameSnap = await tx.get(usernameRef);
+    if (usernameSnap.exists && usernameSnap.data()?.uid !== uid) {
+      usernameTaken = true;
+      return;
+    }
+    tx.set(usernameRef, { uid, createdAt: FieldValue.serverTimestamp() });
+    // Split across two documents (Düzəliş Prompt 4 / K-1) — see
+    // `privateDataRef`'s own doc comment for the full field-by-field
+    // reasoning of what lives where. `country` (unlike `city`) stays
+    // PUBLIC despite being personal-ish, not sensitive-vs-sensitive
+    // classification: `getDiscoverCandidates`/`findNearbyUsers` filter
+    // candidates with `db.collection("users").where("country", "==",
+    // ...)` — a top-level Firestore query, which structurally CANNOT
+    // filter across a parent/subcollection split. Same hard constraint
+    // keeps `blockedUsers` (queried by `scrubFromOthersBlockLists`) and
+    // `reportedCount` (see Düzəliş Prompt 12's own finding) here too.
+    tx.create(userRef, {
+      uid,
+      username,
+      nameLower: `${firstName} ${lastName}`.trim().toLowerCase(),
+      firstName,
+      lastName,
+      bio,
+      country,
+      businessStatus,
+      online: true,
+      blockedUsers: [],
+      reportedCount: 0,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+    tx.create(privateDataRef(uid), {
+      loginProvider,
+      ...(authUser.email ? { email: authUser.email } : {}),
+      phoneNumber,
+      birthDate: Timestamp.fromDate(birthDate),
+      gender,
+      city,
+      consent: {
+        termsAccepted: true,
+        acceptedAt: FieldValue.serverTimestamp(),
+        termsVersion: data.termsVersion ?? null,
+        privacyVersion: data.privacyVersion ?? null,
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+
+  if (usernameTaken) {
+    throw new HttpsError("already-exists", "username-taken");
+  }
+
+  return { success: true };
+});
+
 // Mirrors the client's own `_countryCandidatesProvider`/
 // `_worldCandidatesProvider` queries — kept in exact sync with
 // `lib/features/location/presentation/providers/location_providers.dart`.
 const DISCOVER_COUNTRY_CANDIDATES_LIMIT = 300;
 const DISCOVER_WORLD_CANDIDATES_LIMIT = 500;
+
+/**
+ * Whole-years-old age from a Firestore `birthDate` — mirrors
+ * `calculateAge` in `lib/core/utils/age_calculator.dart` exactly (same
+ * "hasn't had this year's birthday yet" rule). Used instead of sending
+ * raw `birthDate` back to another user's device — Düzəliş Prompt 4
+ * moved `birthDate` to `users/{uid}/private/data` specifically because
+ * it's PII a stranger has no legitimate reason to see in full; age
+ * alone is what every candidate card actually shows.
+ */
+function ageYearsFromBirthDate(birthDate: unknown): number | null {
+  if (!(birthDate instanceof Timestamp)) return null;
+  const dob = birthDate.toDate();
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const hadBirthdayThisYear =
+    now.getMonth() > dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() >= dob.getDate());
+  if (!hadBirthdayThisYear) age -= 1;
+  return age;
+}
+
+/**
+ * ~100m fixed grid, applied identically to lat and lng (no
+ * cosine/latitude correction — a deliberate simplification, see Düzəliş
+ * Prompt 4's plan). Anti-averaging: unlike random jitter, the same
+ * candidate always rounds to the exact same point, so querying
+ * repeatedly and averaging the results reveals nothing beyond the
+ * already-rounded point. Applied ONLY to the lat/lng returned for map
+ * markers — [haversineMeters] distance calculations always use the raw,
+ * unrounded coordinates internally, computed before this function is
+ * ever called.
+ */
+const NEARBY_MARKER_GRID_STEP_DEG = 100 / 111320;
+function roundToGrid(value: number): number {
+  return Math.round(value / NEARBY_MARKER_GRID_STEP_DEG) * NEARBY_MARKER_GRID_STEP_DEG;
+}
+
+/** `'male'`/`'female'` map to this schema's existing free-text `gender`
+ * values ('Kişi'/'Qadın', written by the profile edit screen) — any
+ * other value (including undefined/'all') means no filter. */
+function matchesGenderFilter(gender: unknown, filter: unknown): boolean {
+  if (filter !== "male" && filter !== "female") return true;
+  return gender === (filter === "male" ? "Kişi" : "Qadın");
+}
+
+interface PublicCandidatePayload {
+  uid: string;
+  username: string | null;
+  firstName: string;
+  lastName: string;
+  bio: string;
+  photoUrl: string | null;
+  online: boolean;
+  lastSeen: number | null;
+  age: number | null;
+  lat: number | null;
+  lng: number | null;
+}
+
+/**
+ * The ONLY fields ever sent to another user's device for a Discover/
+ * nearby candidate — deliberately a fixed allowlist, not a spread of
+ * `data`, precisely because `data` here is a merged public+private
+ * object (see `withPrivateData`) that also carries `email`,
+ * `phoneNumber`, `fcmTokens`, `knownDeviceSignatures`, `gender`,
+ * `blockedUsers`, `ghostModeEnabled`, etc. — every one of those is
+ * filtering/internal-use-only and must never round-trip to a stranger's
+ * client, which a spread would silently do the moment any new private
+ * field is added later. `gender` itself is applied as a SERVER-SIDE
+ * filter ([matchesGenderFilter]) rather than returned, since it's no
+ * longer a public field and no screen displays it anyway (confirmed:
+ * neither `user_profile_screen.dart` nor the discover card shows it —
+ * only a filter-selection sheet reads a separate, viewer-owned
+ * [GenderFilter] value).
+ */
+function buildPublicCandidatePayload(id: string, data: FirebaseFirestore.DocumentData): PublicCandidatePayload {
+  const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toMillis() : null;
+  const lat = typeof data.lat === "number" ? roundToGrid(data.lat) : null;
+  const lng = typeof data.lng === "number" ? roundToGrid(data.lng) : null;
+  return {
+    uid: id,
+    username: (data.username as string | undefined) ?? null,
+    firstName: (data.firstName as string | undefined) ?? "",
+    lastName: (data.lastName as string | undefined) ?? "",
+    bio: (data.bio as string | undefined) ?? "",
+    photoUrl: (data.photoUrl as string | undefined) ?? null,
+    online: (data.online as boolean | undefined) ?? false,
+    lastSeen,
+    age: ageYearsFromBirthDate(data.birthDate),
+    lat,
+    lng,
+  };
+}
 
 /**
  * Returns Ölkə üzrə/Dünya üzrə Discover candidates for the CALLING
@@ -233,10 +669,16 @@ const DISCOVER_WORLD_CANDIDATES_LIMIT = 500;
  * here instead, reading `premium` from the requester's OWN doc (never
  * client-supplied, so it can't be spoofed).
  *
- * `lastSeen`/`birthDate` are sent back as epoch-millis, not Firestore
- * `Timestamp`s — the callable wire format doesn't round-trip those —
- * the client reconstructs `Timestamp`s from them so the rest of
- * `nearbyUsersProvider`'s parsing stays unchanged.
+ * Düzəliş Prompt 4: `lat`/`lng`/`visibilityRadiusMode`/`visibilityRadiusKm`/
+ * `gender` moved to `users/{uid}/private/data`, so every candidate is
+ * merged with its private doc ([withPrivateData]) before filtering —
+ * but only [buildPublicCandidatePayload]'s fixed allowlist (plus
+ * grid-rounded `lat`/`lng`, same anti-averaging treatment as
+ * `findNearbyUsers`) is ever returned. This map is ALSO what
+ * `discover_tab.dart` drops pins from for Ölkə/Dünya mode, so it has
+ * the exact same raw-coordinate exposure `findNearbyUsers` was built to
+ * close — rounding applies here too, not just to the distance-mode
+ * feed.
  */
 export const getDiscoverCandidates = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
@@ -248,9 +690,20 @@ export const getDiscoverCandidates = onCall({ region: "us-central1", enforceAppC
   if (mode !== "country" && mode !== "world") {
     throw new HttpsError("invalid-argument", "invalid-mode");
   }
+  const genderFilter = request.data?.genderFilter;
 
-  const callerSnap = await db.collection("users").doc(uid).get();
-  if (callerSnap.data()?.premium !== true) {
+  const [callerSnap, callerPrivateSnap] = await Promise.all([
+    db.collection("users").doc(uid).get(),
+    privateDataRef(uid).get(),
+  ]);
+  // Düzəliş Prompt 10 / Y-6 — rewritten from the equivalent
+  // `callerSnap.data()?.premium !== true` (a "not-equal" optional-
+  // chain comparison, the exact shape that pattern search flagged):
+  // that phrasing already failed CLOSED (a missing `callerSnap` made
+  // `undefined !== true` → `true` → correctly rejected), so this was
+  // never exploitable — rewritten as a positive, explicit check purely
+  // for readability/consistency with the rest of this sweep's fixes.
+  if (!callerSnap.exists || callerSnap.data()?.premium !== true) {
     throw new HttpsError("permission-denied", "premium-required");
   }
 
@@ -265,22 +718,288 @@ export const getDiscoverCandidates = onCall({ region: "us-central1", enforceAppC
     query = query.limit(DISCOVER_WORLD_CANDIDATES_LIMIT);
   }
 
-  const caller = callerSnap.data() ?? {};
-  const viewerLat = caller.lat as number | undefined;
-  const viewerLng = caller.lng as number | undefined;
-  const viewerCountry = caller.country as string | undefined;
+  const viewerLat = callerPrivateSnap.data()?.lat as number | undefined;
+  const viewerLng = callerPrivateSnap.data()?.lng as number | undefined;
+  const viewerCountry = callerSnap.data()?.country as string | undefined;
+  const myBlockedUsers = (callerSnap.data()?.blockedUsers as string[] | undefined) ?? [];
 
   const snap = await query.get();
-  const withUid: FirebaseFirestore.DocumentData[] = snap.docs.map((doc) => ({ ...doc.data(), uid: doc.id }));
-  const candidates = withUid
-    .filter((data) => isWithinTargetVisibilityRadius(data, viewerLat, viewerLng, viewerCountry))
-    .map((data) => {
-      const lastSeen = data.lastSeen instanceof Timestamp ? data.lastSeen.toMillis() : null;
-      const birthDate = data.birthDate instanceof Timestamp ? data.birthDate.toMillis() : null;
-      return { ...data, lastSeen, birthDate };
-    });
+  const merged = await withPrivateData(snap.docs);
+  const candidates = merged
+    .filter((c) => c.id !== uid)
+    .filter((c) => !myBlockedUsers.includes(c.id))
+    .filter((c) => !((c.data.blockedUsers as string[] | undefined) ?? []).includes(uid))
+    .filter((c) => isWithinTargetVisibilityRadius(c.data, viewerLat, viewerLng, viewerCountry))
+    .filter((c) => matchesGenderFilter(c.data.gender, genderFilter))
+    .map((c) => buildPublicCandidatePayload(c.id, c.data));
 
   return { candidates };
+});
+
+/** Matches `kOnlineStalenessThreshold` in
+ * `lib/core/utils/presence_utils.dart` — a stale `online: true` write
+ * (crash/force-quit before the client could write `online: false`)
+ * must not leave someone looking permanently present. */
+const NEARBY_ONLINE_STALENESS_MS = 90 * 1000;
+
+function isRecentlyOnlineServer(online: unknown, lastSeen: unknown): boolean {
+  if (online !== true || !(lastSeen instanceof Timestamp)) return false;
+  return Date.now() - lastSeen.toMillis() <= NEARBY_ONLINE_STALENESS_MS;
+}
+
+/** Mirrors `_isWithinVisibilityRadius` in `location_providers.dart` —
+ * the distance-mode nearby feed only ever understands a 'distance' cap;
+ * 'country'/'world' visibility (like `discoverRadiusMode`) means no cap
+ * for this feed. Distinct from [isWithinTargetVisibilityRadius], which
+ * additionally understands 'country' mode for `getDiscoverCandidates`. */
+function isWithinNearbyVisibility(data: FirebaseFirestore.DocumentData, distanceMeters: number): boolean {
+  if (data.visibilityRadiusMode !== "distance") return true;
+  const radiusKm = data.visibilityRadiusKm as number | undefined;
+  if (radiusKm === undefined) return true;
+  return distanceMeters <= radiusKm * 1000;
+}
+
+// Matches `_nearbyCandidatesProvider`'s old raw-query bounds exactly
+// (15-minute lastSeen window, 200-doc scan cap) — this callable
+// replaces that direct client query, not just its data source.
+const NEARBY_CANDIDATE_SCAN_LIMIT = 200;
+const NEARBY_LAST_SEEN_WINDOW_MS = 15 * 60 * 1000;
+
+// Server-side hard cap on how many candidates are ever returned,
+// regardless of how many matched or what the client asked for (Düzəliş
+// Prompt 4 qərarı: "nəticə sayı server-də sabitlənir, client-in
+// göndərdiyi limit dəyərinə etibar edilmir"). Candidates are sorted by
+// distance first, so a dense area's radius-count buttons (see
+// `radiusUserCountsProvider`) can undercount past this many online
+// users nearby — an accepted trade-off, not a bug, at this app's scale.
+const NEARBY_RESULT_CAP = 50;
+
+/**
+ * Replaces the client's own direct `users` query (`_nearbyCandidatesProvider`)
+ * — Düzəliş Prompt 4 / K-1, K-4's "Variant B". Ghost Mode, the
+ * candidate's own visibility radius, and the gender filter are now
+ * enforced HERE, server-side, using Admin SDK access to
+ * `users/{uid}/private/data` — none of the three could actually be
+ * bypassed before this (a modified client, or a direct Firestore REST
+ * call, saw every candidate's raw fields regardless of any of these
+ * "privacy" toggles). Raw coordinates of OTHER users never leave this
+ * function: [buildPublicCandidatePayload] grid-rounds `lat`/`lng` for
+ * the marker position; `distanceMeters` is computed from the raw,
+ * unrounded coordinates before that rounding happens, so the label
+ * itself stays precise.
+ *
+ * Rate-limited (`enforceRateLimit("nearby", ...)`) and gated on
+ * `assertActiveUser` — this scans the whole `users` collection, the
+ * same scraping vector K-1 itself was about, so it needs the same
+ * volumetric guard Düzəliş Prompt 8 already established for other
+ * collection-wide entry points.
+ */
+export const findNearbyUsers = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  }
+  await assertActiveUser(uid);
+  await enforceRateLimit("nearby", uid, 10, 60);
+  const genderFilter = request.data?.genderFilter;
+
+  const [callerSnap, callerPrivateSnap, scanSnap] = await Promise.all([
+    db.collection("users").doc(uid).get(),
+    privateDataRef(uid).get(),
+    db
+      .collection("users")
+      .where("lastSeen", ">", Timestamp.fromMillis(Date.now() - NEARBY_LAST_SEEN_WINDOW_MS))
+      .limit(NEARBY_CANDIDATE_SCAN_LIMIT)
+      .get(),
+  ]);
+  // Same source LocationController already keeps fresh via its own
+  // 25m-distanceFilter live GPS stream — no need for the client to also
+  // pass a fresh reading on every poll tick, and it keeps this
+  // callable's request shape identical to `getDiscoverCandidates`
+  // (which reads the caller's own position the same way).
+  const lat = callerPrivateSnap.data()?.lat as number | undefined;
+  const lng = callerPrivateSnap.data()?.lng as number | undefined;
+  if (typeof lat !== "number" || typeof lng !== "number") {
+    throw new HttpsError("failed-precondition", "no-position-on-file");
+  }
+  const myBlockedUsers = (callerSnap.data()?.blockedUsers as string[] | undefined) ?? [];
+
+  const candidates = await withPrivateData(scanSnap.docs);
+
+  const results = candidates
+    .filter((c) => c.id !== uid)
+    .filter((c) => !myBlockedUsers.includes(c.id))
+    .filter((c) => !((c.data.blockedUsers as string[] | undefined) ?? []).includes(uid))
+    .filter((c) => c.data.ghostModeEnabled !== true)
+    .filter((c) => isRecentlyOnlineServer(c.data.online, c.data.lastSeen))
+    .filter((c) => typeof c.data.lat === "number" && typeof c.data.lng === "number")
+    .filter((c) => matchesGenderFilter(c.data.gender, genderFilter))
+    .map((c) => ({ candidate: c, distanceMeters: haversineMeters(lat, lng, c.data.lat as number, c.data.lng as number) }))
+    .filter(({ candidate, distanceMeters }) => isWithinNearbyVisibility(candidate.data, distanceMeters))
+    .sort((a, b) => a.distanceMeters - b.distanceMeters)
+    .slice(0, NEARBY_RESULT_CAP)
+    .map(({ candidate, distanceMeters }) => ({
+      ...buildPublicCandidatePayload(candidate.id, candidate.data),
+      distanceMeters,
+    }));
+
+  return { candidates: results };
+});
+
+/**
+ * Owner-only "how many people would this reach" preview backing
+ * `venueAudienceCountProvider` (`VenueProfileScreen`'s audience-radius
+ * setting) — Düzəliş Prompt 4 moved `lat`/`lng`/`ghostModeEnabled` off
+ * the public `users/{uid}` doc, so the client's old direct-Firestore
+ * version of this count (reading `_nearbyCandidatesProvider`/
+ * `_countryCandidatesProvider`/`_worldCandidatesProvider`) can no
+ * longer see either field for anyone but itself. Mirrors those three
+ * scans' exact original semantics (country/world: `online == true`
+ * scoped scan, ghost-mode excluded, no visibility-radius check —
+ * matching what `venueAudienceCountProvider` itself never applied for
+ * those two modes either; distance: 15-minute `lastSeen` scan, ghost
+ * mode AND [isWithinNearbyVisibility] both checked, same as
+ * `nearbyUsersProvider`'s own distance-mode branch) — only the query
+ * center moves from "the caller's own device" to a specific venue's
+ * fixed coordinates, and only that venue's OWNER may call this for it.
+ * Never shown to a non-owner viewing the venue (see
+ * `venueAudienceCountProvider`'s own doc comment) — only a count is
+ * ever returned, never which users matched.
+ */
+export const previewVenueAudience = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  }
+
+  const venueId = request.data?.venueId as string | undefined;
+  if (!venueId) {
+    throw new HttpsError("invalid-argument", "venueId tələb olunur.");
+  }
+  const venue = (await db.collection("venues").doc(venueId).get()).data();
+  if (!venue) {
+    throw new HttpsError("not-found", "Məkan tapılmadı.");
+  }
+  if (venue.ownerId !== uid) {
+    throw new HttpsError("permission-denied", "not-owner");
+  }
+
+  await enforceRateLimit("nearby", uid, 10, 60);
+
+  const mode = request.data?.mode as string | undefined;
+  let query: FirebaseFirestore.Query;
+  if (mode === "country") {
+    const country = request.data?.country as string | undefined;
+    if (!country) throw new HttpsError("invalid-argument", "missing-country");
+    query = db
+      .collection("users")
+      .where("online", "==", true)
+      .where("country", "==", country)
+      .limit(DISCOVER_COUNTRY_CANDIDATES_LIMIT);
+  } else if (mode === "world") {
+    query = db.collection("users").where("online", "==", true).limit(DISCOVER_WORLD_CANDIDATES_LIMIT);
+  } else {
+    query = db
+      .collection("users")
+      .where("lastSeen", ">", Timestamp.fromMillis(Date.now() - NEARBY_LAST_SEEN_WINDOW_MS))
+      .limit(NEARBY_CANDIDATE_SCAN_LIMIT);
+  }
+
+  const snap = await query.get();
+  const candidates = await withPrivateData(snap.docs);
+  const nonGhost = candidates.filter((c) => c.data.ghostModeEnabled !== true);
+
+  let count: number;
+  if (mode === "distance") {
+    const lat = request.data?.lat as number | undefined;
+    const lng = request.data?.lng as number | undefined;
+    const radiusKm = request.data?.radiusKm as number | undefined;
+    if (typeof lat !== "number" || typeof lng !== "number" || typeof radiusKm !== "number") {
+      throw new HttpsError("invalid-argument", "lat/lng/radiusKm tələb olunur.");
+    }
+    count = nonGhost.filter((c) => {
+      if (typeof c.data.lat !== "number" || typeof c.data.lng !== "number") return false;
+      const distanceMeters = haversineMeters(lat, lng, c.data.lat as number, c.data.lng as number);
+      return distanceMeters <= radiusKm * 1000 && isWithinNearbyVisibility(c.data, distanceMeters);
+    }).length;
+  } else {
+    count = nonGhost.length;
+  }
+
+  return { count };
+});
+
+const SEARCH_BY_NAME_LIMIT = 20;
+
+interface SearchProfilePayload {
+  uid: string;
+  username: string | null;
+  firstName: string;
+  lastName: string;
+  photoUrl: string | null;
+  identityVerified: boolean;
+  premium: boolean;
+}
+
+function buildSearchProfilePayload(id: string, data: FirebaseFirestore.DocumentData): SearchProfilePayload {
+  return {
+    uid: id,
+    username: (data.username as string | undefined) ?? null,
+    firstName: (data.firstName as string | undefined) ?? "",
+    lastName: (data.lastName as string | undefined) ?? "",
+    photoUrl: (data.photoUrl as string | undefined) ?? null,
+    identityVerified: (data.identityVerified as boolean | undefined) ?? false,
+    premium: (data.premium as boolean | undefined) ?? false,
+  };
+}
+
+/**
+ * Replaces the client's own direct `users.orderBy('nameLower')...`
+ * query (`FirebaseDiscoverSearchRepository.searchUsersByName`) — a
+ * plain `list` query the client can no longer run at all since Düzəliş
+ * Prompt 4 / RT-25 closed `allow list` on `users` outright. That was a
+ * genuine regression this function fixes: discovered while researching
+ * Düzəliş Prompt 5, not caught during Prompt 4's own verification
+ * because the query is written as `_users\n  .orderBy(...)` — a
+ * multi-line method chain a same-line `grep "_users\."` silently missed.
+ * Never deployed, so no real user was ever affected — but it would have
+ * broken outright the moment rules shipped.
+ *
+ * Also closes the block gap name-search shared with
+ * `searchUsersByUsername` (Düzəliş Prompt 5 / K-3): a blocked pair, in
+ * EITHER direction, never appears in results — checked directly
+ * against both sides' `blockedUsers` arrays via the Admin SDK, same
+ * pattern as `findNearbyUsers`. No reverse index needed here (that's
+ * only for CLIENT-side list-query filtering, e.g. post/story feeds —
+ * this callable already reads every candidate's own doc server-side).
+ */
+export const searchUsersByName = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  }
+  const query = (request.data?.query as string | undefined)?.trim().toLowerCase() ?? "";
+  if (!query) return { profiles: [] };
+
+  const [callerSnap, snap] = await Promise.all([
+    db.collection("users").doc(uid).get(),
+    db
+      .collection("users")
+      .orderBy("nameLower")
+      .startAt(query)
+      .endAt(`${query}`)
+      .limit(SEARCH_BY_NAME_LIMIT)
+      .get(),
+  ]);
+  const myBlockedUsers = (callerSnap.data()?.blockedUsers as string[] | undefined) ?? [];
+
+  const profiles = snap.docs
+    .filter((d) => d.id !== uid)
+    .filter((d) => !myBlockedUsers.includes(d.id))
+    .filter((d) => !((d.data().blockedUsers as string[] | undefined) ?? []).includes(uid))
+    .map((d) => buildSearchProfilePayload(d.id, d.data()));
+
+  return { profiles };
 });
 
 /** Chat messages this user sent — replaced, not deleted, so the other
@@ -307,6 +1026,39 @@ async function replaceMessagesWithPlaceholder(uid: string): Promise<void> {
       })
     );
   }
+}
+
+/**
+ * Düzəliş Prompt 10 / PAY-24 — PinBox orders this user bought,
+ * anonymized in place (not deleted outright) — same
+ * "keep-the-record-drop-the-identity" shape as `replaceMessagesWithPlaceholder`
+ * above, not the alternative "hard-delete outright" shape
+ * `deleteUserPosts`/`deleteUserVenues`/`deleteUserOffers` use: an
+ * order is the VENUE's own sale/redemption/payout record too (see
+ * `venuePayouts`), so it can't just disappear when the buyer's account
+ * does — it just shouldn't keep pointing at a deleted account's uid
+ * forever. Was previously the one collection `deleteAccount` never
+ * touched at all — no deliberate-exclusion reasoning existed for it
+ * the way there is for `payments` (financial/audit record, see
+ * `deleteUserDocAndSubcollections`'s own doc comment) — this was a
+ * plain omission.
+ *
+ * `buyerId` itself is left as-is rather than nulled — `PinBoxOrder`
+ * (Dart, pinbox_order.dart) declares it `required String buyerId`
+ * (non-nullable), so writing `null` here would make every existing
+ * client-side reader of this doc throw on parse (this codebase's own
+ * per-document `_safePinBox`/`_safeOffer`-style isolation would catch
+ * that and just drop the doc from whatever list renders it — silently
+ * hiding a venue's own real order/payout history, not what anonymizing
+ * a field should do). The bare uid alone, with the matching
+ * `users/{uid}` doc already gone (deleted earlier in this same
+ * sequence), resolves to nothing on its own — `buyerDeleted` is what
+ * actually signals "this buyer account no longer exists" to any
+ * future reader.
+ */
+async function anonymizePinBoxOrders(uid: string): Promise<void> {
+  const snap = await db.collection("pinboxOrders").where("buyerId", "==", uid).get();
+  await Promise.all(snap.docs.map((doc) => doc.ref.update({ buyerDeleted: true })));
 }
 
 /** Events this user created — archived (kept for other participants'
@@ -365,7 +1117,9 @@ async function deleteStories(uid: string): Promise<void> {
  * same way a receipt survives closing the account that made it. */
 async function deleteUserDocAndSubcollections(uid: string): Promise<void> {
   const userRef = db.collection("users").doc(uid);
-  const subcollections = ["media", "notifications", "favoriteOffers", "notifiedVenues", "sessions", "profileViews"];
+  const subcollections = [
+    "media", "notifications", "favoriteOffers", "notifiedVenues", "sessions", "profileViews", "private",
+  ];
   for (const name of subcollections) {
     const snap = await userRef.collection(name).get();
     await Promise.all(snap.docs.map((doc) => doc.ref.delete()));
@@ -425,6 +1179,39 @@ async function releasePhoneNumberReservation(uid: string, phoneNumber: string | 
   }
 }
 
+/** `usernames/{lowercased}` reservations were never released on
+ * deletion (Düzəliş Prompt 11 / AUTH-10) — a deleted user's handle
+ * stayed permanently taken, blocking anyone (including the same
+ * person re-registering) from ever claiming it again, and leaving a
+ * stale `uid` pointer behind. Same "only delete if it still points at
+ * THIS uid" safety check as `releasePhoneNumberReservation` above.
+ * Must run BEFORE `deleteUserDocAndSubcollections` — it reads
+ * `users/{uid}.username` itself, which that step removes. */
+async function releaseUsernameReservation(uid: string): Promise<void> {
+  const userSnap = await db.collection("users").doc(uid).get();
+  const username = userSnap.data()?.username as string | undefined;
+  if (!username) return;
+  const ref = db.collection("usernames").doc(username.toLowerCase());
+  const snap = await ref.get();
+  if (snap.exists && snap.data()?.uid === uid) {
+    await ref.delete();
+  }
+}
+
+/** `identityVerifications/{requestId}` docs (queried by `userId`, per
+ * `submitIdentityVerification`'s own uniqueness check above) plus the
+ * ID-photo Storage folder they reference were never cleaned up on
+ * deletion (Düzəliş Prompt 11 / AUTH-11) — a deleted account's
+ * government-ID and selfie images survived the account itself
+ * indefinitely. There is deliberately no "keep for audit" case here
+ * unlike `payments`/`offerAcceptances` — this is raw biometric/ID
+ * imagery, not a financial or legal-consent record. */
+async function deleteIdentityVerifications(uid: string): Promise<void> {
+  const snap = await db.collection("identityVerifications").where("userId", "==", uid).get();
+  await Promise.all(snap.docs.map((doc) => doc.ref.delete()));
+  await deleteStoragePrefix(`identity_verifications/${uid}/`);
+}
+
 async function deleteStorageFile(path: string): Promise<void> {
   try {
     await storage.bucket().file(path).delete();
@@ -435,21 +1222,30 @@ async function deleteStorageFile(path: string): Promise<void> {
 
 /** Resolves a Firebase Storage download URL
  * (`.../o/{encodedPath}?alt=media&token=...`) back to its bucket object
- * path and deletes it. The Admin SDK has no `refFromURL` — that's a
- * client-SDK-only convenience — so this mirrors what the Flutter client's
- * own `deleteMessageForEveryone` already does with
- * `_storage.refFromURL(mediaUrl).delete()`. A URL that doesn't match the
- * expected `/o/` shape is silently skipped; an already-missing object is
- * handled by `deleteStorageFile`'s own best-effort catch. */
-async function deleteStorageObjectByUrl(url: string): Promise<void> {
+ * path. The Admin SDK has no `refFromURL` — that's a client-SDK-only
+ * convenience — so this is the one place that reimplements it, shared
+ * by `deleteStorageObjectByUrl` and `forwardChatMedia`'s copy step.
+ * Returns `null` for a URL that doesn't match the expected `/o/` shape. */
+function storagePathFromUrl(url: string): string | null {
   const marker = "/o/";
   const markerIndex = url.indexOf(marker);
-  if (markerIndex === -1) return;
+  if (markerIndex === -1) return null;
 
   const pathStart = markerIndex + marker.length;
   const queryIndex = url.indexOf("?", pathStart);
   const encodedPath = queryIndex === -1 ? url.substring(pathStart) : url.substring(pathStart, queryIndex);
-  await deleteStorageFile(decodeURIComponent(encodedPath));
+  return decodeURIComponent(encodedPath);
+}
+
+/** Mirrors what the Flutter client's own `deleteMessageForEveryone`
+ * already does with `_storage.refFromURL(mediaUrl).delete()`. A URL
+ * that doesn't resolve to a path is silently skipped; an
+ * already-missing object is handled by `deleteStorageFile`'s own
+ * best-effort catch. */
+async function deleteStorageObjectByUrl(url: string): Promise<void> {
+  const path = storagePathFromUrl(url);
+  if (!path) return;
+  await deleteStorageFile(path);
 }
 
 async function deleteStoragePrefix(prefix: string): Promise<void> {
@@ -460,6 +1256,86 @@ async function deleteStoragePrefix(prefix: string): Promise<void> {
     // isn't a failure.
   }
 }
+
+/**
+ * Düzəliş Prompt 10 — closes the `forwardMessage` shared-file bug
+ * (found in Prompt 3, HIGH): before this, a forwarded photo/video/
+ * voice message just copied the ORIGINAL message's `mediaUrl` string
+ * verbatim into the new message doc — both messages pointed at the
+ * exact same Storage object. `deleteMessageForEveryone`'s
+ * `deleteStorageObjectByUrl` unconditionally deletes whatever object
+ * its own message pointed at, with no ref-count against other
+ * messages — so deleting the ORIGINAL message also silently broke
+ * every forwarded copy's media (a 404 on next render).
+ *
+ * The fix is this one narrow server-side copy step, NOT a full
+ * `forwardMessage` rewrite: `FirebaseChatRepository.forwardMessage`
+ * (Dart) keeps its existing block-check/whoCanMessageMe/pending-
+ * accepted transaction logic completely unchanged (re-implementing
+ * that server-side would be a much larger, riskier change for this
+ * one bug) — it just calls this callable FIRST, per forward target,
+ * to get an independent `mediaUrl` before building the message. Uses
+ * the Admin SDK's real server-side object copy (no download+re-upload
+ * through the client's own bandwidth), same
+ * `{folder}/{chatId}/{senderId}/{messageId}.{ext}` path shape every
+ * other chat media upload already uses (see storage.rules'
+ * `chat_photos/{chatId}/{senderId}/{fileName}` and
+ * `_sendMediaMessage`'s own doc comment, firebase_chat_repository.dart)
+ * — `messageId` here is the NEW message's own pre-allocated doc id
+ * (the client allocates it before calling this, then reuses the same
+ * ref to actually write the message), so the destination path is
+ * exactly where that message's media "should" live regardless of
+ * where it came from.
+ */
+const CHAT_MEDIA_FOLDERS = ["chat_photos", "chat_videos", "chat_audio"] as const;
+
+export const forwardChatMedia = onCall(
+  { region: "us-central1", enforceAppCheck: false },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+    await enforceRateLimit("forward-chat-media", uid, 30, 600);
+
+    const sourceUrl = request.data?.sourceUrl as string | undefined;
+    const chatId = request.data?.chatId as string | undefined;
+    const messageId = request.data?.messageId as string | undefined;
+    if (!sourceUrl || !chatId || !messageId) {
+      throw new HttpsError("invalid-argument", "sourceUrl, chatId və messageId tələb olunur.");
+    }
+
+    // Never trust a client-supplied path blindly (same reasoning as
+    // `submitIdentityVerification`'s prefix check above) — the source
+    // must be a real chat-media object, and the caller must actually
+    // be a participant of the chat it came from.
+    const sourcePath = storagePathFromUrl(sourceUrl);
+    const sourceFolder = sourcePath?.split("/")[0];
+    if (!sourcePath || !sourceFolder || !(CHAT_MEDIA_FOLDERS as readonly string[]).includes(sourceFolder)) {
+      throw new HttpsError("invalid-argument", "Fayl yolu etibarsızdır.");
+    }
+    const sourceChatId = sourcePath.split("/")[1];
+    const [sourceChatSnap, targetChatSnap] = await Promise.all([
+      db.collection("chats").doc(sourceChatId).get(),
+      db.collection("chats").doc(chatId).get(),
+    ]);
+    const isParticipant = (snap: FirebaseFirestore.DocumentSnapshot) =>
+      ((snap.data()?.participants as string[] | undefined) ?? []).includes(uid);
+    if (!sourceChatSnap.exists || !isParticipant(sourceChatSnap) || (targetChatSnap.exists && !isParticipant(targetChatSnap))) {
+      throw new HttpsError("permission-denied", "Bu faylı yönləndirmək icazəniz yoxdur.");
+    }
+
+    const extension = sourcePath.includes(".") ? sourcePath.slice(sourcePath.lastIndexOf(".")) : "";
+    const destPath = `${sourceFolder}/${chatId}/${uid}/${messageId}${extension}`;
+
+    const bucket = storage.bucket();
+    await bucket.file(sourcePath).copy(bucket.file(destPath));
+    const token = randomUUID();
+    await bucket.file(destPath).setMetadata({ metadata: { firebaseStorageDownloadTokens: token } });
+
+    const mediaUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(destPath)}?alt=media&token=${token}`;
+    return { mediaUrl };
+  },
+);
 
 /**
  * Keeps `posts/{postId}.likesCount`/`commentsCount` as server-computed
@@ -549,10 +1425,13 @@ async function notifyUser(params: {
   targetType?: string;
 }): Promise<void> {
   const userSnap = await db.collection("users").doc(params.uid).get();
-  const userData = userSnap.data();
-  if (!userData) return;
+  if (!userSnap.exists) return;
+  // `notificationPreferences`/`fcmTokens` moved to `users/{uid}/private/data`
+  // (Düzəliş Prompt 4 / K-1) — this fetch closes every caller of
+  // `notifyUser` over the change at once, rather than touching each one.
+  const privateData = (await privateDataRef(params.uid).get()).data() ?? {};
 
-  const prefs = (userData.notificationPreferences ?? {}) as Record<string, boolean>;
+  const prefs = (privateData.notificationPreferences ?? {}) as Record<string, boolean>;
   if (prefs[params.category] === false) return;
 
   await db
@@ -573,7 +1452,7 @@ async function notifyUser(params: {
     });
 
   if (prefs.pushEnabled === false) return;
-  const tokens = (userData.fcmTokens ?? []) as string[];
+  const tokens = (privateData.fcmTokens ?? []) as string[];
   if (tokens.length === 0) return;
 
   // Drives the iOS home-screen app icon badge — APNs applies
@@ -626,7 +1505,7 @@ async function pruneStaleTokensAndLogFailures(uid: string, tokens: string[], res
     }
   });
   if (staleTokens.length > 0) {
-    await db.collection("users").doc(uid).update({ fcmTokens: FieldValue.arrayRemove(...staleTokens) });
+    await privateDataRef(uid).set({ fcmTokens: FieldValue.arrayRemove(...staleTokens) }, { merge: true });
   }
 }
 
@@ -717,14 +1596,13 @@ export const onFollowUpdated = onDocumentUpdated("follows/{followId}", async (ev
 });
 
 /**
- * Fires on `premium` false -> true, whichever path caused it — today
- * that's only the admin panel's manual "VIP et" grant (Server Action,
- * Admin SDK write), since real purchases aren't wired to anything yet
- * (see `isPremiumProvider`'s doc comment in premium_providers.dart).
- * Watching the field itself instead of notifying from the admin
- * action means a future RevenueCat webhook flipping the same field
- * gets this notification for free, with no second call site to keep
- * in sync.
+ * Fires on `premium` false -> true, whichever path caused it — the
+ * admin panel's manual "VIP et" grant (Server Action, Admin SDK write)
+ * AND a real Apple/Google IAP purchase (`verifyInAppPurchase`/
+ * `appStoreServerNotifications`/`googlePlayRtdn`, see the VIP section
+ * further down this file) both land here for free, with no second
+ * notify call site to keep in sync — watching the field itself is what
+ * makes that work regardless of which path set it.
  */
 export const onUserUpdated = onDocumentUpdated("users/{userId}", async (event) => {
   const before = event.data?.before.data();
@@ -742,15 +1620,73 @@ export const onUserUpdated = onDocumentUpdated("users/{userId}", async (event) =
     });
   }
 
-  // `security` — the app's "email" field is a contact address on
-  // `users/{uid}` (see `FirebaseAccountRepository.updateEmail`), not
-  // the actual Firebase Auth sign-in credential (that's a synthetic,
-  // never-shown address derived from the username, unrelated to this
-  // field — see that repository's own doc comment), so this is a
-  // plain Firestore field watch, not an Auth-level hook. `before.email
-  // !== undefined` excludes setting it for the very first time
-  // (onboarding) — that's not a "change" to alert about, there was
-  // nothing to compare against yet.
+  const beforePrivacy = before.accountPrivacy as string | undefined;
+  const afterPrivacy = after.accountPrivacy as string | undefined;
+  if (beforePrivacy !== afterPrivacy) {
+    await syncAuthorIsPublicForUser(event.params.userId, afterPrivacy !== "private");
+  }
+
+  // Düzəliş Prompt 5 (K-3) — reverse index: `blockUser`/`unblockUser`
+  // (FirebaseSafetyRepository) only ever write the BLOCKER's own
+  // `blockedUsers` array, never anything on the blocked party's own
+  // doc. Client-side feed/comment/story filtering (post/story/comment
+  // lists are plain `list` queries — firestore.rules structurally can't
+  // gate those per-document the way a single-doc `get()` can) needs to
+  // know "who has blocked ME" to hide their content, which the forward
+  // array alone can't answer without an O(users) scan. Mirrors
+  // `syncAuthorIsPublicForUser`'s own denormalization shape just above.
+  // Best-effort: a failure here leaves `blockedByUsers` stale for this
+  // ONE pair until their next block/unblock action — a feed-filtering
+  // blind spot only, never a security bypass (every actual enforcement
+  // point — profile read, messages, calls, chat create — checks the
+  // forward `blockedUsers` arrays directly, not this index), so no
+  // retry/repair job exists for this at current scale; logged so a
+  // real failure is at least visible.
+  const beforeBlocked = (before.blockedUsers as string[] | undefined) ?? [];
+  const afterBlocked = (after.blockedUsers as string[] | undefined) ?? [];
+  const blockedAdded = afterBlocked.filter((u) => !beforeBlocked.includes(u));
+  const blockedRemoved = beforeBlocked.filter((u) => !afterBlocked.includes(u));
+  if (blockedAdded.length > 0 || blockedRemoved.length > 0) {
+    const myUid = event.params.userId;
+    try {
+      await Promise.all([
+        ...blockedAdded.map((otherUid) =>
+          privateDataRef(otherUid).set({ blockedByUsers: FieldValue.arrayUnion(myUid) }, { merge: true }),
+        ),
+        ...blockedRemoved.map((otherUid) =>
+          privateDataRef(otherUid).set({ blockedByUsers: FieldValue.arrayRemove(myUid) }, { merge: true }),
+        ),
+      ]);
+    } catch (e) {
+      logger.error(
+        `onUserUpdated: blockedByUsers reverse-index sync failed for uid=${myUid} added=[${blockedAdded}] removed=[${blockedRemoved}]`,
+        e,
+      );
+    }
+  }
+});
+
+/**
+ * `security` — the app's "email" field is a contact address on
+ * `users/{uid}/private/data` (Düzəliş Prompt 4; see
+ * `FirebaseAccountRepository.updateEmail`), not the actual Firebase
+ * Auth sign-in credential (that's a synthetic, never-shown address
+ * derived from the username, unrelated to this field — see that
+ * repository's own doc comment), so this is a plain Firestore field
+ * watch, not an Auth-level hook. Split out of `onUserUpdated` when
+ * `email` moved off the public doc — that trigger only ever fires on
+ * writes to `users/{userId}` itself, never its `private/data`
+ * subdocument, so this alert would otherwise have silently stopped
+ * firing entirely post-migration. `before.email !== undefined`
+ * excludes setting it for the very first time (onboarding) — that's
+ * not a "change" to alert about, there was nothing to compare against
+ * yet.
+ */
+export const onUserPrivateDataUpdated = onDocumentUpdated("users/{userId}/private/{document}", async (event) => {
+  const before = event.data?.before.data();
+  const after = event.data?.after.data();
+  if (!before || !after) return;
+
   const beforeEmail = before.email as string | undefined;
   const afterEmail = after.email as string | undefined;
   if (beforeEmail !== undefined && afterEmail && beforeEmail !== afterEmail) {
@@ -762,12 +1698,6 @@ export const onUserUpdated = onDocumentUpdated("users/{userId}", async (event) =
       body: `Hesabınızın əlaqə e-poçtu ${afterEmail} ünvanına dəyişdirildi. Bu siz deyilsinizsə, dərhal dəstəklə əlaqə saxlayın.`,
       params: { kind: "email_changed", newEmail: afterEmail },
     });
-  }
-
-  const beforePrivacy = before.accountPrivacy as string | undefined;
-  const afterPrivacy = after.accountPrivacy as string | undefined;
-  if (beforePrivacy !== afterPrivacy) {
-    await syncAuthorIsPublicForUser(event.params.userId, afterPrivacy !== "private");
   }
 });
 
@@ -879,6 +1809,47 @@ export const onReviewWritten = onDocumentWritten("reviews/{reviewId}", async (ev
   }
 });
 
+/**
+ * Maintains `venues/{venueId}.activeCheckinCount` — Düzəliş Prompt 4
+ * (K-4) narrowed raw `activeCheckins` subcollection reads to the
+ * checked-in user and the venue's own owner (see firestore.rules), so
+ * every general-audience reader (a venue profile's live "hazırda N
+ * nəfər" counter, the live feed's "Ətrafınızda" audience card) must
+ * read this aggregate instead of listing the subcollection directly.
+ * Same clamp-in-a-transaction shape as [bumpVenueLikeCount].
+ * `cleanupStaleCheckins`'s hourly sweep deletes expired docs, which
+ * fires the delete side of this pair, so the counter self-corrects on
+ * the same cadence the raw subcollection's own staleness window already
+ * relied on before this field existed.
+ */
+async function bumpActiveCheckinCount(venueId: string, delta: 1 | -1): Promise<void> {
+  const ref = db.collection("venues").doc(venueId);
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return;
+      const current = (snap.data()?.activeCheckinCount as number | undefined) ?? 0;
+      tx.update(ref, { activeCheckinCount: Math.max(0, current + delta) });
+    });
+  } catch {
+    // Venue doc no longer exists — nothing to bump.
+  }
+}
+
+export const onActiveCheckinCreated = onDocumentCreated(
+  "venues/{venueId}/activeCheckins/{userId}",
+  async (event) => {
+    await bumpActiveCheckinCount(event.params.venueId, 1);
+  },
+);
+
+export const onActiveCheckinDeleted = onDocumentDeleted(
+  "venues/{venueId}/activeCheckins/{userId}",
+  async (event) => {
+    await bumpActiveCheckinCount(event.params.venueId, -1);
+  },
+);
+
 // Matches FirebaseVenueRemoteDatasource._checkinExpiry on the Dart
 // side — both must agree on what "stale" means, since the client
 // live-counts only non-stale docs while this function is the one
@@ -890,7 +1861,7 @@ const CHECKIN_EXPIRY_MS = 2 * 60 * 60 * 1000;
  * older than CHECKIN_EXPIRY_MS. Uses a collectionGroup query (needs
  * the COLLECTION_GROUP field override in firestore.indexes.json) so
  * one function covers every venue, not one query per venue. Also
- * clears the denormalized `users/{uid}.activeCheckinVenueId` pointer,
+ * clears the denormalized `users/{uid}/private/data.activeCheckinVenueId` pointer,
  * but ONLY when it still points at the venue being cleaned up here —
  * guards against wiping a pointer the user already moved elsewhere in
  * the time between this doc going stale and this function running.
@@ -906,10 +1877,10 @@ export const cleanupStaleCheckins = onSchedule(
         const venueId = doc.ref.parent.parent?.id;
         const uid = doc.id;
         await db.runTransaction(async (tx) => {
-          const userRef = db.collection("users").doc(uid);
-          const userSnap = await tx.get(userRef);
-          if (userSnap.exists && userSnap.data()?.activeCheckinVenueId === venueId) {
-            tx.update(userRef, { activeCheckinVenueId: null });
+          const privateRef = privateDataRef(uid);
+          const privateSnap = await tx.get(privateRef);
+          if (privateSnap.exists && privateSnap.data()?.activeCheckinVenueId === venueId) {
+            tx.update(privateRef, { activeCheckinVenueId: null });
           }
           tx.delete(doc.ref);
         });
@@ -1259,25 +2230,33 @@ export const computeBirthdayMatches = onSchedule(
     ]);
     if (optedInUsersSnap.empty || eligibleVenuesSnap.empty) return;
 
+    // `ghostModeEnabled`/`birthDate`/`lat`/`lng`/`discoverRadiusMode`/
+    // `discoverRadiusKm` all moved to `users/{uid}/private/data` (Düzəliş
+    // Prompt 4 / K-1) — `birthdayOffersOptIn` itself stayed public
+    // (query constraint, see `privateDataRef`'s doc comment), so the
+    // query above still works, but every other field this loop reads
+    // now needs a second, per-candidate fetch.
+    const privateSnaps = await Promise.all(optedInUsersSnap.docs.map((doc) => privateDataRef(doc.id).get()));
+
     const birthdayUsers: BirthdayUserDoc[] = [];
-    for (const doc of optedInUsersSnap.docs) {
-      const data = doc.data();
-      if (data.ghostModeEnabled) continue;
+    optedInUsersSnap.docs.forEach((doc, i) => {
+      const data = privateSnaps[i].data() ?? {};
+      if (data.ghostModeEnabled) return;
       const birthDate = data.birthDate as Timestamp | undefined;
-      if (!birthDate) continue;
+      if (!birthDate) return;
       const bd = birthDate.toDate();
       const bdMonth = String(bd.getUTCMonth() + 1).padStart(2, "0");
       const bdDay = String(bd.getUTCDate()).padStart(2, "0");
-      if (bdMonth !== bakuMonth || bdDay !== bakuDay) continue;
+      if (bdMonth !== bakuMonth || bdDay !== bakuDay) return;
       birthdayUsers.push({
         uid: doc.id,
         lat: data.lat,
         lng: data.lng,
-        country: data.country,
+        country: doc.data().country, // `country` stays on the main (public) doc
         discoverRadiusMode: data.discoverRadiusMode,
         discoverRadiusKm: data.discoverRadiusKm,
       });
-    }
+    });
     if (birthdayUsers.length === 0) return;
 
     for (const venueDoc of eligibleVenuesSnap.docs) {
@@ -1827,6 +2806,7 @@ export const refreshHappyHourOfferStatus = onSchedule(
 export const joinWaitlist = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  await assertActiveUser(uid);
 
   const venueId = request.data?.venueId as string | undefined;
   if (!venueId) throw new HttpsError("invalid-argument", "venueId tələb olunur.");
@@ -1979,6 +2959,45 @@ export const expireStaleWaitlistCalls = onSchedule(
     await Promise.all(staleSnap.docs.map((doc) => doc.ref.update({ status: "no_show" })));
   }
 );
+
+// Düzəliş Prompt 8 / Y-3 — how old an Auth account can be, with no
+// `users/{uid}` doc, before it counts as "abandoned" for this report.
+// 48h is well past any real user's onboarding hesitation; a bot/probe
+// account that never finishes `completeOnboarding` shows up immediately.
+const ORPHAN_AUTH_ACCOUNT_AGE_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * REPORT-ONLY, NEVER DELETES (Düzəliş Prompt 8 / Y-3 — deliberately
+ * scoped down from a cleanup job to a visibility job; deletion needs a
+ * separate, explicit decision, not an automated sweep). Lists every
+ * Firebase Auth account older than [ORPHAN_AUTH_ACCOUNT_AGE_MS] with no
+ * matching `users/{uid}` document — i.e. signed up (or was
+ * auto-created, as in the 26 August probe) but never completed
+ * `completeOnboarding` — and logs the count + full list (uid, email,
+ * createdAt) so it's visible in Cloud Logging without needing a manual
+ * script. Paginates through `auth.listUsers()` since the whole roster
+ * doesn't fit one page once the project has more than 1000 users.
+ */
+export const reportOrphanAuthAccounts = onSchedule({ schedule: "every 24 hours", region: "us-central1" }, async () => {
+  const cutoff = Date.now() - ORPHAN_AUTH_ACCOUNT_AGE_MS;
+  const orphans: { uid: string; email: string | undefined; createdAt: string }[] = [];
+
+  let pageToken: string | undefined;
+  do {
+    const page = await auth.listUsers(1000, pageToken);
+    for (const user of page.users) {
+      const createdAtMs = new Date(user.metadata.creationTime).getTime();
+      if (createdAtMs > cutoff) continue;
+      const userDoc = await db.collection("users").doc(user.uid).get();
+      if (!userDoc.exists) {
+        orphans.push({ uid: user.uid, email: user.email, createdAt: user.metadata.creationTime });
+      }
+    }
+    pageToken = page.pageToken;
+  } while (pageToken);
+
+  logger.warn(`orphan-auth-accounts count=${orphans.length}`, { orphans });
+});
 
 /** 2h after a "Gəldi" (`seated`) mark — long enough to actually have had the visit, short enough the experience is still fresh. */
 const REVIEW_PROMPT_DELAY_MS = 2 * 60 * 60 * 1000;
@@ -2185,22 +3204,46 @@ const OFFER_NOTIFY_CANDIDATE_LIMIT = 1000;
  * counter-radius choice exclude a recipient who'd otherwise have been
  * within their OWN chosen Discover radius.
  */
+interface NotifyCandidate {
+  id: string;
+  data: FirebaseFirestore.DocumentData;
+}
+
+/**
+ * `ghostModeEnabled`/`discoverRadiusMode`/`discoverRadiusKm`/`lat`/`lng`
+ * moved to `users/{uid}/private/data` (Düzəliş Prompt 4) — merges each
+ * candidate's private doc on top of its public doc so
+ * `isWithinRecipientDiscoverRadius` and callers' own `ghostModeEnabled`
+ * check keep seeing the fields they always have.
+ */
+async function withPrivateData(
+  docs: FirebaseFirestore.DocumentSnapshot[],
+): Promise<NotifyCandidate[]> {
+  const existing = docs.filter((d) => d.exists);
+  const privateSnaps = await Promise.all(existing.map((d) => privateDataRef(d.id).get()));
+  return existing.map((d, i) => ({
+    id: d.id,
+    data: { ...(d.data() ?? {}), ...(privateSnaps[i].data() ?? {}) },
+  }));
+}
+
 async function resolveNotifyCandidates(
   venueId: string,
   venue: FirebaseFirestore.DocumentData,
   limit: number,
-): Promise<FirebaseFirestore.DocumentSnapshot[]> {
+): Promise<NotifyCandidate[]> {
   if (venue.category === "independentArtist") {
     const followerSnaps = await db.collection("venues").doc(venueId).collection("followers").limit(limit).get();
     const followerDocs = await Promise.all(followerSnaps.docs.map((d) => db.collection("users").doc(d.id).get()));
-    return followerDocs.filter((d) => d.exists);
+    return withPrivateData(followerDocs);
   }
 
   const sourceDocs = (await db.collection("users").limit(limit).get()).docs;
   const venueLat = venue.lat as number | undefined;
   const venueLng = venue.lng as number | undefined;
   const venueCountry = venue.country as string | undefined;
-  return sourceDocs.filter((d) => isWithinRecipientDiscoverRadius(d.data() ?? {}, venueLat, venueLng, venueCountry));
+  const candidates = await withPrivateData(sourceDocs);
+  return candidates.filter((c) => isWithinRecipientDiscoverRadius(c.data, venueLat, venueLng, venueCountry));
 }
 
 /**
@@ -2235,10 +3278,9 @@ async function notifyNearbyUsersOfNewOffer(
   const offerTitle = (offer.title as string | undefined) ?? "";
 
   await Promise.all(
-    candidateDocs.map(async (userDoc) => {
-      const uid = userDoc.id;
-      const userData = userDoc.data();
-      if (!userData) return;
+    candidateDocs.map(async (candidate) => {
+      const uid = candidate.id;
+      const userData = candidate.data;
       if (uid === ownerId) return;
       if (userData.ghostModeEnabled) return;
 
@@ -2289,10 +3331,9 @@ async function notifyNearbyUsersOfNewPinBox(
   const pinboxTitle = (pinbox.title as string | undefined) ?? "";
 
   await Promise.all(
-    candidateDocs.map(async (userDoc) => {
-      const uid = userDoc.id;
-      const userData = userDoc.data();
-      if (!userData) return;
+    candidateDocs.map(async (candidate) => {
+      const uid = candidate.id;
+      const userData = candidate.data;
       if (uid === ownerId) return;
       if (userData.ghostModeEnabled) return;
 
@@ -2356,10 +3397,9 @@ export const notifyNearbyUsersOfNewEvent = onDocumentCreated("venueEvents/{event
   const eventId = event.params.eventId;
 
   await Promise.all(
-    candidateDocs.map(async (userDoc) => {
-      const uid = userDoc.id;
-      const userData = userDoc.data();
-      if (!userData) return;
+    candidateDocs.map(async (candidate) => {
+      const uid = candidate.id;
+      const userData = candidate.data;
       if (uid === ownerId) return;
       if (userData.ghostModeEnabled) return;
 
@@ -2529,6 +3569,7 @@ export const updateVenue = onCall(
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
 
     const data = request.data as Record<string, unknown>;
     const venueId = data.venueId as string | undefined;
@@ -2630,6 +3671,7 @@ export const updateVenue = onCall(
 export const resubmitVenue = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  await assertActiveUser(uid);
 
   const venueId = request.data?.venueId as string | undefined;
   if (!venueId) throw new HttpsError("invalid-argument", "venueId tələb olunur.");
@@ -2659,11 +3701,108 @@ export const resubmitVenue = onCall({ region: "us-central1", enforceAppCheck: fa
   return { ok: true };
 });
 
+/**
+ * Düzəliş Prompt 6 / INFRA-5 — Offer equivalent of `updateVenue`, same
+ * problem it fixed: the old flow (client writes content fields
+ * directly via Firestore, then separately calls `resubmitOffer`) let a
+ * modified client skip the second call and silently swap in different
+ * content on an already-approved offer with no re-review at all —
+ * `firestore.rules`' `offers/{offerId}` update rule never blocked the
+ * content fields themselves, only the grant-of-trust ones. This folds
+ * both into one atomic transaction, diff-gated exactly like
+ * `updateVenue`: re-review only when the offer was already
+ * `needs_revision`/`approved` AND a real content field actually
+ * changed.
+ */
+export const updateOffer = onCall(
+  { region: "us-central1", enforceAppCheck: false },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+
+    const data = request.data as Record<string, unknown>;
+    const offerId = data.offerId as string | undefined;
+    const category = data.category as string | undefined;
+    const title = (data.title as string | undefined)?.trim();
+    const description = (data.description as string | undefined)?.trim();
+    const offerType = data.offerType as string | undefined;
+    const discountValue = data.discountValue as number | undefined;
+    const startDate = data.startDate as string | undefined;
+    const endDate = data.endDate as string | undefined;
+    const imageUrl = data.imageUrl as string | undefined; // only present if a new photo was uploaded
+    const terms = (data.terms as string | undefined)?.trim();
+    const activeHours = data.activeHours as Record<string, unknown> | undefined;
+    const activeDays = (data.activeDays as string[] | undefined) ?? [];
+
+    if (!offerId || !category || !title || !description || !offerType || !startDate || !endDate) {
+      throw new HttpsError("invalid-argument", "Tələb olunan sahələr çatışmır.");
+    }
+
+    const startTimestamp = Timestamp.fromDate(new Date(startDate));
+    const endTimestamp = Timestamp.fromDate(new Date(endDate));
+
+    const ref = db.collection("offers").doc(offerId);
+    const sentForReReview = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) throw new HttpsError("not-found", "Təklif tapılmadı.");
+      const current = snap.data()!;
+      if (current.ownerId !== uid) throw new HttpsError("permission-denied", "Bu təklifin sahibi deyilsiniz.");
+
+      const contentChanged =
+        current.category !== category ||
+        current.title !== title ||
+        current.description !== description ||
+        current.offerType !== offerType ||
+        ((current.discountValue as number | undefined) ?? null) !== (discountValue ?? null) ||
+        (current.startDate as Timestamp | undefined)?.toMillis() !== startTimestamp.toMillis() ||
+        (current.endDate as Timestamp | undefined)?.toMillis() !== endTimestamp.toMillis() ||
+        ((current.terms as string | undefined) ?? null) !== (terms ?? null) ||
+        JSON.stringify(current.activeHours ?? null) !== JSON.stringify(activeHours ?? null) ||
+        JSON.stringify(current.activeDays ?? []) !== JSON.stringify(activeDays) ||
+        (imageUrl !== undefined && current.imageUrl !== imageUrl);
+
+      const wasLive = current.status === "needs_revision" || current.status === "approved";
+      const needsReReview = wasLive && contentChanged;
+
+      tx.update(ref, {
+        category,
+        title,
+        description,
+        offerType,
+        discountValue: discountValue ?? null,
+        startDate: startTimestamp,
+        endDate: endTimestamp,
+        terms: terms ?? null,
+        activeHours: activeHours ?? null,
+        activeDays,
+        updatedAt: FieldValue.serverTimestamp(),
+        ...(imageUrl !== undefined ? { imageUrl } : {}),
+        ...(needsReReview
+          ? { status: "pending", reviewNote: null, reviewedBy: null, reviewedAt: null, revisionDeadline: null }
+          : {}),
+      });
+
+      if (needsReReview) {
+        revertRevisionPayment(tx, current.paymentId as string | undefined);
+      }
+
+      return needsReReview;
+    });
+
+    return { sentForReReview };
+  },
+);
+
 /** Offer equivalent of `resubmitVenue` — same contract (`needs_revision`
- * OR `approved` → `pending`), same reasoning. */
+ * OR `approved` → `pending`), same reasoning. Still called from
+ * `deleteAccount`-adjacent flows or a future admin/support path; no
+ * longer reachable from the normal offer-edit flow now that
+ * `updateOffer` folds this same status-flip logic in atomically. */
 export const resubmitOffer = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  await assertActiveUser(uid);
 
   const offerId = request.data?.offerId as string | undefined;
   if (!offerId) throw new HttpsError("invalid-argument", "offerId tələb olunur.");
@@ -2693,6 +3832,84 @@ export const resubmitOffer = onCall({ region: "us-central1", enforceAppCheck: fa
 });
 
 /**
+ * Düzəliş Prompt 6 / INFRA-5 — PinBox equivalent of `updateVenue`/
+ * `updateOffer`, same fix: content fields were never blocked in
+ * `firestore.rules`' `pinboxes/{pinboxId}` update rule, so a modified
+ * client could silently swap in different content on a live PinBox
+ * without ever calling `resubmitPinBox`. Folds both into one atomic
+ * transaction. `active` (PinBox's "live" status — there is no
+ * `approved`) or `needs_revision` re-enters moderation on an actual
+ * content change, mirroring `resubmitPinBox`'s own eligibility check.
+ * No `paymentId` field exists on PinBox (no flat listing fee — see
+ * `PinBox`'s own doc comment), so there's nothing equivalent to
+ * `revertRevisionPayment` to call here.
+ */
+export const updatePinBox = onCall(
+  { region: "us-central1", enforceAppCheck: false },
+  async (request) => {
+    const uid = request.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+
+    const data = request.data as Record<string, unknown>;
+    const pinboxId = data.pinboxId as string | undefined;
+    const title = (data.title as string | undefined)?.trim();
+    const description = (data.description as string | undefined)?.trim();
+    const originalPrice = data.originalPrice as number | undefined;
+    const pinboxPrice = data.pinboxPrice as number | undefined;
+    const pickupWindowStart = data.pickupWindowStart as string | undefined;
+    const pickupWindowEnd = data.pickupWindowEnd as string | undefined;
+    const imageUrl = data.imageUrl as string | undefined; // only present if a new photo was uploaded
+
+    if (
+      !pinboxId || !title || !description || originalPrice === undefined ||
+      pinboxPrice === undefined || !pickupWindowStart || !pickupWindowEnd
+    ) {
+      throw new HttpsError("invalid-argument", "Tələb olunan sahələr çatışmır.");
+    }
+
+    const startTimestamp = Timestamp.fromDate(new Date(pickupWindowStart));
+    const endTimestamp = Timestamp.fromDate(new Date(pickupWindowEnd));
+
+    const ref = db.collection("pinboxes").doc(pinboxId);
+    const sentForReReview = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) throw new HttpsError("not-found", "PinBox tapılmadı.");
+      const current = snap.data()!;
+      if (current.ownerId !== uid) throw new HttpsError("permission-denied", "Bu qutunun sahibi deyilsiniz.");
+
+      const contentChanged =
+        current.title !== title ||
+        current.description !== description ||
+        (current.originalPrice as number | undefined) !== originalPrice ||
+        (current.pinboxPrice as number | undefined) !== pinboxPrice ||
+        (current.pickupWindowStart as Timestamp | undefined)?.toMillis() !== startTimestamp.toMillis() ||
+        (current.pickupWindowEnd as Timestamp | undefined)?.toMillis() !== endTimestamp.toMillis() ||
+        (imageUrl !== undefined && current.imageUrl !== imageUrl);
+
+      const wasLive = current.status === "needs_revision" || current.status === "active";
+      const needsReReview = wasLive && contentChanged;
+
+      tx.update(ref, {
+        title,
+        description,
+        originalPrice,
+        pinboxPrice,
+        pickupWindowStart: startTimestamp,
+        pickupWindowEnd: endTimestamp,
+        updatedAt: FieldValue.serverTimestamp(),
+        ...(imageUrl !== undefined ? { imageUrl } : {}),
+        ...(needsReReview ? { status: "pending", reviewNote: null, reviewedBy: null, reviewedAt: null } : {}),
+      });
+
+      return needsReReview;
+    });
+
+    return { sentForReReview };
+  },
+);
+
+/**
  * PinBox equivalent of `resubmitVenue`/`resubmitOffer` — two distinct
  * callers: `needs_revision` → the admin sent it back with a reason, the
  * owner fixed it and is resubmitting for review; `active` → an owner
@@ -2701,11 +3918,14 @@ export const resubmitOffer = onCall({ region: "us-central1", enforceAppCheck: fa
  * `approved` branch does. No `revisionDeadline`/`paymentId` fields
  * exist on PinBox (no flat listing fee — see `PinBox`'s own doc
  * comment), so there's nothing equivalent to `revertRevisionPayment` to
- * call here.
+ * call here. No longer reachable from the normal PinBox-edit flow now
+ * that `updatePinBox` folds this same status-flip logic in atomically
+ * — kept standalone for the same reason `resubmitVenue` is.
  */
 export const resubmitPinBox = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  await assertActiveUser(uid);
 
   const pinboxId = request.data?.pinboxId as string | undefined;
   if (!pinboxId) throw new HttpsError("invalid-argument", "pinboxId tələb olunur.");
@@ -2811,6 +4031,7 @@ export const onPinBoxUpdated = onDocumentUpdated("pinboxes/{pinboxId}", async (e
 export const submitIdentityVerification = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  await assertActiveUser(uid);
 
   const requestId = request.data?.requestId as string | undefined;
   const idFrontPath = request.data?.idFrontPath as string | undefined;
@@ -2837,6 +4058,29 @@ export const submitIdentityVerification = onCall({ region: "us-central1", enforc
     .get();
   if (!existingPending.empty) {
     throw new HttpsError("failed-precondition", "already-pending");
+  }
+
+  // Düzəliş Prompt 10 / AUTH-15 — `requestId` is client-supplied (the
+  // client's own Firestore auto-id, allocated before upload) and the
+  // write below is a `.set()`, which fully OVERWRITES whatever already
+  // exists at that id. Without this guard, a request landing on an id
+  // that already belongs to a DIFFERENT user's pending submission would
+  // silently replace it — the victim's record (and the admin's ability
+  // to ever review it) would just vanish, with no error surfaced to
+  // anyone. Not currently reachable in practice (the id is a random,
+  // non-enumerable Firestore auto-id never exposed to non-owners — see
+  // `firestore.rules`' `identityVerifications/{requestId}` read rule),
+  // but the fix is cheap and the blast radius if this assumption ever
+  // breaks is a silently dropped identity-verification submission, so
+  // this closes it regardless of today's actual exploitability.
+  const existingAtRequestId = await db.collection("identityVerifications").doc(requestId).get();
+  if (existingAtRequestId.exists && existingAtRequestId.data()?.userId !== uid) {
+    logger.error("submitIdentityVerification: requestId already belongs to a different user", {
+      uid,
+      requestId,
+      existingOwner: existingAtRequestId.data()?.userId,
+    });
+    throw new HttpsError("already-exists", "request-id-taken");
   }
 
   await db.collection("identityVerifications").doc(requestId).set({
@@ -3035,6 +4279,45 @@ export const processPaymentRefund = onDocumentUpdated(
       updatedAt: FieldValue.serverTimestamp(),
     });
     logger.info("processPaymentRefund: refunded automatically via Epoint", { paymentId, amount, currency });
+
+    // Düzəliş Prompt 6 / K-11 — reverses whatever entitlement this
+    // payment granted. Deliberately NO branch here for
+    // `venue_subscription`/`offer_placement_fee`: every path that ever
+    // sets `refund_pending` for those two types (`setVenueStatus`/
+    // `setOfferStatus` rejecting the listing, or
+    // `expireRevisionDeadlinesFor`'s auto-reject sweep) ALREADY flips
+    // the venue's/offer's own `status` to `rejected` in the SAME write
+    // that triggers this — adding a second, independent write to the
+    // same doc from here would risk racing that already-correct state
+    // for no benefit (the listing is already hidden via `status`, not
+    // via `subscriptionRenewsAt`/anything this trigger could add).
+    // Confirmed by reading both admin actions directly before writing
+    // this — not assumed.
+    const type = after.type as string | undefined;
+    if (type === "boost_fee" && listingType === "offer" && listingId) {
+      await db.collection("offers").doc(listingId).update({
+        boostedUntil: null,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } else if (type === "venue_premium" && listingType === "venue" && listingId) {
+      await db.runTransaction(async (tx) => {
+        const venueRef = db.collection("venues").doc(listingId);
+        const venueSnap = await tx.get(venueRef);
+        if (!venueSnap.exists) return;
+        const months = after.premiumMonths as number | undefined;
+        const currentExpiresAt = (venueSnap.data()?.premiumExpiresAt as Timestamp | undefined)?.toDate();
+        if (!months || !currentExpiresAt) return;
+        const rolledBack = new Date(currentExpiresAt.getTime() - months * 30 * 24 * 60 * 60 * 1000);
+        const stillPremium = rolledBack > new Date();
+        tx.update(venueRef, {
+          premiumExpiresAt: Timestamp.fromDate(rolledBack),
+          isPremium: stillPremium,
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      });
+    } else if (type === "pinbox_order" && listingType === "pinboxOrder" && listingId) {
+      await cancelPinBoxPayoutForRefund(listingId);
+    }
   },
 );
 
@@ -3138,6 +4421,28 @@ const OFFER_ONLY_VENUE_CATEGORIES = ["wineHouse", "homeServices", "realEstate"];
 
 const SUBSCRIPTION_CYCLE_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** Düzəliş Prompt 6 / PAY-10 — grace window before an unpaid venue is
+ * suspended, counted in business days (weekends don't count against
+ * the owner). Purely a new policy — nothing in this codebase enforced
+ * any grace period before this. */
+const SUBSCRIPTION_OVERDUE_GRACE_BUSINESS_DAYS = 5;
+
+/** Adds `days` business days (Mon–Fri) to `start`, skipping weekends
+ * entirely — used only to compute the PAY-10 suspension threshold.
+ * Firestore can't express "N business days" as a query bound, so this
+ * is evaluated per already-fetched venue inside `renewVenueSubscriptions`
+ * rather than as a second query. */
+function addBusinessDays(start: Date, days: number): Date {
+  const result = new Date(start.getTime());
+  let remaining = days;
+  while (remaining > 0) {
+    result.setDate(result.getDate() + 1);
+    const dayOfWeek = result.getDay();
+    if (dayOfWeek !== 0 && dayOfWeek !== 6) remaining--;
+  }
+  return result;
+}
+
 /**
  * Finds this venue's most recent `venue_subscription` payment and
  * reuses it if it's still `pending` AND no Epoint checkout was ever
@@ -3159,6 +4464,34 @@ interface PendingOfferAcceptance {
   documentUrl: string;
   appVersion: string;
   platform: string;
+}
+
+/**
+ * Düzəliş Prompt 10 / H #181 — canonical "current business offer"
+ * source of truth. Before this, `submitVenue`/
+ * `retryVenueSubscriptionPayment` trusted the CLIENT's own
+ * `offerAcceptance.version`/`documentUrl` verbatim and recorded
+ * exactly that into `venues/{id}.offerAcceptedVersion`/
+ * `offerDocumentUrl` — a modified client could make a venue owner's
+ * permanent legal-acceptance record say they accepted a version/URL
+ * that was never actually shown to them, undermining the record's
+ * whole evidentiary point. `appVersion`/`platform` stay client-
+ * supplied (audit-only — which build/OS the tap happened on, no legal
+ * weight of their own). Same `config/{docId}`, read-only-from-client
+ * shape as `config/legal` (`currentTermsVersion`/`currentPrivacyVersion`)
+ * — hand-edited via the admin script
+ * `admin-panel/scripts/set-business-offer-version.ts` whenever the
+ * offer PDF changes materially.
+ */
+async function currentBusinessOffer(): Promise<{ version: string; documentUrl: string }> {
+  const snap = await db.collection("config").doc("businessOffer").get();
+  const version = snap.data()?.currentVersion as string | undefined;
+  const documentUrl = snap.data()?.documentUrl as string | undefined;
+  if (!version || !documentUrl) {
+    logger.error("currentBusinessOffer: config/businessOffer is missing or incomplete");
+    throw new HttpsError("failed-precondition", "business-offer-not-configured");
+  }
+  return { version, documentUrl };
 }
 
 async function ensurePendingSubscriptionPayment(
@@ -3188,7 +4521,12 @@ async function ensurePendingSubscriptionPayment(
     return { ref: latest.ref, amount: latest.data().amount as number, isNew: false };
   }
   if (latest && latest.data().status === "pending" && latest.data().checkoutStartedAt) {
-    await latest.ref.update({ status: "failed", updatedAt: FieldValue.serverTimestamp() });
+    // Düzəliş Prompt 6 / K-10 — `superseded`, not `failed`: this payment
+    // was never declined, a newer one is just replacing it (Epoint
+    // rejects a reused `order_id`, so a fresh doc/checkout is required).
+    // `applyPaymentOutcome` still honors a late success arriving on a
+    // `superseded` doc — see that function's own doc comment.
+    await latest.ref.update({ status: "superseded", updatedAt: FieldValue.serverTimestamp() });
   }
 
   const amount = venueSubscriptionFeeByCategory[category];
@@ -3241,6 +4579,7 @@ export const renewVenueSubscriptions = onSchedule(
     if (snap.empty) return;
 
     let invoiced = 0;
+    let suspended = 0;
     for (const doc of snap.docs) {
       const data = doc.data();
       const category = data.category as string | undefined;
@@ -3254,30 +4593,43 @@ export const renewVenueSubscriptions = onSchedule(
 
       const venueName = (data.name as string | undefined) ?? "";
       const { ref: paymentRef, amount, isNew } = await ensurePendingSubscriptionPayment(doc.id, ownerId, category, venueName);
-      if (!isNew) continue;
+      if (isNew) {
+        try {
+          await startEpointCheckoutForPayment(paymentRef.id, amount, `Məkan abunəliyi — ${venueName}`);
+        } catch (e) {
+          logger.error("renewVenueSubscriptions: Epoint checkout failed", { venueId: doc.id, error: e });
+          // Payment doc stays 'pending' regardless — the owner's own
+          // "Ödə" button (retryVenueSubscriptionPayment) tries again.
+        }
 
-      try {
-        await startEpointCheckoutForPayment(paymentRef.id, amount, `Məkan abunəliyi — ${venueName}`);
-      } catch (e) {
-        logger.error("renewVenueSubscriptions: Epoint checkout failed", { venueId: doc.id, error: e });
-        // Payment doc stays 'pending' regardless — the owner's own
-        // "Ödə" button (retryVenueSubscriptionPayment) tries again.
+        await notifyUser({
+          uid: ownerId,
+          category: "venueUpdates",
+          type: "venueSubscriptionDue",
+          title: "Məkan abunəliyi ödənişi tələb olunur",
+          body: venueName ? `"${venueName}" üçün abunəlik ödənişini tamamlayın.` : "Abunəlik ödənişini tamamlayın.",
+          params: { venueName, amount },
+          targetId: doc.id,
+          targetType: "venue_subscription_due",
+        });
+        invoiced++;
       }
 
-      await notifyUser({
-        uid: ownerId,
-        category: "venueUpdates",
-        type: "venueSubscriptionDue",
-        title: "Məkan abunəliyi ödənişi tələb olunur",
-        body: venueName ? `"${venueName}" üçün abunəlik ödənişini tamamlayın.` : "Abunəlik ödənişini tamamlayın.",
-        params: { venueName, amount },
-        targetId: doc.id,
-        targetType: "venue_subscription_due",
-      });
-      invoiced++;
+      // Düzəliş Prompt 6 / PAY-10 — past the grace period, an
+      // `approved` venue that's still unpaid is suspended so it drops
+      // out of every existing `where("status","==","approved")` query
+      // (discover, `firestore.rules` reads, etc.) with no changes
+      // needed anywhere else — `applyPaymentOutcome`'s venue_subscription
+      // renewal branch is the only way back to `approved`.
+      const renewsAt = (data.subscriptionRenewsAt as Timestamp).toDate();
+      if (now >= addBusinessDays(renewsAt, SUBSCRIPTION_OVERDUE_GRACE_BUSINESS_DAYS)) {
+        await doc.ref.update({ status: "subscription_overdue", updatedAt: FieldValue.serverTimestamp() });
+        suspended++;
+      }
     }
 
     if (invoiced > 0) logger.info("renewVenueSubscriptions: invoiced venue subscriptions", { invoiced });
+    if (suspended > 0) logger.info("renewVenueSubscriptions: suspended overdue venue subscriptions", { suspended });
   },
 );
 
@@ -3289,10 +4641,22 @@ export const renewVenueSubscriptions = onSchedule(
  * this can't be used to prepay/skip ahead of the real due date.
  */
 export const retryVenueSubscriptionPayment = onCall(
+  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — KOD YAZILIB, DEPLOY EDİLMƏYİB.
+  // `true`-nun deploy edilməsi ARALIQ mərhələ olmadan dərhal production
+  // enforcement-dir (bax: bu funksiyanın da daxil olduğu top-of-file
+  // şərh, sətir ~27-40 — eyni səbəbdən bütün funksiyalarda bir dəfə
+  // `false`-a qaytarılıb). Deploy ETMƏZDƏN ƏVVƏL Firebase Console → App
+  // Check-də platform-üzrə (xüsusən iOS) təsdiqlənmə faizi yoxlanmalıdır.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+    // Düzəliş Prompt 8 / PAY-16 — shared "checkout" scope across all 8
+    // Epoint-initiating callables (see this prompt's own doc note: none
+    // of them accept a raw card number, so the real risk is volumetric
+    // checkout-session/API-call abuse, not a card-testing oracle).
+    await enforceRateLimit("checkout", uid, 10, 600);
 
     const venueId = request.data?.venueId as string | undefined;
     if (!venueId) throw new HttpsError("invalid-argument", "venueId tələb olunur.");
@@ -3323,14 +4687,13 @@ export const retryVenueSubscriptionPayment = onCall(
     const offerAcceptanceInput = request.data?.offerAcceptance as Record<string, unknown> | undefined;
     let offerAcceptance: PendingOfferAcceptance | undefined;
     if (offerAcceptanceInput) {
-      const offerVersion = offerAcceptanceInput.version as string | undefined;
-      const offerDocumentUrl = offerAcceptanceInput.documentUrl as string | undefined;
       const offerAppVersion = offerAcceptanceInput.appVersion as string | undefined;
       const offerPlatform = offerAcceptanceInput.platform as string | undefined;
-      if (!offerVersion || !offerDocumentUrl || !offerAppVersion || !offerPlatform) {
+      if (!offerAppVersion || !offerPlatform) {
         throw new HttpsError("invalid-argument", "Düzgün offerAcceptance tələb olunur.");
       }
-      offerAcceptance = { version: offerVersion, documentUrl: offerDocumentUrl, appVersion: offerAppVersion, platform: offerPlatform };
+      const { version, documentUrl } = await currentBusinessOffer();
+      offerAcceptance = { version, documentUrl, appVersion: offerAppVersion, platform: offerPlatform };
     } else if (!venue.offerAcceptedVersion) {
       throw new HttpsError("failed-precondition", "Biznes Xidmətlərinin Publik Ofertasını qəbul etməlisiniz.");
     }
@@ -3371,6 +4734,7 @@ export const submitVenue = onCall(
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
 
     // The ONLY gate on "can this account create a venue" — a self-service
     // toggle in Privacy/Security ("Biznes fəaliyyəti"), default 'active'
@@ -3379,8 +4743,17 @@ export const submitVenue = onCall(
     // rule was the sole enforcement point before venue creation moved
     // server-side; this replicates it here now that the rule itself is
     // `allow create: if false`.
+    //
+    // Fixed (Düzəliş Prompt 11 / audit follow-up finding) — this used to
+    // read `requesterSnap.data()?.businessStatus`, which silently
+    // evaluates to `undefined` (not `"none"`) when the doc doesn't
+    // exist at all, so a missing `users/{uid}` document let this check
+    // pass through rather than deny. `assertActiveUser` above already
+    // closes that specific hole (it throws first if the doc is
+    // missing), but `requesterSnap.data()!` now also fails loudly
+    // instead of silently if that were ever somehow bypassed.
     const requesterSnap = await db.collection("users").doc(uid).get();
-    if ((requesterSnap.data()?.businessStatus as string | undefined) === "none") {
+    if ((requesterSnap.data()!.businessStatus as string | undefined) === "none") {
       throw new HttpsError("permission-denied", "Məkan yaratmaq üçün Ayarlar → Biznes fəaliyyəti bölməsindən aktiv edin.");
     }
 
@@ -3414,13 +4787,12 @@ export const submitVenue = onCall(
     // with (checked: no active Play/App Store testers at the time this
     // shipped).
     const offerAcceptanceInput = data.offerAcceptance as Record<string, unknown> | undefined;
-    const offerVersion = offerAcceptanceInput?.version as string | undefined;
-    const offerDocumentUrl = offerAcceptanceInput?.documentUrl as string | undefined;
     const offerAppVersion = offerAcceptanceInput?.appVersion as string | undefined;
     const offerPlatform = offerAcceptanceInput?.platform as string | undefined;
-    if (!offerVersion || !offerDocumentUrl || !offerAppVersion || !offerPlatform) {
+    if (!offerAppVersion || !offerPlatform) {
       throw new HttpsError("failed-precondition", "Biznes Xidmətlərinin Publik Ofertasını qəbul etməlisiniz.");
     }
+    const { version: offerVersion, documentUrl: offerDocumentUrl } = await currentBusinessOffer();
     const offerAcceptance: PendingOfferAcceptance = {
       version: offerVersion,
       documentUrl: offerDocumentUrl,
@@ -3480,10 +4852,15 @@ export const submitVenue = onCall(
  * `awaiting_payment` venue has none yet). Mirrors `retryOfferPayment`.
  */
 export const retryVenueCreationPayment = onCall(
+  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
+  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
+  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+    await enforceRateLimit("checkout", uid, 10, 600);
 
     const venueId = request.data?.venueId as string | undefined;
     if (!venueId) throw new HttpsError("invalid-argument", "venueId tələb olunur.");
@@ -3524,7 +4901,9 @@ export const retryVenueCreationPayment = onCall(
     // every time).
     let targetRef = paymentDoc.ref;
     if (paymentDoc.data().checkoutStartedAt) {
-      await paymentDoc.ref.update({ status: "failed", updatedAt: FieldValue.serverTimestamp() });
+      // Düzəliş Prompt 6 / K-10 — `superseded`, not `failed` (see
+      // `ensurePendingSubscriptionPayment`'s identical comment).
+      await paymentDoc.ref.update({ status: "superseded", updatedAt: FieldValue.serverTimestamp() });
       targetRef = db.collection("payments").doc();
       await targetRef.set({
         ownerId: uid,
@@ -3548,6 +4927,38 @@ export const retryVenueCreationPayment = onCall(
   },
 );
 
+/**
+ * Düzəliş Prompt 6 / K-10 — `createBoostCheckout`/`createVenuePremiumCheckout`
+ * (unlike `retryOfferPayment`/`retryVenueCreationPayment`/
+ * `ensurePendingSubscriptionPayment`) never checked for an existing
+ * `pending` payment before creating a fresh one — two tabs/attempts for
+ * the same offer/venue could each carry their own `pending` doc,
+ * completely independent of the other, and if BOTH later succeeded
+ * `applyPaymentOutcome`'s own idempotency guard wouldn't catch it
+ * either (two different doc ids, two different `status !== "pending"`
+ * checks, both legitimately pass) — `boostedUntil`/`premiumExpiresAt`
+ * would each get extended TWICE for one intended purchase. Marks every
+ * other still-`pending` payment for this exact listing+type
+ * `superseded` before a new one is created, closing that gap the same
+ * way the other three checkout-creators already do.
+ */
+async function supersedeOtherPendingPayments(
+  listingType: string,
+  listingId: string,
+  type: string,
+): Promise<void> {
+  const existing = await db
+    .collection("payments")
+    .where("listingType", "==", listingType)
+    .where("listingId", "==", listingId)
+    .where("type", "==", type)
+    .where("status", "==", "pending")
+    .get();
+  await Promise.all(
+    existing.docs.map((doc) => doc.ref.update({ status: "superseded", updatedAt: FieldValue.serverTimestamp() })),
+  );
+}
+
 /** 6/12/18 saat → 2/4/6 AZN — same tiers as the create form's own tier picker (`offer_details_screen.dart`). */
 const BOOST_FEE_BY_HOURS: Record<number, number> = { 6: 2, 12: 4, 18: 6 };
 
@@ -3559,10 +4970,15 @@ const BOOST_FEE_BY_HOURS: Record<number, number> = { 6: 2, 12: 4, 18: 6 };
  * `epointWebhook` on a confirmed charge, never here.
  */
 export const createBoostCheckout = onCall(
+  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
+  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
+  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+    await enforceRateLimit("checkout", uid, 10, 600);
 
     const offerId = request.data?.offerId as string | undefined;
     const hours = request.data?.hours as number | undefined;
@@ -3577,6 +4993,7 @@ export const createBoostCheckout = onCall(
 
     const amount = BOOST_FEE_BY_HOURS[hours];
     const description = `Təklifi önə çək — ${hours} saat`;
+    await supersedeOtherPendingPayments("offer", offerId, "boost_fee");
     const paymentRef = db.collection("payments").doc();
     await paymentRef.set({
       ownerId: uid,
@@ -3608,10 +5025,15 @@ const VENUE_PREMIUM_FEE_BY_MONTHS: Record<number, number> = { 1: 22, 6: 99, 12: 
  * firestore.rules' venues update rule).
  */
 export const createVenuePremiumCheckout = onCall(
+  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
+  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
+  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+    await enforceRateLimit("checkout", uid, 10, 600);
 
     const venueId = request.data?.venueId as string | undefined;
     const months = request.data?.months as number | undefined;
@@ -3626,6 +5048,7 @@ export const createVenuePremiumCheckout = onCall(
 
     const amount = VENUE_PREMIUM_FEE_BY_MONTHS[months];
     const description = `Məkanı premium et — ${months} ay`;
+    await supersedeOtherPendingPayments("venue", venueId, "venue_premium");
     const paymentRef = db.collection("payments").doc();
     await paymentRef.set({
       ownerId: uid,
@@ -3725,6 +5148,45 @@ const CHAT_PREVIEW_LABELS: Record<string, string> = {
 };
 
 /**
+ * Düzəliş Prompt 10 / INFRA-20, RT-7 — closes a real privacy gap: the
+ * client's own `deleteChat` (`FirebaseChatRepository.deleteChat`) only
+ * ever deletes the `chats/{chatId}` doc itself — Firestore never
+ * cascades a delete to subcollections, so `messages` (every message
+ * either participant ever sent) survived untouched: unreachable from
+ * `watchChats` (which queries the now-gone parent), but still fully
+ * present and directly readable by chatId. Worse, because `chatIdFor`
+ * is deterministic (sorted participant uids), the exact same two
+ * people messaging each other again later recreates a
+ * `chats/{chatId}` doc at the IDENTICAL id, and `watchMessages` pulls
+ * the old, never-deleted history right back in — "I deleted this
+ * conversation" secretly wasn't true, and could silently un-delete
+ * itself.
+ *
+ * Runs as a trigger (not inlined into a `deleteChat` Cloud Function)
+ * so it fires regardless of which code path removes the chat doc.
+ * Also cleans up every message's Storage file — `deleteChat` never
+ * touched Storage either, so every photo/video/voice note ever sent in
+ * the chat (both directions) leaked permanently. Safe to unconditionally
+ * delete each message's file now (and only now): Düzəliş Prompt 10's
+ * `forwardChatMedia` fix means a forwarded copy always has its OWN
+ * independent Storage object, so deleting one message's file here can
+ * never break a DIFFERENT message living in some other chat.
+ */
+export const onChatDeleted = onDocumentDeleted("chats/{chatId}", async (event) => {
+  const chatRef = event.data?.ref;
+  if (!chatRef) return;
+
+  const messagesSnap = await chatRef.collection("messages").get();
+  await Promise.all(
+    messagesSnap.docs.map(async (doc) => {
+      const mediaUrl = doc.data().mediaUrl as string | undefined;
+      if (mediaUrl) await deleteStorageObjectByUrl(mediaUrl);
+      await doc.ref.delete();
+    }),
+  );
+});
+
+/**
  * Sends a real push notification to the recipient's device(s) whenever
  * a new chat message is written — the client only ever writes the
  * message doc itself (see `FirebaseChatRepository._sendMessage`), it
@@ -3753,27 +5215,29 @@ export const onChatMessageCreated = onDocumentCreated(
     const mutedBy = (chatSnap.data()?.mutedBy ?? {}) as Record<string, boolean>;
     if (mutedBy[receiverId] === true) return;
 
-    const [senderSnap, receiverSnap] = await Promise.all([
+    const [senderSnap, receiverSnap, receiverPrivateSnap] = await Promise.all([
       db.collection("users").doc(senderId).get(),
       db.collection("users").doc(receiverId).get(),
+      privateDataRef(receiverId).get(),
     ]);
     const receiverData = receiverSnap.data();
     if (!receiverData) return;
+    const receiverPrivateData = receiverPrivateSnap.data() ?? {};
 
     // Receiver has this exact chat open right now (foreground) — see
-    // `activeChatId` on `users/{uid}`, set/cleared by
+    // `activeChatId` on `users/{uid}/private/data`, set/cleared by
     // ChatConversationScreen. A push while they're already looking at
     // the conversation would just be noise (and could double-count as
     // an unread badge blip); the in-app message list itself is the
     // real-time signal in that case.
-    if (receiverData.activeChatId === chatId) return;
+    if (receiverPrivateData.activeChatId === chatId) return;
 
-    const prefs = receiverData.notificationPreferences ?? {};
+    const prefs = receiverPrivateData.notificationPreferences ?? {};
     const pushEnabled = prefs.pushEnabled ?? true;
     const messagesEnabled = prefs.messages ?? true;
     if (!pushEnabled || !messagesEnabled) return;
 
-    const tokens = (receiverData.fcmTokens ?? []) as string[];
+    const tokens = (receiverPrivateData.fcmTokens ?? []) as string[];
     if (tokens.length === 0) return;
 
     const senderData = senderSnap.data();
@@ -3961,7 +5425,7 @@ const KNOWN_DEVICE_SIGNATURE_LIMIT = 8;
  * try/catch specifically because blocking a sign-in is a far worse
  * failure mode than silently missing one security alert.
  *
- * Keys a "known devices" list on `users/{uid}.knownDeviceSignatures`
+ * Keys a "known devices" list on `users/{uid}/private/data.knownDeviceSignatures`
  * off a hash of the sign-in's `userAgent` (Identity Platform provides
  * this on the event directly — no client-side device-fingerprinting
  * code needed). A signature not already in that list means: notify
@@ -4008,9 +5472,9 @@ export const notifyOnNewDeviceSignIn = beforeUserSignedIn({ region: "us-central1
 
     const signature = createHash("sha256").update(event.userAgent || "unknown").digest("hex").slice(0, 16);
 
-    const userRef = db.collection("users").doc(uid);
-    const userSnap = await userRef.get();
-    const known = (userSnap.data()?.knownDeviceSignatures as string[] | undefined) ?? [];
+    const privateRef = privateDataRef(uid);
+    const privateSnap = await privateRef.get();
+    const known = (privateSnap.data()?.knownDeviceSignatures as string[] | undefined) ?? [];
 
     if (known.includes(signature)) return;
 
@@ -4025,7 +5489,7 @@ export const notifyOnNewDeviceSignIn = beforeUserSignedIn({ region: "us-central1
       });
     }
 
-    await userRef.set(
+    await privateRef.set(
       { knownDeviceSignatures: [signature, ...known.filter((s) => s !== signature)].slice(0, KNOWN_DEVICE_SIGNATURE_LIMIT) },
       { merge: true },
     );
@@ -4056,10 +5520,19 @@ export const notifyOnNewDeviceSignIn = beforeUserSignedIn({ region: "us-central1
  * moment this function returns.
  */
 export const reservePinBoxOrder = onCall(
+  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
+  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
+  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+    // Düzəliş Prompt 8 / RT-29 — stock is decremented right away, before
+    // payment confirms (see this function's own doc comment above); an
+    // uncapped reservation rate is a free way to "hold" a competitor's
+    // entire stock without ever paying.
+    await enforceRateLimit("reserve", uid, 10, 600);
 
     const pinboxId = request.data?.pinboxId as string | undefined;
     if (!pinboxId) throw new HttpsError("invalid-argument", "pinboxId tələb olunur.");
@@ -4186,9 +5659,13 @@ export const reservePinBoxOrder = onCall(
  */
 const _qrTokenTtlMs = 40_000;
 
+// Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
+// eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
+// təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
 export const generatePinBoxQrToken = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  await assertActiveUser(uid);
 
   const orderId = request.data?.orderId as string | undefined;
   if (!orderId) throw new HttpsError("invalid-argument", "orderId tələb olunur.");
@@ -4227,9 +5704,20 @@ export const generatePinBoxQrToken = onCall({ region: "us-central1", enforceAppC
  * distinguish "wrong code" from "right code, too late" from the error
  * alone.
  */
+// Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
+// eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
+// təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
 export const redeemPinBoxOrder = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  await assertActiveUser(uid);
+  // Düzəliş Prompt 8 / RT-31, PAY-22 — `qrToken` is a 6-digit numeric
+  // code (1,000,000 possibilities, 40s TTL, plain string-equality
+  // compare, no attempt-lockout of its own — see `generatePinBoxQrToken`'s
+  // doc comment). 30/5min is generous enough for a busy venue's real
+  // back-to-back check-in flow while making brute-forcing a live code
+  // computationally pointless within its own TTL.
+  await enforceRateLimit("redeem", uid, 30, 300);
 
   const venueId = request.data?.venueId as string | undefined;
   const code = request.data?.code as string | undefined;
@@ -4272,6 +5760,68 @@ export const redeemPinBoxOrder = onCall({ region: "us-central1", enforceAppCheck
 });
 
 const PINBOX_PAYOUT_COMMISSION_RATE = 0.15;
+
+/**
+ * Düzəliş Prompt 6 / K-11 — the PinBox side of `processPaymentRefund`.
+ * A genuine policy change from PinBox's original "ləğv edilə bilməz"
+ * design (see `reservePinBoxOrder`'s own doc comment) — deliberate, per
+ * this prompt's explicit requirement, not an oversight.
+ *
+ * Marks the order `refunded` and settles its `venuePayouts` obligation
+ * two different ways depending on whether the venue's 85% share was
+ * already paid out:
+ *  - `pending` (not yet paid) → simply `cancelled`. No money moved yet.
+ *  - `paid` (already transferred) → NO automatic clawback exists (the
+ *    money is in the venue's own account). The original row becomes
+ *    `cancelled_after_payout` (kept, never deleted, as the audit
+ *    trail), and a NEW row is written with a NEGATIVE `payoutAmount` —
+ *    the standard accounting "debit line" shape, netted against this
+ *    venue's next real payout by an admin (Müqavilə 7.7 is the
+ *    contractual basis for deducting a refunded amount from the
+ *    Sifarişçi's own share). The admin-panel UI to actually surface/
+ *    settle this negative row is Prompt 9's scope — the data model is
+ *    ready now.
+ */
+async function cancelPinBoxPayoutForRefund(orderId: string): Promise<void> {
+  await db.runTransaction(async (tx) => {
+    const orderRef = db.collection("pinboxOrders").doc(orderId);
+    const payoutRef = db.collection("venuePayouts").doc(orderId);
+    const [orderSnap, payoutSnap] = await Promise.all([tx.get(orderRef), tx.get(payoutRef)]);
+
+    if (orderSnap.exists) {
+      tx.update(orderRef, { status: "refunded", updatedAt: FieldValue.serverTimestamp() });
+    }
+    if (!payoutSnap.exists) return;
+
+    const payout = payoutSnap.data()!;
+    if (payout.status === "paid") {
+      tx.update(payoutRef, { status: "cancelled_after_payout", updatedAt: FieldValue.serverTimestamp() });
+      tx.set(db.collection("venuePayouts").doc(`${orderId}-debt`), {
+        orderId,
+        relatedPayoutId: orderId,
+        venueId: payout.venueId ?? null,
+        venueName: payout.venueName ?? "Naməlum",
+        ownerId: payout.ownerId ?? null,
+        pinboxId: payout.pinboxId ?? null,
+        pinboxTitle: payout.pinboxTitle ?? "Naməlum",
+        quantity: payout.quantity ?? null,
+        grossAmount: payout.grossAmount ?? null,
+        commissionRate: payout.commissionRate ?? PINBOX_PAYOUT_COMMISSION_RATE,
+        commissionAmount: payout.commissionAmount ?? null,
+        // Negative — this is money OWED BACK by the venue, not owed TO it.
+        payoutAmount: typeof payout.payoutAmount === "number" ? -payout.payoutAmount : null,
+        currency: payout.currency ?? "AZN",
+        status: "debt",
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+    } else if (payout.status === "pending") {
+      tx.update(payoutRef, { status: "cancelled", updatedAt: FieldValue.serverTimestamp() });
+    }
+    // Any other status (already cancelled/debt/cancelled_after_payout)
+    // — no-op, this refund was already processed once.
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Təklif yerləşdirmə haqqı (offer placement fee) — Epoint-backed, replaces
@@ -4381,6 +5931,7 @@ export const submitOffer = onCall(
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
 
     const data = request.data as Record<string, unknown>;
     const clientOfferId = data.offerId as string | undefined;
@@ -4505,10 +6056,15 @@ export const submitOffer = onCall(
  * never needed payment in the first place.
  */
 export const retryOfferPayment = onCall(
+  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
+  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
+  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+    await enforceRateLimit("checkout", uid, 10, 600);
 
     const offerId = request.data?.offerId as string | undefined;
     if (!offerId) throw new HttpsError("invalid-argument", "offerId tələb olunur.");
@@ -4547,7 +6103,9 @@ export const retryOfferPayment = onCall(
     // to 'pending' the way it used to.
     let targetRef = paymentDoc.ref;
     if (paymentDoc.data().checkoutStartedAt) {
-      await paymentDoc.ref.update({ status: "failed", updatedAt: FieldValue.serverTimestamp() });
+      // Düzəliş Prompt 6 / K-10 — `superseded`, not `failed` (see
+      // `ensurePendingSubscriptionPayment`'s identical comment).
+      await paymentDoc.ref.update({ status: "superseded", updatedAt: FieldValue.serverTimestamp() });
       targetRef = db.collection("payments").doc();
       await targetRef.set({
         ownerId: uid,
@@ -4639,17 +6197,70 @@ async function applyPaymentOutcome(
   succeeded: boolean,
   failureDetail?: { code?: string; message?: string },
   epointTransaction?: string,
+  webhookAmount?: number,
+  webhookCurrency?: string,
 ): Promise<boolean> {
   const paymentRef = db.collection("payments").doc(orderId);
-  const paymentSnap = await paymentRef.get();
-  const payment = paymentSnap.data();
-  if (!payment) {
-    logger.error("applyPaymentOutcome: unknown payment", { orderId });
-    return false;
-  }
-  if (payment.status !== "pending") return false;
+
+  // Düzəliş Prompt 6 / PAY-5 — the read-and-idempotency-check used to
+  // happen OUTSIDE `db.runTransaction`, as a plain `paymentRef.get()`.
+  // Two concurrent invocations for the same orderId (confirmed real
+  // path: `payWithSavedCard` calling this directly while a hosted-
+  // checkout webhook for the SAME `paymentId` is also in flight — both
+  // target the identical `payments` doc, `payWithSavedCard`'s `-sc`
+  // suffix only scopes the Epoint-side charge call, not this doc) could
+  // both read `status === "pending"` before either committed, then both
+  // apply their own entitlement writes. Moving the read AND the guard
+  // inside the transaction means Firestore's own transaction retry-on-
+  // conflict guarantees only ONE of two racing calls ever sees
+  // `pending`/`superseded` — the other re-reads post-commit and exits
+  // via the same guard, same as any other late/duplicate call.
+  let payment: FirebaseFirestore.DocumentData | undefined;
+  let processed = false;
+  let wasSuperseded = false;
+  let amountMismatch = false;
 
   await db.runTransaction(async (tx) => {
+    const paymentSnap = await tx.get(paymentRef);
+    const data = paymentSnap.data();
+    if (!data) return;
+    // Düzəliş Prompt 6 / K-10 — `superseded` (a newer payment doc was
+    // created for the same listing+type, see `retryOfferPayment` and
+    // friends) is now ALSO processed, not just `pending`. Before this,
+    // a late-arriving success on a superseded doc was silently dropped
+    // here — Epoint had genuinely charged the card, but this function
+    // returned `false` before ever reaching the entitlement-granting
+    // code below, and `epointWebhook` reported "already processed" as
+    // if nothing were wrong. `wasSuperseded` (below) drives the
+    // admin-visible flag this case gets once honored.
+    if (data.status !== "pending" && data.status !== "superseded") return;
+
+    // Düzəliş Prompt 6 / PAY-4 — only enforced when the webhook payload
+    // actually included an amount (unconfirmed until a real webhook is
+    // observed — see this repo's own doc comment on `decodeEpointData`
+    // acknowledging there's no official payload spec). A half-qəpik
+    // tolerance absorbs float round-trip noise, not a real discrepancy.
+    if (succeeded && webhookAmount !== undefined) {
+      const expectedAmount = data.amount as number;
+      const expectedCurrency = ((data.currency as string | undefined) ?? "AZN").toUpperCase();
+      const amountOk = Math.abs(webhookAmount - expectedAmount) < 0.005;
+      const currencyOk = !webhookCurrency || webhookCurrency.toUpperCase() === expectedCurrency;
+      if (!amountOk || !currencyOk) {
+        payment = data;
+        processed = true;
+        amountMismatch = true;
+        tx.update(paymentRef, {
+          status: "amount_mismatch",
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+        return;
+      }
+    }
+
+    payment = data;
+    processed = true;
+    wasSuperseded = data.status === "superseded";
+
     // Firestore transactions need every read before any write — the
     // venue_subscription branch needs the venue's current
     // subscriptionRenewsAt to compute the next cycle, a FAILED
@@ -4665,7 +6276,19 @@ async function applyPaymentOutcome(
         ? db.collection("venues").doc(payment.listingId as string)
         : null;
     const venueSnap = venueRef ? await tx.get(venueRef) : null;
-
+    // Düzəliş Prompt 10 / Y-6 pattern sweep — every `venueSnap?.data()?.X`
+    // read below (the `venue_subscription`/`venue_premium` branches) is
+    // defensive, not a live gap: `venueSnap` is non-null exactly when
+    // `venueRef` is, which is only set once `payment.type`/`listingType`
+    // have already been checked above, so a real venue doc is always
+    // expected here. Left as optional-chained rather than asserted
+    // non-null (which would mean throwing INSIDE this transaction
+    // callback — deliberately avoided elsewhere in this same function,
+    // see `completeOnboarding`'s own doc comment on why an `HttpsError`
+    // thrown mid-callback doesn't interact predictably with Admin SDK's
+    // retry-on-contention) purely so a venue doc somehow missing at this
+    // exact moment fails safe (falls through to a default/no-op branch)
+    // instead of throwing from a place that can't safely throw.
     const pinboxOrderRef =
       payment.type === "pinbox_order" && payment.listingType === "pinboxOrder"
         ? db.collection("pinboxOrders").doc(payment.listingId as string)
@@ -4776,7 +6399,13 @@ async function applyPaymentOutcome(
         } else {
           const prevRenewsAt = (venueSnap?.data()?.subscriptionRenewsAt as Timestamp | undefined)?.toDate() ?? new Date();
           const nextRenewsAt = new Date(prevRenewsAt.getTime() + SUBSCRIPTION_CYCLE_MS);
+          // Düzəliş Prompt 6 / PAY-10 — `renewVenueSubscriptions` suspends
+          // a venue to `subscription_overdue` after the grace period; a
+          // successful payment while suspended is the owner's only way
+          // back to `approved` (nothing else ever flips it forward).
+          const wasSuspended = venueSnap?.data()?.status === "subscription_overdue";
           tx.update(venueRef, {
+            ...(wasSuspended ? { status: "approved" } : {}),
             paymentId: paymentRef.id,
             subscriptionRenewsAt: Timestamp.fromDate(nextRenewsAt),
             updatedAt: FieldValue.serverTimestamp(),
@@ -4850,8 +6479,28 @@ async function applyPaymentOutcome(
         // already prevents that anyway — this is just belt-and-braces).
         const order = pinboxOrderSnap.data()!;
         const grossAmount = payment.amount as number;
-        const commissionAmount = Math.round(grossAmount * PINBOX_PAYOUT_COMMISSION_RATE * 100) / 100;
-        const payoutAmount = Math.round((grossAmount - commissionAmount) * 100) / 100;
+        // Düzəliş Prompt 10 / PAY-28 (formula only — NOT the full
+        // float→cents migration, deliberately deferred per Prompt 6's
+        // own decision; `payments.amount`/every other float AZN field
+        // stays as-is) — the OLD formula rounded `commissionAmount`
+        // first (round-half-up) and derived `payoutAmount` as the AZN-
+        // float remainder, which let the rounding remainder land on
+        // EITHER side depending on the exact fractional value. A full
+        // scan of every possible gross-cent value (1–5000 qəpik) found
+        // this discrepancy on ~46% of them, and — critically — it was
+        // NEVER once in PeakPin's favor, always the venue's: the venue
+        // silently received 1 extra qəpik on roughly half of all
+        // possible order totals. Computing `payoutAmount` directly via
+        // `Math.floor` and deriving `commissionAmount` as the integer-
+        // cents remainder instead makes the venue's share deterministically
+        // round DOWN and the remainder always land on PeakPin's side —
+        // exactly the rule this app's own terms state ("məkanın payı
+        // həmişə tam hesablansın").
+        const grossCents = Math.round(grossAmount * 100);
+        const payoutCents = Math.floor(grossCents * (1 - PINBOX_PAYOUT_COMMISSION_RATE));
+        const commissionCents = grossCents - payoutCents;
+        const payoutAmount = payoutCents / 100;
+        const commissionAmount = commissionCents / 100;
         tx.set(db.collection("venuePayouts").doc(pinboxOrderRef.id), {
           orderId: pinboxOrderRef.id,
           paymentId: paymentRef.id,
@@ -4891,6 +6540,50 @@ async function applyPaymentOutcome(
       }
     }
   });
+
+  if (!processed) {
+    if (!payment) logger.error("applyPaymentOutcome: unknown payment", { orderId });
+    return false;
+  }
+  // Narrows `payment` from `T | undefined` to `T` for everything below —
+  // `processed` is only ever set `true` in the same transaction branch
+  // that also sets `payment`, so this can't actually trigger; it exists
+  // purely so TypeScript carries that guarantee across the `await
+  // db.runTransaction(...)` boundary, which it can't infer on its own.
+  if (!payment) return false;
+
+  if (amountMismatch) {
+    logger.error("applyPaymentOutcome: webhook amount/currency mismatch — no entitlement granted", {
+      orderId,
+      webhookAmount,
+      webhookCurrency,
+      expectedAmount: payment.amount,
+      expectedCurrency: payment.currency,
+    });
+    await notifyAdmins({
+      type: "payment.amount_mismatch",
+      message: `Ödəniş məbləği uyğunsuzluğu: gözlənilən ${payment.amount} ${payment.currency ?? "AZN"}, gələn ${webhookAmount} ${webhookCurrency ?? "?"} — entitlement VERİLMƏDİ (orderId: ${orderId}).`,
+      targetType: (payment.listingType as string | undefined) ?? "payment",
+      targetId: (payment.listingId as string | undefined) ?? orderId,
+    });
+    return false;
+  }
+
+  // Düzəliş Prompt 6 / K-10 — a late success on a `superseded` payment
+  // IS now honored (the entitlement-granting code above already ran,
+  // using the same additive extend-don't-overwrite logic every renewal
+  // already relies on), but it must never be silent — this is real
+  // money that arrived through a link the owner was told to abandon.
+  if (wasSuperseded && succeeded) {
+    logger.warn("applyPaymentOutcome: honoring late success on a superseded payment", { orderId });
+    await db.collection("payments").doc(orderId).update({ honoredAfterSupersede: true });
+    await notifyAdmins({
+      type: "payment.honored_after_supersede",
+      message: `Köhnəlmiş ödəniş linkindən gec təsdiq gəldi və xidmət verildi — ${payment.amount} ${payment.currency ?? "AZN"} (orderId: ${orderId}, ${payment.listingType}/${payment.listingId}).`,
+      targetType: (payment.listingType as string | undefined) ?? "payment",
+      targetId: (payment.listingId as string | undefined) ?? orderId,
+    });
+  }
 
   // Outside the transaction, deliberately — a push send has no place in
   // a block Firestore can silently retry on contention. The card
@@ -5151,6 +6844,21 @@ async function applyCardRegistrationOutcome(
 export const epointWebhook = onRequest(
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv] },
   async (req, res) => {
+    // Düzəliş Prompt 8 / INFRA-46 — IP-scoped, not uid-scoped (this is
+    // an external webhook, there's no Firebase Auth context). Defense
+    // -in-depth only: `verifyEpointSignature` below is already the real
+    // protection (a fake request is rejected by a cheap SHA1 compare,
+    // not an expensive certificate-chain check — unlike
+    // `appStoreServerNotifications`'s JWS verification, this one is not
+    // an "expensive verification per fake request" problem). This just
+    // caps request volume/log noise from a single source.
+    try {
+      await enforceRateLimit("webhook-epoint", req.ip ?? "unknown", 60, 60);
+    } catch {
+      res.status(429).send("rate limited");
+      return;
+    }
+
     const body = req.body as Record<string, unknown>;
     const data = body?.data as string | undefined;
     const signature = body?.signature as string | undefined;
@@ -5166,6 +6874,15 @@ export const epointWebhook = onRequest(
     }
 
     const decoded = decodeEpointData(data);
+    // Düzəliş Prompt 6 / PAY-4 — this repo has no official Epoint
+    // webhook payload spec (see `decodeEpointData`'s own doc comment);
+    // logging the full decoded object, every call, is the only way to
+    // ever confirm what fields a REAL webhook actually sends (amount/
+    // currency in particular — see below). Keep this until that's
+    // confirmed against a real transaction, then this can be trimmed
+    // back to just the fields actually used.
+    logger.info("epointWebhook: decoded payload", { decoded });
+
     const orderId = decoded.order_id as string | undefined;
     const epointStatus = decoded.status as string | undefined;
     if (!orderId) {
@@ -5177,6 +6894,17 @@ export const epointWebhook = onRequest(
     const failureDetail = succeeded
       ? undefined
       : { code: decoded.code as string | undefined, message: decoded.message as string | undefined };
+    // Only meaningful if Epoint's webhook actually includes these
+    // (unconfirmed — see the log line above) — `applyPaymentOutcome`
+    // itself no-ops the check entirely when `webhookAmount` is
+    // `undefined`, so this stays harmless either way until confirmed.
+    // An unparseable `amount` (e.g. non-numeric) is treated the same as
+    // absent, not as `NaN` — a `NaN` comparison would always flag a
+    // false mismatch instead of just skipping the check.
+    const parsedWebhookAmount = decoded.amount !== undefined ? Number(decoded.amount) : undefined;
+    const webhookAmount =
+      parsedWebhookAmount !== undefined && !Number.isNaN(parsedWebhookAmount) ? parsedWebhookAmount : undefined;
+    const webhookCurrency = decoded.currency as string | undefined;
 
     const paymentSnap = await db.collection("payments").doc(orderId).get();
     if (paymentSnap.exists) {
@@ -5185,6 +6913,8 @@ export const epointWebhook = onRequest(
         succeeded,
         failureDetail,
         succeeded ? (decoded.transaction as string | undefined) : undefined,
+        succeeded ? webhookAmount : undefined,
+        succeeded ? webhookCurrency : undefined,
       );
       res.status(200).send(applied ? "ok" : "already processed or unknown order_id");
       return;
@@ -5245,10 +6975,15 @@ async function loadOwnedPendingPayment(uid: string, paymentId: string): Promise<
  * replaced.)
  */
 export const createEpointWidgetCheckout = onCall(
+  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
+  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
+  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+    await enforceRateLimit("checkout", uid, 10, 600);
 
     const paymentId = request.data?.paymentId as string | undefined;
     if (!paymentId) throw new HttpsError("invalid-argument", "paymentId tələb olunur.");
@@ -5278,10 +7013,15 @@ export const createEpointWidgetCheckout = onCall(
 // ---------------------------------------------------------------------------
 
 export const startCardRegistration = onCall(
+  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
+  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
+  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+    await enforceRateLimit("checkout", uid, 10, 600);
 
     const cardRef = db.collection("savedCards").doc();
     await cardRef.set({ ownerId: uid, status: "pending", createdAt: FieldValue.serverTimestamp() });
@@ -5318,10 +7058,15 @@ async function loadOwnedActiveCard(uid: string, cardId: string): Promise<Firebas
  * order_id (see `startEpointCheckoutForPayment`'s own doc comment).
  */
 export const payWithSavedCard = onCall(
+  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
+  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
+  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+    await enforceRateLimit("checkout", uid, 10, 600);
 
     const paymentId = request.data?.paymentId as string | undefined;
     const cardId = request.data?.cardId as string | undefined;
@@ -5340,20 +7085,48 @@ export const payWithSavedCard = onCall(
       description: (payment.description as string | undefined) ?? "PeakPin",
     });
 
-    await applyPaymentOutcome(
-      paymentId,
-      result.succeeded,
-      result.succeeded ? undefined : { message: result.message },
-      result.succeeded ? result.transaction : undefined,
-    );
+    try {
+      await applyPaymentOutcome(
+        paymentId,
+        result.succeeded,
+        result.succeeded ? undefined : { message: result.message },
+        result.succeeded ? result.transaction : undefined,
+      );
+    } catch (e) {
+      // Düzəliş Prompt 6 / PAY-18 — `chargeEpointSavedCard` already
+      // charged the card by this point; if applying the outcome itself
+      // throws (a crash between the two, not a declined charge), the
+      // payment doc could be left stuck `pending` forever with no
+      // automatic way to notice money was taken but never serviced.
+      // This alone doesn't reconcile it (no Epoint transaction-status
+      // API is confirmed to exist in this integration — see the
+      // function's own doc comment), but it stops the failure from
+      // being silent so an admin can investigate manually.
+      logger.error("payWithSavedCard: applyPaymentOutcome threw after a possibly-successful charge", {
+        paymentId,
+        chargeSucceeded: result.succeeded,
+        error: e,
+      });
+      await notifyAdmins({
+        type: "payment.outcome_apply_failed",
+        message: `Saxlanmış kartla ödəniş: kart ${result.succeeded ? "veznədən tutuldu" : "rədd edildi"}, amma nəticənin tətbiqi xəta ilə üzləşdi — əl ilə yoxlanılmalıdır (paymentId: ${paymentId}).`,
+        targetType: "payment",
+        targetId: paymentId,
+      });
+      throw new HttpsError("internal", "Ödəniş nəticəsi tətbiq edilə bilmədi, dəstək ilə əlaqə saxlayın.");
+    }
 
     return { succeeded: result.succeeded, failureMessage: result.succeeded ? undefined : result.message };
   },
 );
 
+// Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
+// eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
+// təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
 export const deleteSavedCard = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  await assertActiveUser(uid);
 
   const cardId = request.data?.cardId as string | undefined;
   if (!cardId) throw new HttpsError("invalid-argument", "cardId tələb olunur.");
@@ -5383,9 +7156,13 @@ export const deleteSavedCard = onCall({ region: "us-central1", enforceAppCheck: 
   return { deleted: true };
 });
 
+// Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
+// eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
+// təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
 export const setDefaultSavedCard = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  await assertActiveUser(uid);
 
   const cardId = request.data?.cardId as string | undefined;
   if (!cardId) throw new HttpsError("invalid-argument", "cardId tələb olunur.");
@@ -5455,22 +7232,65 @@ async function grantPremium(uid: string, expiresAtMs: number): Promise<void> {
 /**
  * Apple's and Google's renewal/cancellation notifications identify a
  * subscription by `originalTransactionId`/`purchaseToken` — neither
- * carries a Firebase uid. `verifyInAppPurchase` records the mapping
- * the moment it first grants premium so `appStoreServerNotifications`/
+ * carries a Firebase uid. `verifyInAppPurchase` claims this mapping the
+ * moment it first grants premium so `appStoreServerNotifications`/
  * `googlePlayRtdn` can resolve who to update later; `platform`/
  * `productId` ride along so those handlers don't have to re-derive
  * them.
+ *
+ * Düzəliş Prompt 7 / PAY-25 — this used to be an unconditional
+ * `.set(..., {merge:true})`: ANY uid presenting a genuine (Apple/
+ * Google-verified) receipt could silently overwrite a DIFFERENT uid's
+ * ownership record and claim that person's paid VIP subscription — a
+ * single leaked/shared `receiptData` string granted unlimited accounts
+ * premium. Now: a transaction already owned by a DIFFERENT,
+ * STILL-EXISTING account is rejected outright (`"owned_by_other"`);
+ * the one deliberate exception is a transaction whose previous owner's
+ * `users/{uid}` doc no longer exists (account deleted via
+ * `deleteAccount`) — that rebinds automatically to the new uid so a
+ * customer who deletes and recreates their PeakPin account doesn't
+ * lose the VIP they're still actually paying Apple/Google for, but
+ * every such rebind is logged to `adminNotifications` so an admin can
+ * spot an abnormal pattern. Wrapped in a transaction (same TOCTOU
+ * reasoning as `applyPaymentOutcome`, Düzəliş Prompt 6 / PAY-5): two
+ * different uids racing to claim the same fresh receipt simultaneously
+ * must not both succeed.
  */
-async function recordIapSubscriptionOwner(
+async function claimIapSubscriptionOwnership(
   key: string,
   uid: string,
   platform: "ios" | "android",
   productId: string,
-): Promise<void> {
-  await db.collection("iapSubscriptions").doc(key).set(
-    { uid, platform, productId, updatedAt: FieldValue.serverTimestamp() },
-    { merge: true },
-  );
+): Promise<"claimed" | "owned_by_other"> {
+  const ref = db.collection("iapSubscriptions").doc(key);
+  let rebindingFromDeletedUid: string | undefined;
+
+  const outcome = await db.runTransaction(async (tx) => {
+    const existingUid = (await tx.get(ref)).data()?.uid as string | undefined;
+    if (existingUid && existingUid !== uid) {
+      const previousOwnerSnap = await tx.get(db.collection("users").doc(existingUid));
+      if (previousOwnerSnap.exists) return "owned_by_other" as const;
+      rebindingFromDeletedUid = existingUid;
+    }
+    tx.set(ref, { uid, platform, productId, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+    return "claimed" as const;
+  });
+
+  if (outcome === "claimed" && rebindingFromDeletedUid) {
+    logger.warn("claimIapSubscriptionOwnership: rebinding to a new uid after the previous owner's account was deleted", {
+      key,
+      previousUid: rebindingFromDeletedUid,
+      newUid: uid,
+    });
+    await notifyAdmins({
+      type: "iap.receipt_rebound",
+      message: `IAP qəbzi silinmiş hesabdan (${rebindingFromDeletedUid}) yeni hesaba (${uid}) köçürüldü — məhsul: ${productId}.`,
+      targetType: "user",
+      targetId: uid,
+    });
+  }
+
+  return outcome;
 }
 
 /**
@@ -5483,10 +7303,25 @@ async function recordIapSubscriptionOwner(
  * anything the client claims about its own purchase.
  */
 export const verifyInAppPurchase = onCall(
+  // Düzəliş Prompt 7 / PAY-25, Qrup 1 (ödəniş) — KOD YAZILIB, DEPLOY
+  // EDİLMƏYİB. `true`-nun deploy edilməsi ARALIQ mərhələ olmadan
+  // dərhal production enforcement-dir (bax: bu funksiyanın da daxil
+  // olduğu top-of-file şərh, sətir ~27-40 — eyni səbəbdən bütün
+  // funksiyalarda bir dəfə `false`-a qaytarılıb). Deploy ETMƏZDƏN
+  // ƏVVƏL Firebase Console → App Check-də platform-üzrə (xüsusən iOS)
+  // təsdiqlənmə faizi yoxlanmalıdır.
   { region: "us-central1", secrets: [googlePlayServiceAccountJson], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+    await assertActiveUser(uid);
+    // Düzəliş Prompt 7 — ayrı "iap-verify" scope, Epoint-in "checkout"
+    // scope-undan fərqli sayğac altında: bu, checkout linki YARATMIR,
+    // artıq tamamlanmış bir alışı doğrulayır — eyni 10/600s tezliyi
+    // (mövcud "checkout" callable-lərinin özü ilə eyni rəqəm) kifayət
+    // qədər səxavətli, restore-purchases-in bir neçə məhsulu ard-arda
+    // göndərməsinə imkan verir.
+    await enforceRateLimit("iap-verify", uid, 10, 600);
 
     const productId = request.data?.productId as string | undefined;
     const platform = request.data?.platform as string | undefined;
@@ -5500,6 +7335,7 @@ export const verifyInAppPurchase = onCall(
 
     if (platform === "ios") {
       let verified;
+      let usedEnvironment: "Production" | "Sandbox" = "Production";
       try {
         verified = await verifyAppleTransaction({
           signedTransactionInfo: receiptData,
@@ -5513,6 +7349,7 @@ export const verifyInAppPurchase = onCall(
         // match) — retry once against Sandbox before giving up, the
         // same fallback shape Apple's older verifyReceipt endpoint's
         // status-21007 used to require by hand.
+        usedEnvironment = "Sandbox";
         verified = await verifyAppleTransaction({
           signedTransactionInfo: receiptData,
           bundleId: APPLE_BUNDLE_ID,
@@ -5521,12 +7358,54 @@ export const verifyInAppPurchase = onCall(
         });
       }
 
-      if (verified.revoked) throw new HttpsError("failed-precondition", "Bu alış geri qaytarılıb.");
-      if (verified.productId !== productId) throw new HttpsError("failed-precondition", "Product ID uyğun gəlmir.");
+      if (verified.revoked) {
+        logger.warn("verifyInAppPurchase: revoked Apple transaction", { uid, productId });
+        throw new HttpsError("failed-precondition", "Bu alış geri qaytarılıb.");
+      }
+      if (verified.productId !== productId) {
+        logger.warn("verifyInAppPurchase: Apple productId mismatch", { uid, expected: productId, actual: verified.productId });
+        throw new HttpsError("failed-precondition", "Product ID uyğun gəlmir.");
+      }
+
+      // Düzəliş Prompt 7 / H #196 — Sandbox fallback ancaq real
+      // TestFlight/development testerlər üçün mövcuddur, amma HANSI
+      // environment-in doğruladığı əvvəllər HEÇ YOXLANILMIRDI — bir
+      // sandbox qəbzi (istənilən sandbox Apple ID ilə pulsuz əldə
+      // edilə bilər) production-da istənilən hesaba VIP verirdi. İndi:
+      // yalnız `config/iapTesters.testerUids`-də olan PeakPin uid-ləri
+      // üçün Sandbox nəticəsi qəbul edilir.
+      if (usedEnvironment === "Sandbox") {
+        const testersSnap = await db.collection("config").doc("iapTesters").get();
+        const testerUids = (testersSnap.data()?.testerUids as string[] | undefined) ?? [];
+        if (!testerUids.includes(uid)) {
+          logger.warn("verifyInAppPurchase: sandbox transaction rejected — uid not in config/iapTesters", { uid, productId });
+          await notifyAdmins({
+            type: "iap.sandbox_rejected",
+            message: `Sandbox qəbzi production-da rədd edildi (test siyahısında deyil) — uid: ${uid}, məhsul: ${productId}.`,
+            targetType: "user",
+            targetId: uid,
+          });
+          throw new HttpsError("failed-precondition", "Bu alış test mühitindən gəlib və qəbul edilmir.");
+        }
+      }
 
       const expiresAtMs = verified.expiresDateMs ?? Date.now() + VIP_PRODUCT_DURATIONS_MS[productId];
+      const claim = await claimIapSubscriptionOwnership(verified.originalTransactionId, uid, "ios", productId);
+      if (claim === "owned_by_other") {
+        logger.error("verifyInAppPurchase: iOS transaction already owned by a different, still-active uid", {
+          uid,
+          originalTransactionId: verified.originalTransactionId,
+          productId,
+        });
+        await notifyAdmins({
+          type: "iap.receipt_theft_attempt",
+          message: `Başqa hesaba aid IAP qəbzi ilə VIP əldə etmə cəhdi — uid: ${uid}, məhsul: ${productId}.`,
+          targetType: "user",
+          targetId: uid,
+        });
+        throw new HttpsError("permission-denied", "Bu alış artıq başqa hesaba bağlıdır.");
+      }
       await grantPremium(uid, expiresAtMs);
-      await recordIapSubscriptionOwner(verified.originalTransactionId, uid, "ios", productId);
       return { success: true, expiresAt: expiresAtMs };
     }
 
@@ -5537,14 +7416,31 @@ export const verifyInAppPurchase = onCall(
         purchaseToken: receiptData,
       });
 
-      if (verified.productId !== productId) throw new HttpsError("failed-precondition", "Product ID uyğun gəlmir.");
+      if (verified.productId !== productId) {
+        logger.warn("verifyInAppPurchase: Google productId mismatch", { uid, expected: productId, actual: verified.productId });
+        throw new HttpsError("failed-precondition", "Product ID uyğun gəlmir.");
+      }
       if (!["SUBSCRIPTION_STATE_ACTIVE", "SUBSCRIPTION_STATE_IN_GRACE_PERIOD"].includes(verified.subscriptionState)) {
+        logger.warn("verifyInAppPurchase: Google subscription not active", { uid, productId, state: verified.subscriptionState });
         throw new HttpsError("failed-precondition", "Abunəlik aktiv deyil.");
       }
 
       const expiresAtMs = verified.expiryTimeMs || Date.now() + VIP_PRODUCT_DURATIONS_MS[productId];
+      const claim = await claimIapSubscriptionOwnership(receiptData, uid, "android", productId);
+      if (claim === "owned_by_other") {
+        logger.error("verifyInAppPurchase: Android purchase token already owned by a different, still-active uid", {
+          uid,
+          productId,
+        });
+        await notifyAdmins({
+          type: "iap.receipt_theft_attempt",
+          message: `Başqa hesaba aid IAP qəbzi ilə VIP əldə etmə cəhdi — uid: ${uid}, məhsul: ${productId}.`,
+          targetType: "user",
+          targetId: uid,
+        });
+        throw new HttpsError("permission-denied", "Bu alış artıq başqa hesaba bağlıdır.");
+      }
       await grantPremium(uid, expiresAtMs);
-      await recordIapSubscriptionOwner(receiptData, uid, "android", productId);
       return { success: true, expiresAt: expiresAtMs };
     }
 

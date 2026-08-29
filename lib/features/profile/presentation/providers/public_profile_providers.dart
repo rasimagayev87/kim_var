@@ -21,13 +21,8 @@ final publicProfileProvider = StreamProvider.family<PublicProfile?, String>((ref
       username: data['username'] as String?,
       photoUrl: data['photoUrl'] as String?,
       bio: data['bio'] as String? ?? '',
-      birthDate: (data['birthDate'] as Timestamp?)?.toDate(),
-      gender: data['gender'] as String?,
       online: data['online'] as bool? ?? false,
       lastSeen: (data['lastSeen'] as Timestamp?)?.toDate(),
-      starCount: (data['starCount'] as num?)?.toInt() ?? 0,
-      heartCount: (data['heartCount'] as num?)?.toInt() ?? 0,
-      dislikeCount: (data['dislikeCount'] as num?)?.toInt() ?? 0,
       identityVerified: data['identityVerified'] as bool? ?? false,
       premium: data['premium'] as bool? ?? false,
     );

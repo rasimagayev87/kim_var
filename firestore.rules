@@ -16,6 +16,53 @@ service cloud.firestore {
         get(/databases/$(database)/documents/follows/$(viewerId + '_' + ownerId)).data.get('status', 'accepted') != 'pending';
     }
 
+    // Düzəliş Prompt 5 (K-3) — real, server-side block enforcement.
+    // `blockedUsers` stays on the PUBLIC `users/{uid}` doc (Düzəliş
+    // Prompt 4 deliberately left it there for exactly this reason — see
+    // that field's own comment further down). Checks BOTH directions:
+    // [a] having blocked [b], or [b] having blocked [a], either one is
+    // enough. Two `get()`s (Variant A, chosen over a `blockedPair`
+    // flag denormalized onto a chat doc — that flag can't be trusted as
+    // the SOLE mechanism because a caller could simply never create the
+    // chat doc and write straight into a subcollection/another
+    // collection keyed off the same two uids, never triggering the
+    // flag's own maintenance; reading each side's own `blockedUsers`
+    // directly has no such bypass).
+    // `exists()` guard — `get(path).data` throws when the doc is
+    // genuinely absent (a deleted account, or a stale uid), which would
+    // otherwise deny the WHOLE surrounding rule rather than just
+    // treating a gone account as having no blocks. `exists()`/`get()`
+    // on the same path within one rule evaluation are cached as a
+    // single read, so this costs no more than a bare `get()` would.
+    function blockedUsersOf(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)) ?
+        get(/databases/$(database)/documents/users/$(uid)).data.get('blockedUsers', []) : [];
+    }
+
+    function isBlockedPair(a, b) {
+      return blockedUsersOf(a).hasAny([b]) || blockedUsersOf(b).hasAny([a]);
+    }
+
+    // RT-6 — "Kim mənə mesaj göndərə bilər" server-side, mirroring
+    // `FirebaseChatRepository._canMessage`'s own client-side logic
+    // (which only ever gated brand-new chat creation, never every
+    // message — same scope kept here). `followersOnly` only blocks a
+    // stranger from opening a NEW conversation; an existing accepted
+    // chat is never retroactively closed by a later setting change.
+    function canMessage(sender, other) {
+      let whoCanMessageMe = exists(/databases/$(database)/documents/users/$(other)) ?
+        get(/databases/$(database)/documents/users/$(other)).data.get('whoCanMessageMe', 'everyone') : 'everyone';
+      return whoCanMessageMe != 'followersOnly' ||
+        isAcceptedFollower(sender, other) || isAcceptedFollower(other, sender);
+    }
+
+    // `chats/{chatId}.participants` is always exactly the 2 sorted uids
+    // (see `FirebaseChatRepository._sendMessage`) — picks whichever one
+    // ISN'T `uid`.
+    function otherOf(participants, uid) {
+      return participants[0] == uid ? participants[1] : participants[0];
+    }
+
     // Same "Hesab gizliliyi" gate as `stories/{storyId}`'s own `allow
     // read` (that rule's own doc comment explains the three-way check
     // this mirrors) — posts previously had none at all here, so a
@@ -60,22 +107,117 @@ service cloud.firestore {
         in ['wineHouse', 'homeServices', 'realEstate'];
     }
 
-    // App-wide config, read-only from the client — currently just
+    // Whether [uid] is a live, un-banned account (Düzəliş Prompt 11 /
+    // Y-1) — `exists(users/{uid})` alone only catches a DELETED account
+    // (the doc is gone); it does NOT catch a BANNED one, because
+    // `setUserBanned` (admin-panel) only flips Firebase Auth's own
+    // `disabled` flag and never touches Firestore — the `users/{uid}`
+    // doc is untouched by a ban. `bannedUsers/{uid}` is a separate,
+    // server-only tombstone written by that same action specifically so
+    // rules have something to check; kept apart from `users/{uid}`
+    // itself (rather than a `banned` field there) because that doc's
+    // own read rule is `if request.auth != null` — any signed-in user
+    // can read the whole document, so a field there would leak ban
+    // status to anyone viewing the profile. This only gates a handful
+    // of the highest-value abuse paths (see `bannedUsers` collection's
+    // own comment below for which, and why not all of them) — it does
+    // NOT close every write/read path for a banned/deleted account; the
+    // remaining gap is documented at the deploy note at the bottom of
+    // this file.
+    function isActiveUser(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid)) &&
+        !exists(/databases/$(database)/documents/bannedUsers/$(uid));
+    }
+
+    // App-wide config, read-only from the client — includes
     // `config/legal` (currentTermsVersion/currentPrivacyVersion, see
     // `lib/features/legal/legal_versions.dart` and
-    // `consent_dialog.dart`'s re-consent check on Home mount).
-    // Hand-edited via the Firebase Console (or a one-off admin script)
-    // when a legal doc changes materially — no client write path
-    // exists or should exist.
+    // `consent_dialog.dart`'s re-consent check on Home mount),
+    // `config/iapTesters` (Düzəliş Prompt 7 / H #196 —
+    // `testerUids: string[]`, checked by `verifyInAppPurchase`,
+    // functions/src/index.ts, before honoring an Apple Sandbox
+    // transaction in production; harmless for the client to read, it
+    // has no write path to it regardless), and `config/businessOffer`
+    // (Düzəliş Prompt 10 / H #181 — `currentVersion`/`documentUrl`,
+    // the canonical source `submitVenue`/`retryVenueSubscriptionPayment`
+    // read instead of trusting whatever version/URL the client claims
+    // was accepted).
+    // Hand-edited via the Firebase Console (or a one-off admin script,
+    // e.g. `admin-panel/scripts/set-iap-testers.ts`) — no client write
+    // path exists or should exist.
     match /config/{docId} {
       allow read: if request.auth != null;
       allow write: if false;
     }
 
+    // Ban tombstone (Düzəliş Prompt 11 / Y-1) — existence alone means
+    // "this uid is currently banned". Written only by the admin panel's
+    // `setUserBanned` Server Action (Admin SDK, bypasses these rules) —
+    // created on ban, deleted on un-ban. Same "no client read/write
+    // path exists or should exist" shape as `admins/{uid}` below; the
+    // ONLY thing any client-facing code ever does with this collection
+    // is the `isActiveUser()` `exists()` check above, on a handful of
+    // create rules chosen for highest abuse-per-write (chat messages,
+    // calls, and the three report collections — a banned user filing
+    // retaliatory reports is its own abuse vector, especially combined
+    // with K-8's reputation-counter reasoning). Not every collection a
+    // banned user could still write to is gated this way — see this
+    // file's own deploy note at the bottom for what's deliberately left
+    // for a later pass.
+    match /bannedUsers/{uid} {
+      allow read, write: if false;
+    }
+
     match /users/{userId} {
-      // Any signed-in user can read profiles (needed to show
-      // nearby users on the map / discover list).
-      allow read: if request.auth != null;
+      // Any signed-in user can read ONE profile by uid (needed to show
+      // a single nearby user's card, a chat header, etc.). Düzəliş
+      // Prompt 4 / K-1 narrowed what actually lives HERE, though —
+      // email, phoneNumber, birthDate, exact lat/lng, fcmTokens,
+      // knownDeviceSignatures, ghostModeEnabled/visibilityRadius*, and
+      // most other self-preference fields moved to the owner-only
+      // `private/data` subcollection below. This doc now only holds the
+      // fields that are genuinely meant to be public (username, name,
+      // bio, photo, badges, presence) plus `reportedCount` and
+      // `blockedUsers` — both deliberately NOT moved despite being
+      // sensitive (see their own comments further down for why each
+      // stays here).
+      //
+      // Düzəliş Prompt 5 (K-3) — ONE direction only, matching the exact
+      // spec: "bloklanan istifadəçi ... bloklayanın heç nəyini
+      // görməməlidir" — the BLOCKED party can't read the BLOCKER's
+      // profile. Deliberately NOT the reverse: the blocker can still
+      // read the blocked party's own doc (name/photo), which
+      // `blocked_users_screen.dart`'s own unblock list depends on to
+      // show WHO each entry even is — making this symmetric would have
+      // turned every row on that screen into an anonymous "İstifadəçi"
+      // with no way to tell one blocked account from another before
+      // deciding whether to unblock it. `messages`/`calls`/chat-create
+      // (above) stay properly bidirectional — that's a fundamentally
+      // different question ("can these two interact at all") from "can
+      // this ONE viewer read that ONE profile".
+      // `resource.data` (the TARGET's own list) is free — `resource` is
+      // already being read for this very `get`, so this costs no extra
+      // read at all: a blocked party sees the SAME permission-denied a
+      // deleted/nonexistent account would (the client maps both to one
+      // indistinguishable "Hesab tapılmadı", never revealing which).
+      allow get: if request.auth != null &&
+        !resource.data.get('blockedUsers', []).hasAny([request.auth.uid]);
+
+      // RT-25 — a raw `list`/query against the WHOLE `users` collection
+      // (e.g. `.where('lastSeen', ...)`) used to be allowed to any
+      // signed-in client under the old combined `allow read`, meaning a
+      // modified client (or a direct Firestore REST call) could
+      // enumerate every public field of every user in one scan — the
+      // exact "mass scraping" risk K-1 as a whole was about. Split from
+      // `get` and closed outright: `findNearbyUsers`/
+      // `getDiscoverCandidates`/`previewVenueAudience` (functions/src/
+      // index.ts) now do this scan server-side via the Admin SDK, which
+      // bypasses these rules entirely, so no legitimate client flow
+      // ever needed `list` here — confirmed by exhaustive grep across
+      // lib/ for every `.collection('users')` site: every single one
+      // resolves to a `.doc(uid)` single-document read, never a bare
+      // `.where()`/`.orderBy()` query against the collection itself.
+      allow list: if false;
 
       // premium / identityVerified are grant-of-privilege fields (VIP,
       // identity badge) — a client write can NEVER touch them, not
@@ -93,36 +235,103 @@ service cloud.firestore {
       // `verifyInAppPurchase`/`appStoreServerNotifications`/
       // `googlePlayRtdn`/`expireLapsedPremium` (functions/src/index.ts)
       // ever write it, so a client can't extend its own VIP expiry.
+      // `birthDate` joined this lock as part of the server-side minimum-age
+      // gate (`completeOnboarding` Cloud Function) — immutable once set, so
+      // neither a compromised nor a well-meaning client can back-date past
+      // the age check after the fact. A wrong birth date now has to go
+      // through support, not a client edit — see `completeOnboarding`'s own
+      // doc comment for the age-check reasoning.
+      // `reportedCount` joined the lock (Düzəliş Prompt 12 tapıntısı) —
+      // Prompt 2 / K-8-in düzəlişi yalnız QEYRİ-sahib budağını
+      // məhdudlaşdırmışdı (`hasOnly(['reportedCount']) + == +1`); sahib
+      // budağı (`request.auth.uid == userId`) bu sahəni heç vaxt
+      // qadağan edilmiş siyahıya salmamışdı, yəni hesab sahibi öz
+      // `reportedCount`-unu sərbəst yaza (məs. sıfırlaya) bilirdi —
+      // moderasiya siqnalını özü gizlədə bilərdi. Yeganə legitim yazıcı
+      // (`firebase_safety_repository.dart:57`, `reportUser()`) HƏMİŞƏ
+      // BAŞQA istifadəçinin sənədinə yazır (`reportedId`, `reporterId`
+      // deyil) — özünü-şikayət `report_user_usecase.dart:15`-də
+      // client-side artıq bloklanır, VƏ struktur olaraq belə bu yazı
+      // heç vaxt sahib budağından keçə bilməz (`request.auth.uid !=
+      // userId` şərti onu artıq istisna edir) — ona görə bu kilid
+      // legitim axını sındırmır, yalnız sahibin öz-özünü təmizə
+      // çıxarma yolunu bağlayır.
       function touchesLockedUserFields() {
         return request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['premium', 'identityVerified', 'premiumExpiresAt']);
+          .hasAny(['premium', 'identityVerified', 'premiumExpiresAt', 'birthDate', 'reportedCount']);
       }
 
-      // A user can only create or delete their OWN document.
-      allow create: if request.auth != null && request.auth.uid == userId &&
-        !('premium' in request.resource.data) &&
-        !('identityVerified' in request.resource.data) &&
-        !('premiumExpiresAt' in request.resource.data);
+      // Defense-in-depth (Düzəliş Prompt 8 / RT-2) — matches the
+      // client's own existing `maxLength: 200` on the bio field
+      // (edit_profile_screen.dart) exactly, so this changes nothing for
+      // the real app; it only closes the gap for a modified/raw client.
+      function bioSizeOk() {
+        return !('bio' in request.resource.data) || request.resource.data.bio.size() <= 200;
+      }
+
+      // No client `create` path exists any more — `completeOnboarding`
+      // (Cloud Function, Admin SDK, bypasses these rules) is the ONLY way a
+      // `users/{uid}` document comes into existence, specifically so its
+      // server-side minimum-age check (18+, see that function) can't be
+      // skipped by writing the document directly. A user can still delete
+      // their own document (`deleteAccount` also does this, via Admin SDK).
+      allow create: if false;
       allow delete: if request.auth != null && request.auth.uid == userId;
 
       // A user can update their own document freely (including their
       // own `blockedUsers` array) EXCEPT the locked fields above. Any
       // OTHER signed-in user may update it too, but only to bump
-      // exactly one of starCount / heartCount / dislikeCount /
-      // reportedCount by exactly 1 (swiping super-like/like/pass, or
-      // filing a report) — every other field stays owner-only.
+      // `reportedCount` by exactly 1 (filing a report via
+      // `firebase_safety_repository.dart`'s `reportUser()`) — every
+      // other field stays owner-only.
+      //
+      // `blockedUsers` STAYS on this doc (Düzəliş Prompt 4 / K-1 —
+      // deliberately NOT moved to `private/data`, flagged not silently
+      // decided) — `firebase_chat_repository.dart`'s own `_isBlockedPair`
+      // (its message-send guard, separate from the one in
+      // `location_providers.dart`) reads the OTHER party's `blockedUsers`
+      // directly from this doc before allowing a send. Moving it to the
+      // owner-only subcollection would make that read fail outright,
+      // breaking message sending. Real server-side block enforcement
+      // (this field should never have been client-checkable in the
+      // first place) is Prompt 5's stated scope ("Blok mexanizmi server
+      // tərəfə") — left exactly as-is here so as not to preempt that
+      // work with a half fix.
+      //
+      // `starCount`/`heartCount`/`dislikeCount` were dropped from this
+      // branch (Düzəliş Prompt 2 / K-8) — the swipe/card feature they
+      // backed no longer exists anywhere in the client (confirmed by an
+      // exhaustive grep: every remaining reference is a read-only
+      // parsed field, no write path left at all), so there is no
+      // legitimate writer to preserve. Their removal also closes a real
+      // logic flaw: with all four fields under one `hasOnly` and an
+      // `||`-joined per-field `+1` check, satisfying ANY ONE of the
+      // four (e.g. `reportedCount`) passed the whole condition while
+      // `hasOnly` only constrained the KEY SET, not each field's VALUE
+      // — so the same write could set the other three to anything. With
+      // only `reportedCount` left, `hasOnly` + a single equality check
+      // is airtight.
       allow update: if request.auth != null && (
-        (request.auth.uid == userId && !touchesLockedUserFields()) ||
+        (request.auth.uid == userId && !touchesLockedUserFields() && bioSizeOk()) ||
         (
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['starCount', 'heartCount', 'dislikeCount', 'reportedCount']) &&
-          (
-            request.resource.data.starCount == ('starCount' in resource.data ? resource.data.starCount : 0) + 1 ||
-            request.resource.data.heartCount == ('heartCount' in resource.data ? resource.data.heartCount : 0) + 1 ||
-            request.resource.data.dislikeCount == ('dislikeCount' in resource.data ? resource.data.dislikeCount : 0) + 1 ||
-            request.resource.data.reportedCount == ('reportedCount' in resource.data ? resource.data.reportedCount : 0) + 1
-          )
+          request.auth.uid != userId &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reportedCount']) &&
+          request.resource.data.reportedCount == ('reportedCount' in resource.data ? resource.data.reportedCount : 0) + 1
         )
       );
+
+      // Private data (Düzəliş Prompt 4 / K-1) — email, phoneNumber,
+      // birthDate, exact lat/lng, fcmTokens, knownDeviceSignatures,
+      // ghostModeEnabled/visibilityRadius*, and other fields that used
+      // to sit directly on `users/{uid}` (fully world-readable per the
+      // rule above) now live here instead — YALNIZ sahib. Mirrors the
+      // already-proven `payments`/`sessions` owner-only-subcollection
+      // shape this schema already uses successfully. `blockedUsers`
+      // deliberately STAYS on the parent doc, NOT here — see that
+      // field's own note further down for why (Prompt 5's territory).
+      match /private/{document} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
 
       // Personal media gallery grid on the self-profile tab — read-only
       // from the client for now (no upload flow exists yet, so this
@@ -263,7 +472,37 @@ service cloud.firestore {
     // `create` fails outright if a doc already exists at this id,
     // which is the actual race-safe guarantee `isUsernameAvailable`'s
     // client-side check only approximates.
+    // Düzəliş Prompt 10 / AUTH-6 — kept in sync BY HAND with
+    // `RESERVED_USERNAMES` in functions/src/index.ts (same
+    // "duplicate table across two runtimes" shape as
+    // `venueSubscriptionFeeByCategory`'s own doc comment there) —
+    // `completeOnboarding` (Admin SDK) already blocks these at
+    // signup, but `updateUsername` (`FirebaseAuthRepository`) writes
+    // this doc DIRECTLY from the client with no Cloud Function in the
+    // path at all, so this is the ONLY enforcement point for that one
+    // flow. `usernameId` is already lowercase (the doc id IS the
+    // lowercased username), so this list only needs lowercase entries.
+    function isReservedUsername(usernameId) {
+      return usernameId in [
+        'admin', 'administrator', 'support', 'help', 'helpdesk', 'peakpin',
+        'moderator', 'mod', 'official', 'team', 'staff', 'system', 'root',
+        'security', 'info', 'contact', 'billing', 'privacy', 'legal',
+        'abuse', 'noreply', 'null', 'undefined'
+      ];
+    }
+
     match /usernames/{usernameId} {
+      // `get` stays public (Düzəliş Prompt 2 / Quick Win 1 — deliberately
+      // NOT tightened) — `deep_link_handler.dart`'s `_openProfileByUsername`
+      // runs a single-doc `get()` here for shared `peakpin.app/u/{username}`
+      // links, BEFORE any sign-in check, including for a user who has
+      // never signed in at all. Requiring `request.auth != null` would
+      // silently break that flow for logged-out users (the client
+      // catches the resulting error and no-ops rather than crashing, but
+      // the profile just never opens). Every OTHER read site
+      // (`isUsernameAvailable`, `updateUsername`) already runs
+      // authenticated, so this stays open specifically for the
+      // logged-out deep-link case.
       allow get: if true;
 
       // `list` is a SEPARATE permission from `get` in Firestore rules
@@ -276,10 +515,19 @@ service cloud.firestore {
       // is caught and swallowed into an empty result list). Doc IDs
       // here are just lowercase username strings and each doc is only
       // `{uid, createdAt}` — nothing sensitive to gate behind auth.
-      allow list: if true;
+      //
+      // Closed to any-signed-in-user (Düzəliş Prompt 2 / Quick Win 1) —
+      // unlike `get` above, this query's only caller
+      // (`searchUsersByUsername`) is reachable exclusively from
+      // `DiscoverSearchScreen`, itself only reachable post-sign-in
+      // (inside `HomeScreen`'s tab tree) — confirmed no pre-login path
+      // exists for `list`, so this one closes with zero risk of
+      // breaking anything.
+      allow list: if request.auth != null;
 
       allow create: if request.auth != null &&
         resource == null &&
+        !isReservedUsername(usernameId) &&
         request.auth.uid == request.resource.data.uid &&
         request.resource.data.keys().hasOnly(['uid', 'createdAt']);
       allow delete: if request.auth != null && request.auth.uid == resource.data.uid;
@@ -314,11 +562,19 @@ service cloud.firestore {
         isAcceptedFollower(request.auth.uid, resource.data.followerId)
       );
 
+      // `status: 'accepted'` is only valid straight off a `public`
+      // followee — a `private` one always starts `pending`, no matter
+      // what the write claims (Düzəliş Prompt 2 / K-5). Before this,
+      // `status` was accepted as sent, entirely trusting the client's
+      // own `follow_action_button.dart` decision — a modified client
+      // could self-grant instant access to a private account.
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.followerId &&
         request.resource.data.followeeId != request.resource.data.followerId &&
         followId == request.resource.data.followerId + '_' + request.resource.data.followeeId &&
-        request.resource.data.status in ['accepted', 'pending'];
+        request.resource.data.status in ['accepted', 'pending'] &&
+        (request.resource.data.status == 'pending' ||
+         get(/databases/$(database)/documents/users/$(request.resource.data.followeeId)).data.get('accountPrivacy', 'public') != 'private');
 
       // Only the followee may accept — flips a `pending` request to
       // `accepted`, nothing else about the doc may change.
@@ -355,7 +611,17 @@ service cloud.firestore {
       // the guarded version returns exists:false with no error.
       allow read: if request.auth != null &&
         (resource == null || request.auth.uid in resource.data.participants);
-      allow create: if request.auth != null && request.auth.uid in request.resource.data.participants;
+
+      // Düzəliş Prompt 5 (K-3/RT-6) — a blocked pair (either direction)
+      // may never open a new conversation, and `whoCanMessageMe:
+      // followersOnly` is enforced for real (was client-only before —
+      // `FirebaseChatRepository._canMessage`, easily bypassed by a
+      // direct write). Both checks only apply at CREATE — an already-
+      // `accepted` chat is never retroactively closed by a later block
+      // (see `messages/create` below for that) or setting change.
+      allow create: if request.auth != null && request.auth.uid in request.resource.data.participants &&
+        !isBlockedPair(request.resource.data.participants[0], request.resource.data.participants[1]) &&
+        canMessage(request.auth.uid, otherOf(request.resource.data.participants, request.auth.uid));
 
       // Two distinct kinds of update, both restricted to participants:
       //  1. Ordinary chat activity (sending a message, typing, receipts,
@@ -365,13 +631,18 @@ service cloud.firestore {
       //     accept/decline their own request), only while the request
       //     is still `pending`, and the write may touch `status` and
       //     nothing else.
+      // Düzəliş Prompt 5 — a blocked pair can no longer accept a still-
+      // pending request into an `accepted` chat (declining stays
+      // allowed either way — that only closes the door further).
       allow update: if request.auth != null && request.auth.uid in resource.data.participants && (
         request.resource.data.status == resource.data.status ||
         (
           resource.data.status == 'pending' &&
           request.auth.uid != resource.data.initiatorId &&
           request.resource.data.status in ['accepted', 'declined'] &&
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+          (request.resource.data.status == 'declined' ||
+           !isBlockedPair(resource.data.participants[0], resource.data.participants[1]))
         )
       );
 
@@ -397,15 +668,68 @@ service cloud.firestore {
         // in FirebaseChatRepository's own transaction (`canSend`), which
         // runs before this write is ever attempted; membership is all
         // this rule needs to check.
+        // `isActiveUser()` gate added (Düzəliş Prompt 11 / Y-1, Variant
+        // B) — chat messaging is the highest-harm, highest-volume abuse
+        // path for a banned/deleted account whose cached ID token is
+        // still technically valid (up to ~1h): without this, a banned
+        // user could keep harassing someone by message until the token
+        // naturally expired. `revokeRefreshTokens` alone doesn't stop
+        // this (Cloud Functions' `onCall` runtime and Firestore Rules
+        // don't check token-revocation status by default) — this checks
+        // live Firestore state instead, which is independent of the
+        // token's own freshness.
+        // `text` size cap (Düzəliş Prompt 8 / RT-2) — was completely
+        // unbounded before; a multi-megabyte `text` value could cause
+        // real OOM pressure on any device rendering the chat. 2000
+        // characters is generous for a chat message and nowhere near
+        // the size that would cause that. `text` is optional (media
+        // messages carry none), hence the `!('text' in ...)` escape.
+        // Düzəliş Prompt 5 (K-3) — blocked pair can never write a
+        // message, even into an already-`accepted` chat (unlike the
+        // create-time-only block/whoCanMessageMe check above, this one
+        // re-checks on EVERY message, since a block can happen mid-
+        // conversation — the most common real-world blocking scenario).
+        //
+        // RT-5 — EXPERIMENTAL, pending emulator verification against the
+        // exact same-transaction chat+first-message write
+        // (FirebaseChatRepository._sendMessage's runTransaction). A
+        // near-identical get()-based check was tried here once before
+        // and reverted (see the NOTE further up) for allegedly breaking
+        // a brand-new chat's first message — that failure mode hasn't
+        // been reproduced against this specific `exists()`-guarded
+        // shape yet. If the dedicated test in firestore-prompt5.test.ts
+        // fails, this ONE clause (declinedGuard) is removed and RT-5 is
+        // deferred as a separate, documented finding — it must not
+        // block the rest of this prompt.
         allow create: if request.auth != null &&
           request.auth.uid == request.resource.data.senderId &&
-          chatId.split('_').hasAny([request.auth.uid]);
+          chatId.split('_').hasAny([request.auth.uid]) &&
+          isActiveUser(request.auth.uid) &&
+          (!('text' in request.resource.data) || request.resource.data.text.size() <= 2000) &&
+          !isBlockedPair(chatId.split('_')[0], chatId.split('_')[1]) &&
+          (!exists(/databases/$(database)/documents/chats/$(chatId)) ||
+           get(/databases/$(database)/documents/chats/$(chatId)).data.get('status', 'pending') != 'declined');
         // Update is used for the recipient marking deliveredAt/readAt,
         // and by either participant adding themselves to `deletedFor`
         // ("Özün üçün sil"). "Hər kəs üçün sil" is a real delete below,
         // sender-only — a recipient can hide a message for themselves
         // but never remove the sender's own copy of it.
-        allow update: if request.auth != null && chatId.split('_').hasAny([request.auth.uid]);
+        //
+        // Field-restricted (Düzəliş Prompt 2 / K-2) — the client's own
+        // write paths (FirebaseChatRepository) never touch anything but
+        // these three fields on update; a bare "any participant" rule
+        // previously let anyone rewrite `text`/`senderId`/`mediaUrl` on
+        // any message after the fact. `deletedFor` may only ever GAIN
+        // the caller's own uid — never another participant's, never a
+        // removal (a self-delete can't be undone by re-adding then
+        // stripping someone else's entry in the same write).
+        allow update: if request.auth != null && chatId.split('_').hasAny([request.auth.uid]) &&
+          (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deliveredAt', 'readAt']) ||
+            (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedFor']) &&
+             request.resource.data.deletedFor.removeAll(resource.data.deletedFor).hasOnly([request.auth.uid]) &&
+             resource.data.deletedFor.removeAll(request.resource.data.deletedFor).size() == 0)
+          );
         allow delete: if request.auth != null && request.auth.uid == resource.data.senderId;
       }
     }
@@ -420,10 +744,21 @@ service cloud.firestore {
     match /calls/{callId} {
       allow read: if request.auth != null && request.auth.uid in resource.data.participants;
 
+      // `isActiveUser()` gate (Düzəliş Prompt 11 / Y-1, Variant B) —
+      // same reasoning as `chats/{chatId}/messages` create above: calls
+      // are the other high-harm harassment vector a banned account's
+      // still-valid token could otherwise keep using.
+      // Düzəliş Prompt 5 (K-3/RT-14) — before this, NEITHER the client
+      // (`FirebaseCallRepository.startCall`) NOR the rules checked
+      // blocking at all for calls; only the chat-based UI's own
+      // "yalnız accepted çatda zəng düyməsi" gate discouraged it, which
+      // a direct `startCall()` call trivially bypasses.
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.callerId &&
         request.auth.uid in request.resource.data.participants &&
-        request.resource.data.status == 'ringing';
+        request.resource.data.status == 'ringing' &&
+        isActiveUser(request.auth.uid) &&
+        !isBlockedPair(request.resource.data.callerId, request.resource.data.receiverId);
 
       // Callee accepting/declining (status only), either side ending
       // the call, or the caller attaching its SDP offer / callee
@@ -547,11 +882,22 @@ service cloud.firestore {
       // succeeds (see `submitVenue`/`retryVenueSubscriptionPayment`'s
       // `offerAcceptance` payload) — an owner can't self-grant
       // acceptance of a version they never actually agreed to.
+      // `verified`/`gallery` join the lock too (Düzəliş Prompt 2 / C#61)
+      // — neither is written by any client code today (confirmed by
+      // grep: `verified` has no write path at all, `gallery` has no
+      // upload feature built yet), but both sat outside this blocklist,
+      // so a direct/modified-client write could still set either. No
+      // legitimate flow loses anything by closing this.
+      // `activeCheckinCount` (Düzəliş Prompt 4, K-4) joins the lock too
+      // — only `onActiveCheckinCreated`/`onActiveCheckinDeleted`
+      // (functions/src/index.ts) may set it, derived from real
+      // `activeCheckins` docs, so an owner can't inflate their own
+      // "hazırda N nəfər" counter by editing their own venue directly.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl', 'offerAcceptedVersion', 'offerAcceptedAt', 'offerAcceptedFrom', 'offerDocumentUrl']);
+          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl', 'offerAcceptedVersion', 'offerAcceptedAt', 'offerAcceptedFrom', 'offerDocumentUrl', 'verified', 'gallery', 'activeCheckinCount']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
@@ -591,7 +937,14 @@ service cloud.firestore {
           request.resource.data.comment.size() <= 500;
       }
 
-      allow read: if true;
+      // Was fully public (`if true`) — closed to any-signed-in-user
+      // (Düzəliş Prompt 2 / INFRA-8) after confirming every client read
+      // site (`watchVenueReviews`, `watchMyReview`, `exportUserData`)
+      // only ever runs post-sign-in, and the admin panel never reads
+      // this via a client SDK (server-side Admin SDK only, which
+      // bypasses this rule anyway) — nothing legitimate needed the
+      // fully-open door.
+      allow read: if request.auth != null;
 
       allow create: if request.auth != null &&
         reviewId == request.resource.data.venueId + '_' + request.auth.uid &&
@@ -791,15 +1144,27 @@ service cloud.firestore {
     }
 
     // A user's active check-in at this venue — existence alone means
-    // "here right now". The live "Hazırda N istifadəçi buradadır"
-    // count is a plain client-side count of this collection (filtered
-    // to non-stale docs), no denormalized counter field exists to
-    // guard. `update` is allowed alongside create/delete only as a
-    // defensive no-op path (the app never actually updates this doc
-    // in place, only creates/deletes it) — still owner-only either
-    // way, so it grants nothing extra.
+    // "here right now". `update` is allowed alongside create/delete
+    // only as a defensive no-op path (the app never actually updates
+    // this doc in place, only creates/deletes it) — still owner-only
+    // either way, so it grants nothing extra.
+    //
+    // Read narrowed to the checked-in user + the venue's own owner
+    // (Düzəliş Prompt 4 / K-4) — was `if request.auth != null` (ANY
+    // signed-in user could enumerate exactly who is physically present
+    // at a venue right now). The live "Hazırda N istifadəçi buradadır"
+    // count and the live-feed "audience" item now read
+    // `venues/{venueId}.activeCheckinCount` instead (a plain int,
+    // maintained by `onActiveCheckinCreated`/`onActiveCheckinDeleted`,
+    // functions/src/index.ts) — neither ever needed raw per-user
+    // check-in identity, only a number, so this doesn't break them
+    // (both call sites — `watchActiveCheckinCount` and
+    // `LiveFeedService.fetchAudienceItems` — were updated to match). No
+    // other client read site for this subcollection was found.
     match /venues/{venueId}/activeCheckins/{userId} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null &&
+        (request.auth.uid == userId ||
+         request.auth.uid == get(/databases/$(database)/documents/venues/$(venueId)).data.ownerId);
       allow create, update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
@@ -850,11 +1215,28 @@ service cloud.firestore {
       // and only after a confirmed `boost_fee` charge (`createBoostCheckout`,
       // functions/src/index.ts); a client write here would be a free,
       // unpaid boost.
+      // `title`/`description`/`offerType`/`discountValue`/`startDate`/
+      // `endDate`/`terms`/`activeHours`/`activeDays`/`imageUrl`/
+      // `category` join the lock (Düzəliş Prompt 6 / INFRA-5) — every
+      // real content edit now goes through the `updateOffer` Cloud
+      // Function (functions/src/index.ts), which diffs old vs. new
+      // server-side and decides whether the edit needs to re-enter
+      // moderation, same reasoning as `venues/{venueId}`'s own content
+      // lock right above. Before this, these fields sat OUTSIDE the
+      // blocklist entirely — a modified client could silently swap in
+      // different content on an already-`approved` offer and simply
+      // never call `resubmitOffer`, shipping unreviewed content live.
+      // `description`/`terms` size caps (Düzəliş Prompt 8 / RT-2) kept
+      // as defense-in-depth even though `updateOffer` is now the only
+      // real path here — match the client's own existing
+      // `maxLength: 200` on both fields (create_offer_screen.dart).
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'paymentId', 'revisionDeadline', 'happyHourActive', 'boostedUntil']);
+          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'paymentId', 'revisionDeadline', 'happyHourActive', 'boostedUntil', 'title', 'description', 'offerType', 'discountValue', 'startDate', 'endDate', 'terms', 'activeHours', 'activeDays', 'imageUrl', 'category']) &&
+        (!('description' in request.resource.data) || request.resource.data.description.size() <= 200) &&
+        (!('terms' in request.resource.data) || request.resource.data.terms.size() <= 200);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
@@ -882,21 +1264,53 @@ service cloud.firestore {
     match /pinboxes/{pinboxId} {
       allow read: if request.auth != null;
 
+      // Defense-in-depth (Düzəliş Prompt 8 / RT-2) — matches the
+      // client's own existing `maxLength: 200` on this field
+      // (create_pinbox_screen.dart) exactly.
+      function descriptionSizeOk() {
+        return !('description' in request.resource.data) || request.resource.data.description.size() <= 200;
+      }
+
+      // `get()`-based venue-ownership check (Düzəliş Prompt 2 / K-9) —
+      // mirrors `venueEvents/{eventId}`'s own create rule below, the
+      // proven pattern for the same problem. Without it, `ownerId ==
+      // request.auth.uid` alone never verified the caller actually
+      // owns `venueId` — the client (`firebase_pinbox_repository.dart`)
+      // never independently checks this either, trusting rules
+      // entirely, so this was a real gap: anyone could list a PinBox
+      // against a venue they don't own.
       allow create: if request.auth != null &&
         request.auth.uid == request.resource.data.ownerId &&
+        request.auth.uid == get(/databases/$(database)/documents/venues/$(request.resource.data.venueId)).data.ownerId &&
         isBusinessUser(request.auth.uid) &&
         !isOfferOnlyCategory(request.resource.data.venueId) &&
         request.resource.data.status == 'pending' &&
         request.resource.data.stockRemaining == request.resource.data.stockTotal &&
         !('reviewNote' in request.resource.data) &&
         !('reviewedBy' in request.resource.data) &&
-        !('reviewedAt' in request.resource.data);
+        !('reviewedAt' in request.resource.data) &&
+        descriptionSizeOk();
 
+      // `venueId` joins the update blocklist (Düzəliş Prompt 2 / K-9) —
+      // no "move this listing to another venue" feature exists (confirmed
+      // by grep: the only client `.update()` call never sends `venueId`),
+      // so this is defense-in-depth, not a fix for a real client flow.
+      // `title`/`description`/`originalPrice`/`pinboxPrice`/
+      // `pickupWindowStart`/`pickupWindowEnd`/`imageUrl` join the lock
+      // too (Düzəliş Prompt 6 / INFRA-5) — same reasoning as
+      // `offers/{offerId}` right above: every real content edit now
+      // goes through the `updatePinBox` Cloud Function (functions/src/
+      // index.ts), which diffs old vs. new server-side and decides
+      // whether the edit re-enters moderation. Before this, these
+      // fields sat outside the blocklist — a modified client could
+      // silently swap in different content on an already-`active`
+      // PinBox and never call `resubmitPinBox`.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'stockRemaining']);
+          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'stockRemaining', 'venueId', 'title', 'description', 'originalPrice', 'pinboxPrice', 'pickupWindowStart', 'pickupWindowEnd', 'imageUrl']) &&
+        descriptionSizeOk();
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
@@ -934,10 +1348,18 @@ service cloud.firestore {
     match /venueEvents/{eventId} {
       allow read: if request.auth != null;
 
+      // Defense-in-depth (Düzəliş Prompt 8 / RT-2) — matches the
+      // client's own existing `_kDescriptionMaxLength` (300,
+      // create_event_screen.dart) exactly.
+      function descriptionSizeOk() {
+        return !('description' in request.resource.data) || request.resource.data.description.size() <= 300;
+      }
+
       allow create: if request.auth != null &&
         request.auth.uid == get(/databases/$(database)/documents/venues/$(request.resource.data.venueId)).data.ownerId &&
         !isOfferOnlyCategory(request.resource.data.venueId) &&
-        request.resource.data.status == 'upcoming';
+        request.resource.data.status == 'upcoming' &&
+        descriptionSizeOk();
 
       // Two disjoint shapes: cancelling (status only, -> 'cancelled'),
       // or editing content (title/description/cover/time/category)
@@ -950,7 +1372,8 @@ service cloud.firestore {
             request.resource.data.status == 'cancelled') ||
           (resource.data.status in ['upcoming', 'live'] &&
             request.resource.data.diff(resource.data).affectedKeys()
-              .hasOnly(['title', 'description', 'coverImageUrl', 'startAt', 'endAt', 'category']))
+              .hasOnly(['title', 'description', 'coverImageUrl', 'startAt', 'endAt', 'category']) &&
+            descriptionSizeOk())
         );
 
       allow delete: if false;
@@ -960,22 +1383,41 @@ service cloud.firestore {
     // event-specific complaints — the admin panel's "Tədbir şikayətləri"
     // section reads/resolves these via the Admin SDK, which bypasses
     // these rules entirely.
+    // `isActiveUser()` gate added to all three report-filing collections
+    // below (Düzəliş Prompt 11 / Y-1, Variant B) — a banned account
+    // filing retaliatory reports against whoever got them banned is its
+    // own abuse vector, worse when combined with K-8's fixed reputation
+    // -counter reasoning (a flood of reports against one target could
+    // itself become a harassment tool).
     match /eventReports/{reportId} {
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.reportedBy;
+      // `reason` size cap (Düzəliş Prompt 8 / RT-2) — was unbounded on
+      // both client and rules before; new limit on both sides now.
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.reportedBy &&
+        isActiveUser(request.auth.uid) &&
+        (!('reason' in request.resource.data) || request.resource.data.reason.size() <= 1000);
       allow read, update, delete: if false;
     }
 
     // Written exclusively by `computeBirthdayMatches` (scheduled Cloud
     // Function, Admin SDK — bypasses these rules entirely), same
     // "no client write path exists or should exist" reasoning as
-    // venues/{venueId}/audienceHistory above. Read stays open the same
-    // way every other collection here is — the venue owner reading
-    // their own match to build the pre-filled birthday offer form
-    // needs this, and the data itself is just matched uids, not
-    // anything more sensitive than what the owner's own push
-    // notification already told them.
+    // venues/{venueId}/audienceHistory above.
+    //
+    // Read narrowed to the matched venue's own owner (Düzəliş Prompt 2 /
+    // INFRA-11) — the bare `request.auth != null` this replaced let ANY
+    // signed-in user `get()` or `list` any doc, relying entirely on a
+    // client-side `hasBusinessAccess` flag (business-status account, not
+    // "owns THIS venue") plus the doc id (`{date}_{venueId}`) being hard
+    // to guess — neither is a real access-control boundary. The one
+    // client read site (`fetchBirthdayMatch`, always a single already-
+    // known-id `get()`) is unaffected by this: it already only fires for
+    // the notification's own target venue. No `list` query exists
+    // anywhere in the client, so that's closed outright rather than
+    // narrowed.
     match /birthdayMatches/{matchId} {
-      allow read: if request.auth != null;
+      allow get: if request.auth != null &&
+        request.auth.uid == get(/databases/$(database)/documents/venues/$(resource.data.venueId)).data.ownerId;
+      allow list: if false;
       allow write: if false;
     }
 
@@ -1110,16 +1552,24 @@ service cloud.firestore {
     }
 
     // Write-only from clients — reviewed by moderators outside the app.
+    // `isActiveUser()` gate — see `eventReports` above for why.
     match /reports/{reportId} {
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.reporterId;
+      // `reason` size cap (Düzəliş Prompt 8 / RT-2) — see `eventReports` above.
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.reporterId &&
+        isActiveUser(request.auth.uid) &&
+        (!('reason' in request.resource.data) || request.resource.data.reason.size() <= 1000);
       allow read, update, delete: if false;
     }
 
     // "Şikayət et" on a review — same write-only-by-reporter shape as
     // `reports`/`eventReports` above. Resolved from the admin panel's
     // "Review Reports" page (`onReviewReportCreated` relays it there).
+    // `isActiveUser()` gate — see `eventReports` above for why.
     match /reviewReports/{reportId} {
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.reporterId;
+      // `reason` size cap (Düzəliş Prompt 8 / RT-2) — see `eventReports` above.
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.reporterId &&
+        isActiveUser(request.auth.uid) &&
+        (!('reason' in request.resource.data) || request.resource.data.reason.size() <= 1000);
       allow read, update, delete: if false;
     }
 
@@ -1157,7 +1607,10 @@ service cloud.firestore {
     // Write-only from the client — only readable via the Firebase
     // console / a future admin tool, same shape as /reports above.
     match /supportMessages/{messageId} {
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid;
+      // `message` size cap (Düzəliş Prompt 8 / RT-2) — was unbounded on
+      // both client and rules before; new limit on both sides now.
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.uid &&
+        (!('message' in request.resource.data) || request.resource.data.message.size() <= 2000);
       allow read, update, delete: if false;
     }
 
@@ -1165,5 +1618,20 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if false;
     }
+
+    // ACCEPTED, DOCUMENTED RISK (Düzəliş Prompt 11 / Y-1) — the
+    // `isActiveUser()` gate above closes the highest-harm write paths
+    // for a banned/deleted account (chat messages, calls, the three
+    // report collections), but is deliberately NOT applied everywhere:
+    // (1) no `allow read` rule anywhere in this file checks
+    // `isActiveUser()` — a banned/deleted account's still-cryptographically
+    // -valid ID token (up to ~1h, Firebase's own natural expiry) can
+    // keep READING anything its existing rules already permitted
+    // (profiles, chats it's a participant of, venues, etc.); (2) `posts`,
+    // `stories`, `pinboxes`, `venueEvents`, and `supportMessages` create
+    // are also not gated this way (Variant B scope — lower abuse-per-write
+    // than messaging/calls/reports). Both are accepted for now, not
+    // oversights — extending `isActiveUser()` to more `allow` rules is a
+    // small, mechanical follow-up whenever it's prioritized.
   }
 }

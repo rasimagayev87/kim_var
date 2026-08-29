@@ -62,6 +62,14 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     return _repository.sendPasswordResetEmail(email);
   }
 
+  Future<void> resendEmailVerification() {
+    return _repository.resendEmailVerification();
+  }
+
+  Future<bool> reloadAndCheckEmailVerified() {
+    return _repository.reloadAndCheckEmailVerified();
+  }
+
   Future<void> completeOnboarding({
     required String username,
     required String firstName,

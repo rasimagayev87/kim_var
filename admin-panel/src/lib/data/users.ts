@@ -58,8 +58,9 @@ export async function listUsers({
   vipFilter: VipFilter;
 }): Promise<AdminUserRow[]> {
   const snap = await getAdminDb().collection("users").orderBy("createdAt", "desc").limit(FETCH_LIMIT).get();
+  const phoneByUid = await fetchPhoneNumbers(snap.docs.map((doc) => doc.id));
 
-  let rows = await attachBannedStatus(snap.docs.map(docToRow));
+  let rows = await attachBannedStatus(snap.docs.map((doc) => docToRow(doc, phoneByUid.get(doc.id) ?? null)));
 
   if (verifiedFilter !== "all") {
     const wantVerified = verifiedFilter === "verified";
@@ -86,11 +87,31 @@ export async function listUsers({
 export async function getUserDetail(uid: string): Promise<AdminUserRow | null> {
   const doc = await getAdminDb().collection("users").doc(uid).get();
   if (!doc.exists) return null;
-  const [row] = await attachBannedStatus([docToRow(doc as FirebaseFirestore.QueryDocumentSnapshot)]);
+  const phoneByUid = await fetchPhoneNumbers([uid]);
+  const [row] = await attachBannedStatus([
+    docToRow(doc as FirebaseFirestore.QueryDocumentSnapshot, phoneByUid.get(uid) ?? null),
+  ]);
   return row;
 }
 
-function docToRow(doc: FirebaseFirestore.QueryDocumentSnapshot): Omit<AdminUserRow, "banned"> {
+/**
+ * `phoneNumber` moved to `users/{uid}/private/data` (Düzəliş Prompt 4 /
+ * K-1) — the Admin SDK bypasses `firestore.rules` regardless, so this
+ * is purely a query-path change: one extra parallel read per row
+ * instead of it already being on the doc `listUsers`/`getUserDetail`
+ * fetched anyway.
+ */
+async function fetchPhoneNumbers(uids: string[]): Promise<Map<string, string | null>> {
+  const db = getAdminDb();
+  const snaps = await Promise.all(uids.map((uid) => db.collection("users").doc(uid).collection("private").doc("data").get()));
+  const result = new Map<string, string | null>();
+  snaps.forEach((snap, i) => {
+    result.set(uids[i], (snap.data()?.phoneNumber as string | undefined) ?? null);
+  });
+  return result;
+}
+
+function docToRow(doc: FirebaseFirestore.QueryDocumentSnapshot, phoneNumber: string | null): Omit<AdminUserRow, "banned"> {
   const data = doc.data();
   const createdAt = data.createdAt as FirebaseFirestore.Timestamp | undefined;
   return {
@@ -99,7 +120,7 @@ function docToRow(doc: FirebaseFirestore.QueryDocumentSnapshot): Omit<AdminUserR
     lastName: (data.lastName as string) ?? "",
     username: (data.username as string) ?? null,
     photoUrl: (data.photoUrl as string) ?? null,
-    phoneNumber: (data.phoneNumber as string) ?? null,
+    phoneNumber,
     createdAt: createdAt ? createdAt.toDate().toISOString() : null,
     identityVerified: (data.identityVerified as boolean) ?? false,
     premium: (data.premium as boolean) ?? false,

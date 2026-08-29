@@ -1,9 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../../core/utils/distance_unit.dart';
+import '../../../../../core/utils/private_data_ref.dart';
 import '../../domain/entities/map_location_settings.dart';
 import '../../domain/repositories/map_location_settings_repository.dart';
 
+/// `mapLocationSettings` lives on `users/{uid}/private/data` (Düzəliş
+/// Prompt 4) — see `privateDataRef`'s own doc comment.
 class FirebaseMapLocationSettingsRepository implements MapLocationSettingsRepository {
   FirebaseMapLocationSettingsRepository({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -11,7 +14,7 @@ class FirebaseMapLocationSettingsRepository implements MapLocationSettingsReposi
   final FirebaseFirestore _firestore;
 
   DocumentReference<Map<String, dynamic>> _userDoc(String uid) {
-    return _firestore.collection('users').doc(uid);
+    return privateDataRef(uid, firestore: _firestore);
   }
 
   @override

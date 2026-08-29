@@ -97,19 +97,6 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     });
   }
 
-  Future<void> _pickBirthDate() async {
-    final loc = AppLocalizations.of(context);
-    final now = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _birthDate ?? DateTime(now.year - 20, now.month, now.day),
-      firstDate: DateTime(now.year - 100),
-      lastDate: DateTime(now.year - 13, now.month, now.day),
-      helpText: loc.birthDatePickerHelpText,
-    );
-    if (picked != null) setState(() => _birthDate = picked);
-  }
-
   Future<void> _handleSave() async {
     final loc = AppLocalizations.of(context);
 
@@ -272,18 +259,20 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 16),
-            GestureDetector(
-              onTap: _pickBirthDate,
-              child: AbsorbPointer(
-                child: PremiumTextField(
-                  controller: TextEditingController(
-                    text: _birthDate == null ? '' : DateFormat('dd.MM.yyyy').format(_birthDate!),
-                  ),
-                  label: loc.fieldBirthDateLabel,
-                  hint: loc.fieldBirthDateHint,
-                  icon: Icons.calendar_today_outlined,
-                  suffixIcon: const Icon(Icons.keyboard_arrow_down_outlined, color: AppColors.textSecondary),
+            // Doğum tarixi qeydiyyatdan sonra dəyişməzdir (server-tərəf yaş
+            // qapısını mənasız etməmək üçün — bax `completeOnboarding` Cloud
+            // Function) — bu sahə artıq toxunulmaz, yalnız göstərici
+            // formasındadır. `firestore.rules`-un `users` sənədində
+            // `birthDate` kilidli sahələr siyahısındadır; səhv daxil edilmiş
+            // tarix dəstək vasitəsilə həll olunur.
+            AbsorbPointer(
+              child: PremiumTextField(
+                controller: TextEditingController(
+                  text: _birthDate == null ? '' : DateFormat('dd.MM.yyyy').format(_birthDate!),
                 ),
+                label: loc.fieldBirthDateLabel,
+                hint: loc.fieldBirthDateHint,
+                icon: Icons.calendar_today_outlined,
               ),
             ),
             const SizedBox(height: 16),

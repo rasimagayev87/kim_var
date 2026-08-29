@@ -1,9 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 
+import '../../../../../core/utils/private_data_ref.dart';
 import '../../domain/entities/notification_preferences.dart';
 import '../../domain/repositories/notification_preferences_repository.dart';
 
+/// `notificationPreferences` lives on `users/{uid}/private/data`
+/// (Düzəliş Prompt 4) — see `privateDataRef`'s own doc comment.
 class FirebaseNotificationPreferencesRepository implements NotificationPreferencesRepository {
   FirebaseNotificationPreferencesRepository({FirebaseFirestore? firestore})
       : _firestore = firestore ?? FirebaseFirestore.instance;
@@ -11,7 +14,7 @@ class FirebaseNotificationPreferencesRepository implements NotificationPreferenc
   final FirebaseFirestore _firestore;
 
   DocumentReference<Map<String, dynamic>> _userDoc(String uid) {
-    return _firestore.collection('users').doc(uid);
+    return privateDataRef(uid, firestore: _firestore);
   }
 
   @override

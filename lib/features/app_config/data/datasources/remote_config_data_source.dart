@@ -60,6 +60,7 @@ final Map<String, dynamic> _defaults = {
   'support_phone': '',
   'radius_options_json': '[0.1,0.5,1,5,10,30]',
   'vip_radius_threshold_m': 0,
+  'nearby_refresh_seconds': 45,
   'social_instagram_url': '',
   'social_tiktok_url': '',
 };

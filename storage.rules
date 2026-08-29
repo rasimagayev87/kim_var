@@ -20,92 +20,138 @@ service firebase.storage {
     }
 
     // Chat image messages — only the two people in the chat (its id
-    // is "${uidA}_${uidB}") can view or upload into it.
-    match /chat_photos/{chatId}/{fileName} {
+    // is "${uidA}_${uidB}") can view it. `{senderId}` joined the path
+    // (Düzəliş Prompt 3 / RT-8) — the old flat `{chatId}/{fileName}`
+    // shape had no sender identity anywhere in it, so `allow delete`
+    // could only check chat-participant membership, meaning EITHER
+    // participant could delete the other's uploaded file directly via
+    // the Storage SDK (bypassing the Firestore message doc's own
+    // sender-only delete rule entirely, since that only governs the
+    // Firestore doc, not the underlying Storage object). `create` now
+    // requires the path's `{senderId}` segment to match the caller,
+    // mirroring `firestore.rules`' own `senderId == request.auth.uid`
+    // check on the message doc — the two are now symmetric.
+    match /chat_photos/{chatId}/{senderId}/{fileName} {
       allow read: if request.auth != null && chatId.split('_').hasAny([request.auth.uid]);
 
       allow create: if request.auth != null
                    && chatId.split('_').hasAny([request.auth.uid])
+                   && request.auth.uid == senderId
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
 
-      // "Hər kəs üçün sil" (deleteMessageForEveryone) — request.resource
-      // doesn't exist on a delete, so this can't share the `create`
-      // rule's size/content-type checks above; participant membership
-      // is all there is left to check (the Firestore-side message
-      // delete this always accompanies is already sender-only).
-      allow delete: if request.auth != null && chatId.split('_').hasAny([request.auth.uid]);
+      // Sender-only now (Düzəliş Prompt 3 / RT-8) — was participant-only,
+      // letting a recipient delete the sender's own uploaded file.
+      allow delete: if request.auth != null && request.auth.uid == senderId;
     }
 
-    // Chat video messages — same participant-only access as
-    // chat_photos above; capped at 50MB to match SendVideoMessageUseCase.
-    match /chat_videos/{chatId}/{fileName} {
+    // Chat video messages — same shape/reasoning as chat_photos above
+    // (Düzəliş Prompt 3 / RT-8); capped at 50MB to match SendVideoMessageUseCase.
+    match /chat_videos/{chatId}/{senderId}/{fileName} {
       allow read: if request.auth != null && chatId.split('_').hasAny([request.auth.uid]);
 
       allow create: if request.auth != null
                    && chatId.split('_').hasAny([request.auth.uid])
+                   && request.auth.uid == senderId
                    && request.resource.size < 50 * 1024 * 1024
                    && request.resource.contentType.matches('video/.*');
 
-      allow delete: if request.auth != null && chatId.split('_').hasAny([request.auth.uid]);
+      allow delete: if request.auth != null && request.auth.uid == senderId;
     }
 
-    // Chat voice messages — same participant-only access; capped at
-    // 10MB to match SendAudioMessageUseCase.
-    match /chat_audio/{chatId}/{fileName} {
+    // Chat voice messages — same shape/reasoning as chat_photos above
+    // (Düzəliş Prompt 3 / RT-8); capped at 10MB to match SendAudioMessageUseCase.
+    match /chat_audio/{chatId}/{senderId}/{fileName} {
       allow read: if request.auth != null && chatId.split('_').hasAny([request.auth.uid]);
 
       allow create: if request.auth != null
                    && chatId.split('_').hasAny([request.auth.uid])
+                   && request.auth.uid == senderId
                    && request.resource.size < 10 * 1024 * 1024
                    && request.resource.contentType.matches('audio/.*');
 
-      allow delete: if request.auth != null && chatId.split('_').hasAny([request.auth.uid]);
+      allow delete: if request.auth != null && request.auth.uid == senderId;
     }
 
-    // Event cover photos — path is `event_covers/{eventId}.jpg` (flat,
-    // no per-user subfolder). Reads are open to any signed-in user since
-    // event discovery itself is open to everyone (see firestore.rules);
-    // writes just need to be a real signed-in user uploading a
-    // reasonably-sized image — the path segment is an unguessable
-    // Firestore auto-id, and FirebaseEventRepository only ever uploads
-    // to it as part of that same user's own createEvent() call.
-    match /event_covers/{fileName} {
+    // Event cover photos — path is now `event_covers/{ownerUid}/{eventId}.jpg`
+    // (Düzəliş Prompt 3 / K-6, was flat `{eventId}.jpg`). The old
+    // "unguessable Firestore auto-id" reasoning this comment used to
+    // give was WRONG — `eventId` is a plain `collection.doc().id`,
+    // `venueEvents/{eventId}` is `allow read: if request.auth != null`
+    // in firestore.rules, and the client's own open discovery queries
+    // hand every signed-in user a live list of these ids during normal
+    // app use. Without an owner check, any signed-in user could
+    // overwrite/replace any event's cover photo. Reads stay open (event
+    // discovery is public); only the owner may write.
+    match /event_covers/{ownerUid}/{fileName} {
       allow read: if request.auth != null;
 
       allow write: if request.auth != null
+                   && request.auth.uid == ownerUid
                    && request.resource.size < 5 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
 
-    // Venue photos — path is `venue_photos/{venueId}.jpg` (flat, no
-    // per-user subfolder), same shape/reasoning as event_covers above.
+    // Venue photos — path is now `venue_photos/{ownerUid}/{venueId}.jpg`
+    // (Düzəliş Prompt 3 / K-6, was flat `{venueId}.jpg`) — see
+    // `event_covers` above for why the old "unguessable id" reasoning
+    // was wrong and what this closes.
+    match /venue_photos/{ownerUid}/{fileName} {
+      allow read: if request.auth != null;
+
+      allow write: if request.auth != null
+                   && request.auth.uid == ownerUid
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Offer photos — path is now `offer_photos/{ownerUid}/{offerId}.jpg`
+    // (Düzəliş Prompt 3 / K-6, was flat `{offerId}.jpg`) — see
+    // `event_covers` above for why the old "unguessable id" reasoning
+    // was wrong and what this closes.
+    match /offer_photos/{ownerUid}/{fileName} {
+      allow read: if request.auth != null;
+
+      allow write: if request.auth != null
+                   && request.auth.uid == ownerUid
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // PinBox photos — path is now `pinbox_photos/{ownerUid}/{pinboxId}.jpg`
+    // (Düzəliş Prompt 3 / K-6, was flat `{pinboxId}.jpg`) — see
+    // `event_covers` above for why the old "unguessable id" reasoning
+    // was wrong and what this closes.
+    match /pinbox_photos/{ownerUid}/{fileName} {
+      allow read: if request.auth != null;
+
+      allow write: if request.auth != null
+                   && request.auth.uid == ownerUid
+                   && request.resource.size < 5 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // TRANSITION-ONLY (Düzəliş Prompt 3 / K-6) — the 46 files still
+    // sitting at the OLD flat paths (`venue_photos/{id}.jpg` etc.,
+    // pre-migration) keep working for reads until the approved-but-not
+    // -yet-run migration script moves them to the new `{ownerUid}/...`
+    // paths above and updates each Firestore doc's stored URL. `write`
+    // is deliberately absent here (falls through to the default-deny
+    // below) — no NEW upload should ever land on a flat path again,
+    // only the new owner-uid rules above accept writes. Delete this
+    // whole block once the migration has actually run and these old
+    // objects are gone.
     match /venue_photos/{fileName} {
       allow read: if request.auth != null;
-
-      allow write: if request.auth != null
-                   && request.resource.size < 5 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
     }
-
-    // Offer photos — path is `offer_photos/{offerId}.jpg`, same
-    // flat-path/unguessable-auto-id reasoning as venue_photos above.
     match /offer_photos/{fileName} {
       allow read: if request.auth != null;
-
-      allow write: if request.auth != null
-                   && request.resource.size < 5 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
     }
-
-    // PinBox photos — path is `pinbox_photos/{pinboxId}.jpg`, same
-    // flat-path/unguessable-auto-id reasoning as venue_photos above.
     match /pinbox_photos/{fileName} {
       allow read: if request.auth != null;
-
-      allow write: if request.auth != null
-                   && request.resource.size < 5 * 1024 * 1024
-                   && request.resource.contentType.matches('image/.*');
+    }
+    match /event_covers/{fileName} {
+      allow read: if request.auth != null;
     }
 
     // 24h stories — image or video, owner-only upload. Read is open to

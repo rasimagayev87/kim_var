@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/utils/app_logger.dart';
@@ -53,7 +54,13 @@ class FirebaseOfferRepository implements OfferRepository {
     final offerId = _datasource.allocateOfferId();
     String? imageUrl;
     if (photo != null) {
+      // Storage's own `request.auth.uid == ownerId` check means this
+      // MUST be the current signed-in user regardless — `submitOffer`
+      // (the Cloud Function) separately re-verifies real venue
+      // ownership server-side.
+      final ownerId = fb.FirebaseAuth.instance.currentUser!.uid;
       imageUrl = await _datasource.uploadOfferPhoto(
+        ownerId,
         offerId,
         photo,
         onProgress: onUploadProgress,
@@ -101,7 +108,7 @@ class FirebaseOfferRepository implements OfferRepository {
   }
 
   @override
-  Future<void> updateOffer({
+  Future<bool> updateOffer({
     required String offerId,
     required VenueCategory category,
     required String title,
@@ -120,7 +127,13 @@ class FirebaseOfferRepository implements OfferRepository {
   }) async {
     String? imageUrl;
     if (photo != null) {
+      // Storage's own `request.auth.uid == ownerId` check means this
+      // MUST be the current signed-in user regardless — `updateOffer`
+      // (the Cloud Function) separately re-verifies real ownership
+      // server-side, so this is never trusted on its own.
+      final ownerId = fb.FirebaseAuth.instance.currentUser!.uid;
       imageUrl = await _datasource.uploadOfferPhoto(
+        ownerId,
         offerId,
         photo,
         onProgress: onUploadProgress,
@@ -128,26 +141,28 @@ class FirebaseOfferRepository implements OfferRepository {
       );
     }
 
-    await _datasource.updateOffer(offerId, {
+    final result = await _functions.httpsCallable('updateOffer').call<Map<String, dynamic>>({
+      'offerId': offerId,
       'category': category.name,
       'title': title,
       'description': description,
       'offerType': offerType.name,
       'discountValue': discountValue,
-      'startDate': Timestamp.fromDate(startDate),
-      'endDate': Timestamp.fromDate(endDate),
+      'startDate': startDate.toIso8601String(),
+      'endDate': endDate.toIso8601String(),
       'terms': terms,
       'activeHours': activeHours?.toMap(),
       'activeDays': activeDays,
-      'updatedAt': FieldValue.serverTimestamp(),
       if (imageUrl != null) 'imageUrl': imageUrl,
     });
+
+    return result.data['sentForReReview'] as bool;
   }
 
   @override
   Future<void> deleteOffer(String offerId) async {
     await _datasource.deleteOffer(offerId);
-    await _datasource.deleteOfferPhoto(offerId);
+    await _datasource.deleteOfferPhoto(fb.FirebaseAuth.instance.currentUser!.uid, offerId);
   }
 
   @override

@@ -89,13 +89,21 @@ export async function sendBroadcast({
     if (segment === "vip") query = query.where("premium", "==", true);
     if (segment === "verified") query = query.where("identityVerified", "==", true);
 
-    const snap = await query.select("notificationPreferences").get();
+    // `notificationPreferences` moved to `users/{uid}/private/data`
+    // (Düzəliş Prompt 4) — no longer selectable off the main `users`
+    // query, so this needs one extra parallel read per candidate.
+    const snap = await query.select().get();
     if (snap.empty) {
       return { ok: false, error: "empty-audience" };
     }
 
     const prefKey = PREFERENCE_KEY_BY_TYPE[type];
-    const targetDocs = snap.docs.filter((doc) => doc.data().notificationPreferences?.[prefKey] !== false);
+    const privateSnaps = await Promise.all(
+      snap.docs.map((doc) => doc.ref.collection("private").doc("data").get()),
+    );
+    const targetDocs = snap.docs.filter(
+      (_doc, i) => privateSnaps[i].data()?.notificationPreferences?.[prefKey] !== false,
+    );
     if (targetDocs.length === 0) {
       return { ok: false, error: "empty-audience" };
     }

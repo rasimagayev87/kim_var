@@ -232,7 +232,7 @@ class _PublicVideoGrid extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(publicVideoFeedControllerProvider);
+    final state = ref.watch(visiblePublicVideoFeedProvider);
 
     if (state.isInitialLoading) {
       return const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary));

@@ -111,9 +111,9 @@ void main() async {
   // yet — see RemoteConfigDataSource.init()'s own doc comment.
   final appConfigRepository = FirebaseAppConfigRepository();
   await appConfigRepository.init();
-  applyRemoteRadiusOptions(
-    appConfigRepository.current(languageCode: initialLocale.languageCode).radiusOptionsKm,
-  );
+  final resolvedAppConfig = appConfigRepository.current(languageCode: initialLocale.languageCode);
+  applyRemoteRadiusOptions(resolvedAppConfig.radiusOptionsKm);
+  applyRemoteNearbyRefreshSeconds(resolvedAppConfig.nearbyRefreshSeconds);
   final packageInfo = await PackageInfo.fromPlatform();
 
   runApp(ProviderScope(

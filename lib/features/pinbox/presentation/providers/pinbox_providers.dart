@@ -130,7 +130,10 @@ class PinBoxController {
     }
   }
 
-  Future<bool> updatePinBox({
+  /// [sentForReReview] reflects the `updatePinBox` Cloud Function's own
+  /// diff-based decision (see its doc comment) — mirrors
+  /// `VenueController.updateVenue`/`OfferController.updateOffer`.
+  Future<({bool success, bool sentForReReview})> updatePinBox({
     required String pinboxId,
     required String title,
     required String description,
@@ -146,7 +149,7 @@ class PinBoxController {
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
     try {
-      await _ref.read(updatePinBoxUseCaseProvider).call(
+      final sentForReReview = await _ref.read(updatePinBoxUseCaseProvider).call(
             pinboxId: pinboxId,
             title: title,
             description: description,
@@ -159,14 +162,14 @@ class PinBoxController {
             onUploadProgress: onUploadProgress,
             onUploadTaskReady: onUploadTaskReady,
           );
-      return true;
+      return (success: true, sentForReReview: sentForReReview);
     } on PinBoxValidationException catch (e) {
       onValidationError(e.missingFields);
-      return false;
+      return (success: false, sentForReReview: false);
     } catch (e, st) {
       logError('pinbox_providers.updatePinBox', e, st);
       onError();
-      return false;
+      return (success: false, sentForReReview: false);
     }
   }
 

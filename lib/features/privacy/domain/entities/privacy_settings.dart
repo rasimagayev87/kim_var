@@ -66,8 +66,6 @@ class PrivacySettings {
   /// (and ignored) for `country`/`world`.
   final double? visibilityRadiusKm;
 
-  final bool showOnlineStatus;
-
   /// Mirrors WhatsApp/Telegram's read-receipt trade-off: turning this
   /// off also hides other people's read receipts from this user (the UI
   /// spells that out — see `eventGenericErrorMessage`-style copy planned
@@ -107,7 +105,6 @@ class PrivacySettings {
     this.accountPrivacy = AccountPrivacy.public,
     this.visibilityRadiusMode = VisibilityRadiusMode.distance,
     this.visibilityRadiusKm = 1.0,
-    this.showOnlineStatus = true,
     this.showReadReceipts = true,
     this.whoCanMessageMe = WhoCanMessageMe.everyone,
     this.twoFactorEnabled = false,
@@ -122,7 +119,6 @@ class PrivacySettings {
     VisibilityRadiusMode? visibilityRadiusMode,
     double? visibilityRadiusKm,
     bool clearRadiusKm = false,
-    bool? showOnlineStatus,
     bool? showReadReceipts,
     WhoCanMessageMe? whoCanMessageMe,
     bool? twoFactorEnabled,
@@ -135,7 +131,6 @@ class PrivacySettings {
       accountPrivacy: accountPrivacy ?? this.accountPrivacy,
       visibilityRadiusMode: visibilityRadiusMode ?? this.visibilityRadiusMode,
       visibilityRadiusKm: clearRadiusKm ? null : (visibilityRadiusKm ?? this.visibilityRadiusKm),
-      showOnlineStatus: showOnlineStatus ?? this.showOnlineStatus,
       showReadReceipts: showReadReceipts ?? this.showReadReceipts,
       whoCanMessageMe: whoCanMessageMe ?? this.whoCanMessageMe,
       twoFactorEnabled: twoFactorEnabled ?? this.twoFactorEnabled,

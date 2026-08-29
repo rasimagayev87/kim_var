@@ -21,6 +21,7 @@ class LiveFeedVenueSnapshot {
   final int? availableSeats;
   final DateTime? seatsUpdatedAt;
   final String? photoUrl;
+  final int activeCheckinCount;
 
   const LiveFeedVenueSnapshot({
     required this.id,
@@ -30,6 +31,7 @@ class LiveFeedVenueSnapshot {
     required this.availableSeats,
     required this.seatsUpdatedAt,
     required this.photoUrl,
+    required this.activeCheckinCount,
   });
 }
 
@@ -60,13 +62,7 @@ class LiveFeedService {
 
   static const _geoField = 'position';
 
-  /// Matches `_checkinExpiry` in `firebase_venue_remote_datasource.dart`
-  /// — independently declared (not imported) per this module's
-  /// isolation goal, but intentionally kept equal so "canlı" here means
-  /// the same thing it does on a venue's own profile page.
-  static const _activeCheckinWindow = Duration(hours: 2);
-
-  /// How many nearby venues to check `activeCheckins` for, at most —
+  /// How many nearby venues to surface an audience card for, at most —
   /// each check is its own read, so this bounds the "Ətrafınızda"
   /// section's cost regardless of how many venues a wide radius turns up.
   static const _audienceCheckLimit = 30;
@@ -96,46 +92,39 @@ class LiveFeedService {
         availableSeats: data['availableSeats'] as int?,
         seatsUpdatedAt: (data['seatsUpdatedAt'] as Timestamp?)?.toDate(),
         photoUrl: data['photoUrl'] as String?,
+        activeCheckinCount: (data['activeCheckinCount'] as num?)?.toInt() ?? 0,
       );
     }).toList();
   }
 
-  /// "Ətrafınızda" — a venue with at least one `activeCheckins` entry
-  /// inside [_activeCheckinWindow], same window/subcollection the
-  /// venue's own live "hazırda N nəfər" counter reads (just as a
-  /// one-shot count here instead of that counter's realtime listener).
-  /// Capped at [_audienceCheckLimit] nearest venues so a wide radius
-  /// can't turn this into dozens of reads on every poll — and, per the
-  /// controller's own slower cadence for this specific method, doesn't
-  /// run nearly as often as the rest of the tab to begin with.
+  /// "Ətrafınızda" — a venue with at least one active check-in, read off
+  /// [LiveFeedVenueSnapshot.activeCheckinCount] (`venues/{id}
+  /// .activeCheckinCount`, maintained by `bumpActiveCheckinCount` in
+  /// functions/src/index.ts). Düzəliş Prompt 4 (K-4) narrowed the raw
+  /// `activeCheckins` subcollection to the checked-in user and the
+  /// venue's own owner, so listing it directly — this method's previous
+  /// approach — is no longer possible for a general viewer; reading the
+  /// aggregate field already present on [venues] costs nothing extra
+  /// (no per-venue read here at all, an improvement over the old
+  /// [_audienceCheckLimit]-bounded per-venue query).
   Future<List<LiveFeedItem>> fetchAudienceItems(List<LiveFeedVenueSnapshot> venues) async {
     final candidates = [...venues]..sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
-    final cutoff = Timestamp.fromDate(DateTime.now().subtract(_activeCheckinWindow));
 
-    final items = <LiveFeedItem>[];
-    for (final venue in candidates.take(_audienceCheckLimit)) {
-      final snap = await _firestore
-          .collection('venues')
-          .doc(venue.id)
-          .collection('activeCheckins')
-          .where('createdAt', isGreaterThan: cutoff)
-          .get();
-      final count = snap.docs.length;
-      if (count == 0) continue;
-
-      items.add(LiveFeedItem(
-        id: 'audience_${venue.id}',
-        type: LiveFeedType.audience,
-        venueId: venue.id,
-        targetId: venue.id,
-        targetType: 'venue',
-        title: venue.name,
-        subtitle: '$count nəfər burada',
-        distanceMeters: venue.distanceMeters,
-        timestamp: DateTime.now(),
-      ));
-    }
-    return items;
+    return candidates
+        .take(_audienceCheckLimit)
+        .where((venue) => venue.activeCheckinCount > 0)
+        .map((venue) => LiveFeedItem(
+              id: 'audience_${venue.id}',
+              type: LiveFeedType.audience,
+              venueId: venue.id,
+              targetId: venue.id,
+              targetType: 'venue',
+              title: venue.name,
+              subtitle: '${venue.activeCheckinCount} nəfər burada',
+              distanceMeters: venue.distanceMeters,
+              timestamp: DateTime.now(),
+            ))
+        .toList();
   }
 
   /// "Boş yer var" — venues whose owner has turned the seat counter on

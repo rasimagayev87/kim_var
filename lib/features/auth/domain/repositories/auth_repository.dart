@@ -1,5 +1,28 @@
 import '../entities/app_user.dart';
 
+/// Thrown by [AuthRepository.completeOnboarding] when the server-side
+/// minimum-age check (`completeOnboarding` Cloud Function, 18+) rejects
+/// the submitted birth date. The date-picker bound in
+/// `OnboardingScreen`/`EditProfileScreen` is UX only — this exception is
+/// what the UI catches to show a specific, localized message rather than
+/// the generic error fallback.
+class UnderageOnboardingException implements Exception {
+  const UnderageOnboardingException();
+}
+
+/// Thrown by [AuthRepository.completeOnboarding] when the caller signed
+/// up with email+password and hasn't clicked the verification link yet
+/// — `completeOnboarding` (Cloud Function) checks
+/// `request.auth.token.email_verified` server-side (Google/Apple are
+/// exempt, their email is already provider-verified). In the normal
+/// flow the client never even reaches `completeOnboarding` in this
+/// state ([VerifyEmailScreen] sits in front of it) — this exception is
+/// the defense-in-depth path for a modified/stale client that skips
+/// straight there.
+class EmailNotVerifiedException implements Exception {
+  const EmailNotVerifiedException();
+}
+
 /// Abstraction over the authentication backend (Firebase Auth).
 ///
 /// Sign-in is exactly 3 methods — Apple, Google, or email+password.
@@ -64,6 +87,18 @@ abstract class AuthRepository {
   /// correct account-enumeration-safe default, so the caller shouldn't
   /// try to detect/report "no such account" here either.
   Future<void> sendPasswordResetEmail(String email);
+
+  /// Re-sends the verification link to the CURRENTLY signed-in user's
+  /// own email — [VerifyEmailScreen]'s "Yenidən göndər" button. Throws
+  /// if nobody's signed in; that shouldn't be reachable from that
+  /// screen in practice.
+  Future<void> resendEmailVerification();
+
+  /// Re-fetches the current Firebase user's own record (Firebase Auth
+  /// caches `emailVerified` locally and only learns it changed via an
+  /// explicit reload) and returns whether it's now verified —
+  /// [VerifyEmailScreen]'s "Davam et" button.
+  Future<bool> reloadAndCheckEmailVerified();
 
   /// Called once, right after first sign-in, to create the Firestore
   /// user document with the onboarding data — including reserving

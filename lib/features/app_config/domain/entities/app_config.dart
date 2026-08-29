@@ -69,6 +69,7 @@ class AppConfig {
     this.supportPhone = '',
     this.radiusOptionsKm = const [0.1, 0.5, 1, 5, 10, 30],
     this.vipRadiusThresholdM = 0,
+    this.nearbyRefreshSeconds = 45,
     this.socialInstagramUrl = '',
     this.socialTiktokUrl = '',
   });
@@ -122,6 +123,14 @@ class AppConfig {
   /// `discover_tab.dart`/`privacy_security_screen.dart`), not gated by a
   /// numeric distance threshold. Reserved for that future shape.
   final double vipRadiusThresholdM;
+  /// How often [findNearbyUsers] (functions/src/index.ts) is re-polled
+  /// while the distance-mode "yaxınlıqdakılar" feed is active — Düzəliş
+  /// Prompt 4 replaced its real-time `.snapshots()` listener with a
+  /// pull, since Ghost Mode/visibility-radius/gender now need
+  /// server-side enforcement, not a live listener a client could get
+  /// raw data from. Remote-configurable so this cadence can be tuned
+  /// without a new build.
+  final int nearbyRefreshSeconds;
   final String socialInstagramUrl;
   final String socialTiktokUrl;
 

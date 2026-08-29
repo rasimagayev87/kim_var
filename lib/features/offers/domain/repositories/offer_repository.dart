@@ -59,7 +59,12 @@ abstract class OfferRepository {
   /// payment (already paid, or never needed to be).
   Future<({String checkoutUrl, double feeAmount, String paymentId})> retryOfferPayment(String offerId);
 
-  Future<void> updateOffer({
+  /// Returns whether the edit sent the offer back into moderation — the
+  /// `updateOffer` Cloud Function's own diff-based decision (see its
+  /// doc comment, functions/src/index.ts): true only when the offer was
+  /// already `needs_revision`/`approved` AND a real content field
+  /// changed. Mirrors `VenueRepository.updateVenue`.
+  Future<bool> updateOffer({
     required String offerId,
     required VenueCategory category,
     required String title,

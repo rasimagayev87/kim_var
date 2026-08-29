@@ -6,6 +6,7 @@ import '../../../../core/utils/app_logger.dart';
 import '../../../post_share/domain/entities/post.dart';
 import '../../../post_share/domain/repositories/post_repository.dart';
 import '../../../post_share/presentation/providers/post_providers.dart';
+import '../../../safety/presentation/providers/safety_providers.dart';
 
 /// Matches `NotificationListController`'s page size — same pagination
 /// shape (realtime first page + cursor'd older pages), no reason to
@@ -100,4 +101,16 @@ class PublicVideoFeedController extends StateNotifier<PublicVideoFeedState> {
 final publicVideoFeedControllerProvider =
     StateNotifierProvider.autoDispose<PublicVideoFeedController, PublicVideoFeedState>((ref) {
   return PublicVideoFeedController(ref.watch(postRepositoryProvider));
+});
+
+/// [publicVideoFeedControllerProvider]'s own state, minus any author the
+/// signed-in user has blocked or been blocked by (Düzəliş Prompt 5 /
+/// K-3) — `firestore.rules` can't filter this out of the underlying
+/// LIST query itself (see `hiddenAuthorIdsProvider`'s own doc comment),
+/// so the feed screen watches THIS instead of the raw controller state.
+final visiblePublicVideoFeedProvider = Provider.autoDispose<PublicVideoFeedState>((ref) {
+  final state = ref.watch(publicVideoFeedControllerProvider);
+  final hidden = ref.watch(hiddenAuthorIdsProvider);
+  if (hidden.isEmpty) return state;
+  return state.copyWith(videos: state.videos.where((post) => !hidden.contains(post.userId)).toList());
 });

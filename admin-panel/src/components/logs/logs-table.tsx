@@ -11,6 +11,7 @@ const ACTION_LABELS: Record<string, string> = {
   "venue.premiumRevoked": "Məkanın premiumu ləğv edildi",
   "venue.needsRevision": "Məkan düzəlişə göndərildi",
   "payment.refunded": "Ödəniş geri qaytarıldı kimi işarələndi",
+  "payment.refund_initiated": "Ödəniş üçün geri qaytarma başladıldı",
   "pinboxPayout.paid": "PinBox öhdəliyi ödənilmiş kimi işarələndi",
   "offer.approved": "Təklif təsdiqləndi",
   "offer.needsRevision": "Təklif düzəlişə göndərildi",

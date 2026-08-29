@@ -354,7 +354,12 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
 
     final loc = AppLocalizations.of(context);
 
-    final success = await ref.read(offerControllerProvider).updateOffer(
+    // The `updateOffer` Cloud Function decides atomically, server-side,
+    // whether this edit needs to re-enter moderation — same reasoning
+    // as CreateVenueScreen._submitEdit, just without the separate
+    // client-side `resubmitOffer` call this used to need (see that
+    // Cloud Function's own doc comment, functions/src/index.ts).
+    final (:success, :sentForReReview) = await ref.read(offerControllerProvider).updateOffer(
           offerId: widget.existingOffer!.id,
           title: _titleController.text,
           description: _descriptionController.text,
@@ -384,15 +389,6 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
           onUploadTaskReady: (cancel) => _cancelUpload = cancel,
         );
 
-    // Same "editing a needs_revision OR already-approved offer
-    // resubmits it automatically" behavior as CreateVenueScreen
-    // ._submitEdit — see `resubmitOffer`'s own doc comment for why an
-    // approved offer is included now too.
-    final wasApproved = widget.existingOffer?.status == 'approved';
-    if (success && (widget.existingOffer?.status == 'needs_revision' || wasApproved)) {
-      await ref.read(offerControllerProvider).resubmitOffer(widget.existingOffer!.id);
-    }
-
     if (!mounted) return;
     setState(() {
       _submitting = false;
@@ -401,8 +397,9 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
     });
 
     if (success) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(wasApproved ? loc.offerSentForReReviewNotice : loc.offerUpdatedNotice)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(sentForReReview ? loc.offerSentForReReviewNotice : loc.offerUpdatedNotice)),
+      );
       Navigator.pop(context);
     }
   }

@@ -11,6 +11,7 @@ export type ModerationAction =
   | "venue.premiumGranted"
   | "venue.premiumRevoked"
   | "payment.refunded"
+  | "payment.refund_initiated"
   | "pinboxPayout.paid"
   | "offer.approved"
   | "offer.needsRevision"

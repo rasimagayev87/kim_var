@@ -6,12 +6,11 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 
-import '../../../../core/utils/age_calculator.dart';
+import '../../../../core/utils/account_status_checker.dart';
 import '../../../../core/utils/app_logger.dart';
-import '../../../../core/utils/presence_utils.dart';
+import '../../../../core/utils/private_data_ref.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../profile/presentation/providers/profile_providers.dart';
-import '../../../safety/presentation/providers/safety_providers.dart';
 import '../../domain/location_failure.dart';
 import '../../domain/nearby_user.dart';
 
@@ -103,15 +102,42 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
         });
   }
 
+  /// `lat`/`lng` live on `users/{uid}/private/data` (Düzəliş Prompt 4 /
+  /// K-1) — a raw coordinate is exactly the kind of field that must
+  /// never be world-readable.
+  ///
+  /// Does NOT write `online`/`lastSeen` (Düzəliş Prompt 5 / RT-24) —
+  /// this used to write both fields itself, independently of
+  /// [PresenceController], which was exactly the kind of second,
+  /// unaccounted-for write path that made the now-removed
+  /// `showOnlineStatus` toggle unreliable (any single-purpose gate on
+  /// ONE writer means nothing once a second writer bypasses it
+  /// entirely). Presence now has exactly one writer —
+  /// `PresenceController`'s own heartbeat (every 25s while
+  /// foregrounded, started from `HomeScreen`, active for the whole
+  /// session `LocationController` ever runs during) — so `lastSeen`
+  /// stays just as fresh for `findNearbyUsers`' scan without this
+  /// controller needing to touch it at all.
   Future<void> _writePosition(Position position) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
-    await _firestore.collection('users').doc(uid).set({
-      'lat': position.latitude,
-      'lng': position.longitude,
-      'lastSeen': FieldValue.serverTimestamp(),
-      'online': true,
-    }, SetOptions(merge: true));
+    try {
+      await privateDataRef(uid, firestore: _firestore).set({
+        'lat': position.latitude,
+        'lng': position.longitude,
+      }, SetOptions(merge: true));
+    } catch (e) {
+      // Same reasoning as PresenceController's own `_write` — a
+      // deleted/banned account's cached token would otherwise keep
+      // retrying this write on every ≥25m position update forever.
+      // `handleWritePermissionDenied` tells a genuine deletion/ban
+      // apart from a transient race and, only for the former, forces
+      // sign-out AND stops the live GPS subscription.
+      if (await handleWritePermissionDenied(e)) {
+        _liveSubscription?.cancel();
+        _liveSubscription = null;
+      }
+    }
   }
 
   @override
@@ -167,6 +193,25 @@ void applyRemoteRadiusOptions(List<double> remoteOptions) {
   kExtraRadiusOptionsKm = remoteOptions.skip(3).toList();
 }
 
+/// How often [_pollNearbyCandidates]/[_pollDiscoverCandidates] re-fetch
+/// — Düzəliş Prompt 4 replaced the old real-time `.snapshots()` listener
+/// (which needed every candidate's raw fields client-side to filter
+/// Ghost Mode/visibility radius/gender) with a server-side callable, so
+/// every mode is now pull-based. Sourced from Remote Config's
+/// `nearby_refresh_seconds` (`AppConfig.nearbyRefreshSeconds`), same
+/// `main()`-assignment convention as [applyRemoteRadiusOptions] — see
+/// [applyRemoteNearbyRefreshSeconds].
+int kNearbyRefreshSeconds = 45;
+
+/// Call once from `main()` after the app-config repository's `init()`
+/// resolves, mirroring [applyRemoteRadiusOptions]. A non-positive value
+/// is treated as malformed and ignored — the poll loop would otherwise
+/// spin with no delay at all.
+void applyRemoteNearbyRefreshSeconds(int remoteSeconds) {
+  if (remoteSeconds <= 0) return;
+  kNearbyRefreshSeconds = remoteSeconds;
+}
+
 /// Which of the 8 "Kəşf et" view modes is active: a distance ring
 /// ([km] set), Ölkə üzrə, or Dünya üzrə. Only one at a time — country
 /// and world aren't "infinite radius", they're genuinely different
@@ -198,8 +243,8 @@ final selectedDiscoverModeProvider = StateProvider<DiscoverRadiusSelection>(
   (ref) => const DiscoverRadiusSelection.distance(1.0),
 );
 
-/// Mirrors [selectedDiscoverModeProvider] onto `users/{uid}` as
-/// `discoverRadiusMode`/`discoverRadiusKm` — the ONLY reason this
+/// Mirrors [selectedDiscoverModeProvider] onto `users/{uid}/private/data`
+/// as `discoverRadiusMode`/`discoverRadiusKm` — the ONLY reason this
 /// exists is so server-side notification fanout
 /// (`resolveNotifyCandidates`/`computeBirthdayMatches` in
 /// `functions/src/index.ts`) can see it: a venue's own audience radius
@@ -231,7 +276,7 @@ void _persistDiscoverRadius(DiscoverRadiusSelection selection) {
   final uid = fb.FirebaseAuth.instance.currentUser?.uid;
   if (uid == null) return;
   unawaited(
-    FirebaseFirestore.instance.collection('users').doc(uid).set({
+    privateDataRef(uid).set({
       'discoverRadiusMode': switch (selection.mode) {
         DiscoverRadiusMode.distance => 'distance',
         DiscoverRadiusMode.country => 'country',
@@ -251,39 +296,117 @@ void _persistDiscoverRadius(DiscoverRadiusSelection selection) {
 /// [all] is free for everyone; picking [male]/[female] is VIP-only —
 /// gated client-side in `discover_tab.dart`'s `_showGenderFilterSheet`
 /// (same `isPremiumProvider`/`showPremiumUpsellSheet` pattern as the
-/// Ölkə/Dünya radius lock). UI-only, like every other Premium gate in
-/// this file predating it (Ghost Mode, the old 5/10/30 km tier) — this
-/// state is a plain client `StateProvider`, so a modified client could
-/// still set it to male/female directly.
+/// Ölkə/Dünya radius lock). Enforced server-side too now (Düzəliş
+/// Prompt 4 — `gender` moved off the public doc, so filtering by it can
+/// only happen inside `findNearbyUsers`/`getDiscoverCandidates`, which
+/// also closes the old "a modified client just sets this directly"
+/// bypass this doc comment used to warn about.
 enum GenderFilter { all, male, female }
 
 final selectedGenderFilterProvider = StateProvider<GenderFilter>(
   (ref) => GenderFilter.all,
 );
 
-/// Real-time stream of other users' documents that have reported a
-/// location within the last 15 minutes. Firestore doesn't support
-/// native "within X km" geo-queries, so this fetches a bounded,
-/// recently-active candidate set and [nearbyUsersProvider] below
-/// filters it to the exact selected radius using real distance —
-/// no simulated or fabricated data, all documents come from
-/// Firestore. As the user base grows, this candidate query should
-/// be upgraded to geohash-sharded queries to avoid scanning the
-/// whole collection.
-final _nearbyCandidatesProvider = StreamProvider<List<Map<String, dynamic>>>((
-  ref,
-) {
-  final cutoff = DateTime.now().subtract(const Duration(minutes: 15));
-  return FirebaseFirestore.instance
-      .collection('users')
-      .where('lastSeen', isGreaterThan: Timestamp.fromDate(cutoff))
-      .limit(200)
-      .snapshots()
-      .map(
-        (snapshot) =>
-            snapshot.docs.map((d) => {...d.data(), 'uid': d.id}).toList(),
-      );
-});
+/// Wire value `findNearbyUsers`/`getDiscoverCandidates` (functions/src/
+/// index.ts, `matchesGenderFilter`) understand — `null` means no filter.
+String? _genderFilterWireValue(GenderFilter filter) => switch (filter) {
+  GenderFilter.all => null,
+  GenderFilter.male => 'male',
+  GenderFilter.female => 'female',
+};
+
+/// One Discover/nearby candidate as returned by `findNearbyUsers`/
+/// `getDiscoverCandidates` — both callables already enforce Ghost Mode,
+/// visibility radius, the gender filter, and blocked pairs
+/// server-side, so nothing here needs re-filtering client-side.
+/// `lat`/`lng` are grid-rounded (~100m, anti-averaging) marker
+/// positions, never a candidate's exact coordinates.
+/// [distanceMeters] is only ever populated for distance-mode
+/// (`findNearbyUsers`) — computed server-side from the raw, unrounded
+/// coordinates before rounding.
+class _RemoteCandidate {
+  final String uid;
+  final String? username;
+  final String firstName;
+  final String lastName;
+  final String bio;
+  final String? photoUrl;
+  final bool online;
+  final DateTime? lastSeen;
+  final int? age;
+  final double? lat;
+  final double? lng;
+  final double? distanceMeters;
+
+  const _RemoteCandidate({
+    required this.uid,
+    this.username,
+    this.firstName = '',
+    this.lastName = '',
+    this.bio = '',
+    this.photoUrl,
+    this.online = false,
+    this.lastSeen,
+    this.age,
+    this.lat,
+    this.lng,
+    this.distanceMeters,
+  });
+
+  factory _RemoteCandidate.fromMap(Map<String, dynamic> raw) {
+    final lastSeenMs = raw['lastSeen'] as num?;
+    return _RemoteCandidate(
+      uid: raw['uid'] as String,
+      username: raw['username'] as String?,
+      firstName: raw['firstName'] as String? ?? '',
+      lastName: raw['lastName'] as String? ?? '',
+      bio: raw['bio'] as String? ?? '',
+      photoUrl: raw['photoUrl'] as String?,
+      online: raw['online'] as bool? ?? false,
+      lastSeen: lastSeenMs == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(lastSeenMs.toInt()),
+      age: (raw['age'] as num?)?.toInt(),
+      lat: (raw['lat'] as num?)?.toDouble(),
+      lng: (raw['lng'] as num?)?.toDouble(),
+      distanceMeters: (raw['distanceMeters'] as num?)?.toDouble(),
+    );
+  }
+}
+
+/// Backs the distance-mode "yaxınlıqdakılar" feed — replaces the old
+/// direct `_nearbyCandidatesProvider` Firestore stream, which read
+/// every online user's raw document (including, pre-Prompt-4, their
+/// exact `lat`/`lng`) straight off `users`. `findNearbyUsers`
+/// (functions/src/index.ts) now does that scan server-side with Admin
+/// SDK access to `users/{uid}/private/data`, applying Ghost Mode,
+/// visibility radius, and the gender filter for real (all three were
+/// silently bypassable client-side filters before this). Polling, not
+/// realtime — see [kNearbyRefreshSeconds]'s own doc comment.
+Stream<List<_RemoteCandidate>> _pollNearbyCandidates(GenderFilter genderFilter) async* {
+  final callable = FirebaseFunctions.instance.httpsCallable('findNearbyUsers');
+  while (true) {
+    try {
+      final genderWire = _genderFilterWireValue(genderFilter);
+      final result = await callable.call<Map<String, dynamic>>({
+        if (genderWire != null) 'genderFilter': genderWire,
+      });
+      final raw = (result.data['candidates'] as List).cast<dynamic>();
+      yield raw
+          .map((e) => _RemoteCandidate.fromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
+    } catch (e, st) {
+      logError('location_providers._pollNearbyCandidates', e, st);
+      yield const [];
+    }
+    await Future.delayed(Duration(seconds: kNearbyRefreshSeconds));
+  }
+}
+
+final _nearbyDistanceCandidatesProvider =
+    StreamProvider.autoDispose.family<List<_RemoteCandidate>, GenderFilter>((ref, genderFilter) {
+      return _pollNearbyCandidates(genderFilter);
+    });
 
 /// How often [_pollDiscoverCandidates] re-fetches while Ölkə/Dünya
 /// mode is active — these two modes lost their realtime `.snapshots()`
@@ -294,38 +417,31 @@ final _nearbyCandidatesProvider = StreamProvider<List<Map<String, dynamic>>>((
 /// stays on that mode.
 const _discoverCandidatesPollInterval = Duration(seconds: 30);
 
-/// Calls the `getDiscoverCandidates` Cloud Function on a timer and
-/// normalizes its response back into the exact shape a raw Firestore
-/// snapshot used to produce (`{...doc.data(), 'uid': doc.id}`), so
-/// [nearbyUsersProvider]/[radiusUserCountsProvider] don't need to know
-/// their Ölkə/Dünya candidates now come from a server call instead of
-/// a direct query — only [_countryCandidatesProvider]/
-/// [_worldCandidatesProvider] below know that. A transient failure
-/// (network blip, cold start) logs and keeps polling rather than
-/// killing the stream; a persistent `permission-denied` (caller isn't
-/// actually Premium — the UI shouldn't let this happen, but the
-/// function is the real gate) just yields empty lists forever, same
-/// as "no results" would look before.
-Stream<List<Map<String, dynamic>>> _pollDiscoverCandidates({
+/// Calls the `getDiscoverCandidates` Cloud Function on a timer — a
+/// transient failure (network blip, cold start) logs and keeps polling
+/// rather than killing the stream; a persistent `permission-denied`
+/// (caller isn't actually Premium — the UI shouldn't let this happen,
+/// but the function is the real gate) just yields empty lists forever,
+/// same as "no results" would look before.
+Stream<List<_RemoteCandidate>> _pollDiscoverCandidates({
   required String mode,
   String? country,
+  required GenderFilter genderFilter,
 }) async* {
   final callable = FirebaseFunctions.instance.httpsCallable(
     'getDiscoverCandidates',
   );
   while (true) {
     try {
+      final genderWire = _genderFilterWireValue(genderFilter);
       final result = await callable.call<Map<String, dynamic>>({
         'mode': mode,
         if (country != null) 'country': country,
+        if (genderWire != null) 'genderFilter': genderWire,
       });
       final raw = (result.data['candidates'] as List).cast<dynamic>();
       yield raw
-          .map(
-            (e) => _normalizeDiscoverCandidate(
-              Map<String, dynamic>.from(e as Map),
-            ),
-          )
+          .map((e) => _RemoteCandidate.fromMap(Map<String, dynamic>.from(e as Map)))
           .toList();
     } catch (e, st) {
       logError('location_providers._pollDiscoverCandidates', e, st);
@@ -335,131 +451,43 @@ Stream<List<Map<String, dynamic>>> _pollDiscoverCandidates({
   }
 }
 
-/// `getDiscoverCandidates` sends `lastSeen`/`birthDate` as epoch-millis
-/// (a callable's wire format can't round-trip a Firestore `Timestamp`)
-/// — reconstructs them so every other field on this map still behaves
-/// exactly like it did when it came straight from a snapshot.
-Map<String, dynamic> _normalizeDiscoverCandidate(Map<String, dynamic> raw) {
-  final normalized = Map<String, dynamic>.from(raw);
-  final lastSeenMs = raw['lastSeen'] as num?;
-  if (lastSeenMs != null) {
-    normalized['lastSeen'] = Timestamp.fromMillisecondsSinceEpoch(
-      lastSeenMs.toInt(),
-    );
-  }
-  final birthDateMs = raw['birthDate'] as num?;
-  if (birthDateMs != null) {
-    normalized['birthDate'] = Timestamp.fromMillisecondsSinceEpoch(
-      birthDateMs.toInt(),
-    );
-  }
-  return normalized;
-}
-
 /// Everyone online in [country] — backs "Ölkə üzrə". VIP-only: see
 /// [_pollDiscoverCandidates]'s doc comment for why this is a poll
 /// against a Cloud Function rather than a direct Firestore stream.
-final _countryCandidatesProvider =
-    StreamProvider.family<List<Map<String, dynamic>>, String>((ref, country) {
-      return _pollDiscoverCandidates(mode: 'country', country: country);
+final _countryCandidatesProvider = StreamProvider.autoDispose
+    .family<List<_RemoteCandidate>, ({String country, GenderFilter genderFilter})>((ref, params) {
+      return _pollDiscoverCandidates(
+        mode: 'country',
+        country: params.country,
+        genderFilter: params.genderFilter,
+      );
     });
 
 /// Everyone online worldwide — backs "Dünya üzrə". Same VIP-gated,
 /// polled-Cloud-Function story as [_countryCandidatesProvider].
-final _worldCandidatesProvider = StreamProvider<List<Map<String, dynamic>>>((
-  ref,
-) {
-  return _pollDiscoverCandidates(mode: 'world');
-});
+final _worldCandidatesProvider =
+    StreamProvider.autoDispose.family<List<_RemoteCandidate>, GenderFilter>((ref, genderFilter) {
+      return _pollDiscoverCandidates(mode: 'world', genderFilter: genderFilter);
+    });
 
-/// True when either side of the pair has blocked the other — [myBlockedIds]
-/// is the signed-in user's own block list, and [otherData] is the
-/// candidate's raw user doc (whose own `blockedUsers` array tells us if
-/// THEY blocked us, with no extra Firestore read needed).
-bool _isBlockedPair(
-  String myUid,
-  Set<String> myBlockedIds,
-  String otherUid,
-  Map<String, dynamic> otherData,
-) {
-  if (myBlockedIds.contains(otherUid)) return true;
-  final theirBlockedUsers =
-      (otherData['blockedUsers'] as List?)?.cast<String>() ?? const [];
-  return theirBlockedUsers.contains(myUid);
-}
-
-/// Ghost Mode's one and only job — see `PrivacySettings.ghostModeEnabled`'s
-/// doc comment. A ghost-mode user is simply never a map/Discover
-/// candidate; their profile page and media stay reachable through any
-/// other route (chat, direct link, existing follow).
-bool _isGhostMode(Map<String, dynamic> data) =>
-    data['ghostModeEnabled'] as bool? ?? false;
-
-/// "Görünmə radiusu" — the CANDIDATE's own choice of how far away
-/// they can be discovered, distinct from (and enforced independently
-/// of) the VIEWER's own [DiscoverRadiusSelection]. `country`/`world`
-/// visibility modes mean "no distance cap" (same convention
-/// `discoverRadiusMode` already uses), so only `distance` mode is
-/// checked here. [distanceMeters] is the SAME haversine distance
-/// every call site already computed for its own viewer-radius check —
-/// distance is symmetric, so there's never a need to compute it twice.
-bool _isWithinVisibilityRadius(Map<String, dynamic> data, double distanceMeters) {
-  final mode = data['visibilityRadiusMode'] as String?;
-  if (mode != 'distance') return true;
-  final radiusKm = (data['visibilityRadiusKm'] as num?)?.toDouble();
-  if (radiusKm == null) return true;
-  return distanceMeters <= radiusKm * 1000;
-}
-
-/// Live count of nearby users per radius option, recomputed from the same
-/// real Firestore candidate stream/position [nearbyUsersProvider] uses —
-/// no hardcoded numbers. Also respects the current gender filter, so the
-/// count next to each radius button matches what selecting it would
-/// actually show. Recalculates automatically whenever the candidate set
-/// or the device's position changes.
+/// Live count of nearby users per radius option, recomputed from the
+/// same server-filtered candidate list [nearbyUsersProvider]'s
+/// distance-mode branch uses — no hardcoded numbers, no client-side
+/// re-filtering (Ghost Mode/visibility radius/gender/blocks are already
+/// applied by `findNearbyUsers`). Recalculates automatically whenever
+/// the candidate set, position, or gender filter changes.
 final radiusUserCountsProvider = Provider<Map<double, int>>((ref) {
   final position = ref.watch(locationControllerProvider).valueOrNull;
   final genderFilter = ref.watch(selectedGenderFilterProvider);
   final candidates =
-      ref.watch(_nearbyCandidatesProvider).valueOrNull ?? const [];
-  final myBlockedIds =
-      ref.watch(blockedUserIdsProvider).valueOrNull ?? const {};
-  final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
+      ref.watch(_nearbyDistanceCandidatesProvider(genderFilter)).valueOrNull ?? const [];
 
   final counts = <double, int>{for (final km in kRadiusOptionsKm) km: 0};
   if (position == null) return counts;
 
-  for (final data in candidates) {
-    final uid = data['uid'] as String?;
-    if (uid == null || uid == myUid) continue;
-    if (myUid != null && _isBlockedPair(myUid, myBlockedIds, uid, data))
-      continue;
-    if (_isGhostMode(data)) continue;
-
-    // Keeps this count in sync with [nearbyUsersProvider]'s own
-    // filter below — otherwise a radius button could say "12 nearby"
-    // while only showing 5 pins, because most of the 12 are stale
-    // `online: true` writes rather than someone actually online now.
-    final candidateOnline = data['online'] as bool? ?? false;
-    final candidateLastSeen = (data['lastSeen'] as Timestamp?)?.toDate();
-    if (!isRecentlyOnline(online: candidateOnline, lastSeen: candidateLastSeen)) continue;
-
-    final lat = (data['lat'] as num?)?.toDouble();
-    final lng = (data['lng'] as num?)?.toDouble();
-    if (lat == null || lng == null) continue;
-
-    final gender = data['gender'] as String?;
-    if (genderFilter == GenderFilter.male && gender != 'Kişi') continue;
-    if (genderFilter == GenderFilter.female && gender != 'Qadın') continue;
-
-    final distance = Geolocator.distanceBetween(
-      position.latitude,
-      position.longitude,
-      lat,
-      lng,
-    );
-    if (!_isWithinVisibilityRadius(data, distance)) continue;
-
+  for (final candidate in candidates) {
+    final distance = candidate.distanceMeters;
+    if (distance == null) continue;
     for (final km in kRadiusOptionsKm) {
       if (distance <= km * 1000) counts[km] = counts[km]! + 1;
     }
@@ -473,147 +501,101 @@ final radiusUserCountsProvider = Provider<Map<double, int>>((ref) {
 /// Discover's own [DiscoverRadiusSelection] ('distance'/'country'/
 /// 'world'), just centered on a VENUE's fixed location/country instead
 /// of the viewer's live position, and persisted per-venue rather than
-/// transient per-session state. Ghost-mode users are excluded from
-/// every mode, same privacy rule as every other nearby-type computation
-/// in this file — only ever an aggregate number, no individual profiles
-/// are exposed by this provider.
-final venueAudienceCountProvider =
-    Provider.family<
-      int,
-      ({String mode, double lat, double lng, double radiusKm, String? country})
-    >((ref, params) {
-      switch (params.mode) {
-        case 'country':
-          final country = params.country;
-          if (country == null) return 0;
-          final candidates =
-              ref.watch(_countryCandidatesProvider(country)).valueOrNull ??
-              const [];
-          return candidates.where((d) => !_isGhostMode(d)).length;
-
-        case 'world':
-          final candidates =
-              ref.watch(_worldCandidatesProvider).valueOrNull ?? const [];
-          return candidates.where((d) => !_isGhostMode(d)).length;
-
-        case 'distance':
-        default:
-          final candidates =
-              ref.watch(_nearbyCandidatesProvider).valueOrNull ?? const [];
-          var count = 0;
-          for (final data in candidates) {
-            if (_isGhostMode(data)) continue;
-
-            final lat = (data['lat'] as num?)?.toDouble();
-            final lng = (data['lng'] as num?)?.toDouble();
-            if (lat == null || lng == null) continue;
-
-            final distance = Geolocator.distanceBetween(
-              params.lat,
-              params.lng,
-              lat,
-              lng,
-            );
-            if (distance <= params.radiusKm * 1000 && _isWithinVisibilityRadius(data, distance)) count++;
-          }
-          return count;
-      }
+/// transient per-session state. Backed by the `previewVenueAudience`
+/// Cloud Function (owner-only, verifies `venue.ownerId == uid` itself)
+/// since Düzəliş Prompt 4 moved `lat`/`lng`/`ghostModeEnabled` off the
+/// public `users/{uid}` doc — this count can no longer be computed
+/// client-side from a raw Firestore scan the way it used to be. Only
+/// ever an aggregate number, no individual profiles are exposed by this
+/// provider.
+final venueAudienceCountProvider = FutureProvider.autoDispose.family<
+  int,
+  ({String venueId, String mode, double lat, double lng, double radiusKm, String? country})
+>((ref, params) async {
+  try {
+    final callable = FirebaseFunctions.instance.httpsCallable('previewVenueAudience');
+    final result = await callable.call<Map<String, dynamic>>({
+      'venueId': params.venueId,
+      'mode': params.mode,
+      if (params.mode == 'country') 'country': params.country,
+      if (params.mode == 'distance') 'lat': params.lat,
+      if (params.mode == 'distance') 'lng': params.lng,
+      if (params.mode == 'distance') 'radiusKm': params.radiusKm,
     });
+    return (result.data['count'] as num?)?.toInt() ?? 0;
+  } catch (e, st) {
+    logError('location_providers.venueAudienceCountProvider', e, st);
+    return 0;
+  }
+});
 
 final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
   final position = ref.watch(locationControllerProvider).valueOrNull;
   final selection = ref.watch(selectedDiscoverModeProvider);
   final genderFilter = ref.watch(selectedGenderFilterProvider);
-  final myBlockedIds =
-      ref.watch(blockedUserIdsProvider).valueOrNull ?? const {};
   final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
 
   if (position == null) return const [];
 
-  final List<Map<String, dynamic>> candidates;
+  final List<_RemoteCandidate> candidates;
   switch (selection.mode) {
     case DiscoverRadiusMode.distance:
-      candidates = ref.watch(_nearbyCandidatesProvider).valueOrNull ?? const [];
+      candidates =
+          ref.watch(_nearbyDistanceCandidatesProvider(genderFilter)).valueOrNull ?? const [];
     case DiscoverRadiusMode.country:
       final myCountry = ref.watch(
         profileControllerProvider.select((p) => p.country),
       );
       candidates = myCountry == null
           ? const []
-          : ref.watch(_countryCandidatesProvider(myCountry)).valueOrNull ??
+          : ref
+                    .watch(
+                      _countryCandidatesProvider((country: myCountry, genderFilter: genderFilter)),
+                    )
+                    .valueOrNull ??
                 const [];
     case DiscoverRadiusMode.world:
-      candidates = ref.watch(_worldCandidatesProvider).valueOrNull ?? const [];
+      candidates = ref.watch(_worldCandidatesProvider(genderFilter)).valueOrNull ?? const [];
   }
 
   final result = <NearbyUser>[];
 
-  for (final data in candidates) {
-    final uid = data['uid'] as String?;
-    if (uid == null || uid == myUid) continue;
-    if (myUid != null && _isBlockedPair(myUid, myBlockedIds, uid, data))
-      continue;
-    if (_isGhostMode(data)) continue;
+  for (final candidate in candidates) {
+    // The server already excludes the caller/blocked pairs/Ghost Mode/
+    // stale presence for every mode — this loop only builds display
+    // objects and applies the mode-specific distance cutoff.
+    if (candidate.uid == myUid) continue;
+    if (candidate.lat == null || candidate.lng == null) continue;
 
-    // The map only ever shows who's online RIGHT NOW — [_nearbyCandidatesProvider]'s
-    // own 15-minute lastSeen window (and the country/world modes' raw
-    // `online == true` query, which has no staleness check at all) both
-    // exist purely to bound how much of `users` gets scanned/streamed,
-    // not to decide who's actually still online. This is that decision
-    // — the same self-healing check `discover_tab.dart` uses for the
-    // green dot, applied here to the pin's existence too: signing out
-    // (writes `online: false` immediately) or a stale write past
-    // `kOnlineStalenessThreshold` both make someone disappear from the
-    // map, not just lose their dot.
-    final candidateOnline = data['online'] as bool? ?? false;
-    final candidateLastSeen = (data['lastSeen'] as Timestamp?)?.toDate();
-    if (!isRecentlyOnline(online: candidateOnline, lastSeen: candidateLastSeen)) continue;
+    final distance = candidate.distanceMeters ??
+        Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          candidate.lat!,
+          candidate.lng!,
+        );
 
-    final lat = (data['lat'] as num?)?.toDouble();
-    final lng = (data['lng'] as num?)?.toDouble();
-    if (lat == null || lng == null) continue;
-
-    final distance = Geolocator.distanceBetween(
-      position.latitude,
-      position.longitude,
-      lat,
-      lng,
-    );
     // Country/world modes show everyone the query already scoped —
     // no additional distance cutoff, unlike a real radius ring.
     if (selection.mode == DiscoverRadiusMode.distance &&
         distance > selection.km! * 1000)
       continue;
-    if (!_isWithinVisibilityRadius(data, distance)) continue;
-
-    final gender = data['gender'] as String?;
-    if (genderFilter == GenderFilter.male && gender != 'Kişi') continue;
-    if (genderFilter == GenderFilter.female && gender != 'Qadın') continue;
-
-    final firstName = data['firstName'] as String? ?? '';
-    final lastName = data['lastName'] as String? ?? '';
-    final fullName = '$firstName $lastName'.trim();
-    final birthDate = (data['birthDate'] as Timestamp?)?.toDate();
 
     result.add(
       NearbyUser(
-        id: uid,
+        id: candidate.uid,
         // Empty when the user has no name on file — resolved to a localized
         // fallback ("İstifadəçi"/"User"/...) at display time, since this
         // provider has no BuildContext to translate with.
-        name: fullName,
-        username: data['username'] as String?,
-        lat: lat,
-        lng: lng,
-        bio: data['bio'] as String? ?? '',
-        photoUrl: data['photoUrl'] as String?,
-        online: data['online'] as bool? ?? false,
-        age: birthDate == null ? null : calculateAge(birthDate),
-        gender: gender,
-        starCount: (data['starCount'] as num?)?.toInt() ?? 0,
-        heartCount: (data['heartCount'] as num?)?.toInt() ?? 0,
-        dislikeCount: (data['dislikeCount'] as num?)?.toInt() ?? 0,
-        lastSeen: (data['lastSeen'] as Timestamp?)?.toDate(),
+        name: '${candidate.firstName} ${candidate.lastName}'.trim(),
+        username: candidate.username,
+        lat: candidate.lat!,
+        lng: candidate.lng!,
+        bio: candidate.bio,
+        photoUrl: candidate.photoUrl,
+        online: candidate.online,
+        age: candidate.age,
+        lastSeen: candidate.lastSeen,
         distanceMeters: distance,
       ),
     );

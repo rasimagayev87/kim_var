@@ -48,7 +48,12 @@ abstract class PinBoxRepository {
   /// out of this call because firestore.rules locks `stockRemaining`
   /// from every client update — changing one without the other would
   /// desync them, so total stock is a create-time-only decision.
-  Future<void> updatePinBox({
+  ///
+  /// Returns whether the edit sent the PinBox back into moderation —
+  /// the `updatePinBox` Cloud Function's own diff-based decision (see
+  /// its doc comment, functions/src/index.ts). Mirrors
+  /// `VenueRepository.updateVenue`/`OfferRepository.updateOffer`.
+  Future<bool> updatePinBox({
     required String pinboxId,
     required String title,
     required String description,

@@ -151,7 +151,10 @@ class OfferController {
     }
   }
 
-  Future<bool> updateOffer({
+  /// [sentForReReview] reflects the `updateOffer` Cloud Function's own
+  /// diff-based decision (see its doc comment) — mirrors
+  /// `VenueController.updateVenue`.
+  Future<({bool success, bool sentForReReview})> updateOffer({
     required String offerId,
     required String title,
     required String description,
@@ -171,7 +174,7 @@ class OfferController {
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
     try {
-      await _ref.read(updateOfferUseCaseProvider).call(
+      final sentForReReview = await _ref.read(updateOfferUseCaseProvider).call(
             offerId: offerId,
             title: title,
             description: description,
@@ -189,14 +192,14 @@ class OfferController {
             onUploadTaskReady: onUploadTaskReady,
           );
       _ref.invalidate(nearbyOffersProvider);
-      return true;
+      return (success: true, sentForReReview: sentForReReview);
     } on OfferValidationException catch (e) {
       onValidationError(e.missingFields);
-      return false;
+      return (success: false, sentForReReview: false);
     } catch (e, st) {
       logError('offer_providers.updateOffer', e, st);
       onError();
-      return false;
+      return (success: false, sentForReReview: false);
     }
   }
 

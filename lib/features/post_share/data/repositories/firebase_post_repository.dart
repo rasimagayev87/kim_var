@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../../../../core/utils/exif_stripper.dart';
 import '../../domain/entities/post.dart';
 import '../../domain/entities/post_comment.dart';
 import '../../domain/repositories/post_repository.dart';
@@ -36,8 +37,13 @@ class FirebasePostRepository implements PostRepository {
     final fileName = '${DateTime.now().microsecondsSinceEpoch}.$extension';
 
     final storageRef = _storage.ref('posts/$userId/$fileName');
+    // GPS EXIF strip (Düzəliş Prompt 3 / C#43) — image posts only;
+    // `stripExifIfImage` fails open to the original file on a
+    // non-image decode anyway, but skipping the attempt for video
+    // avoids decoding a large file pointlessly.
+    final uploadFile = type == PostMediaType.video ? file : await stripExifIfImage(file);
     final task = storageRef.putFile(
-      file,
+      uploadFile,
       SettableMetadata(contentType: contentType),
     );
 

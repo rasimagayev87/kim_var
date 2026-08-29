@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/utils/app_logger.dart';
@@ -64,6 +65,7 @@ class FirebaseVenueRepository implements VenueRepository {
   }) async {
     final venueId = _datasource.allocateVenueId();
     final photoUrl = await _datasource.uploadVenuePhoto(
+      ownerId,
       venueId,
       photo,
       onProgress: onUploadProgress,
@@ -121,7 +123,13 @@ class FirebaseVenueRepository implements VenueRepository {
   }) async {
     String? photoUrl;
     if (photo != null) {
+      // Storage's own `request.auth.uid == ownerId` check means this
+      // MUST be the current signed-in user regardless — `updateVenue`
+      // (the Cloud Function) separately re-verifies real ownership
+      // server-side, so this is never trusted on its own.
+      final ownerId = fb.FirebaseAuth.instance.currentUser!.uid;
       photoUrl = await _datasource.uploadVenuePhoto(
+        ownerId,
         venueId,
         photo,
         onProgress: onUploadProgress,
@@ -151,7 +159,7 @@ class FirebaseVenueRepository implements VenueRepository {
   @override
   Future<void> deleteVenue(String venueId) async {
     await _datasource.deleteVenue(venueId);
-    await _datasource.deleteVenuePhoto(venueId);
+    await _datasource.deleteVenuePhoto(fb.FirebaseAuth.instance.currentUser!.uid, venueId);
   }
 
   @override

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../../../../core/utils/exif_stripper.dart';
 import '../../domain/entities/story.dart';
 import '../../domain/entities/story_view.dart';
 import '../../domain/repositories/story_repository.dart';
@@ -26,7 +27,10 @@ class FirebaseStoryRepository implements StoryRepository {
     final contentType = mediaType == StoryMediaType.video ? 'video/mp4' : 'image/jpeg';
 
     final storageRef = _storage.ref('stories/$creatorId/${ref.id}.$extension');
-    await storageRef.putFile(media, SettableMetadata(contentType: contentType));
+    // GPS EXIF strip (Düzəliş Prompt 3 / C#43) — image stories only,
+    // same "fails open on non-image bytes" reasoning as posts above.
+    final uploadFile = mediaType == StoryMediaType.video ? media : await stripExifIfImage(media);
+    await storageRef.putFile(uploadFile, SettableMetadata(contentType: contentType));
     final mediaUrl = await storageRef.getDownloadURL();
 
     final now = DateTime.now();

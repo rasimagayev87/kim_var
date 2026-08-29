@@ -1,13 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:webrtc_interface/webrtc_interface.dart' show MediaStream;
 
+import '../../../safety/presentation/providers/safety_providers.dart';
 import '../../data/firebase_call_repository.dart';
 import '../../domain/call_repository.dart';
 import '../../domain/entities/call_session.dart';
 
 /// Every call site in the app goes through this provider, not
 /// `FirebaseCallRepository` directly.
-final callRepositoryProvider = Provider<CallRepository>((ref) => FirebaseCallRepository());
+final callRepositoryProvider = Provider<CallRepository>(
+  (ref) => FirebaseCallRepository(safetyRepository: ref.watch(safetyRepositoryProvider)),
+);
 
 /// Watched once at the app's home screen so an incoming call surfaces
 /// no matter which tab/screen the user is currently on.

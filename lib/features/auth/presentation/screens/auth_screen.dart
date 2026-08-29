@@ -15,6 +15,7 @@ import '../../../home/presentation/screens/home_screen.dart';
 import '../../../legal/presentation/widgets/consent_checkbox_row.dart';
 import '../providers/auth_providers.dart';
 import 'onboarding_screen.dart';
+import 'verify_email_screen.dart';
 
 const _kMinPasswordLength = 8;
 const _kMaxPasswordLength = 14;
@@ -107,9 +108,23 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     } catch (e, st) {
       logError('auth_screen._handleResult', e, st);
       if (!mounted) return;
+      // Düzəliş Prompt 10 / AUTH-12 — this app never links Apple/Google
+      // credentials to an existing email/password account, so a Google
+      // or Apple sign-in whose email already belongs to a DIFFERENT
+      // provider (e.g. someone else previously registered that exact
+      // email with a password, verified or not) throws this specific
+      // FirebaseAuthException instead of just failing generically — the
+      // catch-all message below used to swallow this into an
+      // unexplained "sign-in failed" with no path forward. The real
+      // owner of the email can still recover access via "forgot
+      // password" (only they can receive that reset link), so pointing
+      // them there is a genuine way out, not a dead end.
+      final message = e is FirebaseAuthException && e.code == 'account-exists-with-different-credential'
+          ? AppLocalizations.of(context).authAccountExistsDifferentCredentialError
+          : AppLocalizations.of(context).authSignInFailedError;
       setState(() {
         _submitting = false;
-        _error = AppLocalizations.of(context).authSignInFailedError;
+        _error = message;
       });
     }
   }
@@ -169,9 +184,27 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
           ? await notifier.registerWithEmailPassword(email, password)
           : await notifier.signInWithEmailPassword(email, password);
       if (!mounted) return;
+      // Gated on `isNewUser` too, not just `needsEmailVerification` alone
+      // — `completeOnboarding` (Cloud Function) only ever checks
+      // verification for a brand-new account (it returns early,
+      // BEFORE that check, for one that's already onboarded — see its
+      // own doc comment); an EXISTING account that predates this whole
+      // feature and happens to still be unverified must keep signing
+      // in normally, not get retroactively locked out of an app they
+      // already use. Only the email+password path can land here
+      // unverified at all — Google/Apple sign-in (`_handleResult`)
+      // always has an already-provider-verified email. Covers both a
+      // fresh registration AND a brand-new-but-not-yet-onboarded
+      // account signing back in without ever having clicked the link
+      // (see SplashScreen's own doc comment: a `needsOnboarding`
+      // session always comes back through this exact form, never
+      // straight to OnboardingScreen).
+      final destination = isNewUser && needsEmailVerification(FirebaseAuth.instance.currentUser)
+          ? VerifyEmailScreen(email: email)
+          : (isNewUser ? const OnboardingScreen() : const HomeScreen());
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => isNewUser ? const OnboardingScreen() : const HomeScreen()),
+        MaterialPageRoute(builder: (_) => destination),
         (route) => false,
       );
     } on FirebaseAuthException catch (e, st) {

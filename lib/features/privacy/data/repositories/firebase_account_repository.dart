@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
+import '../../../../core/utils/private_data_ref.dart';
 import '../../../auth/domain/entities/app_user.dart';
 import '../../domain/repositories/account_repository.dart';
 
@@ -77,6 +78,7 @@ class FirebaseAccountRepository implements AccountRepository {
 
     final results = await Future.wait([
       _firestore.collection('users').doc(uid).get(),
+      privateDataRef(uid, firestore: _firestore).get(),
       _firestore.collection('posts').where('userId', isEqualTo: uid).get(),
       _firestore.collection('reviews').where('userId', isEqualTo: uid).get(),
       _firestore.collection('users').doc(uid).collection('payments').orderBy('createdAt', descending: true).get(),
@@ -93,16 +95,21 @@ class FirebaseAccountRepository implements AccountRepository {
     ]);
 
     final profileDoc = results[0] as DocumentSnapshot<Map<String, dynamic>>;
-    final postsSnap = results[1] as QuerySnapshot<Map<String, dynamic>>;
-    final reviewsSnap = results[2] as QuerySnapshot<Map<String, dynamic>>;
-    final paymentsSnap = results[3] as QuerySnapshot<Map<String, dynamic>>;
-    final savedCardsSnap = results[4] as QuerySnapshot<Map<String, dynamic>>;
-    final followingSnap = results[5] as QuerySnapshot<Map<String, dynamic>>;
-    final followersSnap = results[6] as QuerySnapshot<Map<String, dynamic>>;
-    final notificationsSnap = results[7] as QuerySnapshot<Map<String, dynamic>>;
+    final privateDoc = results[1] as DocumentSnapshot<Map<String, dynamic>>;
+    final postsSnap = results[2] as QuerySnapshot<Map<String, dynamic>>;
+    final reviewsSnap = results[3] as QuerySnapshot<Map<String, dynamic>>;
+    final paymentsSnap = results[4] as QuerySnapshot<Map<String, dynamic>>;
+    final savedCardsSnap = results[5] as QuerySnapshot<Map<String, dynamic>>;
+    final followingSnap = results[6] as QuerySnapshot<Map<String, dynamic>>;
+    final followersSnap = results[7] as QuerySnapshot<Map<String, dynamic>>;
+    final notificationsSnap = results[8] as QuerySnapshot<Map<String, dynamic>>;
 
+    // `profile` merges both documents — Düzəliş Prompt 4 split PII
+    // (email/phoneNumber/birthDate/gender/city/...) off `users/{uid}`
+    // into an owner-only `private/data` subdoc, but a self-export must
+    // still include everything, same as before that split existed.
     final export = <String, dynamic>{
-      'profile': profileDoc.data() ?? <String, dynamic>{},
+      'profile': {...profileDoc.data() ?? <String, dynamic>{}, ...privateDoc.data() ?? <String, dynamic>{}},
       'posts': postsSnap.docs.map((d) => d.data()).toList(),
       'reviews': reviewsSnap.docs.map((d) => d.data()).toList(),
       'paymentHistory': paymentsSnap.docs.map((d) => d.data()).toList(),
@@ -224,11 +231,13 @@ class FirebaseAccountRepository implements AccountRepository {
     final authEmail = user?.email;
     if (user == null || authEmail == null) return;
 
-    final doc = await _firestore.collection('users').doc(user.uid).get();
+    // `email` lives on `users/{uid}/private/data` (Düzəliş Prompt 4).
+    final privateRef = privateDataRef(user.uid, firestore: _firestore);
+    final doc = await privateRef.get();
     final storedEmail = doc.data()?['email'] as String?;
     if (storedEmail == authEmail) return;
 
-    await _firestore.collection('users').doc(user.uid).set(
+    await privateRef.set(
       {'email': authEmail, 'updatedAt': FieldValue.serverTimestamp()},
       SetOptions(merge: true),
     );

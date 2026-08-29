@@ -1,20 +1,26 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../../../../core/utils/exif_stripper.dart';
+import '../../../safety/data/firebase_safety_repository.dart';
+import '../../../safety/domain/safety_repository.dart';
 import '../../domain/chat_failure.dart';
 import '../../domain/entities/chat.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/repositories/chat_repository.dart';
 
 class FirebaseChatRepository implements ChatRepository {
-  FirebaseChatRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
+  FirebaseChatRepository({FirebaseFirestore? firestore, FirebaseStorage? storage, SafetyRepository? safetyRepository})
       : _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+        _storage = storage ?? FirebaseStorage.instance,
+        _safetyRepository = safetyRepository ?? FirebaseSafetyRepository(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
+  final SafetyRepository _safetyRepository;
 
   /// Deterministic id — sorted participant uids joined with "_" — so
   /// there's exactly one chat doc per pair and sending never needs a
@@ -108,11 +114,15 @@ class FirebaseChatRepository implements ChatRepository {
     required String senderId,
     required File imageFile,
     void Function(double progress)? onProgress,
-  }) {
+  }) async {
+    // GPS EXIF strip (Düzəliş Prompt 3 / C#43) — chat images are the
+    // other highest-priority case (can reveal a home address); video
+    // /audio messages are never images, so they're never routed here.
+    final stripped = await stripExifIfImage(imageFile);
     return _sendMediaMessage(
       participantIds: participantIds,
       senderId: senderId,
-      file: imageFile,
+      file: stripped,
       folder: 'chat_photos',
       extension: 'jpg',
       contentType: 'image/jpeg',
@@ -263,15 +273,38 @@ class FirebaseChatRepository implements ChatRepository {
   }) async {
     final typeName = type.name;
     for (final otherUid in targetOtherUids) {
+      final chatId = chatIdFor([senderId, otherUid]);
+      final messageRef = _chats.doc(chatId).collection('messages').doc();
+
+      // Düzəliş Prompt 10 — a forwarded photo/video/voice message used
+      // to reuse the ORIGINAL message's `mediaUrl` verbatim, so both
+      // pointed at the exact same Storage object; "delete for everyone"
+      // on the original then silently broke this forward's media too
+      // (see `deleteMessageForEveryone`'s own doc comment). This gives
+      // each forward its OWN independent copy, server-side (no
+      // download+re-upload through this device's own bandwidth) —
+      // `forwardChatMedia` (Cloud Function) does the actual copy;
+      // everything else about this method (block/whoCanMessageMe/
+      // pending-accepted checks in `_sendMessage` below) is unchanged.
+      final ownMediaUrl = mediaUrl == null
+          ? null
+          : (await FirebaseFunctions.instance.httpsCallable('forwardChatMedia').call<Map<String, dynamic>>({
+              'sourceUrl': mediaUrl,
+              'chatId': chatId,
+              'messageId': messageRef.id,
+            }))
+              .data['mediaUrl'] as String;
+
       await _sendMessage(
         participantIds: [senderId, otherUid],
         senderId: senderId,
+        messageRef: messageRef,
         buildMessage: (receiverId) => {
           'senderId': senderId,
           'receiverId': receiverId,
           'type': typeName,
           if (text != null) 'text': text,
-          if (mediaUrl != null) 'mediaUrl': mediaUrl,
+          if (ownMediaUrl != null) 'mediaUrl': ownMediaUrl,
           if (durationMs != null) 'durationMs': durationMs,
           if (postId != null) 'postId': postId,
           if (postId != null) 'postIsVideo': postIsVideo,
@@ -300,13 +333,21 @@ class FirebaseChatRepository implements ChatRepository {
     void Function(double progress)? onProgress,
   }) async {
     final otherUid = participantIds.firstWhere((id) => id != senderId);
-    if (await _isBlockedPair(senderId, otherUid)) {
+    if (await _safetyRepository.isBlockedPair(senderId, otherUid)) {
       throw const ChatException(ChatFailure.blocked);
     }
 
     final chatId = chatIdFor(participantIds);
     final messageRef = _chats.doc(chatId).collection('messages').doc();
-    final storagePath = '$folder/$chatId/${messageRef.id}.$extension';
+    // `{senderId}` segment added (Düzəliş Prompt 3 / RT-8) — was
+    // `$folder/$chatId/${messageRef.id}.$extension` with no sender
+    // identity anywhere in the path, so `storage.rules`' `allow delete`
+    // could only check chat-participant membership (either participant
+    // could delete the other's file directly via the Storage SDK).
+    // `storage.rules` now requires `request.auth.uid == senderId` on
+    // both create and delete, matching the Firestore message doc's own
+    // sender-only rules exactly.
+    final storagePath = '$folder/$chatId/$senderId/${messageRef.id}.$extension';
     final storageRef = _storage.ref(storagePath);
 
     final uploadTask = storageRef.putFile(file, SettableMetadata(contentType: contentType));
@@ -352,7 +393,7 @@ class FirebaseChatRepository implements ChatRepository {
     final msgRef = messageRef ?? chatRef.collection('messages').doc();
     final otherUid = participantIds.firstWhere((id) => id != senderId);
 
-    if (await _isBlockedPair(senderId, otherUid)) {
+    if (await _safetyRepository.isBlockedPair(senderId, otherUid)) {
       throw const ChatException(ChatFailure.blocked);
     }
 
@@ -442,16 +483,6 @@ class FirebaseChatRepository implements ChatRepository {
     return accepted(results[0]) || accepted(results[1]);
   }
 
-  /// True if either [uidA] has blocked [uidB], or vice versa — reads both
-  /// `users/{uid}.blockedUsers` arrays directly rather than going through
-  /// `SafetyRepository` to keep this repository's own dependencies self
-  /// contained.
-  Future<bool> _isBlockedPair(String uidA, String uidB) async {
-    final results = await Future.wait([_users.doc(uidA).get(), _users.doc(uidB).get()]);
-    final aBlocked = (results[0].data()?['blockedUsers'] as List?)?.cast<String>() ?? const [];
-    final bBlocked = (results[1].data()?['blockedUsers'] as List?)?.cast<String>() ?? const [];
-    return aBlocked.contains(uidB) || bBlocked.contains(uidA);
-  }
 
   @override
   Future<void> acceptChatRequest(String chatId) {

@@ -29,6 +29,7 @@ class _VipScreenState extends ConsumerState<VipScreen> {
   VipBillingPeriod _selected = VipBillingPeriod.yearly;
 
   bool _purchasing = false;
+  bool _restoring = false;
 
   @override
   Widget build(BuildContext context) {
@@ -151,6 +152,22 @@ class _VipScreenState extends ConsumerState<VipScreen> {
                       ),
               ),
             ),
+            const SizedBox(height: 10),
+            Center(
+              child: TextButton(
+                onPressed: _restoring ? null : _handleRestore,
+                child: _restoring
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textSecondary),
+                      )
+                    : Text(
+                        loc.vipRestorePurchasesButton,
+                        style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                      ),
+              ),
+            ),
           ],
         ),
       ),
@@ -177,6 +194,22 @@ class _VipScreenState extends ConsumerState<VipScreen> {
       // it, not the whole async verification that follows on the
       // purchase stream (isPremiumProvider flipping is that signal).
       if (mounted) setState(() => _purchasing = false);
+    }
+  }
+
+  /// Re-queries the store for past purchases — results land on the
+  /// same [purchaseStream] a fresh buy uses (`PurchaseStatus.restored`),
+  /// so [isPremiumProvider] flips the same way once
+  /// `verifyInAppPurchase` confirms it server-side. `_restoring` only
+  /// covers the store round-trip itself, same shape as `_purchasing` in
+  /// [_handleSubscribe].
+  Future<void> _handleRestore() async {
+    if (_restoring) return;
+    setState(() => _restoring = true);
+    try {
+      await restoreVipPurchases();
+    } finally {
+      if (mounted) setState(() => _restoring = false);
     }
   }
 

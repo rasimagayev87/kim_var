@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/account_status_checker.dart';
+
 /// Keeps the signed-in user's `online` flag and `lastSeen` timestamp
 /// in Firestore up to date — a heartbeat while foregrounded, and a
 /// grace-period-delayed offline write when backgrounded, rather than
@@ -23,6 +25,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 ///    for a few seconds) shouldn't flicker presence off and back on
 ///    for everyone watching this user — see [scheduleOffline]'s grace
 ///    period.
+///
+/// This is now the ONLY writer of `online`/`lastSeen` (Düzəliş Prompt 5
+/// / RT-24) — `LocationController._writePosition` used to write both
+/// fields itself, independent of this controller entirely, which is
+/// exactly the kind of second, unaccounted-for write path that made
+/// the (now-removed) `showOnlineStatus` toggle an unreliable, false
+/// promise in the first place. `LocationController` now only ever
+/// touches `lat`/`lng`; presence itself always routes through here.
 final presenceControllerProvider = Provider<PresenceController>((ref) {
   final controller = PresenceController();
   ref.onDispose(controller.dispose);
@@ -100,28 +110,25 @@ class PresenceController {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
     final usersDoc = _firestore.collection('users').doc(uid);
-    if (online) {
-      // A user with "Onlayn olduğumu göstər" off never gets written
-      // as online at all — the only way this setting reliably governs
-      // every place `online`/`lastSeen` get read is to never let them
-      // become true/fresh in the first place, rather than teaching
-      // every reader about this one toggle. Going offline (below)
-      // always writes through regardless — that never leaks anything.
-      final showOnlineStatus = await _showOnlineStatus(usersDoc);
-      if (!showOnlineStatus) return;
-    }
-    await usersDoc.set({
-      'online': online,
-      'lastSeen': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-  }
-
-  Future<bool> _showOnlineStatus(DocumentReference<Map<String, dynamic>> usersDoc) async {
     try {
-      final doc = await usersDoc.get();
-      return doc.data()?['showOnlineStatus'] as bool? ?? true;
-    } catch (_) {
-      return true;
+      await usersDoc.set({
+        'online': online,
+        'lastSeen': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (e) {
+      // Without this, a deleted/banned account's cached ID token would
+      // otherwise retry this same failing write every 25s forever (the
+      // heartbeat timer, `_heartbeatInterval` above, has no awareness
+      // of a previous attempt's outcome) — burning battery/network with
+      // no possibility of ever succeeding. `handleWritePermissionDenied`
+      // tells a genuine deletion/ban apart from a transient race and,
+      // only for the former, forces sign-out AND stops this timer.
+      if (await handleWritePermissionDenied(e)) {
+        _heartbeatTimer?.cancel();
+        _heartbeatTimer = null;
+        _offlineGraceTimer?.cancel();
+        _offlineGraceTimer = null;
+      }
     }
   }
 

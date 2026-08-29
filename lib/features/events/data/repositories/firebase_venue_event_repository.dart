@@ -1,11 +1,13 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/utils/exif_stripper.dart';
 import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../domain/entities/venue_event.dart';
 import '../../domain/repositories/venue_event_repository.dart';
@@ -58,8 +60,17 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
 
     String? coverImageUrl;
     if (coverImage != null) {
-      final storageRef = _storage.ref('event_covers/${ref.id}.jpg');
-      final task = storageRef.putFile(coverImage, SettableMetadata(contentType: 'image/jpeg'));
+      // `{ownerUid}` segment added (Düzəliş Prompt 3 / K-6) — was flat
+      // `event_covers/{eventId}.jpg`, `storage.rules` now requires
+      // `request.auth.uid == ownerUid` here, so this must be the venue
+      // owner's own uid (the caller — `createEvent` is only ever
+      // invoked by a venue owner, re-verified by `firestore.rules`'
+      // own `venueEvents` create rule's `get()`-based ownership check).
+      final ownerId = fb.FirebaseAuth.instance.currentUser!.uid;
+      final storageRef = _storage.ref('event_covers/$ownerId/${ref.id}.jpg');
+      // GPS EXIF strip (Düzəliş Prompt 3 / C#43).
+      final stripped = await stripExifIfImage(coverImage);
+      final task = storageRef.putFile(stripped, SettableMetadata(contentType: 'image/jpeg'));
       onUploadTaskReady?.call(task.cancel);
       if (onUploadProgress != null) {
         task.snapshotEvents.listen((snapshot) {
@@ -113,8 +124,10 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
       // Same path convention as create — reusing the event's own id
       // means a re-upload just overwrites the old file, no separate
       // delete step needed.
-      final storageRef = _storage.ref('event_covers/$eventId.jpg');
-      final task = storageRef.putFile(coverImage, SettableMetadata(contentType: 'image/jpeg'));
+      final storageRef = _storage.ref('event_covers/${fb.FirebaseAuth.instance.currentUser!.uid}/$eventId.jpg');
+      // GPS EXIF strip (Düzəliş Prompt 3 / C#43).
+      final stripped = await stripExifIfImage(coverImage);
+      final task = storageRef.putFile(stripped, SettableMetadata(contentType: 'image/jpeg'));
       onUploadTaskReady?.call(task.cancel);
       if (onUploadProgress != null) {
         task.snapshotEvents.listen((snapshot) {

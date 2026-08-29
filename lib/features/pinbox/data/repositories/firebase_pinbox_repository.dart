@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
@@ -68,6 +69,7 @@ class FirebasePinBoxRepository implements PinBoxRepository {
     String? imageUrl;
     if (photo != null) {
       imageUrl = await _datasource.uploadPinBoxPhoto(
+        ownerId,
         pinboxId,
         photo,
         onProgress: onUploadProgress,
@@ -103,7 +105,7 @@ class FirebasePinBoxRepository implements PinBoxRepository {
   }
 
   @override
-  Future<void> updatePinBox({
+  Future<bool> updatePinBox({
     required String pinboxId,
     required String title,
     required String description,
@@ -118,7 +120,12 @@ class FirebasePinBoxRepository implements PinBoxRepository {
   }) async {
     String? imageUrl;
     if (photo != null) {
+      // Storage's own `request.auth.uid == ownerId` check means this
+      // MUST be the current signed-in user regardless — `updatePinBox`
+      // (the Cloud Function) separately re-verifies real ownership
+      // server-side, so this is never trusted on its own.
       imageUrl = await _datasource.uploadPinBoxPhoto(
+        fb.FirebaseAuth.instance.currentUser!.uid,
         pinboxId,
         photo,
         onProgress: onUploadProgress,
@@ -126,22 +133,24 @@ class FirebasePinBoxRepository implements PinBoxRepository {
       );
     }
 
-    await _datasource.updatePinBox(pinboxId, {
+    final result = await _functions.httpsCallable('updatePinBox').call<Map<String, dynamic>>({
+      'pinboxId': pinboxId,
       'title': title,
       'description': description,
       'originalPrice': originalPrice,
       'pinboxPrice': pinboxPrice,
-      'pickupWindowStart': Timestamp.fromDate(pickupWindowStart),
-      'pickupWindowEnd': Timestamp.fromDate(pickupWindowEnd),
-      'updatedAt': FieldValue.serverTimestamp(),
+      'pickupWindowStart': pickupWindowStart.toIso8601String(),
+      'pickupWindowEnd': pickupWindowEnd.toIso8601String(),
       if (imageUrl != null) 'imageUrl': imageUrl,
     });
+
+    return result.data['sentForReReview'] as bool;
   }
 
   @override
   Future<void> deletePinBox(String pinboxId) async {
     await _datasource.deletePinBox(pinboxId);
-    await _datasource.deletePinBoxPhoto(pinboxId);
+    await _datasource.deletePinBoxPhoto(fb.FirebaseAuth.instance.currentUser!.uid, pinboxId);
   }
 
   @override

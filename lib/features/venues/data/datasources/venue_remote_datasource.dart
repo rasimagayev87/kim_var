@@ -55,14 +55,21 @@ abstract class VenueRemoteDatasource {
   /// Future then completes with an error, same as any other upload
   /// failure, so the caller's existing retry-by-resubmitting flow
   /// covers "cancel" for free).
+  /// [ownerId] is now part of the Storage path itself (Düzəliş Prompt 3
+  /// / K-6, `venue_photos/{ownerId}/{venueId}.jpg` — was flat
+  /// `{venueId}.jpg` with no owner segment, which `storage.rules`
+  /// couldn't gate on ownership at all since Storage Rules can't `get()`
+  /// Firestore). Must equal the caller's own uid — `storage.rules`
+  /// enforces `request.auth.uid == ownerId`, so any other value fails.
   Future<String> uploadVenuePhoto(
+    String ownerId,
     String venueId,
     File photo, {
     ValueChanged<double>? onProgress,
     ValueChanged<VoidCallback>? onTaskReady,
   });
 
-  Future<void> deleteVenuePhoto(String venueId);
+  Future<void> deleteVenuePhoto(String ownerId, String venueId);
 
   /// Whether [uid] has liked [venueId] — a single-doc watch on
   /// `venues/{venueId}/likes/{uid}`, mirroring

@@ -6,6 +6,12 @@
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<!-- Real key, restricted to this app's bundle id and to Maps SDK for
+	     iOS + Geocoding API only — see ios/Flutter/Secrets.xcconfig
+	     (gitignored). Read in AppDelegate.swift via
+	     Bundle.main.object(forInfoDictionaryKey:). -->
+	<key>GMSApiKey</key>
+	<string>$(GOOGLE_MAPS_API_KEY)</string>
 	<key>CFBundleDisplayName</key>
 	<string>PeakPin</string>
 	<key>CFBundleExecutable</key>

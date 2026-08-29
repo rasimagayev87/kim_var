@@ -28,6 +28,28 @@ class FirebaseSafetyRepository implements SafetyRepository {
     });
   }
 
+  /// Reads both parties' own `users/{uid}.blockedUsers` directly.
+  /// Düzəliş Prompt 5: once `firestore.rules`' `users/{userId}` `allow
+  /// get` itself denies reading a blocked party's profile, THIS read
+  /// throws `permission-denied` exactly when a block exists — so that
+  /// specific code is treated as "yes, blocked" rather than propagated
+  /// as an error. Any OTHER Firestore error (offline, `unavailable`,
+  /// `deadline-exceeded`, ...) is rethrown — mapping every transient
+  /// failure to "blocked" would show a wrong, alarming message to
+  /// someone with a bad connection who was never blocked by anyone.
+  @override
+  Future<bool> isBlockedPair(String uidA, String uidB) async {
+    try {
+      final results = await Future.wait([_users.doc(uidA).get(), _users.doc(uidB).get()]);
+      final aBlocked = (results[0].data()?['blockedUsers'] as List?)?.cast<String>() ?? const [];
+      final bBlocked = (results[1].data()?['blockedUsers'] as List?)?.cast<String>() ?? const [];
+      return aBlocked.contains(uidB) || bBlocked.contains(uidA);
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') return true;
+      rethrow;
+    }
+  }
+
   @override
   Stream<Set<String>> watchBlockedUserIds(String myUid) {
     return _users.doc(myUid).snapshots().map(

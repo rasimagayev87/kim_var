@@ -587,13 +587,14 @@ class _LiveAudienceCard extends ConsumerWidget {
     final loc = AppLocalizations.of(context);
     final count = ref.watch(
       venueAudienceCountProvider((
+        venueId: venue.id,
         mode: venue.audienceRadiusMode,
         lat: venue.lat,
         lng: venue.lng,
         radiusKm: venue.audienceRadiusKm,
         country: venue.country,
       )),
-    );
+    ).valueOrNull ?? 0;
 
     return Container(
       width: double.infinity,

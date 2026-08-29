@@ -14,20 +14,20 @@ abstract class PinBoxRemoteDatasource {
 
   Stream<QuerySnapshot<Map<String, dynamic>>> watchPinBoxesByOwner(String ownerId);
 
+  /// [ownerId] is now part of the Storage path (Düzəliş Prompt 3 / K-6,
+  /// `pinbox_photos/{ownerId}/{pinboxId}.jpg`) — must equal the caller's
+  /// own uid, enforced by `storage.rules`.
   Future<String> uploadPinBoxPhoto(
+    String ownerId,
     String pinboxId,
     File photo, {
     ValueChanged<double>? onProgress,
     ValueChanged<VoidCallback>? onTaskReady,
   });
 
-  /// Owner-only edit — same "everything except status/review/stockRemaining"
-  /// scope as firestore.rules' `pinboxes/{id}` update rule.
-  Future<void> updatePinBox(String pinboxId, Map<String, dynamic> data);
-
   Future<void> deletePinBox(String pinboxId);
 
-  Future<void> deletePinBoxPhoto(String pinboxId);
+  Future<void> deletePinBoxPhoto(String ownerId, String pinboxId);
 
   /// Admin-approved ('active') boxes within [radiusKm] of a point,
   /// paired with their distance — a still-'active' box with

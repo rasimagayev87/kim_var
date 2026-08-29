@@ -39,7 +39,7 @@ class UpdatePinBoxUseCase {
 
   final PinBoxRepository _repository;
 
-  Future<void> call({
+  Future<bool> call({
     required String pinboxId,
     required String title,
     required String description,
@@ -65,7 +65,7 @@ class UpdatePinBoxUseCase {
 
     await assertValidPinBoxPhoto(photo);
 
-    await _repository.updatePinBox(
+    return _repository.updatePinBox(
       pinboxId: pinboxId,
       title: title.trim(),
       description: description.trim(),

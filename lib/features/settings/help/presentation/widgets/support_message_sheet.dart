@@ -76,6 +76,9 @@ class _SupportMessageSheetState extends ConsumerState<_SupportMessageSheet> {
               controller: _controller,
               maxLines: 5,
               minLines: 3,
+              // Matches firestore.rules' new `message.size() <= 2000`
+              // (Düzəliş Prompt 8 / RT-2).
+              maxLength: 2000,
               style: AppTextStyles.body,
               decoration: InputDecoration(
                 hintText: loc.supportMessageHint,

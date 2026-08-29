@@ -5,6 +5,8 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
+import '../../../../core/utils/exif_stripper.dart';
+import '../../../../core/utils/private_data_ref.dart';
 import 'venue_remote_datasource.dart';
 
 /// Field under which GeoFlutterFire Plus stores `{geopoint, geohash}`
@@ -111,14 +113,19 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
 
   @override
   Future<String> uploadVenuePhoto(
+    String ownerId,
     String venueId,
     File photo, {
     ValueChanged<double>? onProgress,
     ValueChanged<VoidCallback>? onTaskReady,
   }) async {
-    final storageRef = _storage.ref('venue_photos/$venueId.jpg');
+    final storageRef = _storage.ref('venue_photos/$ownerId/$venueId.jpg');
+    // GPS EXIF strip (Düzəliş Prompt 3 / C#43) — lower priority than
+    // profile/chat (a venue's own position is already public), applied
+    // uniformly for simplicity, no separate code path.
+    final stripped = await stripExifIfImage(photo);
     final task = storageRef.putFile(
-      photo,
+      stripped,
       SettableMetadata(contentType: 'image/jpeg'),
     );
 
@@ -137,9 +144,9 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
   }
 
   @override
-  Future<void> deleteVenuePhoto(String venueId) async {
+  Future<void> deleteVenuePhoto(String ownerId, String venueId) async {
     try {
-      await _storage.ref('venue_photos/$venueId.jpg').delete();
+      await _storage.ref('venue_photos/$ownerId/$venueId.jpg').delete();
     } on FirebaseException catch (e) {
       if (e.code != 'object-not-found') rethrow;
     }
@@ -170,22 +177,19 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
     // own those fields exclusively (see functions/src/index.ts).
   }
 
-  /// Matches CHECKIN_EXPIRY_MS in functions/src/index.ts — kept as one
-  /// literal in each runtime since Dart and TS can't share a constant,
-  /// but both must agree or the live count and the scheduled cleanup
-  /// would disagree about what "stale" means.
-  static const _checkinExpiry = Duration(hours: 2);
-
   CollectionReference<Map<String, dynamic>> _activeCheckins(String venueId) =>
       _venues.doc(venueId).collection('activeCheckins');
 
   @override
   Stream<int> watchActiveCheckinCount(String venueId) {
-    final cutoff = Timestamp.fromDate(DateTime.now().subtract(_checkinExpiry));
-    return _activeCheckins(venueId)
-        .where('createdAt', isGreaterThan: cutoff)
+    // Raw `activeCheckins` list access is now owner/checked-in-user-only
+    // (Düzəliş Prompt 4, K-4) — every other viewer of a venue's profile
+    // reads the server-maintained `activeCheckinCount` aggregate instead
+    // (see `bumpActiveCheckinCount` in functions/src/index.ts).
+    return _venues
+        .doc(venueId)
         .snapshots()
-        .map((snap) => snap.docs.length);
+        .map((snap) => (snap.data()?['activeCheckinCount'] as num?)?.toInt() ?? 0);
   }
 
   @override
@@ -197,29 +201,32 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
 
   @override
   Future<void> checkIn({required String uid, required String venueId}) async {
-    final userRef = _firestore.collection('users').doc(uid);
+    // `activeCheckinVenueId` lives on `users/{uid}/private/data`
+    // (Düzəliş Prompt 4) — owner-only, same as every other field that
+    // moved there.
+    final privateRef = privateDataRef(uid, firestore: _firestore);
     await _firestore.runTransaction((tx) async {
-      final userSnap = await tx.get(userRef);
-      final oldVenueId = userSnap.data()?['activeCheckinVenueId'] as String?;
+      final privateSnap = await tx.get(privateRef);
+      final oldVenueId = privateSnap.data()?['activeCheckinVenueId'] as String?;
       if (oldVenueId != null && oldVenueId != venueId) {
         tx.delete(_activeCheckins(oldVenueId).doc(uid));
       }
       tx.set(_activeCheckins(venueId).doc(uid), {
         'createdAt': FieldValue.serverTimestamp(),
       });
-      tx.update(userRef, {'activeCheckinVenueId': venueId});
+      tx.set(privateRef, {'activeCheckinVenueId': venueId}, SetOptions(merge: true));
     });
   }
 
   @override
   Future<void> checkOut({required String uid}) async {
-    final userRef = _firestore.collection('users').doc(uid);
+    final privateRef = privateDataRef(uid, firestore: _firestore);
     await _firestore.runTransaction((tx) async {
-      final userSnap = await tx.get(userRef);
-      final venueId = userSnap.data()?['activeCheckinVenueId'] as String?;
+      final privateSnap = await tx.get(privateRef);
+      final venueId = privateSnap.data()?['activeCheckinVenueId'] as String?;
       if (venueId == null) return;
       tx.delete(_activeCheckins(venueId).doc(uid));
-      tx.update(userRef, {'activeCheckinVenueId': null});
+      tx.set(privateRef, {'activeCheckinVenueId': null}, SetOptions(merge: true));
     });
   }
 }

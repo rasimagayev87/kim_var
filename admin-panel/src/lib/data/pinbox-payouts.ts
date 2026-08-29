@@ -2,7 +2,15 @@ import "server-only";
 
 import { getAdminDb } from "@/lib/firebase/admin";
 
-export type PinBoxPayoutStatus = "pending" | "paid";
+/**
+ * Düzəliş Prompt 6 / K-11 added `cancelled`/`cancelled_after_payout`/
+ * `debt` (`cancelPinBoxPayoutForRefund`, functions/src/index.ts) — a
+ * PinBox order can now be refunded, which the previous 2-value type
+ * (and its `parseStatus` fallback below) couldn't represent at all;
+ * every unrecognized value silently became `"pending"`, which would
+ * have made a cancelled payout reappear as a normal payable row here.
+ */
+export type PinBoxPayoutStatus = "pending" | "paid" | "cancelled" | "cancelled_after_payout" | "debt";
 export type PinBoxPayoutStatusFilter = "all" | PinBoxPayoutStatus;
 
 export interface AdminPinBoxPayoutRow {
@@ -28,7 +36,12 @@ export interface AdminPinBoxPayoutRow {
 const FETCH_LIMIT = 200;
 
 function parseStatus(value: unknown): PinBoxPayoutStatus {
-  return value === "paid" ? "paid" : "pending";
+  return value === "paid" ||
+    value === "cancelled" ||
+    value === "cancelled_after_payout" ||
+    value === "debt"
+    ? value
+    : "pending";
 }
 
 /**

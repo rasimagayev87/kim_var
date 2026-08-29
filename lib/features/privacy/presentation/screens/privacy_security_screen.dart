@@ -164,15 +164,6 @@ class PrivacySecurityScreen extends ConsumerWidget {
             SettingsGroup(
               children: [
                 SettingsToggleRow(
-                  icon: Icons.wifi_tethering,
-                  title: loc.privacyOnlineStatusTitle,
-                  value: settings.showOnlineStatus,
-                  onChanged: (v) async {
-                    final ok = await controller.updateShowOnlineStatus(v);
-                    if (!ok && context.mounted) showError();
-                  },
-                ),
-                SettingsToggleRow(
                   icon: Icons.done_all,
                   title: loc.privacyReadReceiptsTitle,
                   subtitle: loc.privacyReadReceiptsHelperText,

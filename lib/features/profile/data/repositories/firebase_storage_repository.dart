@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../../../../core/utils/exif_stripper.dart';
 import '../../domain/repositories/storage_repository.dart';
 import '../../domain/storage_failure.dart';
 
@@ -42,9 +43,13 @@ class FirebaseStorageRepository implements StorageRepository {
     final ref = _storage.ref(_pathFor(userId));
 
     try {
+      // GPS EXIF strip (Düzəliş Prompt 3 / C#43) — profile photos are
+      // the single highest-priority case here, since a leaked GPS tag
+      // on one directly reveals a home address.
+      final stripped = await stripExifIfImage(file);
       final task = ref.putFile(
-        file,
-        SettableMetadata(contentType: _contentTypeFor(file.path)),
+        stripped,
+        SettableMetadata(contentType: _contentTypeFor(stripped.path)),
       );
 
       if (onProgress != null) {

@@ -9,6 +9,7 @@ import '../../../app_config/presentation/providers/app_config_providers.dart';
 import '../../../app_config/presentation/utils/read_only_guard.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../privacy/presentation/providers/privacy_providers.dart';
+import '../../../safety/presentation/providers/safety_providers.dart';
 import '../../data/repositories/firebase_chat_repository.dart';
 import '../../domain/chat_failure.dart';
 import '../../domain/entities/chat.dart';
@@ -19,7 +20,9 @@ import '../../domain/usecases/send_image_message_usecase.dart';
 import '../../domain/usecases/send_text_message_usecase.dart';
 import '../../domain/usecases/send_video_message_usecase.dart';
 
-final chatRepositoryProvider = Provider<ChatRepository>((ref) => FirebaseChatRepository());
+final chatRepositoryProvider = Provider<ChatRepository>(
+  (ref) => FirebaseChatRepository(safetyRepository: ref.watch(safetyRepositoryProvider)),
+);
 
 final sendTextMessageUseCaseProvider = Provider<SendTextMessageUseCase>((ref) {
   return SendTextMessageUseCase(ref.watch(chatRepositoryProvider));

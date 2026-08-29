@@ -5,13 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 
 /// Real Firestore-backed premium status: `users/{uid}.premium` (bool,
-/// default false). No billing/entitlement backend writes this field
-/// yet — see [kVipPackages] in `vip_package.dart` for why purchases
-/// are stubbed — so today this only flips to `true` if set manually
-/// (e.g. via the Firebase console for testing) or once a real
-/// RevenueCat webhook / Cloud Function is wired up to write it after
-/// a verified purchase. Every screen that gates a feature behind
-/// Premium reads through this single provider.
+/// default false). Written either by the admin panel's manual "VIP et"
+/// grant, or by a verified Apple/Google IAP purchase
+/// (`verifyInAppPurchase`/`appStoreServerNotifications`/
+/// `googlePlayRtdn`, functions/src/index.ts) — never by the client
+/// itself (see firestore.rules' lock on this field). Every screen that
+/// gates a feature behind Premium reads through this single provider.
 final isPremiumProvider = Provider<bool>((ref) {
   return ref.watch(_premiumStatusProvider).valueOrNull ?? false;
 });

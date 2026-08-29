@@ -129,6 +129,26 @@ export async function setUserBanned(uid: string, banned: boolean): Promise<Actio
     if (banned) {
       await getAdminAuth().revokeRefreshTokens(uid);
     }
+    // `bannedUsers/{uid}` tombstone (Düzəliş Prompt 11 / Y-1) — this
+    // Auth-only mutation was invisible to mobile-side Firestore Rules
+    // and Cloud Functions, which don't check Auth's `disabled`/
+    // revocation status by default (only the admin panel's own session
+    // -cookie verification does, via `checkRevoked: true`). Writing a
+    // matching Firestore-visible signal is what lets `isActiveUser()`
+    // (firestore.rules) and `assertActiveUser()` (functions/src/index.ts)
+    // actually reject a banned mobile user's still-valid cached token on
+    // its next write/call attempt, independent of the token's own
+    // freshness. Kept as a SEPARATE collection rather than a field on
+    // `users/{uid}` itself because that doc's read rule is `if
+    // request.auth != null` (any signed-in user can read the whole
+    // document) — a `banned` field there would leak ban status to
+    // anyone viewing the profile.
+    const bannedUserRef = getAdminDb().collection("bannedUsers").doc(uid);
+    if (banned) {
+      await bannedUserRef.set({ bannedAt: new Date() });
+    } else {
+      await bannedUserRef.delete();
+    }
     await logModerationAction({
       actor: check.admin,
       action: banned ? "user.banned" : "user.unbanned",

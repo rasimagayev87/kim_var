@@ -1,0 +1,12 @@
+{
+  "name": "rules-tests",
+  "private": true,
+  "scripts": {
+    "test": "bash run.sh"
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "tsx": "^4.23.1",
+    "typescript": "^5"
+  }
+}

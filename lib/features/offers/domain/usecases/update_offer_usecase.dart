@@ -12,7 +12,7 @@ class UpdateOfferUseCase {
 
   final OfferRepository _repository;
 
-  Future<void> call({
+  Future<bool> call({
     required String offerId,
     required String title,
     required String description,
@@ -46,7 +46,7 @@ class UpdateOfferUseCase {
 
     await assertValidOfferPhoto(photo);
 
-    await _repository.updateOffer(
+    return _repository.updateOffer(
       offerId: offerId,
       category: fields.category,
       title: fields.title,

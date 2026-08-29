@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
+import '../../../../core/utils/exif_stripper.dart';
 import 'pinbox_remote_datasource.dart';
 
 /// Same GeoFlutterFire field name/shape as `kOfferGeoField` — written
@@ -40,13 +41,16 @@ class FirebasePinBoxRemoteDatasource implements PinBoxRemoteDatasource {
 
   @override
   Future<String> uploadPinBoxPhoto(
+    String ownerId,
     String pinboxId,
     File photo, {
     ValueChanged<double>? onProgress,
     ValueChanged<VoidCallback>? onTaskReady,
   }) async {
-    final storageRef = _storage.ref('pinbox_photos/$pinboxId.jpg');
-    final task = storageRef.putFile(photo, SettableMetadata(contentType: 'image/jpeg'));
+    final storageRef = _storage.ref('pinbox_photos/$ownerId/$pinboxId.jpg');
+    // GPS EXIF strip (Düzəliş Prompt 3 / C#43).
+    final stripped = await stripExifIfImage(photo);
+    final task = storageRef.putFile(stripped, SettableMetadata(contentType: 'image/jpeg'));
 
     onTaskReady?.call(task.cancel);
 
@@ -63,15 +67,12 @@ class FirebasePinBoxRemoteDatasource implements PinBoxRemoteDatasource {
   }
 
   @override
-  Future<void> updatePinBox(String pinboxId, Map<String, dynamic> data) => _pinboxes.doc(pinboxId).update(data);
-
-  @override
   Future<void> deletePinBox(String pinboxId) => _pinboxes.doc(pinboxId).delete();
 
   @override
-  Future<void> deletePinBoxPhoto(String pinboxId) async {
+  Future<void> deletePinBoxPhoto(String ownerId, String pinboxId) async {
     try {
-      await _storage.ref('pinbox_photos/$pinboxId.jpg').delete();
+      await _storage.ref('pinbox_photos/$ownerId/$pinboxId.jpg').delete();
     } on FirebaseException catch (e) {
       if (e.code != 'object-not-found') rethrow;
     }

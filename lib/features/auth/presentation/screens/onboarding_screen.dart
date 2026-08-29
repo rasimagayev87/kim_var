@@ -18,6 +18,7 @@ import '../../../location/presentation/providers/location_providers.dart';
 import '../../../profile/domain/entities/user_profile.dart' show kBusinessStatusActive, kBusinessStatusNone, kGenderOptions;
 import '../../../profile/presentation/providers/photo_upload_provider.dart';
 import '../../../profile/presentation/storage_failure_messages.dart';
+import '../../domain/repositories/auth_repository.dart' show EmailNotVerifiedException, UnderageOnboardingException;
 import '../providers/auth_providers.dart';
 import '../widgets/country_dial_code.dart';
 
@@ -132,7 +133,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       context: context,
       initialDate: DateTime(now.year - 20, now.month, now.day),
       firstDate: DateTime(now.year - 100),
-      lastDate: DateTime(now.year - 13, now.month, now.day),
+      // PeakPin's minimum age is 18 (see legal/child-safety-standards.html
+      // §2, Terms of Service §2) — this bound is UX only; the actual
+      // enforcement is server-side in the `completeOnboarding` Cloud
+      // Function, which this screen can't bypass regardless of what date
+      // gets picked here.
+      lastDate: DateTime(now.year - 18, now.month, now.day),
       helpText: loc.birthDatePickerHelpText,
     );
     if (picked != null) setState(() => _birthDate = picked);
@@ -244,6 +250,23 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         context,
         MaterialPageRoute(builder: (_) => const HomeScreen()),
         (route) => false,
+      );
+    } on UnderageOnboardingException {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.onboardingUnderageError)),
+      );
+    } on EmailNotVerifiedException {
+      // Defense-in-depth only — the normal flow never reaches
+      // OnboardingScreen in this state at all (VerifyEmailScreen sits
+      // in front of it, see AuthScreen). Nothing sensible to recover
+      // into here besides telling the (modified/stale) client why this
+      // failed.
+      if (!mounted) return;
+      setState(() => _saving = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.authEmailNotVerifiedError)),
       );
     } catch (e) {
       if (!mounted) return;

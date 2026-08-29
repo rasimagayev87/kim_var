@@ -47,6 +47,16 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // Google Maps API key — read from the same gitignored
+        // key.properties this file already loads for release signing
+        // (see keystoreProperties above), never committed. Injected
+        // into AndroidManifest.xml's `com.google.android.geo.API_KEY`
+        // meta-data via `${mapsApiKey}` there. Empty string (rather
+        // than failing the build) when the property is absent, so a
+        // fresh checkout without key.properties still builds — the map
+        // just won't render tiles until it's added, same tradeoff the
+        // release-signing fallback above already makes.
+        manifestPlaceholders["mapsApiKey"] = keystoreProperties.getProperty("mapsApiKey", "")
     }
 
     signingConfigs {
@@ -62,15 +72,30 @@ android {
 
     buildTypes {
         release {
-            // Falls back to debug signing only if key.properties is
-            // missing (e.g. a fresh checkout without the keystore) —
-            // `flutter run --release` still works for local testing,
-            // but a real release build always uses the real key once
-            // it's present.
+            // Düzəliş Prompt 10 / INFRA-37 — this USED to fall back to
+            // debug signing silently whenever key.properties was
+            // missing, with no way to tell a deliberate local-dev build
+            // apart from a release pipeline that simply forgot to
+            // provide the real keystore. A debug-signed release
+            // AAB/APK that actually shipped could never be updated
+            // again with a properly-signed build (a genuine, permanent
+            // back-compat dead end) — the fallback still exists for
+            // local `flutter run --release` testing, but now requires
+            // an EXPLICIT opt-in (`-PallowDebugSigning=true`) instead
+            // of being the silent default; anything else (a CI/release
+            // build with no keystore AND no explicit flag) fails the
+            // build loudly instead of quietly producing a debug-signed
+            // release artifact.
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
-            } else {
+            } else if (project.hasProperty("allowDebugSigning")) {
                 signingConfigs.getByName("debug")
+            } else {
+                throw GradleException(
+                    "Release keystore tapılmadı (android/key.properties yoxdur). " +
+                    "Yerli test üçün debug imzasına keçmək istəyirsinizsə " +
+                    "-PallowDebugSigning=true ilə işə salın."
+                )
             }
         }
     }

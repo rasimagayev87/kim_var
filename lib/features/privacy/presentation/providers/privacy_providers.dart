@@ -19,7 +19,6 @@ import '../../domain/usecases/update_birthday_offers_opt_in_usecase.dart';
 import '../../domain/usecases/update_ghost_mode_usecase.dart';
 import '../../domain/usecases/update_incognito_browsing_usecase.dart';
 import '../../domain/usecases/update_profile_visibility_usecase.dart';
-import '../../domain/usecases/update_show_online_status_usecase.dart';
 import '../../domain/usecases/update_show_read_receipts_usecase.dart';
 import '../../domain/usecases/update_two_factor_enabled_usecase.dart';
 import '../../domain/usecases/update_visibility_radius_usecase.dart';
@@ -39,10 +38,6 @@ final updateAccountPrivacyUseCaseProvider = Provider<UpdateAccountPrivacyUseCase
 
 final updateVisibilityRadiusUseCaseProvider = Provider<UpdateVisibilityRadiusUseCase>((ref) {
   return UpdateVisibilityRadiusUseCase(ref.watch(privacySettingsRepositoryProvider));
-});
-
-final updateShowOnlineStatusUseCaseProvider = Provider<UpdateShowOnlineStatusUseCase>((ref) {
-  return UpdateShowOnlineStatusUseCase(ref.watch(privacySettingsRepositoryProvider));
 });
 
 final updateShowReadReceiptsUseCaseProvider = Provider<UpdateShowReadReceiptsUseCase>((ref) {
@@ -124,10 +119,6 @@ class PrivacySettingsController {
 
   Future<bool> updateVisibilityRadius(VisibilityRadiusMode mode, {double? radiusKm}) {
     return _run((uid) => _ref.read(updateVisibilityRadiusUseCaseProvider).call(uid: uid, mode: mode, radiusKm: radiusKm));
-  }
-
-  Future<bool> updateShowOnlineStatus(bool show) {
-    return _run((uid) => _ref.read(updateShowOnlineStatusUseCaseProvider).call(uid: uid, show: show));
   }
 
   Future<bool> updateShowReadReceipts(bool show) {

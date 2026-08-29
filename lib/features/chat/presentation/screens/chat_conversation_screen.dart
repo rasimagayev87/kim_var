@@ -3,7 +3,6 @@ import 'dart:io';
 import 'dart:ui';
 
 import 'package:audioplayers/audioplayers.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -18,6 +17,7 @@ import '../../../app_config/presentation/providers/app_config_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/utils/private_data_ref.dart';
 import '../../../../core/utils/relative_time_formatter.dart';
 import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/friendly_error_state.dart';
@@ -66,7 +66,12 @@ class _ChatHeader extends StatelessWidget {
   final String statusText;
   final bool statusIsLive;
   final VoidCallback onBack;
-  final VoidCallback onTapProfile;
+  /// Null when the peer's profile is unreachable — blocked (Düzəliş
+  /// Prompt 5 / K-3) or deleted — same "İstifadəçi" + grey avatar
+  /// fallback [peerName]/[peerPhoto] already show; a null callback
+  /// disables the tap gesture instead of pushing a "Hesab tapılmadı"
+  /// screen for a name the user can already see right here.
+  final VoidCallback? onTapProfile;
   final VoidCallback onCall;
   final VoidCallback onVideoCall;
   final String callLabel;
@@ -427,16 +432,17 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
   }
 
   /// Server-visible "am I looking at this chat right now" flag —
-  /// `onChatMessageCreated` (Cloud Function) reads `users/{uid}.
-  /// activeChatId` to skip a push for a chat the recipient already has
-  /// open, so an incoming message doesn't also buzz their phone. Purely
-  /// best-effort like the rest of this screen's presence bookkeeping
-  /// (`_isForeground`) — a lost race just means one push shows or gets
-  /// skipped when it ideally wouldn't, never a correctness issue.
+  /// `onChatMessageCreated` (Cloud Function) reads `users/{uid}/private/
+  /// data.activeChatId` (Düzəliş Prompt 4) to skip a push for a chat the
+  /// recipient already has open, so an incoming message doesn't also
+  /// buzz their phone. Purely best-effort like the rest of this
+  /// screen's presence bookkeeping (`_isForeground`) — a lost race just
+  /// means one push shows or gets skipped when it ideally wouldn't,
+  /// never a correctness issue.
   void _setActiveChatId(String? chatId) {
     final uid = _myUid;
     if (uid == null) return;
-    unawaited(FirebaseFirestore.instance.collection('users').doc(uid).update({'activeChatId': chatId}));
+    unawaited(privateDataRef(uid).update({'activeChatId': chatId}));
   }
 
   /// Debounced so a screen that's opened and immediately swiped back
@@ -656,20 +662,22 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                   peerIdentityVerified: peer?.identityVerified ?? false,
                   peerPremium: peer?.premium ?? false,
                   onBack: () => Navigator.pop(context),
-                  onTapProfile: () async {
-                    if (!context.mounted) return;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => UserProfileScreen(
-                          uid: widget.otherUid,
-                          initialName: peerName,
-                          initialPhotoUrl: peerPhoto,
-                          chatId: _chatId,
-                        ),
-                      ),
-                    );
-                  },
+                  onTapProfile: peer == null
+                      ? null
+                      : () {
+                          if (!context.mounted) return;
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => UserProfileScreen(
+                                uid: widget.otherUid,
+                                initialName: peerName,
+                                initialPhotoUrl: peerPhoto,
+                                chatId: _chatId,
+                              ),
+                            ),
+                          );
+                        },
                   onCall: () => _startCall(video: false),
                   onVideoCall: () => _startCall(video: true),
                   callLabel: loc.chatVoiceCallLabel,
@@ -1872,6 +1880,11 @@ class _ComposerState extends ConsumerState<_Composer> {
                                   onChanged: widget.onChanged,
                                   minLines: 1,
                                   maxLines: 5,
+                                  // Matches firestore.rules' new `text.size() <= 2000`
+                                  // (Düzəliş Prompt 8 / RT-2) — no visible counter,
+                                  // same silent-cap UX as a normal chat input.
+                                  maxLength: 2000,
+                                  buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
                                   style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
                                   cursorColor: AppColors.primary,
                                   decoration: InputDecoration(

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 
 import '../../../../../core/utils/app_logger.dart';
+import '../../../../../core/utils/private_data_ref.dart';
 import '../../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/repositories/firebase_notification_preferences_repository.dart';
 import '../../domain/entities/notification_preferences.dart';
@@ -146,10 +147,11 @@ class NotificationPreferencesController {
     }
   }
 
-  /// Stores this device's current token on `users/{uid}.fcmTokens`
-  /// (an array — a signed-in-on-multiple-devices user should get pushes
-  /// on all of them) and keeps listening for token refreshes, which
-  /// FCM issues periodically/on reinstall for the lifetime of the app.
+  /// Stores this device's current token on `users/{uid}/private/data.
+  /// fcmTokens` (Düzəliş Prompt 4 — an array; a signed-in-on-multiple-
+  /// devices user should get pushes on all of them) and keeps listening
+  /// for token refreshes, which FCM issues periodically/on reinstall
+  /// for the lifetime of the app.
   Future<void> _registerFcmToken(String uid) async {
     final token = await FirebaseMessaging.instance.getToken();
     if (token != null) {
@@ -162,7 +164,7 @@ class NotificationPreferencesController {
 
   Future<void> _addToken(String uid, String token) async {
     try {
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+      await privateDataRef(uid).update({
         'fcmTokens': FieldValue.arrayUnion([token]),
       });
     } catch (e, st) {
@@ -183,7 +185,7 @@ class NotificationPreferencesController {
     try {
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null) return;
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+      await privateDataRef(uid).update({
         'fcmTokens': FieldValue.arrayRemove([token]),
       });
     } catch (e, st) {

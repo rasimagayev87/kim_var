@@ -5,6 +5,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
+import '../../../../core/utils/exif_stripper.dart';
 import 'offer_remote_datasource.dart';
 
 /// Same field name/shape as `kVenueGeoField` in the venues feature —
@@ -28,9 +29,6 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
 
   @override
   Future<void> setOffer(String offerId, Map<String, dynamic> data) => _offers.doc(offerId).set(data);
-
-  @override
-  Future<void> updateOffer(String offerId, Map<String, dynamic> data) => _offers.doc(offerId).update(data);
 
   @override
   Future<void> deleteOffer(String offerId) => _offers.doc(offerId).delete();
@@ -94,13 +92,16 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
 
   @override
   Future<String> uploadOfferPhoto(
+    String ownerId,
     String offerId,
     File photo, {
     ValueChanged<double>? onProgress,
     ValueChanged<VoidCallback>? onTaskReady,
   }) async {
-    final storageRef = _storage.ref('offer_photos/$offerId.jpg');
-    final task = storageRef.putFile(photo, SettableMetadata(contentType: 'image/jpeg'));
+    final storageRef = _storage.ref('offer_photos/$ownerId/$offerId.jpg');
+    // GPS EXIF strip (Düzəliş Prompt 3 / C#43).
+    final stripped = await stripExifIfImage(photo);
+    final task = storageRef.putFile(stripped, SettableMetadata(contentType: 'image/jpeg'));
 
     onTaskReady?.call(task.cancel);
 
@@ -117,9 +118,9 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
   }
 
   @override
-  Future<void> deleteOfferPhoto(String offerId) async {
+  Future<void> deleteOfferPhoto(String ownerId, String offerId) async {
     try {
-      await _storage.ref('offer_photos/$offerId.jpg').delete();
+      await _storage.ref('offer_photos/$ownerId/$offerId.jpg').delete();
     } on FirebaseException catch (e) {
       if (e.code != 'object-not-found') rethrow;
     }

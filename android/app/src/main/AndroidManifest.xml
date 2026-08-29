@@ -29,12 +29,13 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">
-        <!-- TODO: replace with your own key from Google Cloud Console
-             (enable "Maps SDK for Android" + billing). Without a valid
-             key the map will show a grey grid instead of real map tiles. -->
+        <!-- Real key, restricted to this app's package name + SHA-1
+             fingerprints (debug and release) and to Maps SDK for
+             Android + Geocoding API only — see android/key.properties
+             (gitignored) and build.gradle.kts's manifestPlaceholders. -->
         <meta-data
             android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyD0qRdS8RnMv1QxdApvEBjZQwmh55xPf_8"/>
+            android:value="${mapsApiKey}"/>
         <!-- Branch (deferred deep linking). From the Branch dashboard:
              Settings (ACCOUNT section) -> Profile -> "Branch Key and
              Secret" -> Branch Key. Do NOT put the Branch Secret here

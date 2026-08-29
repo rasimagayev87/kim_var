@@ -67,6 +67,7 @@ class FirebaseAppConfigRepository implements AppConfigRepository {
       supportPhone: _dataSource.getString('support_phone'),
       radiusOptionsKm: _parseRadiusOptions(_dataSource.getString('radius_options_json')),
       vipRadiusThresholdM: _dataSource.getDouble('vip_radius_threshold_m'),
+      nearbyRefreshSeconds: _dataSource.getInt('nearby_refresh_seconds'),
       socialInstagramUrl: _dataSource.getString('social_instagram_url'),
       socialTiktokUrl: _dataSource.getString('social_tiktok_url'),
     );

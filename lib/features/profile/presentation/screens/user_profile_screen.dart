@@ -16,6 +16,7 @@ import '../../../follow/presentation/providers/follow_providers.dart';
 import '../../../follow/presentation/screens/follow_list_screen.dart';
 import '../../../follow/presentation/widgets/follow_action_button.dart';
 import '../../../home/presentation/tabs/profile_tab.dart';
+import '../../domain/entities/public_profile.dart';
 import '../../../location/presentation/providers/presence_provider.dart';
 import '../../../post_share/presentation/providers/post_providers.dart';
 import '../../../privacy/domain/entities/privacy_settings.dart';
@@ -78,14 +79,120 @@ class UserProfileScreen extends ConsumerWidget {
     ref.watch(recordProfileVisitProvider(uid));
     ref.watch(presenceTickProvider); // forces re-evaluation of isRecentlyActive as time passes
 
-    final loc = AppLocalizations.of(context);
     final profileAsync = ref.watch(publicProfileProvider(uid));
-    final profile = profileAsync.valueOrNull;
 
-    final displayName = (profile?.name ?? initialName ?? '').isEmpty
-        ? loc.defaultUserName
-        : (profile?.name ?? initialName)!;
-    final photoUrl = profile?.photoUrl ?? initialPhotoUrl;
+    // Düzəliş Prompt 5 (K-3) — `.valueOrNull` alone can't tell "still
+    // loading" apart from "genuinely absent" (both read as `null`),
+    // which is exactly what's needed here: a blocked profile (denied by
+    // `firestore.rules`) and a deleted/nonexistent one must show the
+    // SAME "Hesab tapılmadı" screen, with no menu/stats/grid rendered
+    // at all — never a half-populated shell with a working Block/Report
+    // menu for an account that, from this viewer's side, doesn't exist.
+    return profileAsync.when(
+      loading: () => const _ProfileLoadingScaffold(),
+      error: (_, _) => const _ProfileNotFoundScaffold(),
+      data: (profile) {
+        if (profile == null) return const _ProfileNotFoundScaffold();
+        return _OtherProfileBody(
+          uid: uid,
+          profile: profile,
+          initialName: initialName,
+          initialPhotoUrl: initialPhotoUrl,
+          chatId: chatId,
+        );
+      },
+    );
+  }
+}
+
+class _ProfileLoadingScaffold extends StatelessWidget {
+  const _ProfileLoadingScaffold();
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.topLeft,
+            child: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+            ),
+          ),
+          const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Shown for a blocked profile AND a genuinely deleted/nonexistent one
+/// — deliberately indistinguishable (see `UserProfileScreen.build`'s
+/// own doc comment). No menu, no stats, no media grid: there is nothing
+/// here for this viewer to interact with either way.
+class _ProfileNotFoundScaffold extends StatelessWidget {
+  const _ProfileNotFoundScaffold();
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    return SafeArea(
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.topLeft,
+            child: IconButton(
+              onPressed: () => Navigator.pop(context),
+              icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+            ),
+          ),
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 36),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.person_off_outlined, color: ChatLightColors.inkFaint, size: 40),
+                  const SizedBox(height: 16),
+                  Text(
+                    loc.profileNotFoundTitle,
+                    style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The full "someone else's profile" layout — only ever built once
+/// [PublicProfile] has actually resolved, so nothing here needs a null
+/// check on `profile` itself (unlike the old combined build method).
+class _OtherProfileBody extends ConsumerWidget {
+  final String uid;
+  final PublicProfile profile;
+  final String? initialName;
+  final String? initialPhotoUrl;
+  final String? chatId;
+
+  const _OtherProfileBody({
+    required this.uid,
+    required this.profile,
+    required this.initialName,
+    required this.initialPhotoUrl,
+    required this.chatId,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final loc = AppLocalizations.of(context);
+    final displayName = profile.name.isEmpty ? (initialName?.isNotEmpty == true ? initialName! : loc.defaultUserName) : profile.name;
+    final photoUrl = profile.photoUrl ?? initialPhotoUrl;
 
     final followingCount = ref.watch(followingCountProvider(uid)).valueOrNull ?? 0;
     final followersCount = ref.watch(followersCountProvider(uid)).valueOrNull ?? 0;
@@ -136,11 +243,11 @@ class UserProfileScreen extends ConsumerWidget {
                                 textAlign: TextAlign.center,
                               ),
                             ),
-                            if (profile != null && (profile.identityVerified || profile.premium)) ...[
+                            if (profile.identityVerified || profile.premium) ...[
                               const SizedBox(width: 6),
                               VerificationBadges(identityVerified: profile.identityVerified, premium: profile.premium),
                             ],
-                            if (profile?.isRecentlyActive == true) ...[
+                            if (profile.isRecentlyActive) ...[
                               const SizedBox(width: 8),
                               Container(
                                 width: 9,
@@ -151,11 +258,11 @@ class UserProfileScreen extends ConsumerWidget {
                           ],
                         ),
                       ),
-                      if ((profile?.username ?? '').isNotEmpty) ...[
+                      if ((profile.username ?? '').isNotEmpty) ...[
                         const SizedBox(height: 3),
                         Center(
                           child: Text(
-                            '@${profile!.username}',
+                            '@${profile.username}',
                             style: GoogleFonts.manrope(
                               fontSize: 13.5,
                               color: ChatLightColors.inkSoft,
@@ -185,9 +292,9 @@ class UserProfileScreen extends ConsumerWidget {
                         displayName: displayName,
                         photoUrl: photoUrl,
                       ),
-                      if ((profile?.bio ?? '').isNotEmpty) ...[
+                      if (profile.bio.isNotEmpty) ...[
                         const SizedBox(height: 24),
-                        Text(profile!.bio, style: const TextStyle(fontSize: 14.5, height: 1.5, color: ChatLightColors.ink)),
+                        Text(profile.bio, style: const TextStyle(fontSize: 14.5, height: 1.5, color: ChatLightColors.ink)),
                       ],
                       const SizedBox(height: 20),
                       const PostsDivider(),

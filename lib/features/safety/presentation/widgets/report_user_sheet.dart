@@ -124,6 +124,9 @@ class _ReportUserSheetState extends ConsumerState<_ReportUserSheet> {
                 controller: _otherReasonController,
                 maxLines: 3,
                 autofocus: true,
+                // Matches firestore.rules' new `reason.size() <= 1000`
+                // (Düzəliş Prompt 8 / RT-2, shared by reports/eventReports/reviewReports).
+                maxLength: 1000,
                 onChanged: (_) => setState(() {}),
                 style: AppTextStyles.body.copyWith(fontSize: 15),
                 decoration: InputDecoration(hintText: loc.chatReportReasonHint),

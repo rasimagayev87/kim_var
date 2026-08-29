@@ -307,9 +307,22 @@ class _MyVenueCard extends ConsumerWidget {
     final loc = AppLocalizations.of(context);
     final needsRevision = venue.status == 'needs_revision';
     final awaitingFirstPayment = venue.status == 'awaiting_payment';
-    final isOverdue = venue.status == 'approved' &&
-        venue.subscriptionRenewsAt != null &&
-        venue.subscriptionRenewsAt!.isBefore(DateTime.now());
+    // Düzəliş Prompt 6 / PAY-10 — `subscription_overdue` (set by
+    // `renewVenueSubscriptions` once a venue has been unpaid past the
+    // grace window) is, by definition, always overdue — no need to
+    // separately check `subscriptionRenewsAt` for that branch. Keeping
+    // the SAME banner/pay-button (`_SubscriptionOverdueBanner`) visible
+    // for both `approved`-but-overdue AND `subscription_overdue` is
+    // what actually matters here: `retryVenueSubscriptionPayment`
+    // itself never checks `status` at all, so the owner's only way
+    // back in is this UI still showing the "Ödə" button once suspended
+    // — if this condition stayed `status == 'approved'` only, a
+    // suspended venue would lose its own recovery path from the app.
+    final isSubscriptionSuspended = venue.status == 'subscription_overdue';
+    final isOverdue = isSubscriptionSuspended ||
+        (venue.status == 'approved' &&
+            venue.subscriptionRenewsAt != null &&
+            venue.subscriptionRenewsAt!.isBefore(DateTime.now()));
 
     return Material(
       color: Colors.white,
@@ -389,7 +402,10 @@ class _MyVenueCard extends ConsumerWidget {
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              if (venue.status == 'pending' || needsRevision || awaitingFirstPayment)
+                              if (venue.status == 'pending' ||
+                                  needsRevision ||
+                                  awaitingFirstPayment ||
+                                  isSubscriptionSuspended)
                                 _ModerationStatusBadge(status: venue.status)
                               else
                                 _OpenStatusBadge(
@@ -489,6 +505,7 @@ class _ModerationStatusBadge extends StatelessWidget {
         switch (status) {
           'needs_revision' => loc.moderationStatusNeedsRevision,
           'awaiting_payment' => loc.moderationStatusAwaitingPayment,
+          'subscription_overdue' => loc.moderationStatusSubscriptionOverdue,
           _ => loc.moderationStatusPending,
         },
         style: const TextStyle(

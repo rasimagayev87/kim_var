@@ -212,7 +212,12 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
 
     final loc = AppLocalizations.of(context);
 
-    final success = await ref.read(pinboxControllerProvider).updatePinBox(
+    // The `updatePinBox` Cloud Function decides atomically, server-side,
+    // whether this edit needs to re-enter moderation — same reasoning
+    // as CreateVenueScreen._submitEdit, just without the separate
+    // client-side `resubmitPinBox` call this used to need (see that
+    // Cloud Function's own doc comment, functions/src/index.ts).
+    final (:success, :sentForReReview) = await ref.read(pinboxControllerProvider).updatePinBox(
           pinboxId: widget.existingPinBox!.id,
           title: _titleController.text,
           description: _descriptionController.text,
@@ -238,20 +243,6 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
           onUploadTaskReady: (cancel) => _cancelUpload = cancel,
         );
 
-    // An `active` PinBox re-enters moderation on edit, same "no silent
-    // content swap on a live listing" reasoning as venues/offers — see
-    // `resubmitPinBox`'s own doc comment. `needs_revision` is the other
-    // eligible starting status: fixing what the admin flagged and
-    // saving here is what actually moves it back to `pending` for
-    // re-review, exactly like `resubmitVenue`/`resubmitOffer`'s own
-    // `needs_revision` branch. Best-effort, same contract as
-    // `VenueController.resubmitVenue`.
-    final wasEligibleForResubmit =
-        widget.existingPinBox?.status == 'active' || widget.existingPinBox?.status == 'needs_revision';
-    if (success && wasEligibleForResubmit) {
-      await ref.read(pinboxControllerProvider).resubmitPinBox(widget.existingPinBox!.id);
-    }
-
     if (!mounted) return;
     setState(() {
       _submitting = false;
@@ -261,7 +252,7 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(wasEligibleForResubmit ? loc.pinboxSentForReReviewNotice : loc.pinboxUpdatedNotice)),
+        SnackBar(content: Text(sentForReReview ? loc.pinboxSentForReReviewNotice : loc.pinboxUpdatedNotice)),
       );
       Navigator.pop(context);
     }

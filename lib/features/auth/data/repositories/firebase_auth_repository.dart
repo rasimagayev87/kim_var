@@ -2,12 +2,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/utils/private_data_ref.dart';
 import '../../../legal/legal_versions.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -16,14 +18,17 @@ import '../../domain/repositories/auth_repository.dart';
 class FirebaseAuthRepository implements AuthRepository {
   final fb.FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
+  final FirebaseFunctions _functions;
   final GoogleSignIn _googleSignIn;
 
   FirebaseAuthRepository({
     fb.FirebaseAuth? auth,
     FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
     GoogleSignIn? googleSignIn,
   })  : _auth = auth ?? fb.FirebaseAuth.instance,
         _firestore = firestore ?? FirebaseFirestore.instance,
+        _functions = functions ?? FirebaseFunctions.instance,
         _googleSignIn = googleSignIn ?? GoogleSignIn();
 
   final _controller = StreamController<AppUser?>.broadcast();
@@ -98,44 +103,49 @@ class FirebaseAuthRepository implements AuthRepository {
     // profile was completed.
     if (data == null || data['username'] == null) return null;
 
-    unawaited(_maybeWriteVersionTelemetry(user.uid, data));
+    // `phoneNumber`/`birthDate`/`gender` moved to `users/{uid}/private/
+    // data` (Düzəliş Prompt 4) — this is a self-read (the signed-in
+    // user's own doc), always allowed.
+    final privateData = (await privateDataRef(user.uid, firestore: _firestore).get()).data() ?? {};
+
+    unawaited(_maybeWriteVersionTelemetry(user.uid, privateData));
 
     return AppUser(
       id: user.uid,
       firstName: data['firstName'] as String? ?? '',
       lastName: data['lastName'] as String? ?? '',
       username: data['username'] as String?,
-      email: data['email'] as String? ?? user.email,
-      phone: data['phoneNumber'] as String?,
-      birthDate: (data['birthDate'] as Timestamp?)?.toDate(),
-      gender: data['gender'] as String?,
+      email: (privateData['email'] as String?) ?? user.email,
+      phone: privateData['phoneNumber'] as String?,
+      birthDate: (privateData['birthDate'] as Timestamp?)?.toDate(),
+      gender: privateData['gender'] as String?,
       loginProvider: _providerFrom(user),
     );
   }
 
   /// Writes `appVersion`/`buildNumber`/`platform`/`osVersion`/
-  /// `lastSeenAt` onto `users/{uid}` — but only when the installed
-  /// version has actually changed since [existingUserData] was last
-  /// written, or it's been >24h since [existingUserData]'s own
-  /// `lastSeenAt`, not on every single restore/resume. This is the
-  /// only source of "which app version is actually still out there"
-  /// (see the admin panel's version-breakdown view, planned
-  /// separately) that the post-launch backward-compatibility policy
-  /// depends on to decide when it's safe to drop a legacy field —
-  /// best-effort, never surfaced as an error to the caller.
-  Future<void> _maybeWriteVersionTelemetry(String uid, Map<String, dynamic> existingUserData) async {
+  /// `lastSeenAt` onto `users/{uid}/private/data` (Düzəliş Prompt 4) —
+  /// but only when the installed version has actually changed since
+  /// [existingPrivateData] was last written, or it's been >24h since
+  /// [existingPrivateData]'s own `lastSeenAt`, not on every single
+  /// restore/resume. This is the only source of "which app version is
+  /// actually still out there" (see the admin panel's version-breakdown
+  /// view, planned separately) that the post-launch backward-
+  /// compatibility policy depends on to decide when it's safe to drop a
+  /// legacy field — best-effort, never surfaced as an error to the caller.
+  Future<void> _maybeWriteVersionTelemetry(String uid, Map<String, dynamic> existingPrivateData) async {
     try {
       final info = await PackageInfo.fromPlatform();
       final currentVersion = info.version;
 
-      final storedVersion = existingUserData['appVersion'] as String?;
-      final storedLastSeenAt = existingUserData['lastSeenAt'] as Timestamp?;
+      final storedVersion = existingPrivateData['appVersion'] as String?;
+      final storedLastSeenAt = existingPrivateData['lastSeenAt'] as Timestamp?;
       final staleByTime =
           storedLastSeenAt == null || DateTime.now().difference(storedLastSeenAt.toDate()) > const Duration(hours: 24);
 
       if (storedVersion == currentVersion && !staleByTime) return;
 
-      await _firestore.collection('users').doc(uid).set({
+      await privateDataRef(uid, firestore: _firestore).set({
         'appVersion': currentVersion,
         'buildNumber': info.buildNumber,
         'platform': Platform.operatingSystem,
@@ -231,6 +241,23 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
+  Future<void> resendEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw StateError('E-poçt təsdiqini yenidən göndərmək üçün giriş edilməlidir.');
+    }
+    await user.sendEmailVerification();
+  }
+
+  @override
+  Future<bool> reloadAndCheckEmailVerified() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    await user.reload();
+    return _auth.currentUser?.emailVerified ?? false;
+  }
+
+  @override
   Future<void> updateUsername({
     required String oldUsername,
     required String newUsername,
@@ -283,56 +310,43 @@ class FirebaseAuthRepository implements AuthRepository {
     }
 
     final normalizedUsername = username.trim();
-    await _writeUsernameReservationWithRetry(normalizedUsername.toLowerCase(), {
-      'uid': user.uid,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
 
-    await _firestore.collection('users').doc(user.uid).set({
-      'uid': user.uid,
-      'username': normalizedUsername,
-      'loginProvider': _providerFrom(user).name,
-      if (user.email != null) 'email': user.email,
-      'phoneNumber': phoneNumber,
-      'firstName': firstName,
-      'lastName': lastName,
-      // Lowercase copy of the display name, kept in sync wherever
-      // firstName/lastName can change (see `ProfileController.save`)
-      // — lets the discover/search screen prefix-match names via a
-      // plain Firestore range query, since Firestore can't do
-      // case-insensitive matching on the raw display-cased fields.
-      'nameLower': '$firstName $lastName'.trim().toLowerCase(),
-      'birthDate': Timestamp.fromDate(birthDate),
-      'gender': gender,
-      'bio': bio ?? '',
-      'country': country,
-      'city': city,
-      'businessStatus': businessStatus,
-      // The consent checkbox that gates the sign-in screen's 3
-      // provider buttons (AuthScreen) already confirmed acceptance of
-      // the CURRENT legal doc versions before this session's sign-in
-      // even started — nothing else could have reached this point.
-      'consent': {
-        'termsAccepted': true,
-        'acceptedAt': FieldValue.serverTimestamp(),
+    // The `users/{uid}` document is created server-side now, not written
+    // directly here — `completeOnboarding` (Cloud Function) is the ONLY
+    // place the minimum-age check (18+) can run somewhere a modified
+    // client can't skip; see that function's own doc comment. It also
+    // reserves the username atomically (one transaction, not the
+    // two-step reservation-then-profile-write this used to be), and is
+    // idempotent — a retried call after a dropped response is a no-op
+    // success, not a duplicate-create error.
+    try {
+      await _functions.httpsCallable('completeOnboarding').call<Map<String, dynamic>>({
+        'username': normalizedUsername,
+        'firstName': firstName,
+        'lastName': lastName,
+        'birthDateMs': birthDate.millisecondsSinceEpoch,
+        'gender': gender,
+        'country': country,
+        'city': city,
+        'phoneNumber': phoneNumber,
+        'businessStatus': businessStatus,
+        'bio': bio ?? '',
+        // The consent checkbox that gates the sign-in screen's 3
+        // provider buttons (AuthScreen) already confirmed acceptance of
+        // the CURRENT legal doc versions before this session's sign-in
+        // even started — nothing else could have reached this point.
         'termsVersion': kCurrentTermsVersion,
         'privacyVersion': kCurrentPrivacyVersion,
-      },
-      // `premium` is deliberately NOT set here — a grant-of-privilege
-      // field firestore.rules forbids the client from ever writing
-      // (even to its own default `false`), so the account doc simply
-      // starts without it. Every read site already treats an absent
-      // field as `false` (see UserProfile/premium_providers).
-      'online': true,
-      'friendCount': 0,
-      'eventCount': 0,
-      'blockedUsers': <String>[],
-      'reportedCount': 0,
-      'starCount': 0,
-      'heartCount': 0,
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+      });
+    } on FirebaseFunctionsException catch (e) {
+      if (e.code == 'failed-precondition') {
+        throw const UnderageOnboardingException();
+      }
+      if (e.code == 'permission-denied' && e.message == 'email-not-verified') {
+        throw const EmailNotVerifiedException();
+      }
+      rethrow;
+    }
 
     _needsOnboarding = false;
 

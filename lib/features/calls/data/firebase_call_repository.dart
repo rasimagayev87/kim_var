@@ -6,6 +6,8 @@ import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_webrtc/flutter_webrtc.dart';
 
 import '../../../core/utils/app_logger.dart';
+import '../../safety/data/firebase_safety_repository.dart';
+import '../../safety/domain/safety_repository.dart';
 import '../domain/call_repository.dart';
 import '../domain/entities/call_session.dart';
 
@@ -21,12 +23,14 @@ import '../domain/entities/call_session.dart';
 /// maps below exist mainly to make cleanup on end/decline unambiguous
 /// rather than to support real concurrency.
 class FirebaseCallRepository implements CallRepository {
-  FirebaseCallRepository({FirebaseFirestore? firestore, FirebaseFunctions? functions})
+  FirebaseCallRepository({FirebaseFirestore? firestore, FirebaseFunctions? functions, SafetyRepository? safetyRepository})
       : _firestore = firestore ?? FirebaseFirestore.instance,
-        _functions = functions ?? FirebaseFunctions.instance;
+        _functions = functions ?? FirebaseFunctions.instance,
+        _safetyRepository = safetyRepository ?? FirebaseSafetyRepository(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
+  final SafetyRepository _safetyRepository;
 
   CollectionReference<Map<String, dynamic>> get _calls => _firestore.collection('calls');
 
@@ -113,6 +117,17 @@ class FirebaseCallRepository implements CallRepository {
   Future<CallSession> startCall({required String receiverId, required CallType type}) async {
     final uid = _myUid;
     if (uid == null) throw StateError('startCall requires a signed-in user');
+
+    // Düzəliş Prompt 5 (K-3/RT-14) — checked BEFORE opening the local
+    // camera/mic stream below, not after: no reason to prompt for
+    // media permissions (or hold the hardware open) for a call that's
+    // going to be rejected anyway. `firestore.rules`' own `calls/create`
+    // check is the real enforcement — this is the same "give a real
+    // error instead of a raw permission-denied" pre-check pattern
+    // `FirebaseChatRepository._sendMessage` already uses.
+    if (await _safetyRepository.isBlockedPair(uid, receiverId)) {
+      throw StateError('blocked');
+    }
 
     final callDoc = _calls.doc();
     final callId = callDoc.id;

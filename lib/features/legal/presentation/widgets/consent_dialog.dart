@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../../core/utils/private_data_ref.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'consent_checkbox_row.dart';
 
@@ -32,7 +33,8 @@ Future<void> checkAndShowConsentDialogIfNeeded(BuildContext context, WidgetRef r
     final currentPrivacy = configSnap.data()?['currentPrivacyVersion'] as String?;
     if (currentTerms == null || currentPrivacy == null) return;
 
-    final userSnap = await firestore.collection('users').doc(uid).get();
+    // `consent` lives on `users/{uid}/private/data` (Düzəliş Prompt 4).
+    final userSnap = await privateDataRef(uid, firestore: firestore).get();
     final consent = (userSnap.data()?['consent'] as Map?)?.cast<String, dynamic>();
     final userTerms = consent?['termsVersion'] as String?;
     final userPrivacy = consent?['privacyVersion'] as String?;
@@ -68,7 +70,7 @@ class _ConsentDialogState extends ConsumerState<_ConsentDialog> {
   Future<void> _accept() async {
     setState(() => _submitting = true);
     try {
-      await FirebaseFirestore.instance.collection('users').doc(widget.uid).set({
+      await privateDataRef(widget.uid).set({
         'consent': {
           'termsAccepted': true,
           'acceptedAt': FieldValue.serverTimestamp(),

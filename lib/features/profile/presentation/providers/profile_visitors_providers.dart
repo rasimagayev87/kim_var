@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/utils/private_data_ref.dart';
+
 /// A visitor entry: who viewed the profile, and when. Display info
 /// (name/photo) is resolved separately per-uid via [publicProfileProvider]
 /// — this feature only owns the "who + when" list, not a duplicate copy
@@ -25,8 +27,9 @@ final recordProfileVisitProvider = FutureProvider.autoDispose.family<void, Strin
 
   // "Gizli baxış" (VIP incognito browsing) — a viewer with this on
   // leaves no trace, so the write below is skipped entirely rather
-  // than written-then-hidden. See `PrivacySettings.incognitoBrowsingEnabled`.
-  final myDoc = await FirebaseFirestore.instance.collection('users').doc(myUid).get();
+  // than written-then-hidden. See `PrivacySettings.incognitoBrowsingEnabled`
+  // (`users/{uid}/private/data` since Düzəliş Prompt 4).
+  final myDoc = await privateDataRef(myUid).get();
   final incognito = myDoc.data()?['incognitoBrowsingEnabled'] as bool? ?? false;
   if (incognito) return;
 
@@ -47,7 +50,7 @@ final recordProfileVisitProvider = FutureProvider.autoDispose.family<void, Strin
 final lastVisitorsCheckedAtProvider = StreamProvider.autoDispose<DateTime?>((ref) {
   final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
   if (myUid == null) return Stream.value(null);
-  return FirebaseFirestore.instance.collection('users').doc(myUid).snapshots().map(
+  return privateDataRef(myUid).snapshots().map(
         (snap) => (snap.data()?['lastVisitorsCheckedAt'] as Timestamp?)?.toDate(),
       );
 });
@@ -58,10 +61,7 @@ final lastVisitorsCheckedAtProvider = StreamProvider.autoDispose<DateTime?>((ref
 final markVisitorsCheckedProvider = FutureProvider.autoDispose<void>((ref) async {
   final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
   if (myUid == null) return;
-  await FirebaseFirestore.instance
-      .collection('users')
-      .doc(myUid)
-      .set({'lastVisitorsCheckedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+  await privateDataRef(myUid).set({'lastVisitorsCheckedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
 });
 
 const _kProfileVisitorsWindow = Duration(days: 30);

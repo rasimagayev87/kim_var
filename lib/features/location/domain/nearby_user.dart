@@ -11,10 +11,6 @@ class NearbyUser {
   final double distanceMeters;
   final bool online;
   final int? age;
-  final String? gender;
-  final int starCount;
-  final int heartCount;
-  final int dislikeCount;
   final DateTime? lastSeen;
 
   const NearbyUser({
@@ -28,10 +24,6 @@ class NearbyUser {
     this.photoUrl,
     this.online = false,
     this.age,
-    this.gender,
-    this.starCount = 0,
-    this.heartCount = 0,
-    this.dislikeCount = 0,
     this.lastSeen,
   });
 
