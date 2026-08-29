@@ -27,8 +27,23 @@ export async function proxy(request: NextRequest) {
 
   if (pathname === "/login") {
     // Already signed in with a valid session — no reason to show the
-    // login form again.
-    const session = await verifySessionCookie(cookieValue);
+    // login form again. Deliberately `checkRevoked: true` here (unlike
+    // the general per-request check below) — this path only runs on an
+    // actual /login visit, not every navigation, so the extra network
+    // round-trip is cheap. It matters because a cookie can be
+    // cryptographically valid (unexpired, correctly signed) for a
+    // Firebase user that no longer exists — e.g. an admin's Auth
+    // account got deleted while their browser still held a live
+    // session. With `checkRevoked: false` (this file's own default,
+    // still correct for the general check), that stale cookie reads as
+    // "valid" here and redirects to /dashboard, while `getCurrentAdmin`
+    // there (lib/auth/server.ts, `checkRevoked: true`) correctly
+    // detects the account is gone and redirects back to /login — an
+    // infinite loop between the two, confirmed via a live isolated test
+    // (mint a cookie, delete the user, compare both checks) while
+    // diagnosing exactly this. Using the same stricter check here
+    // breaks the cycle at its source instead of only downstream.
+    const session = await verifySessionCookie(cookieValue, { checkRevoked: true });
     if (session) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
