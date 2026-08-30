@@ -330,3 +330,38 @@ borcuna görə dayandırılmış məkanda təhvili bloklamaq **alıcını**
 cəzalandırardı — sifariş artıq ödənilib.
 
 **Təxmini iş həcmi:** ~2 saat (qərar veriləndən sonra).
+
+## 20. Kəşf namizədləri ban statusunu yoxlamır
+
+**Mənbə:** öz-doğrulama / d4 araşdırması (2026-08-30)
+**Nə:** `findNearbyUsers` və `getDiscoverCandidates` namizədləri
+bloklanma, ghost mode, onlayn olma, məsafə və cins üzrə süzür —
+**ban statusu üzrə yox**. `bannedUsers` yalnız `assertActiveUser`-də,
+yəni ÇAĞIRAN üçün oxunur.
+
+**Nəticə:** banlanmış hesab öz `online`/`lastSeen` sahələrini
+yazmağa davam etdiyi müddətcə başqalarının Kəşf et nəticələrində
+qalır. Praktikada pəncərə ~1 saatdır (`disabled: true` +
+`revokeRefreshTokens` yeni token verilməsini dayandırır, mövcud
+token isə bitənə qədər yaşayır), amma bu, aşağıdakı ikinci
+tapıntı ilə birləşəndə uzanır.
+
+**İkinci, daha ciddi tapıntı — eyni sinif:** `getDiscoverCandidates`
+sorğusu `where("online", "==", true)` yazır və **bayatlıq süzgəci
+tətbiq etmir**. `findNearbyUsers` isə `isRecentlyOnlineServer`-i
+tətbiq edir — həmin funksiyanın öz şərhi məqsədi açıq deyir:
+*"a stale `online: true` write (crash/force-quit before the client
+could write `online: false`) must not leave someone looking
+permanently present"*. Yəni tətbiqi zorla bağlayan (və ya ban
+səbəbindən sessiyası kəsilən) hər kəs Kəşf et-də **müddətsiz**
+onlayn görünür. Bu, yalnız ban məsələsi deyil — adi istifadəçiyə də
+aiddir və məxfilik məsələsidir.
+
+**Təklif:** `getDiscoverCandidates`-in süzgəc zəncirinə
+`isRecentlyOnlineServer` əlavə etmək (bir sətir, `findNearbyUsers`
+ilə eyniləşdirir), və hər iki funksiyaya namizədlərin ban
+yoxlamasını əlavə etmək. İkincisi namizəd başına bir oxu deməkdir —
+alternativ olaraq ban zamanı `users/{uid}.online`-ı `false` etmək
+daha ucuzdur (`setUserBanned` onsuz da Admin SDK ilə yazır).
+
+**Təxmini iş həcmi:** ~1 saat.

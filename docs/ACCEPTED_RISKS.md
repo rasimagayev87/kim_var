@@ -46,24 +46,57 @@ tələb etdiyi davranışdır və miqyasla dəyişmir. Yeganə izlənməli hal: 
 IP-dən lüğət hücumu ilə username sınaması (Cloud Logging-də `usernames`
 `get` tezliyi) — bu, hələ izlənmir və ayrıca kiçik tapşırıqdır.
 
-### Banlanmış istifadəçi `pinboxes`/`venueEvents`/`supportMessages` yarada bilir
-**Nə:** `isActiveUser()` yoxlaması bu 3 kolleksiyanın `create` qaydasına
-tətbiq olunmayıb.
+### Banlanmış hesabın hələ də yaza bildiyi 16 yol
 
-> **2026-08-30 yenilənməsi (P0 / C-3):** `posts`, `stories` və post
-> `comments` bu siyahıdan ÇIXARILDI və artıq `isActiveUser()` ilə
-> qorunur. Səbəb ban deyil: həmin yoxlama eyni zamanda `users/{uid}`
-> sənədi ÜMUMİYYƏTLƏ olmayan hesabları da bloklayır — yəni
-> `completeOnboarding`-in 18+ qapısından keçməmiş hesabları. Bu, xərc
-> mülahizəsi ilə tarazlanan moderasiya məsələsi deyil, uşaq
-> təhlükəsizliyi və mağaza siyasəti məsələsidir. `supportMessages`
-> qəsdən qorunmamış qalır ki, məhz bu vəziyyətdə ilişmiş istifadəçi
-> dəstəyə yaza bilsin.
-**Niyə qəbul edilib:** xərc qərarı — hər yazı yolunda əlavə bir `get()`
-sorğusu (banlanma statusunu yoxlamaq üçün) hər YAZI əməliyyatının qiymətini
-artırır; banlanmış istifadəçinin YENİ məzmun yaratması nadir hadisədir (adətən
-ban SONRA, mövcud məzmuna görə tətbiq olunur), moderasiya axını (post/venue/
-pinbox review) bunu artıq real vaxtda tutur.
+**Nə:** `isActiveUser()` (= `exists(users/{uid}) && !exists(bannedUsers/{uid})`)
+client-yazılabilir hər `create` qaydasına tətbiq edilməyib.
+
+> **2026-08-30 yenilənməsi (öz-doğrulama / d4):** bu bölmə əvvəllər
+> ÜÇ kolleksiya sadalayırdı. Faktiki say iyirmi idi. Sənədin natamam
+> olması boşluğun özündən pisdir — oxuyan adam adı çəkilməyəni
+> "qorunub" sayır. Aşağıda tam siyahı var.
+
+**Nə üçün əlavə bir yoxlama pulsuz deyil:** `isActiveUser()` hər
+çağırışda İKİ sənəd oxuyur. Bunu ən çox yazılan yollara qoymaq
+(bəyənmə, baxış, profil ziyarəti) həmin yolların qiymətini iki-üç
+dəfə artırar.
+
+#### Bağlanmış (tətbiq edilib)
+
+`chats/{chatId}/messages`, `calls`, `posts`, `stories`,
+`posts/*/comments`, `reports`, `eventReports`, `reviewReports` —
+Düzəliş Prompt 11 / Y-1 və P0 / C-3.
+
+2026-08-30-da əlavə edildi: **`reviews`** (daimi ictimai reputasiya
+məzmunu, arxasında heç bir moderasiya növbəsi YOXDUR — şikayət
+gəlməyincə ona heç kim baxmır), **`follows`** (adı bilinən şəxsin
+cihazına bildiriş göndərir — bandan sonrakı ən ucuz təqib vasitəsi),
+**`chats`** (valideyn sənəd; `messages` onsuz da qorunurdu, yəni bu,
+qərar deyil yarımçıq tətbiq idi).
+
+#### Qəsdən açıq qalan (hər biri üçün səbəb)
+
+| Yol | Səbəb |
+|---|---|
+| `supportMessages` | Məhz bu vəziyyətdə ilişmiş adam dəstəyə yaza bilməlidir. Bloklamaq ban-a etiraz yolunu bağlayardı |
+| `usernames`, `users/*/private/*` | `isActiveUser()` `users/{uid}`-in mövcudluğunu tələb edir, bu sənəd isə `completeOnboarding`-də hər ikisindən SONRA yaranır. Tətbiq etmək qeydiyyatı sındırardı |
+| `users/*/media`, `users/*/reposts`, `users/*/notifications` | Yalnız öz sənədi; kənara heç nə çıxmır |
+| `calls/*/offerCandidates`, `answerCandidates` | Valideyn `calls` **qorunur** — banlanmış hesab zəngi ümumiyyətlə başlada bilmir. ICE namizədləri partlayış şəklində onlarla yazılır; hər birinə iki oxu qoymaq qazanc vermir |
+| `posts/*/likes`, `comments/*/likes`, `stories/*/views`, `venues/*/likes`, `venues/*/followers`, `offers/*/redemptions` | Ən yüksək yazma tezliyi, ən aşağı zərər — sayğac səs-küyü |
+| `users/*/profileViews` | Zərər real, amma **ölçüldü**: hər profil açılışında bir yazı, üstəlik mövcud incognito oxusu. Tətbiq etmək tətbiqin ən isti yazma yolunun oxu sayını üç dəfə artırardı. Daha ucuz həll oxu tərəfində süzgəcdir — `BACKLOG.md` |
+| `pinboxes`, `venueEvents` | Moderasiya növbəsinə düşür; admin rədd edir |
+
+**KRİTİK QEYD — yazma qapısı hər şeyi həll etmir.** Banlanmış hesab
+`private/data`-ya öz `lat`/`lng`-ini, `users/{uid}`-ə isə
+`online`/`lastSeen` yaza bilir, və `findNearbyUsers`/
+`getDiscoverCandidates`-in namizəd süzgəcləri **ban statusunu
+YOXLAMIR** — yalnız bloklanma, ghost mode, onlayn olma və məsafə.
+Yəni banlanmış hesab token-i bitənə qədər (~1 saat, aşağıdakı
+maddəyə bax) başqalarının kəşf nəticələrində qalır. `private/*`
+yazısını bağlamaq bunu **düzəltməzdi**, çünki onu görünən saxlayan
+sahə (`online`) tamam başqa sənəddədir. Doğru həll namizəd
+süzgəcində ban yoxlamasıdır — `BACKLOG.md`.
+
 **Nə vaxt yenidən baxılmalı:** `moderationLogs`-da qeydə alınan
 "banlanmış-istifadəçi-yeni-məzmun" hadisələri 1 təqvim ayında 20-ni
 keçəndə.

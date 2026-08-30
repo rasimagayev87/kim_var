@@ -16,7 +16,8 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import { chatMediaPathForMessage } from "../../functions/src/chat-media";
+import { chatMediaPathForMessage, resizedVariantPath } from "../../functions/src/chat-media";
+import { resizedVariantPath as adminResizedVariantPath } from "../../admin-panel/src/lib/chat-media-path";
 
 const CHAT = "uidA_uidB";
 const MSG = "msg123";
@@ -277,4 +278,49 @@ test("F-1 PARITY: iki implementasiya bütün hallarda EYNİ nəticə verir", () 
     }
   }
   assert.ok(compared >= 700, `gözlənildiyindən az hal yoxlandı: ${compared}`);
+});
+
+// ── A3-H2 — `_200x200` törəmə yolu ────────────────────────────────
+//
+// Bu funksiya silinən şeyi genişləndirir, ona görə səhvi bir istiqamətdə
+// təhlükəlidir: səhv yol qaytarsa, BAŞQA birinin faylı silinər.
+
+test("törəmə yolu: adi hallar", () => {
+  assert.equal(
+    resizedVariantPath("chat_photos/a_b/a/m1.jpg"),
+    "chat_photos/a_b/a/m1_200x200.jpg",
+  );
+  assert.equal(resizedVariantPath("venue_photos/v1.jpg"), "venue_photos/v1_200x200.jpg");
+  assert.equal(resizedVariantPath("a/b/c/d.png"), "a/b/c/d_200x200.png");
+});
+
+test("törəmə yolu: null qaytarmalı hallar", () => {
+  assert.equal(resizedVariantPath(""), null);
+  assert.equal(resizedVariantPath(undefined), null);
+  assert.equal(resizedVariantPath(null), null);
+  assert.equal(resizedVariantPath(42), null);
+  // Uzantı yoxdur.
+  assert.equal(resizedVariantPath("posts/uid/file"), null);
+  // Nöqtə qovluq adındadır, fayl adında yox — uzantı sayılmamalıdır.
+  assert.equal(resizedVariantPath("a.b/c"), null);
+  // Nöqtə ilə başlayan fayl adı (gizli fayl) — uzantı deyil.
+  assert.equal(resizedVariantPath("posts/uid/.hidden"), null);
+  // Artıq törəmədir — ikiqat şəkilçi yaranmamalıdır.
+  assert.equal(resizedVariantPath("posts/uid/p_200x200.jpg"), null);
+});
+
+test("törəmə yolu: hər iki kod bazası eyni cavabı verir (paritet)", () => {
+  const inputs: unknown[] = [
+    "chat_photos/a_b/a/m1.jpg", "venue_photos/v1.jpg", "offer_photos/o1.jpeg",
+    "a/b/c/d.png", "posts/uid/file", "a.b/c", "posts/uid/.hidden",
+    "posts/uid/p_200x200.jpg", "", "x.jpg", "no-slash.png",
+    undefined, null, 42, {}, [],
+  ];
+  for (const input of inputs) {
+    assert.equal(
+      resizedVariantPath(input),
+      adminResizedVariantPath(input),
+      `fərq: ${JSON.stringify(input)}`,
+    );
+  }
 });

@@ -54,10 +54,22 @@ service firebase.storage {
 
       // A user can only upload/replace/delete their OWN photo,
       // and only images up to 5MB.
-      allow write: if request.auth != null
+
+      // A `delete` request carries NO `request.resource` — Storage sets
+      // it only for uploads. So any size/content-type condition on a
+      // rule that also grants `delete` makes the delete UNEVALUABLE and
+      // therefore denied: the owner cannot remove their own file. The
+      // chat paths below have always split the two for this reason;
+      // these owner-scoped paths had not, so `deletePost`'s
+      // `refFromURL(...).delete()` was silently failing and every
+      // "deleted" post kept its image — still readable by any signed-in
+      // user, and by anyone at all through its download token.
+      allow create, update: if request.auth != null
                    && request.auth.uid == userId
                    && request.resource.size < 5 * 1024 * 1024
                    && isAllowedImageType();
+
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // Chat image messages — only the two people in the chat (its id
@@ -127,10 +139,15 @@ service firebase.storage {
     match /event_covers/{ownerUid}/{fileName} {
       allow read: if request.auth != null;
 
-      allow write: if request.auth != null
+
+      // `create, update` / `delete` split — see `profile_photos` above
+      // for why a size condition on a rule granting `delete` denies it.
+      allow create, update: if request.auth != null
                    && request.auth.uid == ownerUid
                    && request.resource.size < 5 * 1024 * 1024
                    && isAllowedImageType();
+
+      allow delete: if request.auth != null && request.auth.uid == ownerUid;
     }
 
     // Venue photos — path is now `venue_photos/{ownerUid}/{venueId}.jpg`
@@ -140,10 +157,15 @@ service firebase.storage {
     match /venue_photos/{ownerUid}/{fileName} {
       allow read: if request.auth != null;
 
-      allow write: if request.auth != null
+
+      // `create, update` / `delete` split — see `profile_photos` above
+      // for why a size condition on a rule granting `delete` denies it.
+      allow create, update: if request.auth != null
                    && request.auth.uid == ownerUid
                    && request.resource.size < 5 * 1024 * 1024
                    && isAllowedImageType();
+
+      allow delete: if request.auth != null && request.auth.uid == ownerUid;
     }
 
     // Offer photos — path is now `offer_photos/{ownerUid}/{offerId}.jpg`
@@ -153,10 +175,15 @@ service firebase.storage {
     match /offer_photos/{ownerUid}/{fileName} {
       allow read: if request.auth != null;
 
-      allow write: if request.auth != null
+
+      // `create, update` / `delete` split — see `profile_photos` above
+      // for why a size condition on a rule granting `delete` denies it.
+      allow create, update: if request.auth != null
                    && request.auth.uid == ownerUid
                    && request.resource.size < 5 * 1024 * 1024
                    && isAllowedImageType();
+
+      allow delete: if request.auth != null && request.auth.uid == ownerUid;
     }
 
     // PinBox photos — path is now `pinbox_photos/{ownerUid}/{pinboxId}.jpg`
@@ -166,10 +193,15 @@ service firebase.storage {
     match /pinbox_photos/{ownerUid}/{fileName} {
       allow read: if request.auth != null;
 
-      allow write: if request.auth != null
+
+      // `create, update` / `delete` split — see `profile_photos` above
+      // for why a size condition on a rule granting `delete` denies it.
+      allow create, update: if request.auth != null
                    && request.auth.uid == ownerUid
                    && request.resource.size < 5 * 1024 * 1024
                    && isAllowedImageType();
+
+      allow delete: if request.auth != null && request.auth.uid == ownerUid;
     }
 
     // TRANSITION-ONLY (Düzəliş Prompt 3 / K-6) — the 46 files still
@@ -202,12 +234,17 @@ service firebase.storage {
     match /stories/{userId}/{fileName} {
       allow read: if request.auth != null;
 
-      allow write: if request.auth != null
+
+      // `create, update` / `delete` split — see `profile_photos` above
+      // for why a size condition on a rule granting `delete` denies it.
+      allow create, update: if request.auth != null
                    && request.auth.uid == userId
                    && (
                      (isAllowedImageType() && request.resource.size < 5 * 1024 * 1024) ||
                      (isAllowedVideoType() && request.resource.size < 50 * 1024 * 1024)
                    );
+
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // Profile feed post media — image or video, owner-only upload, same
@@ -215,12 +252,17 @@ service firebase.storage {
     match /posts/{userId}/{fileName} {
       allow read: if request.auth != null;
 
-      allow write: if request.auth != null
+
+      // `create, update` / `delete` split — see `profile_photos` above
+      // for why a size condition on a rule granting `delete` denies it.
+      allow create, update: if request.auth != null
                    && request.auth.uid == userId
                    && (
                      (isAllowedImageType() && request.resource.size < 5 * 1024 * 1024) ||
                      (isAllowedVideoType() && request.resource.size < 50 * 1024 * 1024)
                    );
+
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // "Kimlik doğrulama" (ID front/back + selfie-with-ID) — deliberately
@@ -236,6 +278,17 @@ service firebase.storage {
     // retention sweep can delete one request's files without touching
     // a later one.
     match /identity_verifications/{userId}/{requestId}/{fileName} {
+      // DELIBERATELY NOT SPLIT into create/delete, unlike every other
+      // owner-scoped path above. The size condition here denies
+      // `delete` as a side effect, and that side effect is WANTED: KYC
+      // evidence must not disappear from under a moderator who is
+      // reviewing it, and a user who could delete it could resubmit a
+      // cleaner document after a rejection. Removal belongs to
+      // `cleanupExpiredIdentityVerificationImages` (Cloud Function,
+      // Admin SDK, bypasses these rules) on the retention schedule.
+      // Written down because the shape now looks like the bug fixed
+      // above, and the next person to read this file will otherwise
+      // "fix" it too.
       allow write: if request.auth != null
                    && request.auth.uid == userId
                    && request.resource.size < 5 * 1024 * 1024

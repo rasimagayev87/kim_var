@@ -2,7 +2,7 @@ import "server-only";
 
 import { FieldValue } from "firebase-admin/firestore";
 
-import { chatMediaPathForMessage } from "@/lib/chat-media-path";
+import { chatMediaPathForMessage, resizedVariantPath } from "@/lib/chat-media-path";
 import { getAdminAuth, getAdminDb, getAdminStorage } from "@/lib/firebase/admin";
 
 /**
@@ -309,6 +309,15 @@ async function deleteUserDocAndSubcollections(uid: string): Promise<void> {
 }
 
 async function deleteStorageFile(path: string): Promise<void> {
+  // Parity with the Cloud Function's own `deleteStorageFile` — the
+  // `_200x200` derivative is deleted alongside the original. See
+  // [resizedVariantPath].
+  const derivative = resizedVariantPath(path);
+  if (derivative) await deleteStorageObject(derivative);
+  await deleteStorageObject(path);
+}
+
+async function deleteStorageObject(path: string): Promise<void> {
   try {
     await getAdminStorage().bucket().file(path).delete();
   } catch (e) {
@@ -316,7 +325,7 @@ async function deleteStorageFile(path: string): Promise<void> {
     // given is now SERVER-computed, so an unexpected miss means a real
     // bug worth seeing; the bare `catch {}` this replaces is also what
     // made the old URL-based deletion silently probeable.
-    console.warn("deleteStorageFile: delete failed (path may not exist)", { path, error: String(e) });
+    console.warn("deleteStorageObject: delete failed (path may not exist)", { path, error: String(e) });
   }
 }
 

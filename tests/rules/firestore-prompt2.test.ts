@@ -155,6 +155,17 @@ describe("Prompt 2 / K-5 — follows create", () => {
       await setDoc(doc(db, "users", "k5-private-followee"), userFixture("k5-private-followee", { accountPrivacy: "private" }));
       const { accountPrivacy: _omit, ...noPrivacy } = userFixture("k5-no-privacy-field");
       await setDoc(doc(db, "users", "k5-no-privacy-field"), noPrivacy);
+      // İzləyicilərin öz `users/{uid}` sənədləri (self-verification /
+      // d4). `follows` create artıq `isActiveUser(request.auth.uid)`
+      // tələb edir, o da izləyicinin sənədinin MÖVCUD olmasını
+      // yoxlayır. Əvvəllər bu fixture yalnız izlənəni yaradırdı və
+      // testlər keçirdi — qayda izləyicinin varlığını soruşmurdu.
+      // Production-da hər izləyicinin sənədi var: onu yaradan
+      // `completeOnboarding`-dir və o, follow düyməsindən əvvəl
+      // gəlir.
+      for (const uid of ["k5-follower-1", "k5-follower-2", "k5-follower-3", "k5-follower-4"]) {
+        await setDoc(doc(db, "users", uid), userFixture(uid));
+      }
     });
   });
 

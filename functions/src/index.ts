@@ -23,7 +23,14 @@ import {
 } from "./epoint";
 import { geohashForLocation } from "geofire-common";
 import { verifyAppleNotification, verifyAppleTransaction, verifyGoogleSubscription } from "./iap";
-import { CHAT_MEDIA_FOLDERS, chatMediaPathForMessage, isChatHiddenByEveryone } from "./chat-media";
+import { CHAT_MEDIA_FOLDERS, chatMediaPathForMessage, isChatHiddenByEveryone, resizedVariantPath } from "./chat-media";
+import {
+  bucketDistanceMeters,
+  clampAudienceRadiusKm,
+  haversineMeters,
+  isPlausibleMovement,
+  reportableAudienceCount,
+} from "./geo";
 import { InvalidPhoneNumberError, normalizePhoneNumber } from "./phone";
 
 // `enforceAppCheck: false` on every onCall function below — deliberately
@@ -291,6 +298,13 @@ export const getTurnCredentials = onCall(
     if (!uid) {
       throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
     }
+    // A banned account must not be able to mint paid relay credentials
+    // (self-verification / d3). This was the ONE user-facing callable
+    // without the check, and it happens to be the one whose comment
+    // below calls itself a billing surface. A banned user's ID token
+    // stays valid until it expires (`ACCEPTED_RISKS.md` — the ~1 hour
+    // read-side window), which is exactly the window this closes here.
+    await assertActiveUser(uid);
     // Düzəliş Prompt 8 / RT-15 — mints real Cloudflare TURN relay
     // credentials, a direct billing surface on the project's Cloudflare
     // account; no legitimate call flow needs this often.
@@ -902,13 +916,7 @@ function roundToGrid(value: number): number {
  * metres below 1 km, so this shows as "100 m aralı", "200 m aralı" —
  * no client or localization change is needed.
  */
-const NEARBY_DISTANCE_BUCKET_METERS = 100;
-function bucketDistanceMeters(meters: number): number {
-  return Math.max(
-    NEARBY_DISTANCE_BUCKET_METERS,
-    Math.round(meters / NEARBY_DISTANCE_BUCKET_METERS) * NEARBY_DISTANCE_BUCKET_METERS,
-  );
-}
+/** Implementation and tests live in `./geo`. */
 
 /**
  * P0 / H-1 (b) — rejects a nearby query whose origin moved further
@@ -936,8 +944,6 @@ function bucketDistanceMeters(meters: number): number {
  * attacker could otherwise reset their own last-known probe between
  * calls and disable the check).
  */
-const NEARBY_MAX_PLAUSIBLE_SPEED_KMH = 300;
-const NEARBY_PROBE_WINDOW_MS = 15 * 60 * 1000;
 
 async function assertPlausibleMovement(uid: string, lat: number, lng: number): Promise<void> {
   const ref = db.collection("nearbyProbes").doc(uid);
@@ -947,22 +953,15 @@ async function assertPlausibleMovement(uid: string, lat: number, lng: number): P
   const prevLng = previous?.lng as number | undefined;
   const prevAt = previous?.at as number | undefined;
 
-  let implausible = false;
-  if (typeof prevLat === "number" && typeof prevLng === "number" && typeof prevAt === "number") {
-    const elapsedMs = now - prevAt;
-    if (elapsedMs > 0 && elapsedMs < NEARBY_PROBE_WINDOW_MS) {
-      const movedKm = haversineMeters(prevLat, prevLng, lat, lng) / 1000;
-      const speedKmh = movedKm / (elapsedMs / 3_600_000);
-      implausible = speedKmh > NEARBY_MAX_PLAUSIBLE_SPEED_KMH;
-      if (implausible) {
-        logger.warn("findNearbyUsers: implausible movement between queries", {
-          uid,
-          movedKm: Math.round(movedKm),
-          elapsedSeconds: Math.round(elapsedMs / 1000),
-          speedKmh: Math.round(speedKmh),
-        });
-      }
-    }
+  // The comparison itself is in `./geo` so it can be tested without
+  // Firestore; this function keeps the read, the write and the log.
+  const implausible = !isPlausibleMovement({ lat: prevLat, lng: prevLng, at: prevAt }, lat, lng, now);
+  if (implausible) {
+    logger.warn("findNearbyUsers: implausible movement between queries", {
+      uid,
+      movedKm: Math.round(haversineMeters(prevLat as number, prevLng as number, lat, lng) / 1000),
+      elapsedSeconds: Math.round((now - (prevAt as number)) / 1000),
+    });
   }
 
   // The probe is recorded even when rejected — otherwise an attacker
@@ -1271,13 +1270,11 @@ export const findNearbyUsers = onCall({ region: "us-central1", enforceAppCheck: 
 // than an analytics one. A k of 5 keeps the feature's actual purpose
 // (roughly how many people would this reach) intact — an owner
 // choosing an audience radius does not need to distinguish 1 from 4.
-const VENUE_AUDIENCE_MIN_REPORTABLE_COUNT = 5;
 
 /** Upper bound on a venue's audience radius, matching the largest
  * value `VenueProfileScreen`'s own radius picker offers. A cap is
  * needed regardless of the picker because `radiusKm` used to arrive
  * unbounded from the client. */
-const VENUE_AUDIENCE_MAX_RADIUS_KM = 50;
 
 export const previewVenueAudience = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
@@ -1351,7 +1348,7 @@ export const previewVenueAudience = onCall({ region: "us-central1", enforceAppCh
     if (typeof requestedRadiusKm !== "number" || !Number.isFinite(requestedRadiusKm) || requestedRadiusKm <= 0) {
       throw new HttpsError("invalid-argument", "radiusKm müsbət ədəd olmalıdır.");
     }
-    const radiusKm = Math.min(requestedRadiusKm, VENUE_AUDIENCE_MAX_RADIUS_KM);
+    const radiusKm = clampAudienceRadiusKm(requestedRadiusKm);
     count = nonGhost.filter((c) => {
       if (typeof c.data.lat !== "number" || typeof c.data.lng !== "number") return false;
       const distanceMeters = haversineMeters(lat, lng, c.data.lat as number, c.data.lng as number);
@@ -1361,8 +1358,8 @@ export const previewVenueAudience = onCall({ region: "us-central1", enforceAppCh
     count = nonGhost.length;
   }
 
-  // k-anonymity floor — see [VENUE_AUDIENCE_MIN_REPORTABLE_COUNT].
-  return { count: count < VENUE_AUDIENCE_MIN_REPORTABLE_COUNT ? 0 : count };
+  // k-anonymity floor — see [reportableAudienceCount] (`./geo`).
+  return { count: reportableAudienceCount(count) };
 });
 
 const SEARCH_BY_NAME_LIMIT = 20;
@@ -1921,6 +1918,21 @@ async function deleteIdentityVerifications(uid: string): Promise<void> {
 }
 
 async function deleteStorageFile(path: string): Promise<void> {
+  // The `_200x200` derivative goes with it. Done HERE rather than at
+  // each call site so that every current caller — and every future one
+  // — is covered by construction; the bug this closes was precisely
+  // that three separate exact-path deletes each named only the
+  // original. See [resizedVariantPath] for why a surviving derivative
+  // is a leak and not just a stray object. Video/audio paths simply
+  // have no derivative (the extension's `INCLUDE_PATH_LIST` covers
+  // image folders only), and deleting an object that was never there
+  // is already a tolerated no-op below.
+  const derivative = resizedVariantPath(path);
+  if (derivative) await deleteStorageObject(derivative);
+  await deleteStorageObject(path);
+}
+
+async function deleteStorageObject(path: string): Promise<void> {
   try {
     await storage.bucket().file(path).delete();
   } catch (e) {
@@ -1933,7 +1945,7 @@ async function deleteStorageFile(path: string): Promise<void> {
     // level too — noisy is the correct trade here, since every delete
     // this file performs is now on a path the SERVER computed, so an
     // unexpected miss means a real bug worth seeing.
-    logger.warn("deleteStorageFile: delete failed (path may not exist)", { path, error: String(e) });
+    logger.warn("deleteStorageObject: delete failed (path may not exist)", { path, error: String(e) });
   }
 }
 
@@ -2657,16 +2669,6 @@ const AUDIENCE_PEAK_COOLDOWN_MS = 3 * 60 * 60 * 1000;
  * `Geolocator.distanceBetween`, which is what `venueAudienceCountProvider`
  * uses client-side for the exact same "distance" mode).
  */
-function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const earthRadiusMeters = 6371000;
-  const toRad = (deg: number) => (deg * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a =
-    Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 2 * earthRadiusMeters * Math.asin(Math.sqrt(a));
-}
-
 /**
  * Whether [userData] (a candidate `users/{uid}` doc) has personally
  * dialed their own Discover radius (`discoverRadiusMode`/
@@ -8497,6 +8499,23 @@ export const verifyInAppPurchase = onCall(
  * trusted before that passes.
  */
 export const appStoreServerNotifications = onRequest({ region: "us-central1" }, async (req, res) => {
+  // Before the signature work, not after: the thing being rationed is
+  // the JWS verification itself, which this handler performs TWICE
+  // (Production, then Sandbox) on every request including junk ones.
+  // This endpoint is unauthenticated by necessity — Apple's servers
+  // can't present App Check or an ID token — so the only thing
+  // standing between the open internet and that crypto is this
+  // counter. Keyed by IP because there is no uid to key on; generous,
+  // because Apple retries failed deliveries and sends from a small,
+  // shared set of addresses. A rejection here is a 429 Apple will
+  // simply retry, not a lost notification.
+  try {
+    await enforceRateLimit("store-notify", req.ip ?? "unknown", 120, 60);
+  } catch {
+    res.status(429).send("rate-limited");
+    return;
+  }
+
   const signedPayload = req.body?.signedPayload as string | undefined;
   if (!signedPayload) {
     res.status(400).send("missing signedPayload");

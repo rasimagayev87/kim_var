@@ -124,3 +124,40 @@ export function isChatHiddenByEveryone(
   const flags = hiddenFor as Record<string, unknown>;
   return participants.every((uid) => typeof uid === "string" && flags[uid] === true);
 }
+
+/**
+ * The `_200x200` copy the Resize Images extension writes alongside an
+ * original, or `null` when this path can't have one.
+ *
+ * The extension is configured with an EMPTY `RESIZED_IMAGES_PATH`
+ * (`extensions/storage-resize-images.env`), so the derivative lands in
+ * the same folder as its original with the size appended to the base
+ * name: `chat_photos/a_b/a/m1.jpg` → `chat_photos/a_b/a/m1_200x200.jpg`.
+ *
+ * This matters for deletion, not display. `REGENERATE_TOKEN=false`
+ * means the derivative REUSES the original's download token — that is
+ * what lets `app_image.dart` derive a thumbnail URL by string
+ * substitution, and it is also what makes an undeleted derivative a
+ * real leak rather than a stray byte: whoever held the original's URL
+ * can reach the copy by editing one path segment, long after the
+ * original was "deleted". Prefix deletes (`deleteStoragePrefix`) never
+ * had this problem; every exact-path delete did.
+ *
+ * Kept in sync BY HAND with `IMG_SIZES` in that `.env` file, and with
+ * `resizedImageUrl` in `lib/core/widgets/app_image.dart` — three places
+ * that must agree, which is why the size lives in one named constant
+ * here rather than inline.
+ */
+export const RESIZED_IMAGE_SUFFIX = "_200x200";
+
+export function resizedVariantPath(path: unknown): string | null {
+  if (typeof path !== "string" || path === "") return null;
+  const slash = path.lastIndexOf("/");
+  const dot = path.lastIndexOf(".");
+  // No extension, or the dot belongs to a directory name rather than
+  // the file ("a.b/c") — nothing to append a suffix in front of.
+  if (dot <= slash + 1) return null;
+  const base = path.slice(0, dot);
+  if (base.endsWith(RESIZED_IMAGE_SUFFIX)) return null; // already a derivative
+  return `${base}${RESIZED_IMAGE_SUFFIX}${path.slice(dot)}`;
+}
