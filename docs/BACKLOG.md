@@ -281,3 +281,48 @@ yeganə səhifədir.
 matrisin qəsdən qərarı budur ki, həmin export-da istifadəçi PII-si
 OLMAMALIDIR — `finance` `viewUsers` icazəsinə malik deyil, ona görə
 export onun ekranda görə bilmədiyi məlumatı fayla çıxarmamalıdır.
+
+## 17. Vercel layihəsini GitHub-a bağlamaq (admin panel deploy-u)
+
+**Mənbə:** 2026-08-30, admin panel deploy hadisəsi
+**Nə:** `admin.peakpin.app` Vercel-dədir (`peakpin/admin-panel`), amma
+layihə **heç bir git repo-suna bağlı deyil**. Bütün deploy-lar əl ilə,
+bir developer maşınından `vercel --prod` ilə edilir — `vercel ls`
+göstərir ki, son 12 production deploy-un hamısı bir istifadəçi adı
+altındadır, git bot deyil.
+
+**Niyə bu, sadəcə rahatlıq məsələsi deyil.** Bu gün konkret zərər verdi:
+
+1. `git push` admin paneli deploy etmədiyi üçün, təhlükəsizlik
+   düzəlişləri (H-7 moderator refund, H-8 açıq `/api/health`, C-2
+   `emergencyToken`) commit edilib push edilsə də **canlıya çıxmadı**.
+2. Layihədə istifadə edilməyən Firebase App Hosting backend-i
+   (`kim-var-admin`) var və o, işləyən admin panelə oxşayır. Deploy
+   yoxlaması səhvən onun URL-ində aparıldı, gözlənilən 404 alındı və
+   düzəliş "canlıdır" kimi qeyd edildi — halbuki production hələ də
+   `{"ok":true,"projectId":...}` qaytarırdı. Səhv bir neçə saat
+   aşkarlanmadan qaldı.
+
+Yəni cari qurulumda "commit edildi + push edildi" ilə "canlıdır"
+arasında heç bir avtomatik əlaqə yoxdur, və bunu yoxlamağın yolu
+əl ilə düzgün host-u curl etməkdir.
+
+**Nə edilməli:**
+- Vercel Dashboard → `admin-panel` → Settings → Git → `rasimagayev87/kim_var`
+  repo-suna bağla, Root Directory `admin-panel`, production branch-i
+  seç (hazırda iş `full-local-version`-dadır — `master` 26 gün köhnədir,
+  bax #18 kimi ayrıca qərar).
+- Bağlandıqdan sonra `README.md`-nin "Deploy (Vercel)" bölməsi və
+  `DEPLOY_RUNBOOK.md`-nin 4-cü bölməsi yenilənməlidir — orada hazırda
+  "git push deploy ETMİR" yazılıb.
+- İstifadə edilməyən `kim-var-admin` App Hosting backend-i silinsin
+  (`firebase apphosting:backends:delete kim-var-admin`) və
+  `admin-panel/apphosting.yaml` faylı da onunla birlikdə. Backend
+  mövcud olduğu müddətcə səhv host-a baxmaq riski qalır.
+
+**Təxmini iş həcmi:** ~30 dəqiqə (Dashboard-da bağlama + bir test
+deploy + sənəd yeniləməsi). Backend silinməsi ayrıca ~10 dəqiqə.
+
+**Niyə yüksək prioritet:** ucuzdur, və bağlamadığımız müddətcə hər
+admin panel dəyişikliyi "deploy edildi" zənn edilib canlıya çıxmama
+riski daşıyır — bu risk artıq bir dəfə gerçəkləşib.
