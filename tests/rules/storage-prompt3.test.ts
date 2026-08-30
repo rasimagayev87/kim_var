@@ -137,3 +137,74 @@ describe("Prompt 3 — ölçü və content-type limitləri", () => {
 
 // Say: 15 test (owner-scoped 4 yol × 2 = 8, köhnə yol 2, chat media 3,
 // ölçü/content-type 2).
+
+// ---------------------------------------------------------------------------
+// P0 / M-10 — content-type allowlist. `image/.*` `image/svg+xml`-i də
+// qəbul edirdi; Storage obyekti saxlanılan Content-Type ilə `inline`
+// təqdim etdiyi üçün bu, firebasestorage.googleapis.com mənşəyində
+// JavaScript icra edən sənəd — saxlanılmış XSS deməkdir.
+// ---------------------------------------------------------------------------
+describe("P0 / M-10 — content-type allowlist (SVG rədd edilir)", () => {
+  const uid = "m10-user";
+
+  test("SVG RƏDD EDİLİR (əsas vektor) — profil, məkan, story, post", async () => {
+    const storage = testEnv.authenticatedContext(uid).storage();
+    const svg = new Uint8Array([0x3c, 0x73, 0x76, 0x67, 0x3e]); // "<svg>"
+    for (const path of [
+      `profile_photos/${uid}/profile.jpg`,
+      `venue_photos/${uid}/v1.jpg`,
+      `offer_photos/${uid}/o1.jpg`,
+      `pinbox_photos/${uid}/p1.jpg`,
+      `event_covers/${uid}/e1.jpg`,
+      `stories/${uid}/s1.jpg`,
+      `posts/${uid}/p1.jpg`,
+      `identity_verifications/${uid}/req1/front.jpg`,
+    ]) {
+      await assertFails(
+        uploadBytes(ref(storage, path), svg, { contentType: "image/svg+xml" }),
+      );
+    }
+  });
+
+  test("SVG çat medyasında da rədd edilir", async () => {
+    const other = "m10-other";
+    const chatId = [uid, other].sort().join("_");
+    const storage = testEnv.authenticatedContext(uid).storage();
+    await assertFails(
+      uploadBytes(ref(storage, `chat_photos/${chatId}/${uid}/m1.jpg`), new Uint8Array([1]), {
+        contentType: "image/svg+xml",
+      }),
+    );
+  });
+
+  test("real şəkil formatları qəbul edilir (reqressiya yoxdur)", async () => {
+    const storage = testEnv.authenticatedContext(uid).storage();
+    for (const contentType of ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif", "image/gif"]) {
+      await assertSucceeds(
+        uploadBytes(ref(storage, `profile_photos/${uid}/profile.jpg`), new Uint8Array([1, 2, 3]), { contentType }),
+      );
+    }
+  });
+
+  test("video/audio allowlist-ləri işləyir", async () => {
+    const other = "m10-other2";
+    const chatId = [uid, other].sort().join("_");
+    const storage = testEnv.authenticatedContext(uid).storage();
+    await assertSucceeds(
+      uploadBytes(ref(storage, `chat_videos/${chatId}/${uid}/v1.mp4`), new Uint8Array([1]), {
+        contentType: "video/mp4",
+      }),
+    );
+    await assertSucceeds(
+      uploadBytes(ref(storage, `chat_audio/${chatId}/${uid}/a1.m4a`), new Uint8Array([1]), {
+        contentType: "audio/m4a",
+      }),
+    );
+    // HTML video qovluğunda da rədd edilməlidir.
+    await assertFails(
+      uploadBytes(ref(storage, `chat_videos/${chatId}/${uid}/v2.mp4`), new Uint8Array([1]), {
+        contentType: "text/html",
+      }),
+    );
+  });
+});

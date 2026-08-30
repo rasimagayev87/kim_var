@@ -18,19 +18,33 @@ görüləcək maddələr üçün) [BACKLOG.md](BACKLOG.md)-da.
 ## Server/Rules
 
 ### `usernames/{usernameId}.get` imzasız hər kəsə açıqdır
-**Nə:** `firestore.rules`-un `usernames/{usernameId}` `allow get: if true` —
-imzalanmamış (heç bir hesaba daxil olmamış) istifadəçi belə istənilən
-username-in mövcudluğunu yoxlaya bilər.
+**Nə:** `firestore.rules:671` — `allow get: if true`. İmzalanmamış istifadəçi
+belə BİLİNƏN bir username-in mövcudluğunu yoxlaya bilər.
 **Niyə qəbul edilib:** `deep_link_handler.dart`-ın `_openProfileByUsername`-i
 paylaşılan `peakpin.app/u/{username}` linklərini imzasız istifadəçi üçün də
 açmalıdır — `request.auth != null` tələbi bu axını sakitcə sındırardı (link
 açılmır, xəta da göstərilmir). Sənədin özü `{uid, createdAt}`-dan başqa heç
 nə daşımır.
-**Nə vaxt yenidən baxılmalı:** aylıq aktiv istifadəçi sayı (MAU) 50,000-i
-keçəndə (bu miqyasda username-enumeration iqtisadi cəhətdən cəlbedici olur)
-— o zamana qədər Cloud Logging-də `usernames` kolleksiyasının `get`
-tezliyini izləməyə başlamaq lazımdır (hazırda izlənmir, bu ayrıca kiçik
-tapşırıqdır).
+
+> **2026-08-30 yenidən qiymətləndirmə (audit 2 / H-6).** Bu maddənin
+> orijinal versiyası `get` və `list`-i eyni şey kimi qiymətləndirirdi və
+> hər ikisini MAU 50,000 şərtinə bağlayırdı. Bu, səhv idi: `list`
+> (`allow list: if request.auth != null`) bütün kolleksiyanın
+> səhifələnməsinə imkan verirdi, yəni TAM `username → uid` xəritəsi —
+> və hər uid `users/{uid}` `get`-i ilə tam publik profilə (o cümlədən
+> `blockedUsers` sosial qrafına və `reportedCount` moderasiya
+> siqnalına) çevrilirdi. Bu, RT-25-in `users` üzərindəki
+> `allow list: if false` qərarını bir addım artıqla keçirdi.
+> **`list` 2026-08-30-da bağlandı** (`firestore.rules:705`) və
+> `searchUsersByUsername` callable-ı ilə əvəzləndi.
+> **`get` isə qəsdən açıq qalır** — bir bilinən username-i açmaq publik
+> profil kəşfidir; hamısını sadalamaq isə identifikasiya enumerasiyası.
+> Sərhəd məhz bu ikisinin arasındadır və indi düzgün yerdədir.
+
+**Nə vaxt yenidən baxılmalı:** `get` üçün konkret şərt YOXDUR — bu, məhsulun
+tələb etdiyi davranışdır və miqyasla dəyişmir. Yeganə izlənməli hal: eyni
+IP-dən lüğət hücumu ilə username sınaması (Cloud Logging-də `usernames`
+`get` tezliyi) — bu, hələ izlənmir və ayrıca kiçik tapşırıqdır.
 
 ### Banlanmış istifadəçi `pinboxes`/`venueEvents`/`supportMessages` yarada bilir
 **Nə:** `isActiveUser()` yoxlaması bu 3 kolleksiyanın `create` qaydasına
@@ -74,6 +88,17 @@ məhdudlaşdırılmayıb (yalnız TƏK fayl ölçüsü limiti var, `storage.rule
 arasında STATE saxlamır (bir istifadəçinin əvvəlki yüklədiklərinin CƏMİNİ
 bilmir), bu, ancaq Cloud Function-da say/həcm izləməklə mümkündür — böyük
 əlavə infrastruktur.
+
+> **2026-08-30 yenidən qiymətləndirmə (audit 2 / M-11).** Orijinal
+> qiymətləndirmə `forwardChatMedia`-dan ƏVVƏL edilib. O funksiya
+> SERVER TƏRƏFDƏ kopyalama əlavə etdi: hücumçu bir dəfə 50 MB video
+> yükləyib sonra onu yükləmə trafiki sərf etmədən çoxalda bilirdi.
+> Bu, kvotasızlığın öz riskini dəyişməsə də, ona çatma SÜRƏTİNİ
+> köklü artırırdı. Həmin funksiyanın limiti 30/600s-dən **10/3600s**-ə
+> endirildi və ayrıca `forward-copy` sayğacına köçürüldü, yəni
+> amplifikasiya bağlandı. Kvotanın özü hələ də yoxdur — maddə açıq
+> qalır.
+
 **Nə vaxt yenidən baxılmalı:** Firebase Storage-un aylıq faktura xərci
 50 AZN-i keçəndə (Firebase Console → Usage and billing-dən yoxlanılır).
 
@@ -84,6 +109,16 @@ format olduğu yoxlanılmır.
 **Niyə qəbul edilib:** bu yoxlama YALNIZ bir Cloud Storage trigger-lə
 (faylın özünü oxuyub baytları təhlil edən) mümkündür — Storage Rules
 faylın MƏZMUNUNA giriş əldə edə bilmir, yalnız metadata-ya.
+
+> **2026-08-30 qeyd (audit 2 / M-10).** Bu maddə faylın BAYTLARININ
+> yoxlanmaması haqqındadır və o, doğrudan da yalnız Storage trigger-i
+> ilə mümkündür. AMMA auditdə AYRI bir problem tapıldı və o, bu maddəyə
+> aid DEYİL: elan edilən `Content-Type` üçün allowlist yoxdur, yəni
+> `image/.*` naxışı `image/svg+xml`-i də qəbul edir (13 yerdə,
+> `storage.rules`). SVG Storage-dan `inline` təqdim olunduğu üçün bu,
+> icra edilə bilən məzmundur. Bu, Storage Rules-da tam həll edilə bilər
+> və qəbul edilmiş risk DEYİL — BACKLOG-a düşdü.
+
 **Nə vaxt yenidən baxılmalı:** zərərli fayl yükləmə (məs. maskalanmış icra
 edilə bilən fayl) insidenti 1 (bir) dəfə baş verərsə — DƏRHAL.
 
@@ -177,6 +212,19 @@ istifadəçinin şərhi HEÇ VAXT tam anonimləşə bilməz cari sxemlə (ID-nin
 **Niyə qəbul edilib:** düzgün həll (ID sxemini dəyişmək, "bir istifadəçi —
 bir şərh" invariantını Cloud Function-da unikallıq yoxlaması ilə əvəz
 etmək) memarlıq dəyişikliyidir, bir günə sığmır.
+
+> **2026-08-30 yenidən qiymətləndirmə (audit 2 / M-7).** Orijinal
+> əsaslandırma yalnız SİLİNMƏ/anonimləşdirmə haqqında idi. Auditdə eyni
+> sxemin ikinci, daha yaxın nəticəsi tapıldı: `reviews`
+> `allow read: if request.auth != null` olduğu üçün `list` da açıqdır,
+> sənəd id-si isə `{venueId}_{userId}`-dir. Rəyin mövcudluğu
+> `hasVerifiedVisit` sayəsində FİZİKİ ziyarətin sübutudur — yəni
+> istənilən daxil olmuş istifadəçi bütün "kim hansı məkanda olub"
+> qrafını çəkə bilər. Bu, GDPR gözləməsindən asılı olmayan CARİ
+> məxfilik məsələsidir və `allow list: if false` ilə (məkan səhifəsinin
+> rəy siyahısı callable-a köçürülərək) miqrasiyadan ƏVVƏL bağlana bilər.
+> BACKLOG-a ayrıca maddə kimi düşdü.
+
 **Nə vaxt yenidən baxılmalı:** `reviews` kolleksiyasının sənəd sayı 5,000-i
 keçəndə, VƏ YA launch + 6 ay (hansı ƏVVƏL baş verərsə) — GDPR-tipli
 "silinmə hüququ" tələbi olan istənilən bazara giriş bundan ƏVVƏL edilməlidir.
@@ -193,5 +241,9 @@ launch + 3 ay (hansı ƏVVƏL baş verərsə).
 
 ---
 
-**Son yeniləmə:** Düzəliş Prompt 10 (əlavə tur — bütün "nə vaxt yenidən
-baxılmalı" şərtləri konkretləşdirildi, BACKLOG.md ayrıldı).
+**Son yeniləmə:** 2026-08-30, P0 remediation (audit 2 sonrası). Bu turda:
+`usernames` maddəsi `get`/`list` ayrımı ilə yenidən yazıldı (`list`
+bağlandı), Storage kvotası `forwardChatMedia` amplifikasiyası nəzərə
+alınaraq yeniləndi, magic-byte və `reviews` maddələrinə auditin tapdığı
+AYRI (və həll edilə bilən) problemlər əlavə edildi. Əvvəlki yeniləmə:
+Düzəliş Prompt 10.

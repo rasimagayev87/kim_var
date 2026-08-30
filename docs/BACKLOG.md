@@ -4,6 +4,27 @@ Bu siyahı GitHub Issues-a köçürülməlidir — hər maddə öz issue-su olma
 bu fayl yalnız MÜVƏQQƏTİ referansdır. Prioritet sırası ilə (1 = ən yüksək).
 Hər maddənin tam kontekst/səbəbi [ACCEPTED_RISKS.md](ACCEPTED_RISKS.md)-da.
 
+**2026-08-30 — P0 remediation turu.** Auditin (audit 2,
+[security-audit-2-2026-08-30.md](security-audit-2-2026-08-30.md)) bütün
+3 CRITICAL və 9 HIGH tapıntısı bağlandı və production-a deploy edildi
+(commit `5aa5000`). Bu, aşağıdakı siyahıya iki cür təsir etdi:
+
+* **Bağlandığı üçün çıxarılan maddələr:** köhnə #11 (`auth_screen.dart`-ın
+  ümumi `catch` bloku — C-3 ilə birlikdə həll edildi, controller artıq
+  rethrow edir).
+* **Yeni əlavə edilənlər:** #12 (SVG content-type), #13 (`reviews` list),
+  #14 (`bannedUsers` tombstone), #15 (hesab silinməsində qalan orphan
+  sənədlər). Hər biri auditdə tapılıb, heç biri buraxılışı bloklamır.
+  Siyahının SONUNA əlavə edildilər — nömrə prioritet DEYİL, yalnız
+  identifikatordur (real prioritet #1 Node 22 keçidi olaraq qalır;
+  yenilərindən ən təcilisi #12, ~1 saatlıq işdir).
+
+Bağlanan və BURADA OLMAYAN, amma qeyd üçün: `posts`/`stories`/`comments`
+üçün `isActiveUser()`, `deleteAccount`-un `likedPosts`/`reposts`/
+`notifiedEvents` alt-kolleksiyaları və owner-scoped Storage prefiksləri
+(`venue_photos/{uid}/` və s.) bu turda düzəldildi — onlar heç vaxt bu
+siyahıda deyildi, auditdə tapıldı.
+
 ---
 
 ## 1. Node 20 → 22 keçidi
@@ -139,29 +160,7 @@ istifadədə demək olar ki, heç vaxt tetiklənmir. Launch-dan əvvəl
 düzəltmək əlavə risk daşımadan mümkün olan ucuz təmizlikdir, amma
 bloklayıcı deyil.
 
-## 11. `auth_screen.dart` — ümumi `catch` bloku uğurlu qeydiyyatı "uğursuz" kimi göstərir
-
-**Mənbə:** Post-launch QA — Qeydiyyat axını sınağı zamanı tapıldı (əsl
-kök səbəb `firestore.rules`-un `resource == null` boşluğu idi, bu
-sessiyada düzəldildi — amma bu ikinci, MÜSTƏQİL zəiflik qalır).
-[`auth_screen.dart:217-224`](../lib/features/auth/presentation/screens/auth_screen.dart)-dəki
-`catch (e, st)` bloku `FirebaseAuthException`-dan FƏRQLİ istənilən
-xətanı (məs. `_hydrateFromFirestore`-un Firestore oxuma xətası)
-eyni ümumi "Giriş uğursuz oldu" mesajı ilə göstərir — halbuki bu halda
-`createUserWithEmailAndPassword` ARTIQ UĞURLA TAMAMLANIB və Firebase
-Auth hesabı yaradılıb. İstifadəçi hesabının mövcud olduğunu bilmədən
-"yenidən cəhd et" düyməsinə basanda `email-already-in-use` kimi YENİ
-bir anlaşılmaz xəta ala bilər.
-**Təxmini iş həcmi:** ~2-3 saat (register-specific fallback mesajı,
-məsələn "Hesabınız yaradıldı, amma profilin tamamlanmasında xəta baş
-verdi — yenidən daxil olmağı sınayın" + bu halın loglanması ki, oxşar
-gizli boşluqlar gələcəkdə də tez tapılsın).
-**Niyə aşağı prioritet:** kök səbəb (rules boşluğu) artıq düzəldilib,
-bu, YALNIZ gələcəkdə bənzər bir Firestore/rules xətası yenidən baş
-versə görünəcək ikinci qatlı simptomdur — özü başlı-başına heç nəyi
-bloklamır.
-
-## 12. iOS Crashlytics — dSYM yükləmə addımı yoxdur
+## 11. iOS Crashlytics — dSYM yükləmə addımı yoxdur
 
 **Mənbə:** AAB build hazırlığı zamanı QA — `firebase_crashlytics: ^4.1.5`
 `pubspec.yaml`-da mövcuddur, `DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym"`
@@ -180,3 +179,69 @@ crashlytics:symbols:upload` CLI əmri).
 təsdiqinə HEÇ bir təsiri yoxdur — yalnız GƏLƏCƏK crash-ların
 diaqnostikasına təsir edir. İlk real production crash-dan ƏVVƏL
 düzəldilməlidir ki, o crash-ın özü faydasız məlumatla itməsin.
+
+## 12. Storage `Content-Type` allowlist — SVG qəbul edilir
+
+**Mənbə:** Audit 2 / M-10
+**Nə:** `storage.rules`-un 13 yerində `request.resource.contentType
+.matches('image/.*')` istifadə olunur. Bu naxış `image/svg+xml`-i də
+qəbul edir; Firebase Storage faylı saxlanılan Content-Type ilə `inline`
+təqdim etdiyi üçün bu, `firebasestorage.googleapis.com` mənşəyində
+JavaScript icra edən sənəd deməkdir.
+**Niyə ACCEPTED_RISKS-dəki "magic-byte" maddəsindən FƏRQLİDİR:** o maddə
+faylın BAYTLARININ yoxlanmasından bəhs edir və doğrudan da yalnız bir
+Storage trigger-i ilə mümkündür. Bu isə ELAN EDİLƏN tipin allowlist-idir
+və Storage Rules-da tam həll olunur — qəbul edilmiş risk deyil, sadəcə
+edilməmiş iş.
+**Təxmini iş həcmi:** ~1 saat. `matches('image/.*')` →
+`in ['image/jpeg','image/png','image/webp','image/heic']`, video üçün
+`['video/mp4','video/quicktime']`, audio üçün `['audio/mpeg','audio/m4a',
+'audio/aac']`. Client yalnız kamera/qalereya şəkilləri yüklədiyi üçün heç
+bir legitim axın pozulmur (`storage-prompt3.test.ts`-də content-type testi
+artıq var, genişləndirilməlidir).
+
+## 13. `reviews` üzərində `list` bağlanması
+
+**Mənbə:** Audit 2 / M-7
+**Nə:** `reviews` `allow read: if request.auth != null` — yəni `list` də
+açıqdır. Sənəd id-si `{venueId}_{userId}`, rəyin mövcudluğu isə
+`hasVerifiedVisit` sayəsində FİZİKİ ziyarətin sübutudur. Nəticədə istənilən
+daxil olmuş istifadəçi bütün "kim hansı məkanda olub" qrafını çəkə bilər.
+**Niyə #5-dən ayrıdır:** #5 (anonimləşdirmə miqrasiyası) memarlıq
+dəyişikliyidir və 3-5 gün çəkir; bu isə ondan asılı deyil və indi
+bağlana bilər.
+**Təxmini iş həcmi:** ~3-4 saat. `allow get: if request.auth != null;
+allow list: if false;` + məkan profilinin rəy siyahısı üçün
+`listVenueReviews` callable (`searchUsersByName`-in eyni naxışı).
+**Prioritet səbəbi:** məxfilik təsiri realdır, amma istismarı üçün daxil
+olmuş hesab lazımdır və hazırda `reviews` praktiki olaraq boşdur.
+
+## 14. `bannedUsers/{uid}` tombstone-u hesab silinəndə qalır
+
+**Mənbə:** Audit 2 / F-5 (`user-account-deletion.ts` auditi)
+**Nə:** Nə `deleteAccount` (Cloud Function), nə də admin panelin
+`deleteUserAccountPermanently`-si `bannedUsers/{uid}` sənədini silmir.
+Banlanmış hesab silinəndə tombstone bucket-də qalır.
+**Təsiri:** praktiki olaraq YOXDUR — Firebase uid-ləri təkrar istifadə
+olunmur, yəni tombstone heç vaxt yanlış hesaba aid olmayacaq. Yalnız
+gigiyena məsələsidir.
+**Təxmini iş həcmi:** ~15 dəqiqə, hər iki kod bazasında bir sətir
+(`db.collection("bannedUsers").doc(uid).delete()`).
+
+## 15. Hesab silinməsində qalan orphan sənədlər (pinboxes, venueEvents)
+
+**Mənbə:** Audit 2 / F-4-ün araşdırması zamanı aşkarlandı
+**Nə:** `deleteAccount` (və admin paneldəki eyni məntiq) istifadəçinin
+`posts`/`venues`/`offers`/`stories` sənədlərini silir, amma
+**`pinboxes`** və **`venueEvents`** sənədlərinə toxunmur. Məkan silinəndən
+sonra onlara istinad edən PinBox və tədbir sənədləri orphan qalır.
+**Niyə bu turda EDİLMƏDİ:** silmə qərarı sadə deyil — PinBox sənədinin
+arxasında alıcıların `pinboxOrders`-ı və `venuePayouts` öhdəlikləri dayanır
+(`anonymizePinBoxOrders`-un öz şərhi məhz buna görə sifarişləri silmir,
+anonimləşdirir). Yəni burada "sil" yox, "arxivləşdir/anonimləşdir" qərarı
+lazımdır — `archiveCreatedEvents` naxışına bənzər.
+**Təxmini iş həcmi:** ~4-6 saat (qərar + hər iki kod bazasında tətbiq +
+testlər).
+**Qeyd:** Storage tərəfi bu turda bağlandı — `pinbox_photos/{uid}/` və
+`event_covers/{uid}/` prefiksləri artıq silinir, yəni ŞƏKİLLƏR qalmır,
+yalnız sənədlər qalır.
