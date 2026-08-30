@@ -89,7 +89,7 @@ async function main() {
   }
   if (findings.length > 0) {
     console.log(
-      "\nHeç nə dəyişdirilmədi. Düzəliş üçün: npm run repair-phone-numbers (əvvəlcə --confirm-siz dry-run).",
+      "\nHeç nə dəyişdirilmədi. Bu skript yalnız oxuyur — düzəliş Firestore Console-dan əl ilə edilir.",
     );
   }
 }
