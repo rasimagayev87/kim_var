@@ -1,5 +1,22 @@
-# Firebase App Hosting config — see
-# https://firebase.google.com/docs/app-hosting/configure
+# ⚠️ NOT IN USE — this file configures the Firebase App Hosting backend
+# `kim-var-admin`, which is NOT production.
+#
+# Production for this panel is Vercel (`admin.peakpin.app`); see
+# README.md's "Deploy (Vercel)" section. The App Hosting backend still
+# exists and still answers at
+# `kim-var-admin--kim-var-73ce9.us-central1.hosted.app`, serving a build
+# from 4 August 2026, which is exactly what makes it dangerous: it looks
+# like a working admin panel and is 26+ days stale. A deploy was once
+# verified against that URL and reported as live while production was
+# untouched.
+#
+# Nothing here affects Vercel. Vercel reads its environment variables
+# from its own dashboard, not from this file. Kept rather than deleted
+# because removing the backend itself is a separate decision — if you
+# do delete it (`firebase apphosting:backends:delete kim-var-admin`),
+# delete this file too.
+#
+# Original reference: https://firebase.google.com/docs/app-hosting/configure
 
 runConfig:
   # Scales to zero when idle — right default for an internal admin

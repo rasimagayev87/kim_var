@@ -52,20 +52,27 @@ function getAdminApp(): App {
       storageBucket: STORAGE_BUCKET,
     });
   } else if (process.env.K_SERVICE || process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT) {
-    // Deployed on Firebase App Hosting (Cloud Run — `K_SERVICE` is
-    // Cloud Run's own always-set env var) — the backend's attached
-    // service account provides Application Default Credentials
-    // automatically; no key material needs to exist anywhere for this
-    // path, which is the more secure option whenever it's available.
-    // See apphosting.yaml: FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY
-    // are deliberately NOT set there.
+    // Google-hosted runtime (Cloud Run — `K_SERVICE` is its own
+    // always-set env var): the attached service account provides
+    // Application Default Credentials, so no key material needs to
+    // exist anywhere.
+    //
+    // NOT the production path. Production is Vercel
+    // (`admin.peakpin.app`), which provides no ADC, so the explicit-
+    // credentials branch above is what actually runs there —
+    // `FIREBASE_PROJECT_ID`/`CLIENT_EMAIL`/`PRIVATE_KEY` come from the
+    // Vercel dashboard's Production environment variables. This branch
+    // only fires on the unused Firebase App Hosting backend
+    // (`kim-var-admin`, see apphosting.yaml's own warning). Kept because
+    // it costs nothing and is correct if that backend is ever revived.
     cachedApp = initializeApp({ storageBucket: STORAGE_BUCKET });
   } else {
     // Neither explicit credentials nor a recognizable Google Cloud
-    // environment — almost certainly a local machine with no
-    // .env.local. Failing fast with a clear message here beats letting
-    // the ADC path attempt anyway and surface a cryptic "Unable to
-    // detect a Project Id" error instead.
+    // environment — a local machine with no `.env.local`, or a Vercel
+    // deployment whose Production environment variables were not set.
+    // Failing fast with a clear message here beats letting the ADC path
+    // attempt anyway and surface a cryptic "Unable to detect a Project
+    // Id" error instead.
     throw new Error(
       "Firebase Admin SDK credentials are missing — set FIREBASE_PROJECT_ID, " +
         "FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY in .env.local " +

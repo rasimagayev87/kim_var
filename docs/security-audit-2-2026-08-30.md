@@ -1030,6 +1030,16 @@ canlıdır). Saxlanılacaqsa: `getCurrentAdmin()` tələb et, `listUsers`-i çı
 
 **REQRESSİYA TESTİ:** `GET /api/health` sessiya olmadan → 401/404.
 
+> ⚠️ **Yoxlama host-u (2026-08-30 düzəlişi).** Bu tapıntı bağlandıqdan
+> sonra ilk yoxlama SƏHV host-da aparıldı — Firebase App Hosting
+> URL-ində (`kim-var-admin--kim-var-73ce9.us-central1.hosted.app`), o
+> isə production deyil və heç vaxt olmayıb. Nəticə 404 gəldi və tapıntı
+> "canlıda bağlandı" kimi qeyd edildi, halbuki real production
+> (`admin.peakpin.app`, Vercel) hələ də sızan cavabı qaytarırdı.
+> Vercel deploy-undan sonra düzgün host-da təsdiqləndi: 404, gövdədə
+> `projectId`/`sampleUserCount` yoxdur. Admin panel üçün YEGANƏ doğru
+> yoxlama ünvanı `admin.peakpin.app`-dir.
+
 ---
 
 ### H-9 — `users/{uid}/private/data` tam client-yazılabilir: `birthDate` kilidi effektiv deyil, `phoneNumber` admin panelə saxta göstərilir

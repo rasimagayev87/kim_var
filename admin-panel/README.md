@@ -43,32 +43,47 @@ and Storage are shared with the Flutter app in the parent directory.
 - `src/lib/firebase/admin.ts` is guarded with `import "server-only"`;
   importing it from a Client Component fails the build on purpose.
 
-## Deploy (Firebase App Hosting)
+## Deploy (Vercel)
 
-One-time setup — all of this happens in the Firebase console/CLI under
-your own account, not something that can be scripted end-to-end since
-step 2 is a GitHub OAuth grant:
+**Production is `admin.peakpin.app`, hosted on Vercel.** Deploys are
+made from a developer machine with the Vercel CLI; there is no
+git-triggered build, so pushing to GitHub does NOT deploy this panel.
 
-1. **Register a Web app** (if not done already, for step 4's client
-   config): Firebase console → Project settings → General → Your apps
-   → Add app → Web.
-2. **Connect the GitHub repo**: Firebase console → Build → App Hosting
-   → Get started → connect `rasimagayev87/kim_var`, authorize
-   Firebase's GitHub App when prompted.
-3. **Create the backend**, pointing at the `admin-panel/` subdirectory:
-   ```
-   firebase apphosting:backends:create --project kim-var-73ce9 --backend kim-var-admin --root-dir admin-panel --primary-region us-central1
-   ```
-4. **Fill in the public client values** in `apphosting.yaml`
-   (`NEXT_PUBLIC_FIREBASE_API_KEY`, `NEXT_PUBLIC_FIREBASE_APP_ID`) from
-   the Web app created in step 1, then commit/push — App Hosting
-   redeploys automatically on push to the connected branch.
-5. **No Admin SDK secrets to configure** — `lib/firebase/admin.ts`
-   uses the backend's own Application Default Credentials
-   automatically once deployed (see that file's comments). If a Server
-   Action fails after deploy with a permission error, grant the
-   backend's service account the "Firebase Authentication Admin" and
-   "Cloud Datastore User" IAM roles in Google Cloud Console.
+```
+cd admin-panel
+vercel --prod
+```
 
-After the first successful rollout, every push to the connected branch
-redeploys — no further manual `firebase deploy` needed.
+The project link lives in `admin-panel/.vercel/project.json`
+(`peakpin/admin-panel`). Root Directory is `admin-panel/` itself, so the
+command must be run from this directory.
+
+Environment variables are configured in the Vercel dashboard
+(Project → Settings → Environment Variables), Production scope. All
+nine are required and already set:
+
+* `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`
+  — the Admin SDK service account. Unlike a Google-hosted runtime,
+  Vercel provides no Application Default Credentials, so
+  `lib/firebase/admin.ts` takes its explicit-credentials branch. These
+  are real secrets; they exist only in the Vercel dashboard and in
+  local `.env.local`, never in the repo.
+* `NEXT_PUBLIC_FIREBASE_*` (six) — the browser client config.
+
+### Firebase App Hosting is NOT used
+
+A Firebase App Hosting backend named `kim-var-admin` exists on the
+project and answers at
+`kim-var-admin--kim-var-73ce9.us-central1.hosted.app`. **It is not
+production and nothing routes to it.** Its last rollout was 4 August
+2026; `admin.peakpin.app` has never pointed at it.
+
+This has already caused one real incident: a deploy verification was
+run against the App Hosting URL, saw the expected result, and reported
+a security fix as live when production was still serving the old build.
+If you are verifying a deploy, curl `admin.peakpin.app` — not the
+`hosted.app` URL.
+
+`apphosting.yaml` is kept only because deleting it is a separate
+decision from this one; it configures the unused backend and is not
+read by Vercel.

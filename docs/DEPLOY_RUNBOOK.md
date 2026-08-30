@@ -184,17 +184,37 @@ Bu andan etibarən:
 
 ## 4. ADMIN PANEL
 
+**Deploy hədəfi: Vercel.** `admin.peakpin.app` Vercel-dədir və
+git-ə bağlı avtomatik build YOXDUR — GitHub-a push admin paneli
+deploy ETMİR. Deploy əl ilə edilir:
+
 ```
-☐ admin-panel dəyişiklikləri deploy edildi (Vercel)
+cd admin-panel && vercel --prod
+```
+
+⚠️ **Yoxlamanı doğru host-da et.** Layihədə `kim-var-admin` adlı
+istifadə edilməyən Firebase App Hosting backend-i də var
+(`kim-var-admin--kim-var-73ce9.us-central1.hosted.app`) və o, 4 avqust
+tarixli köhnə build-i verir. Bir dəfə deploy məhz o URL-də yoxlanılıb,
+gözlənilən nəticə alınıb və təhlükəsizlik düzəlişi "canlıdır" kimi
+qeyd edilib — halbuki production toxunulmamış qalmışdı. Həmişə
+`admin.peakpin.app`-i yoxla.
+
+```
+☐ admin-panel dəyişiklikləri deploy edildi: cd admin-panel && vercel --prod
+☐ curl -i https://admin.peakpin.app/api/health → 404 (200 gələrsə deploy getməyib)
 ☐ Admin panelə giriş yoxlandı — işləyir
 ☐ İstifadəçilər səhifəsi açılır (phoneNumber yeni yoldan oxunur)
 ☐ Ödənişlər səhifəsi açılır (yeni statuslar görünür)
 ☐ [DÜZƏLİŞ, əlavə] "İadə başlat" (initiateRefund) düyməsi Ödənişlər səhifəsində işləyir
 ```
 
-⚠️ Prompt 9 edilməyib — `emergencyToken` bypass hələ oradadır, MFA yoxdur.
-Admin panelə internetdən çıxışı məhdudlaşdır (Vercel deployment
-protection) və ya URL-i paylaşma.
+✅ **2026-08-30 yeniləməsi:** `emergencyToken` bypass-ı SİLİNDİ (P0 / C-2)
+və canlıda yoxdur — `admin.peakpin.app`-in login bundle-larında həmin
+kod tapılmır. Autentifikasiyasız `/api/health` endpoint-i də silindi
+(P0 / H-8). **MFA hələ də yoxdur** (ACCEPTED_RISKS / AUTH-8b), ona görə
+Vercel deployment protection və ya URL-i paylaşmamaq tövsiyəsi qüvvədə
+qalır.
 
 ---
 
