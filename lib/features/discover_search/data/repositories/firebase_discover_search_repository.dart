@@ -19,24 +19,32 @@ class FirebaseDiscoverSearchRepository implements DiscoverSearchRepository {
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> get _users => _firestore.collection('users');
-  CollectionReference<Map<String, dynamic>> get _usernames => _firestore.collection('usernames');
   CollectionReference<Map<String, dynamic>> get _venues => _firestore.collection('venues');
 
+  @override
+  /// Server-side (P0 / H-6) — was a raw `usernames` LIST query, which
+  /// `firestore.rules` now denies. That collection is a complete
+  /// `username → uid` index, so a listable version of it re-opened the
+  /// mass-enumeration path RT-25 closed on `users` itself, just one hop
+  /// further out. The callable also applies a bidirectional block
+  /// filter, which this query never did.
+  ///
+  /// Single-document `get`s on `usernames` are unaffected and stay open
+  /// (deep links, availability checks) — see the rule's own comment.
   @override
   Future<List<PublicProfile>> searchUsersByUsername(String query, {int limit = 20}) async {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return [];
 
-    final snap = await _usernames
-        .orderBy(FieldPath.documentId)
-        .startAt([q])
-        .endAt(['$q$_kPrefixRangeEnd'])
-        .limit(limit)
-        .get();
-
-    final uids = snap.docs.map((d) => d.data()['uid'] as String?).whereType<String>().toList();
-    return _fetchProfiles(uids);
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('searchUsersByUsername');
+      final result = await callable.call<Map<String, dynamic>>({'query': q});
+      final raw = (result.data['profiles'] as List).cast<dynamic>();
+      return raw.map((e) => _profileFromMap(Map<String, dynamic>.from(e as Map))).toList();
+    } catch (e, st) {
+      logError('firebase_discover_search_repository.searchUsersByUsername', e, st);
+      return [];
+    }
   }
 
   /// Server-side (Düzəliş Prompt 5) — was a raw `users.orderBy
@@ -98,46 +106,12 @@ class FirebaseDiscoverSearchRepository implements DiscoverSearchRepository {
   /// prefix-match order the caller queried for instead of whatever
   /// order `whereIn` would return.
   ///
-  /// Each `get()` is caught INDIVIDUALLY (Düzəliş Prompt 5) — a blocked
-  /// pair's `users/{uid}` read now throws `permission-denied`
-  /// (`firestore.rules`, K-3); with `Future.wait` erroring as a whole
-  /// batch, ONE blocked match used to wipe every OTHER, unrelated
-  /// result out of the search too. Excluding just that one uid is the
-  /// correct behavior — "bloklanan istifadəçi axtarışda görünməməlidir"
-  /// without breaking the rest of the query.
-  Future<List<PublicProfile>> _fetchProfiles(List<String> uids) async {
-    if (uids.isEmpty) return [];
-    final docs = await Future.wait(
-      uids.map((id) async {
-        try {
-          return await _users.doc(id).get();
-        } on FirebaseException {
-          return null;
-        }
-      }),
-    );
-    return docs
-        .whereType<DocumentSnapshot<Map<String, dynamic>>>()
-        .where((d) => d.exists)
-        .map((d) => _profileFromDoc(d.id, d.data()!))
-        .toList();
-  }
-
-  PublicProfile _profileFromDoc(String id, Map<String, dynamic> data) {
-    final firstName = data['firstName'] as String? ?? '';
-    final lastName = data['lastName'] as String? ?? '';
-    return PublicProfile(
-      id: id,
-      name: '$firstName $lastName'.trim(),
-      username: data['username'] as String?,
-      photoUrl: data['photoUrl'] as String?,
-      identityVerified: data['identityVerified'] as bool? ?? false,
-      premium: data['premium'] as bool? ?? false,
-    );
-  }
-
-  /// Same shape as [_profileFromDoc], for the `searchUsersByName`
-  /// callable's plain-map response instead of a Firestore document.
+  /// Builds a [PublicProfile] from the plain-map response both
+  /// user-search callables return. The former Firestore-document
+  /// variant (and the per-uid `get()` fan-out it fed) went away with
+  /// P0 / H-6: neither search reads `users` documents from the client
+  /// any more, so the block-aware per-uid error handling that fan-out
+  /// needed now lives server-side in the callables themselves.
   PublicProfile _profileFromMap(Map<String, dynamic> data) {
     final firstName = data['firstName'] as String? ?? '';
     final lastName = data['lastName'] as String? ?? '';

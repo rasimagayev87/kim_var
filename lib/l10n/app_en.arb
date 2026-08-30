@@ -304,6 +304,7 @@
   "chatBlockConfirmMessage": "They won't be able to message you anymore.",
   "chatDeleteConfirmTitle": "Delete this chat?",
   "chatDeleteConfirmMessage": "This conversation will be permanently deleted.",
+  "chatDeletedNotice": "Chat deleted.",
   "chatReportTitle": "Report user",
   "chatReportReasonHint": "Describe the issue...",
   "chatReportSubmitButton": "Submit report",
@@ -1265,6 +1266,8 @@
   "postSentToChatSuccessMessage": "Post sent",
   "postSentToChatErrorMessage": "The post wasn't sent. Please try again shortly.",
   "chatPostMessageLabel": "Post",
+  "chatMessageDeletedPreviewLabel": "Message deleted",
+  "chatMessageDeleteFailedError": "Couldn't delete the message. Please try again later.",
   "@postTimeWeeksAgo": {
     "placeholders": {
       "count": {

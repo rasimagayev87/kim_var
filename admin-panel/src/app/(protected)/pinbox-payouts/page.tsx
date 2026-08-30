@@ -17,7 +17,7 @@ export default async function PinBoxPayoutsPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateVenues")) {
+  if (!admin || !hasPermission(admin.role, "managePayments")) {
     redirect("/dashboard");
   }
 

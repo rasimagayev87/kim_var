@@ -6,6 +6,12 @@ import { assertFails, assertSucceeds, RulesTestEnvironment } from "@firebase/rul
 import { doc, setDoc, updateDoc, Timestamp } from "firebase/firestore";
 import { createTestEnv, userFixture } from "./helpers.ts";
 
+// P0 / H-5 — `photoUrl` artıq yalnız öz Storage bucket-imizə işarə
+// edə bilər (dəyişdirildiyi yazılarda). Bu fixture əvvəllər
+// "https://example.com/p.jpg" idi.
+const OWN_STORAGE_URL =
+  "https://firebasestorage.googleapis.com/v0/b/kim-var-73ce9.firebasestorage.app/o/x%2Fy.jpg?alt=media&token=t";
+
 let testEnv: RulesTestEnvironment;
 
 before(async () => {
@@ -59,7 +65,7 @@ describe("Prompt 1 — kilidsiz sahələr sərbəst qalır (bənd 4)", () => {
     });
     const db = testEnv.authenticatedContext(uid).firestore();
     await assertSucceeds(
-      updateDoc(doc(db, "users", uid), { bio: "Yeni bio", city: "Bakı", photoUrl: "https://example.com/p.jpg" }),
+      updateDoc(doc(db, "users", uid), { bio: "Yeni bio", city: "Bakı", photoUrl: OWN_STORAGE_URL }),
     );
   });
 });

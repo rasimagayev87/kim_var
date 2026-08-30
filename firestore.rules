@@ -107,6 +107,35 @@ service cloud.firestore {
         in ['wineHouse', 'homeServices', 'realEstate'];
     }
 
+    // P0 / H-5 — whether [url] points at THIS project's own Firebase
+    // Storage bucket.
+    //
+    // Every media URL on a user-authored document (`users.photoUrl`,
+    // `posts.mediaUrl`, `stories.mediaUrl`, and the venue/offer/PinBox/
+    // event image fields handled server-side in functions/src/index.ts)
+    // was previously an arbitrary string. Two consequences, both real:
+    //   1. Tracking. These URLs are fetched with `NetworkImage` on
+    //      OTHER users' devices — a marker on the nearby map, a search
+    //      result, a chat list row. An external URL therefore turns
+    //      every viewer into an HTTP request to a server the author
+    //      controls, harvesting IP and User-Agent. For an app whose
+    //      whole premise is proximity, that is a deanonymization
+    //      primitive, not a nuisance.
+    //   2. Moderation bypass. A moderator approves the BYTES currently
+    //      at a URL. If the URL is remote, the author swaps those bytes
+    //      afterwards with no Firestore write at all — nothing
+    //      re-enters review, because `updateOffer`/`updateVenue`'s
+    //      content diff sees an unchanged string.
+    //
+    // Matches the download-URL shape the Firebase SDK produces
+    // (`getDownloadURL()`), which is the only thing any client here
+    // ever writes. Bucket name is hardcoded — it is a constant of this
+    // project, and a rules file has no way to read configuration.
+    function isOwnStorageUrl(url) {
+      return url is string &&
+        url.matches('https://firebasestorage[.]googleapis[.]com/v0/b/kim-var-73ce9[.]firebasestorage[.]app/o/.*');
+    }
+
     // Whether [uid] is a live, un-banned account (Düzəliş Prompt 11 /
     // Y-1) — `exists(users/{uid})` alone only catches a DELETED account
     // (the doc is gone); it does NOT catch a BANNED one, because
@@ -199,9 +228,28 @@ service cloud.firestore {
       // already being read for this very `get`, so this costs no extra
       // read at all: a blocked party sees the SAME permission-denied a
       // deleted/nonexistent account would (the client maps both to one
-      // indistinguishable "Hesab tapılmadı", never revealing which).
+      // indistinguishable "Hesab tapılmadı", never revealing which — see
+      // `UserProfileScreen`'s own doc comment, which handles the
+      // `error` case from a blocked-403 and the `data == null` case
+      // from a genuinely-missing doc identically).
+      //
+      // Fixed (post-launch QA, Qeydiyyat flow) — `resource` is `null`
+      // for a `get` on a document that doesn't exist yet, and evaluating
+      // `resource.data` on that `null` used to be an evaluation ERROR,
+      // which Firestore denies exactly like a real block (fails closed).
+      // That accidentally also caught the ONE self-read case this match
+      // block was never meant to block: `_hydrateFromFirestore` reads
+      // `users/{own uid}` right after `createUserWithEmailAndPassword`/
+      // first Google-Apple sign-in, BEFORE `completeOnboarding` has ever
+      // written that doc — so every brand-new registration hit this
+      // same permission-denied and never got past the auth screen, even
+      // though the Auth account itself had already been created. The
+      // `resource == null ||` guard restores the intended "missing doc
+      // reads as not-found" behavior WITHOUT weakening the block check
+      // itself: an EXISTING doc still goes through the exact same
+      // `blockedUsers` test as before.
       allow get: if request.auth != null &&
-        !resource.data.get('blockedUsers', []).hasAny([request.auth.uid]);
+        (resource == null || !resource.data.get('blockedUsers', []).hasAny([request.auth.uid]));
 
       // RT-25 — a raw `list`/query against the WHOLE `users` collection
       // (e.g. `.where('lastSeen', ...)`) used to be allowed to any
@@ -257,6 +305,19 @@ service cloud.firestore {
       // legitim axını sındırmır, yalnız sahibin öz-özünü təmizə
       // çıxarma yolunu bağlayır.
       function touchesLockedUserFields() {
+        // `birthDate` KEPT here (P0 / H-9) even though Düzəliş Prompt 4
+        // moved the live field to `users/{uid}/private/data`. Removing
+        // it was tried and reverted: this file's rules-test suite caught
+        // that it would open a real fallback hole. `withPrivateData`
+        // (functions/src/index.ts) merges the two documents as
+        // `{...publicDoc, ...privateDoc}`, so a `birthDate` sitting on
+        // the PUBLIC document is still used by
+        // `ageYearsFromBirthDate`/`buildPublicCandidatePayload` whenever
+        // the private one has none — an un-migrated account, or simply a
+        // private doc where the field is absent. Leaving this open would
+        // therefore have restored exactly the age-spoofing vector the
+        // subcollection lock exists to close, just via a different path.
+        // Both locations are now locked; neither alone is sufficient.
         return request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['premium', 'identityVerified', 'premiumExpiresAt', 'birthDate', 'reportedCount']);
       }
@@ -311,8 +372,33 @@ service cloud.firestore {
       // — so the same write could set the other three to anything. With
       // only `reportedCount` left, `hasOnly` + a single equality check
       // is airtight.
+      // `photoUrl` must be one of OUR Storage objects (P0 / H-5) — this
+      // is the highest-traffic instance of the problem, since a profile
+      // photo renders on every map marker, search result and chat row
+      // that mentions this account.
+      //
+      // Checked only when the write CHANGES it, not on every update.
+      // The difference matters: `request.resource.data` carries the
+      // whole post-write document, so validating unconditionally would
+      // mean any account that already holds a non-Storage `photoUrl`
+      // could never edit its bio, city or anything else again — locked
+      // out by a value it cannot fix in the same write. No such account
+      // is expected (the only writer is
+      // `FirebaseStorageRepository`'s `profile_photos/{uid}/profile.jpg`
+      // upload; Google/Apple sign-in photos are NOT copied here —
+      // verified by grep), but "expected" is not "verified in
+      // production", and `npm run list-external-media-urls` exists to
+      // answer that with data. Grandfathering costs nothing defensively:
+      // an attacker's goal is to INTRODUCE an external URL, and that is
+      // exactly what this rejects.
+      function photoUrlOk() {
+        return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['photoUrl']) ||
+          request.resource.data.photoUrl == null ||
+          isOwnStorageUrl(request.resource.data.photoUrl);
+      }
+
       allow update: if request.auth != null && (
-        (request.auth.uid == userId && !touchesLockedUserFields() && bioSizeOk()) ||
+        (request.auth.uid == userId && !touchesLockedUserFields() && bioSizeOk() && photoUrlOk()) ||
         (
           request.auth.uid != userId &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reportedCount']) &&
@@ -329,8 +415,87 @@ service cloud.firestore {
       // shape this schema already uses successfully. `blockedUsers`
       // deliberately STAYS on the parent doc, NOT here — see that
       // field's own note further down for why (Prompt 5's territory).
+      // P0 / H-9 (REGRESSION) — this used to be a bare `allow read,
+      // write: if request.auth.uid == userId`, which is where Düzəliş
+      // Prompt 4's migration quietly lost a guarantee. The fields it
+      // moved here (`birthDate` above all) were previously protected on
+      // the PARENT document by `touchesLockedUserFields()`; that lock is
+      // bound to a PATH, not to a field, so it did not travel with them
+      // — `firestore.rules` went on listing `'birthDate'` in a blocklist
+      // for a document that no longer contained it. Net effect: the 18+
+      // gate `completeOnboarding` enforces could be undone by the very
+      // next client write, and `consent` (a legal record), `email` and
+      // `phoneNumber` (both surfaced to admins/support) became
+      // self-declared.
+      //
+      // Now field-scoped. Each name below is server-only because a
+      // specific consumer trusts it, not because it "looks sensitive":
+      //   `birthDate`   — the minimum-age gate; only `completeOnboarding`
+      //                   (and support) may ever set it.
+      //   `phoneNumber` — shown to moderators in the admin panel.
+      //   `email`       — same, and now written by `syncContactEmail`
+      //                   from `request.auth.token`, which can't be forged.
+      //   `consent`     — legal acceptance record; `recordConsent` reads
+      //                   the versions from `config/legal` rather than
+      //                   believing the client's claim.
+      //   `loginProvider` — derived from the Auth record.
+      //   `fcmTokens`   — the push-delivery target list; a client write
+      //                   could add ANOTHER user's device token
+      //                   (`registerFcmToken`/`unregisterFcmToken` now
+      //                   own it).
+      //   `knownDeviceSignatures` — the "new device sign-in" alert's own
+      //                   memory; a client write silences that alert.
+      //   `blockedByUsers` — the reverse block index (`onUserUpdated`
+      //                   writes it onto the BLOCKED party's doc, so the
+      //                   blocked party must not be able to clear it).
+      //
+      // Everything else stays client-writable, including `lat`/`lng`
+      // (locking them buys nothing — a rooted device spoofs GPS at the
+      // OS level and the server cannot tell the difference; the real
+      // mitigation is on the disclosure side, see `findNearbyUsers`) and
+      // `activeCheckinVenueId` (written by the client's own check-in
+      // transaction alongside the `activeCheckins` doc it points at;
+      // self-referential, and the Cloud Function triggers reconcile it).
+      //
+      // The `resource == null` branch handles first creation: this
+      // document is legitimately created by whichever client writer runs
+      // first (re-consent, location, telemetry), often BEFORE
+      // `completeOnboarding` — see that function's own `tx.set(merge:
+      // true)` comment for the incident that established this.
       match /private/{document} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        // Split into separate create/update rules rather than one
+        // `write` with a `resource == null ? ... : ...` ternary: the
+        // ternary mixed a List (`keys()`) with a Set
+        // (`diff().affectedKeys()`) in its two branches, and every other
+        // block in this file already states create and update
+        // separately. (Both shapes deny correctly — the emulator's
+        // "evaluation error" lines against split rules are just it
+        // reporting the NON-matching rule, e.g. the update rule's
+        // `resource.data` on a create; every pre-existing split rule in
+        // this file logs the same thing.)
+        function serverOnlyFields() {
+          return [
+            'birthDate', 'phoneNumber', 'email', 'consent', 'loginProvider',
+            'fcmTokens', 'knownDeviceSignatures', 'blockedByUsers'
+          ];
+        }
+
+        allow read: if request.auth != null && request.auth.uid == userId;
+
+        // First creation — often by a client writer that runs BEFORE
+        // `completeOnboarding` (re-consent, location, telemetry); see
+        // that function's own `tx.set(merge: true)` comment.
+        allow create: if request.auth != null && request.auth.uid == userId &&
+          !request.resource.data.keys().hasAny(serverOnlyFields());
+
+        allow update: if request.auth != null && request.auth.uid == userId &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(serverOnlyFields());
+
+        // Unchanged from the previous `allow write` (which included
+        // delete) — `deleteAccount` runs on the Admin SDK and bypasses
+        // this anyway; nothing is gained by newly forbidding an owner
+        // from dropping their own document.
+        allow delete: if request.auth != null && request.auth.uid == userId;
       }
 
       // Personal media gallery grid on the self-profile tab — read-only
@@ -516,14 +681,28 @@ service cloud.firestore {
       // here are just lowercase username strings and each doc is only
       // `{uid, createdAt}` — nothing sensitive to gate behind auth.
       //
-      // Closed to any-signed-in-user (Düzəliş Prompt 2 / Quick Win 1) —
-      // unlike `get` above, this query's only caller
-      // (`searchUsersByUsername`) is reachable exclusively from
-      // `DiscoverSearchScreen`, itself only reachable post-sign-in
-      // (inside `HomeScreen`'s tab tree) — confirmed no pre-login path
-      // exists for `list`, so this one closes with zero risk of
-      // breaking anything.
-      allow list: if request.auth != null;
+      // CLOSED OUTRIGHT (P0 / H-6). Düzəliş Prompt 2 narrowed this from
+      // fully-public to any-signed-in-user, which was the wrong axis:
+      // the problem was never authentication, it was enumeration. Doc
+      // ids here ARE usernames and each doc carries the uid, so
+      // `orderBy(documentId).startAt([''])` plus paging yielded the
+      // complete `username → uid` index for the entire user base —
+      // and every uid then resolved to a full public profile through
+      // the single-doc `get` on `users/{uid}` (which still exposes
+      // `blockedUsers` and `reportedCount`). That made RT-25's
+      // `allow list: if false` on `users` itself a one-hop detour
+      // rather than a closed door.
+      //
+      // The only caller was `FirebaseDiscoverSearchRepository
+      // .searchUsersByUsername`, now served by the callable of the same
+      // name (functions/src/index.ts) — which applies a result cap and
+      // a bidirectional block filter the raw query never did.
+      //
+      // `allow get` above stays OPEN on purpose (see its own comment and
+      // docs/ACCEPTED_RISKS.md): resolving one already-known username
+      // for a shared `peakpin.app/u/{username}` link is public profile
+      // discovery. Listing every username is identity enumeration.
+      allow list: if false;
 
       allow create: if request.auth != null &&
         resource == null &&
@@ -553,7 +732,17 @@ service cloud.firestore {
       // it's "you may see this edge if you have legitimate access to
       // either list it could appear on", same reasoning `canReadPost`
       // above already uses for one resource instead of two.
+      //
+      // Fixed (post-launch QA, same class as `users/{userId}` above) —
+      // `followId` is deterministic (`{followerId}_{followeeId}`), so
+      // "do I follow X" is routinely checked by `.get()`-ing an ID that
+      // simply doesn't exist yet (no relationship). Without the
+      // `resource == null ||` guard, that legitimate not-a-follow case
+      // hit the same evaluation-error-as-permission-denied failure mode
+      // as an actual block, and the client had no way to tell "no
+      // relationship" apart from a rules bug.
       allow read: if request.auth != null && (
+        resource == null ||
         request.auth.uid == resource.data.followerId ||
         request.auth.uid == resource.data.followeeId ||
         get(/databases/$(database)/documents/users/$(resource.data.followeeId)).data.get('accountPrivacy', 'public') != 'private' ||
@@ -619,7 +808,18 @@ service cloud.firestore {
       // direct write). Both checks only apply at CREATE — an already-
       // `accepted` chat is never retroactively closed by a later block
       // (see `messages/create` below for that) or setting change.
+      // P0 / H-3 — `participants` must be exactly the two uids the
+      // document id is built from, sorted. `FirebaseChatRepository`
+      // already builds both that way (`chatIdFor` sorts and joins with
+      // "_"), so this breaks nothing real; it closes the gap where a
+      // chat document's membership list and its own id could disagree,
+      // which is what made the `update`-side rewrite above reachable in
+      // a shape the `messages` rules (which parse `chatId` itself) could
+      // not detect.
       allow create: if request.auth != null && request.auth.uid in request.resource.data.participants &&
+        request.resource.data.participants.size() == 2 &&
+        chatId == request.resource.data.participants[0] + '_' + request.resource.data.participants[1] &&
+        request.resource.data.participants[0] < request.resource.data.participants[1] &&
         !isBlockedPair(request.resource.data.participants[0], request.resource.data.participants[1]) &&
         canMessage(request.auth.uid, otherOf(request.resource.data.participants, request.auth.uid));
 
@@ -634,8 +834,66 @@ service cloud.firestore {
       // Düzəliş Prompt 5 — a blocked pair can no longer accept a still-
       // pending request into an `accepted` chat (declining stays
       // allowed either way — that only closes the door further).
-      allow update: if request.auth != null && request.auth.uid in resource.data.participants && (
-        request.resource.data.status == resource.data.status ||
+      //
+      // Post-launch QA — `lastMessageOverride` (each participant's OWN
+      // "məndən sil" chat-list preview override, written exclusively by
+      // `onChatMessageDeletedForUser`, Admin SDK) is explicitly excluded
+      // from branch 1's otherwise-broad "any field, `status` unchanged"
+      // grant. Without this, either participant could write into it
+      // directly and show the OTHER participant a fabricated preview
+      // text in their own chat list — the field only means anything
+      // because it's guaranteed to have been computed server-side from
+      // what that uid can actually no longer see, never hand-picked.
+      // P0 / H-3 — `participants` and `initiatorId` are now pinned on
+      // BOTH branches (see the shared guard in the outer condition
+      // below), mirroring what `calls/{callId}`'s own update rule has
+      // always done. Without it, branch 1's "any field as long as
+      // `status` is unchanged" grant included the membership list
+      // itself: a caller could take a chat they legitimately own and
+      // rewrite `participants` to `[self, anyone]`, then set
+      // `lastMessage`/`lastMessageAt`/`unreadCount` freely. Because the
+      // chat list is a plain `where('participants', arrayContains: uid)`
+      // query, that put an unread conversation carrying
+      // attacker-written preview text into ANY user's inbox — bypassing
+      // `isBlockedPair`, `whoCanMessageMe: followersOnly`, and the
+      // recipient having previously deleted the chat, all of which
+      // Düzəliş Prompt 5 enforces only on `create` and on
+      // `messages/create`.
+      // P0 / H-4 — "Söhbəti sil" is now a PER-USER hide, and this is the
+      // only way a client may touch `hiddenFor`.
+      //
+      // The map is keyed by uid exactly like `pinnedBy`/`archivedBy`/
+      // `mutedBy`, but unlike those it is a safety-relevant field, so
+      // "only your own key" is enforced rather than assumed: a
+      // harasser must not be able to hide the conversation from their
+      // VICTIM (destroying the victim's view of the evidence), and must
+      // not be able to clear the victim's own hide either (dragging a
+      // conversation the victim removed back into their list). Both
+      // directions are blocked by the same `diff().affectedKeys()
+      // .hasOnly([request.auth.uid])` check on the MAP itself, not just
+      // on the field name.
+      //
+      // `.get('hiddenFor', {})` because the field is absent on every
+      // chat created before this change — a bare `resource.data
+      // .hiddenFor` would error (and therefore deny) for all of them.
+      function touchesOnlyOwnHiddenFlag() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hiddenFor']) &&
+          request.resource.data.hiddenFor.diff(resource.data.get('hiddenFor', {}))
+            .affectedKeys().hasOnly([request.auth.uid]);
+      }
+
+      allow update: if request.auth != null && request.auth.uid in resource.data.participants &&
+        request.resource.data.participants == resource.data.participants &&
+        request.resource.data.initiatorId == resource.data.initiatorId && (
+        (
+          request.resource.data.status == resource.data.status &&
+          // `hiddenFor` joins `lastMessageOverride` in branch 1's
+          // exclusion list — branch 1 is the broad "ordinary chat
+          // activity" grant, and without this it would let either
+          // participant rewrite the whole map, which is precisely what
+          // the dedicated branch below exists to prevent.
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['lastMessageOverride', 'hiddenFor'])
+        ) ||
         (
           resource.data.status == 'pending' &&
           request.auth.uid != resource.data.initiatorId &&
@@ -643,15 +901,27 @@ service cloud.firestore {
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
           (request.resource.data.status == 'declined' ||
            !isBlockedPair(resource.data.participants[0], resource.data.participants[1]))
-        )
+        ) ||
+        touchesOnlyOwnHiddenFlag()
       );
 
-      // Was missing entirely before — "Söhbəti sil" (ChatController.deleteChat)
-      // has been silently failing with permission-denied since there was no
-      // `allow delete` at all here (delete isn't covered by the `allow
-      // read, write: if false` catch-all once a more specific match block
-      // like this one has already matched the request).
-      allow delete: if request.auth != null && request.auth.uid in resource.data.participants;
+      // CLOSED (P0 / H-4). A client delete here removed the SHARED
+      // document, and `onChatDeleted` then cascaded into every message
+      // and every Storage object in the thread — including the other
+      // participant's. One person's "Söhbəti sil" therefore destroyed
+      // both people's history irreversibly, which in a harassment
+      // scenario means the abuser deletes the evidence out of the
+      // victim's own account. (The client's own `deleteChat` comment
+      // acknowledged this as an MVP shortcut: "Delete for me only isn't
+      // modeled yet".)
+      //
+      // `deleteChat` now writes `hiddenFor.{own uid}` instead (see the
+      // update rule above), and the document is hard-deleted only once
+      // BOTH participants have hidden it — by `hardDeleteFullyHiddenChat`
+      // (functions/src/index.ts, Admin SDK, which bypasses this rule),
+      // whose delete still triggers the same `onChatDeleted` cascade so
+      // no messages or media are left orphaned.
+      allow delete: if false;
 
       // Membership is checked by parsing chatId itself (rather than a
       // get() on the parent doc) because the chat doc and its first
@@ -701,11 +971,26 @@ service cloud.firestore {
         // fails, this ONE clause (declinedGuard) is removed and RT-5 is
         // deferred as a separate, documented finding — it must not
         // block the rest of this prompt.
+        // `mediaUrl` shape check (P0 / C-1, DEFENCE IN DEPTH ONLY) — the
+        // real fix lives in `functions/src/index.ts`
+        // ([chatMediaPathForMessage]): server-side deletion no longer
+        // reads this field at all, it recomputes the path from
+        // (chatId, senderId, messageId, type). This clause exists purely
+        // so the field can't hold an arbitrary attacker-chosen string in
+        // the first place, and must NEVER be relied on as the boundary —
+        // it constrains the URL's PREFIX, not the object path inside it,
+        // so a value passing this check can still point anywhere in the
+        // bucket. Optional: text/post messages carry no `mediaUrl` at
+        // all, and a `post` message's `mediaUrl` legitimately points at
+        // `posts/{uid}/...` rather than a chat folder, which is exactly
+        // why a stricter path-level rule would break a real flow.
         allow create: if request.auth != null &&
           request.auth.uid == request.resource.data.senderId &&
           chatId.split('_').hasAny([request.auth.uid]) &&
           isActiveUser(request.auth.uid) &&
           (!('text' in request.resource.data) || request.resource.data.text.size() <= 2000) &&
+          (!('mediaUrl' in request.resource.data) ||
+           request.resource.data.mediaUrl.matches('https://firebasestorage[.]googleapis[.]com/.*')) &&
           !isBlockedPair(chatId.split('_')[0], chatId.split('_')[1]) &&
           (!exists(/databases/$(database)/documents/chats/$(chatId)) ||
            get(/databases/$(database)/documents/chats/$(chatId)).data.get('status', 'pending') != 'declined');
@@ -723,12 +1008,23 @@ service cloud.firestore {
         // the caller's own uid — never another participant's, never a
         // removal (a self-delete can't be undone by re-adding then
         // stripping someone else's entry in the same write).
+        // Fixed (post-launch QA) — `resource.data.deletedFor` used to be
+        // read via bare dot access, which errors (denies) when the
+        // field is simply absent, not just when the document is. Every
+        // message `FirebaseChatRepository._sendMessage` creates has NO
+        // `deletedFor` field at all (never initialized at create time —
+        // see that method), so "özün üçün sil" on ANY untouched message
+        // — sender's own or the other participant's — hit this exact
+        // evaluation error instead of the intended permission check.
+        // `.get('deletedFor', [])` treats a missing field as an empty
+        // list, matching what the client's own model already assumes
+        // (`deletedFor: (data['deletedFor'] as List?) ?? const []`).
         allow update: if request.auth != null && chatId.split('_').hasAny([request.auth.uid]) &&
           (
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deliveredAt', 'readAt']) ||
             (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedFor']) &&
-             request.resource.data.deletedFor.removeAll(resource.data.deletedFor).hasOnly([request.auth.uid]) &&
-             resource.data.deletedFor.removeAll(request.resource.data.deletedFor).size() == 0)
+             request.resource.data.deletedFor.removeAll(resource.data.get('deletedFor', [])).hasOnly([request.auth.uid]) &&
+             resource.data.get('deletedFor', []).removeAll(request.resource.data.deletedFor).size() == 0)
           );
         allow delete: if request.auth != null && request.auth.uid == resource.data.senderId;
       }
@@ -742,7 +1038,14 @@ service cloud.firestore {
     // subcollections so many small appends don't require rewriting the
     // whole doc.
     match /calls/{callId} {
-      allow read: if request.auth != null && request.auth.uid in resource.data.participants;
+      // Fixed (post-launch QA) — a call doc gets deleted at the end of
+      // its lifecycle; a client whose snapshot listener is still
+      // attached at that moment (or any late read of an ID from a
+      // just-ended call) used to hit the same `resource == null`
+      // evaluation error as a real access denial. `resource == null ||`
+      // lets that read as a clean "not found" instead.
+      allow read: if request.auth != null &&
+        (resource == null || request.auth.uid in resource.data.participants);
 
       // `isActiveUser()` gate (Düzəliş Prompt 11 / Y-1, Variant B) —
       // same reasoning as `chats/{chatId}/messages` create above: calls
@@ -888,6 +1191,13 @@ service cloud.firestore {
       // upload feature built yet), but both sat outside this blocklist,
       // so a direct/modified-client write could still set either. No
       // legitimate flow loses anything by closing this.
+      // `nameLower` joins the lock (P0, class-search finding C-d) —
+      // `name` was already locked but its lowercase search key was not,
+      // and `searchVenues` matches on `nameLower`, never on `name`. An
+      // owner could therefore leave the moderated display name intact
+      // while making the venue surface under entirely different search
+      // terms. `submitVenue`/`updateVenue` both derive it from `name`
+      // (`name.toLowerCase()`), so nothing legitimate writes it alone.
       // `activeCheckinCount` (Düzəliş Prompt 4, K-4) joins the lock too
       // — only `onActiveCheckinCreated`/`onActiveCheckinDeleted`
       // (functions/src/index.ts) may set it, derived from real
@@ -897,7 +1207,7 @@ service cloud.firestore {
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl', 'offerAcceptedVersion', 'offerAcceptedAt', 'offerAcceptedFrom', 'offerDocumentUrl', 'verified', 'gallery', 'activeCheckinCount']);
+          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl', 'offerAcceptedVersion', 'offerAcceptedAt', 'offerAcceptedFrom', 'offerDocumentUrl', 'verified', 'gallery', 'activeCheckinCount', 'nameLower']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
@@ -1009,8 +1319,15 @@ service cloud.firestore {
     // `payments/{paymentId}` right above: only `startCardRegistration`/
     // `epointWebhook`'s `applyCardRegistrationOutcome`/`deleteSavedCard`/
     // `setDefaultSavedCard` (all Admin SDK) ever write here.
+    //
+    // Fixed (post-launch QA) — unlike `payments`, a saved card CAN be
+    // deleted (`deleteSavedCard`) while the client's own "Kartlarım"
+    // screen still holds a listener on that exact doc; without
+    // `resource == null ||` that delete turned into a permission-denied
+    // instead of a clean "this card is gone" read.
     match /savedCards/{cardId} {
-      allow read: if request.auth != null && request.auth.uid == resource.data.ownerId;
+      allow read: if request.auth != null &&
+        (resource == null || request.auth.uid == resource.data.ownerId);
       allow write: if false;
     }
 
@@ -1234,7 +1551,22 @@ service cloud.firestore {
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'paymentId', 'revisionDeadline', 'happyHourActive', 'boostedUntil', 'title', 'description', 'offerType', 'discountValue', 'startDate', 'endDate', 'terms', 'activeHours', 'activeDays', 'imageUrl', 'category']) &&
+          // `venueId`/`venueName`/`venuePhotoUrl`/`lat`/`lng`/`position`/
+          // `address`/`country`/`targetUserIds`/`personalMessage`/
+          // `birthdayMatchId` joined the lock (P0, class-search finding
+          // C-b). Düzəliş Prompt 6 / INFRA-5 added every CONTENT field
+          // here but stopped there, leaving the offer's IDENTITY and
+          // LOCATION open: an owner could take an already-`approved`
+          // offer and repoint `venueId` at somebody else's venue (the
+          // sibling `pinboxes` rule locks exactly this field, which is
+          // what made the omission visible), or rewrite `lat`/`lng`/
+          // `position` to teleport a moderated listing anywhere on the
+          // map — discovery is a geohash query over `position`, so that
+          // is a full relocation, invisible to the moderation queue
+          // because `updateOffer`'s content diff never looks at these.
+          // `submitOffer` derives all of them from the venue document
+          // itself, so no legitimate flow writes them again.
+          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'paymentId', 'revisionDeadline', 'happyHourActive', 'boostedUntil', 'title', 'description', 'offerType', 'discountValue', 'startDate', 'endDate', 'terms', 'activeHours', 'activeDays', 'imageUrl', 'category', 'venueId', 'venueName', 'venuePhotoUrl', 'lat', 'lng', 'position', 'address', 'country', 'targetUserIds', 'personalMessage', 'birthdayMatchId']) &&
         (!('description' in request.resource.data) || request.resource.data.description.size() <= 200) &&
         (!('terms' in request.resource.data) || request.resource.data.terms.size() <= 200);
 
@@ -1286,6 +1618,13 @@ service cloud.firestore {
         !isOfferOnlyCategory(request.resource.data.venueId) &&
         request.resource.data.status == 'pending' &&
         request.resource.data.stockRemaining == request.resource.data.stockTotal &&
+        // P0 / H-5 — PinBox creation is one of the few listing flows
+        // that still writes straight from the client (see this rule's
+        // own comment), so the URL check has to live here rather than
+        // in a callable. Edits go through `updatePinBox`, which applies
+        // `assertOwnStorageUrl` server-side.
+        (!('imageUrl' in request.resource.data) || request.resource.data.imageUrl == null ||
+         isOwnStorageUrl(request.resource.data.imageUrl)) &&
         !('reviewNote' in request.resource.data) &&
         !('reviewedBy' in request.resource.data) &&
         !('reviewedAt' in request.resource.data) &&
@@ -1309,7 +1648,20 @@ service cloud.firestore {
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'stockRemaining', 'venueId', 'title', 'description', 'originalPrice', 'pinboxPrice', 'pickupWindowStart', 'pickupWindowEnd', 'imageUrl']) &&
+          // `category`/`lat`/`lng`/`position`/`address`/`country`/
+          // `venueName`/`venuePhotoUrl`/`stockTotal` joined the lock
+          // (P0, class-search finding C-c) — same omission as `offers`
+          // above, same reasoning. `category` matters most here: the
+          // create rule enforces `!isOfferOnlyCategory(venueId)`, and
+          // that check only ever runs at create, so an approved PinBox
+          // could be moved into a category the feature is not allowed
+          // in at all. `stockTotal` is the denominator every "N of M
+          // left" display divides by, while `stockRemaining` was
+          // already locked — leaving one half writable let the pair
+          // disagree. `pinboxPrice`/`originalPrice` were already
+          // locked and stay so (that is what keeps
+          // `reservePinBoxOrder`'s charge honest).
+          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'stockRemaining', 'stockTotal', 'venueId', 'venueName', 'venuePhotoUrl', 'title', 'description', 'originalPrice', 'pinboxPrice', 'pickupWindowStart', 'pickupWindowEnd', 'imageUrl', 'category', 'lat', 'lng', 'position', 'address', 'country']) &&
         descriptionSizeOk();
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
@@ -1355,10 +1707,30 @@ service cloud.firestore {
         return !('description' in request.resource.data) || request.resource.data.description.size() <= 300;
       }
 
+      // P0 / H-5 — see `isOwnStorageUrl`. Events are `allow read: if
+      // request.auth != null`, so a cover image renders for every
+      // signed-in user who browses the venue; applied to create AND to
+      // the content-edit branch of update below, since that branch can
+      // swap `coverImageUrl` after the event is already live.
+      // Two shapes, because this is used from both `create` (no
+      // `resource` exists) and `update` (grandfathers an existing
+      // value, same reasoning as `users.photoUrl` above).
+      function coverImageUrlCreateOk() {
+        return !('coverImageUrl' in request.resource.data) ||
+          request.resource.data.coverImageUrl == null ||
+          isOwnStorageUrl(request.resource.data.coverImageUrl);
+      }
+      function coverImageUrlUpdateOk() {
+        return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['coverImageUrl']) ||
+          request.resource.data.coverImageUrl == null ||
+          isOwnStorageUrl(request.resource.data.coverImageUrl);
+      }
+
       allow create: if request.auth != null &&
         request.auth.uid == get(/databases/$(database)/documents/venues/$(request.resource.data.venueId)).data.ownerId &&
         !isOfferOnlyCategory(request.resource.data.venueId) &&
         request.resource.data.status == 'upcoming' &&
+        coverImageUrlCreateOk() &&
         descriptionSizeOk();
 
       // Two disjoint shapes: cancelling (status only, -> 'cancelled'),
@@ -1373,6 +1745,7 @@ service cloud.firestore {
           (resource.data.status in ['upcoming', 'live'] &&
             request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['title', 'description', 'coverImageUrl', 'startAt', 'endAt', 'category']) &&
+            coverImageUrlUpdateOk() &&
             descriptionSizeOk())
         );
 
@@ -1421,6 +1794,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // P0 / H-1 (b) — the last query origin `findNearbyUsers` saw for
+    // each uid, used by `assertPlausibleMovement` (functions/src/
+    // index.ts) to reject a jump no real journey could make between two
+    // calls. Kept OUT of `users/{uid}/private/data` on purpose: that
+    // document is client-writable by design (it holds `lat`/`lng`
+    // itself), so an attacker could reset their own last-known probe
+    // between calls and neutralize the check. Server-only in both
+    // directions — no client reads or writes this.
+    match /nearbyProbes/{uid} {
+      allow read, write: if false;
+    }
+
     // Audit trail of account deletions (uid + timestamp only, no other
     // personal data) — written exclusively by the `deleteAccount`
     // Cloud Function (Admin SDK bypasses these rules entirely). No
@@ -1441,13 +1826,25 @@ service cloud.firestore {
     // `visibility` field. A pre-migration doc may still have one from
     // before this feature; it's simply never read.
     match /stories/{storyId} {
+      // Fixed (post-launch QA) — stories are deleted outright once
+      // expired (a scheduled cleanup, separate from the client-side
+      // `expiresAt` filter mentioned above), so a stale deep link,
+      // notification, or still-open viewer for an already-deleted story
+      // used to hit the same `resource == null` evaluation error as a
+      // real denial instead of a clean "this story is gone".
       allow read: if request.auth != null && (
+        resource == null ||
         request.auth.uid == resource.data.creatorId ||
         get(/databases/$(database)/documents/users/$(resource.data.creatorId)).data.get('accountPrivacy', 'public') != 'private' ||
         isAcceptedFollower(request.auth.uid, resource.data.creatorId)
       );
 
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.creatorId;
+      // `isActiveUser()` — see the `posts` collection's own create rule
+      // for the full reasoning (P0 / C-3).
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.creatorId &&
+        isActiveUser(request.auth.uid) &&
+        // P0 / H-5 — see `isOwnStorageUrl`.
+        (!('mediaUrl' in request.resource.data) || isOwnStorageUrl(request.resource.data.mediaUrl));
 
       allow update: if false;
       allow delete: if request.auth != null && request.auth.uid == resource.data.creatorId;
@@ -1510,9 +1907,45 @@ service cloud.firestore {
       // copy of the author's `accountPrivacy` (set/kept in sync by
       // `onPostCreated`/`onUserUpdated` in Cloud Functions) — clients
       // can never write it themselves (see `allow update` below).
+      // Fixed (post-launch QA) — `resource == null ||` added for the
+      // same reason as every other single-`get()` fix in this file (a
+      // deleted post, or a stale notification/deep-link to one, used to
+      // read as permission-denied instead of not-found). Deliberately
+      // placed as the FIRST disjunct, before the two flat-field
+      // comparisons the comment above depends on for LIST-query
+      // provability — `resource` is never null for a document a query
+      // actually returns, so this is a no-op for `watchUserPosts`'s two
+      // list queries and doesn't disturb their provability; verified
+      // empirically by this file's own rules-unit-test suite (a list
+      // query that stopped being provable fails outright, it doesn't
+      // silently return fewer results).
       allow read: if request.auth != null &&
-        (resource.data.userId == request.auth.uid || resource.data.authorIsPublic == true || canReadPost(postId));
-      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+        (resource == null || resource.data.userId == request.auth.uid || resource.data.authorIsPublic == true || canReadPost(postId));
+      // `isActiveUser()` (P0 / C-3) — was deliberately left off here per
+      // Düzəliş Prompt 11's Variant B scope ("lower abuse-per-write than
+      // messaging/calls/reports"), and that reasoning still holds for
+      // BANNED accounts. What it missed is the other class this same
+      // check excludes: an account with NO `users/{uid}` document at
+      // all. `completeOnboarding` (Cloud Function) is the only thing
+      // that creates that document, and it is where the 18+ minimum-age
+      // gate runs — so before this, an under-18 whose onboarding call
+      // was REJECTED could still publish posts for the rest of that
+      // session (the client navigated to HomeScreen regardless; see
+      // `AuthController.completeOnboarding`'s own doc comment for that
+      // half of the fix). Public, permanent, user-generated content by
+      // an account that never cleared the age gate is a child-safety
+      // and store-policy problem, not a moderation-cost trade-off,
+      // which is why this one is no longer deferred. Same reasoning for
+      // `stories` and post `comments` below; `supportMessages` is
+      // deliberately NOT gated — a user stuck in exactly this state
+      // must still be able to reach support.
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId &&
+        isActiveUser(request.auth.uid) &&
+        // P0 / H-5 — see `isOwnStorageUrl`. `posts` are listable
+        // cross-author through `authorIsPublic`, so a post's media
+        // renders on strangers' devices in the discover grid.
+        (!('mediaUrl' in request.resource.data) || isOwnStorageUrl(request.resource.data.mediaUrl)) &&
+        (!('thumbnailUrl' in request.resource.data) || isOwnStorageUrl(request.resource.data.thumbnailUrl));
       allow update: if request.auth != null
         && request.auth.uid == resource.data.userId
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['caption']);
@@ -1528,7 +1961,10 @@ service cloud.firestore {
 
       match /comments/{commentId} {
         allow read: if request.auth != null && canReadPost(postId);
-        allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+        // `isActiveUser()` — see the `posts` collection's own create
+        // rule for the full reasoning (P0 / C-3).
+        allow create: if request.auth != null && request.auth.uid == request.resource.data.userId &&
+          isActiveUser(request.auth.uid);
 
         // Author may only ever change the comment's own text (mirrors
         // the post caption rule above) — likesCount is server-only.
@@ -1627,11 +2063,20 @@ service cloud.firestore {
     // `isActiveUser()` — a banned/deleted account's still-cryptographically
     // -valid ID token (up to ~1h, Firebase's own natural expiry) can
     // keep READING anything its existing rules already permitted
-    // (profiles, chats it's a participant of, venues, etc.); (2) `posts`,
-    // `stories`, `pinboxes`, `venueEvents`, and `supportMessages` create
-    // are also not gated this way (Variant B scope — lower abuse-per-write
+    // (profiles, chats it's a participant of, venues, etc.);
+    // (2) `pinboxes`, `venueEvents`, and `supportMessages` create are
+    // also not gated this way (Variant B scope — lower abuse-per-write
     // than messaging/calls/reports). Both are accepted for now, not
     // oversights — extending `isActiveUser()` to more `allow` rules is a
     // small, mechanical follow-up whenever it's prioritized.
+    //
+    // `posts`, `stories` and post `comments` were REMOVED from that
+    // deferred list (P0 / C-3): the gate there is no longer about
+    // ban-enforcement cost but about accounts that never cleared the
+    // 18+ check in `completeOnboarding` at all — `isActiveUser()`
+    // requires `users/{uid}` to EXIST, and that document is created
+    // only by that function, only after the age gate passes. See those
+    // rules' own comments. `supportMessages` stays ungated on purpose,
+    // so an account stuck in exactly that state can still reach support.
   }
 }

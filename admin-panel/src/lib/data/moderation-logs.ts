@@ -28,6 +28,7 @@ export type ModerationAction =
   | "user.unverified"
   | "user.vipGranted"
   | "user.vipRevoked"
+  | "user.deleted"
   | "post.deleted"
   | "comment.deleted"
   | "report.statusChanged"

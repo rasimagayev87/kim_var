@@ -46,8 +46,13 @@ export const VENUE_CATEGORY_LABELS: Record<string, string> = {
 };
 
 /** `inactive` is a manual admin toggle (hide an already-approved venue)
- * — separate from the moderation pipeline below, unaffected by it. */
-export type VenueStatus = "approved" | "pending" | "needs_revision" | "rejected" | "inactive";
+ * — separate from the moderation pipeline below, unaffected by it.
+ * `awaiting_payment` is `submitVenue`'s (functions/src/index.ts) initial
+ * status before the first subscription charge succeeds — was missing
+ * here entirely (post-launch QA finding), which meant `parseStatus`
+ * below silently coerced it to `approved`, showing an unpaid venue as
+ * "Aktiv" in the admin UI. */
+export type VenueStatus = "approved" | "pending" | "needs_revision" | "rejected" | "inactive" | "awaiting_payment";
 export type VenueStatusFilter = "all" | VenueStatus;
 
 export interface VenueDayHours {
@@ -102,7 +107,11 @@ export interface AdminVenueRow {
 const FETCH_LIMIT = 200;
 
 function parseStatus(value: unknown): VenueStatus {
-  return value === "pending" || value === "needs_revision" || value === "rejected" || value === "inactive"
+  return value === "pending" ||
+    value === "needs_revision" ||
+    value === "rejected" ||
+    value === "inactive" ||
+    value === "awaiting_payment"
     ? value
     : "approved";
 }
@@ -122,6 +131,15 @@ export async function listVenues({
 
   const snap = await query.orderBy("createdAt", "desc").limit(FETCH_LIMIT).get();
   let rows = await attachOwners(snap.docs);
+
+  // "Hamısı" (the default filter, no explicit status chosen) deliberately
+  // excludes `awaiting_payment` — an unpaid venue isn't a moderation
+  // decision waiting to happen the way `pending`/`needs_revision` are, so
+  // it shouldn't clutter the default view. It's still fully visible, just
+  // one intentional click away via the dedicated "Ödəniş gözlənilir" filter.
+  if (status === "all") {
+    rows = rows.filter((row) => row.status !== "awaiting_payment");
+  }
 
   const key = search.trim().toLowerCase();
   if (key) {

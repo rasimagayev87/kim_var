@@ -668,9 +668,13 @@ class PendingMessagesController extends StateNotifier<Map<String, List<PendingOu
       case MessageType.text:
       case MessageType.post:
       case MessageType.call:
+      case MessageType.deleted:
         // None of these ever become a pending/failed upload — text has
         // no upload step, post-shares go through ChatController.sendPost,
-        // and call logs go through ChatController.logCall.
+        // call logs go through ChatController.logCall, and `deleted` is
+        // never a real message's own type in the first place (only ever
+        // `Chat.lastMessage(Override)`'s type — see that enum value's
+        // own doc comment).
         return Future.value();
     }
   }

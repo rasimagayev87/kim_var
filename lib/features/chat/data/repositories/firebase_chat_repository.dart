@@ -552,10 +552,21 @@ class FirebaseChatRepository implements ChatRepository {
 
   @override
   Future<void> deleteChat(String chatId, String myUid) {
-    // "Delete for me only" isn't modeled yet (no per-user hide flag) —
-    // this removes the shared thread outright, matching the MVP's
-    // single-thread model. Revisit if per-user history hiding is needed.
-    return _chats.doc(chatId).delete();
+    // P0 / H-4 — per-user hide, not a shared delete.
+    //
+    // This used to be `_chats.doc(chatId).delete()`, which removed the
+    // document both participants share; `onChatDeleted` then cascaded
+    // into every message and every Storage object in the thread. One
+    // person's "Söhbəti sil" therefore destroyed the other person's
+    // history too, irreversibly — the abuser-deletes-the-evidence case.
+    // `firestore.rules` now refuses a client delete outright and only
+    // accepts a write to this uid's OWN `hiddenFor` key.
+    //
+    // The document is hard-deleted once BOTH sides have hidden it, by
+    // `hardDeleteFullyHiddenChat` (functions/src/index.ts) — which
+    // deletes the same document, so the existing `onChatDeleted`
+    // cleanup still runs and nothing is orphaned.
+    return _chats.doc(chatId).update({'hiddenFor.$myUid': true});
   }
 
   Chat _chatFromDoc(String id, Map<String, dynamic> data) {
@@ -576,7 +587,28 @@ class FirebaseChatRepository implements ChatRepository {
       pinnedBy: _boolMapFrom(data['pinnedBy']),
       archivedBy: _boolMapFrom(data['archivedBy']),
       mutedBy: _boolMapFrom(data['mutedBy']),
+      hiddenFor: _boolMapFrom(data['hiddenFor']),
+      lastMessageOverride: _lastMessageOverrideFrom(data['lastMessageOverride']),
     );
+  }
+
+  /// Per-uid "məndən sil" preview override — see [Chat.previewFor] and
+  /// `onChatMessageDeletedForUser` (functions/src/index.ts, the only
+  /// writer of this field; `firestore.rules` blocks it from any client
+  /// write). Malformed entries are dropped rather than thrown on, same
+  /// defensive spirit as [_safeVenue]-style parsing elsewhere in this
+  /// codebase — one bad entry shouldn't blank a whole chat's preview.
+  Map<String, ({String text, MessageType? type})> _lastMessageOverrideFrom(dynamic value) {
+    final raw = value as Map?;
+    if (raw == null) return const {};
+    final result = <String, ({String text, MessageType? type})>{};
+    for (final entry in raw.entries) {
+      final uid = entry.key as String?;
+      final map = entry.value as Map?;
+      if (uid == null || map == null) continue;
+      result[uid] = (text: map['text'] as String? ?? '', type: _typeFrom(map['type'] as String?));
+    }
+    return result;
   }
 
   Map<String, bool> _boolMapFrom(dynamic value) {
@@ -638,6 +670,8 @@ class FirebaseChatRepository implements ChatRepository {
         return MessageType.post;
       case 'call':
         return MessageType.call;
+      case 'deleted':
+        return MessageType.deleted;
       default:
         return null;
     }

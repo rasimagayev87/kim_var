@@ -6,6 +6,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentAdmin } from "@/lib/auth/server";
 import type { AdminSession } from "@/lib/auth/session";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
+import { deleteUserAccountPermanently } from "@/lib/user-account-deletion";
 import { logModerationAction } from "./log";
 
 export interface ActionResult {
@@ -157,6 +158,42 @@ export async function setUserBanned(uid: string, banned: boolean): Promise<Actio
     });
     revalidatePath("/users");
     revalidatePath(`/users/${uid}`);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "unknown-error" };
+  }
+}
+
+/**
+ * Full permanent deletion — Auth record + every Firestore document +
+ * every Storage object this account owns. Exists specifically to close
+ * the gap deleting from the Firebase Console's Authentication tab
+ * leaves behind: that only removes the Auth record, never the
+ * Firestore data, since there's no `deleteAccount`-equivalent trigger
+ * for a Console-initiated deletion (see `deleteUserAccountPermanently`'s
+ * own doc comment for the full reasoning). `username`/`email` are
+ * accepted from the caller (not re-read here) purely for a readable
+ * moderation-log note — by the time this returns, the doc they'd
+ * otherwise be read from no longer exists.
+ *
+ * No confirmation/undo at this layer — the UI trigger (`UserDetailActions`)
+ * is responsible for that; this action performs the deletion the moment
+ * it's called.
+ */
+export async function deleteUserAccount(uid: string, label: string): Promise<ActionResult> {
+  const check = await requireUserManagement();
+  if ("denied" in check) return check.denied;
+
+  try {
+    await deleteUserAccountPermanently(uid);
+    await logModerationAction({
+      actor: check.admin,
+      action: "user.deleted",
+      targetType: "user",
+      targetId: uid,
+      note: label,
+    });
+    revalidatePath("/users");
     return { ok: true };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : "unknown-error" };

@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useState, type FormEvent } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { signInWithCustomToken, signInWithEmailAndPassword, type UserCredential } from "firebase/auth";
+import { useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { signInWithEmailAndPassword, type UserCredential } from "firebase/auth";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -11,25 +11,31 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getFirebaseAuth } from "@/lib/firebase/client";
 
-// useSearchParams() requires a Suspense boundary above it, or Next
-// fails the build trying to statically prerender this route.
+// P0 / C-2 — the `?emergencyToken=` sign-in path was REMOVED here,
+// along with `scripts/mint-emergency-token.ts` and its npm script.
+//
+// It exchanged a Firebase custom token taken straight from the URL
+// query string for a full admin session. Cloud Run records the complete
+// request URL (query string included) in `httpRequest.requestUrl` on
+// every request by default, so anyone holding nothing more than
+// `roles/logging.viewer` — a role routinely granted to people who are
+// NOT admins — could read a live token out of the logs. Firebase custom
+// tokens are not single-use, and the refresh token obtained by
+// exchanging one outlives the token's own hour, so a single leaked link
+// meant durable, unattributable admin access to every user's PII, the
+// identity-verification documents, and the payment records.
+//
+// It existed as a stopgap for a project-wide Email+Password provider
+// outage. The Firebase Console's own "Reset password" flow covers the
+// same emergency without any code, so nothing replaced it.
+//
+// `useSearchParams` went with it, which is also why this route no
+// longer needs a Suspense boundary to prerender.
 export default function LoginPage() {
-  return (
-    <Suspense fallback={null}>
-      <LoginForm />
-    </Suspense>
-  );
-}
-
-function LoginForm() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  // True while an `?emergencyToken=` sign-in is in flight — hides the
-  // normal form so it doesn't flash before the redirect.
-  const [signingInWithToken, setSigningInWithToken] = useState(false);
 
   // Session creation (POST /api/auth/session → redirect) only cares
   // about the resulting ID token, not which provider produced the
@@ -60,30 +66,6 @@ function LoginForm() {
     router.refresh();
   }
 
-  // TEMPORARY: stopgap for the Email+Password provider's project-wide
-  // outage (see scripts/mint-emergency-token.ts's doc comment) — a
-  // link minted by that script lands here with the token in the URL,
-  // which this exchanges for a real session exactly like a normal
-  // sign-in would, just via a different Firebase Auth provider. Remove
-  // once Email+Password is confirmed working again; nothing else in
-  // this file depends on it.
-  useEffect(() => {
-    const token = searchParams.get("emergencyToken");
-    if (!token) return;
-
-    setSigningInWithToken(true);
-    const auth = getFirebaseAuth();
-    signInWithCustomToken(auth, token)
-      .then((credential) => completeSignIn(auth, credential))
-      .catch((error) => {
-        toast.error("Müvəqqəti giriş linki etibarsızdır və ya vaxtı bitib.");
-        console.error(error);
-        setSigningInWithToken(false);
-      });
-    // Only ever runs off the token that was in the URL on first render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     if (submitting) return;
@@ -100,14 +82,6 @@ function LoginForm() {
     } finally {
       setSubmitting(false);
     }
-  }
-
-  if (signingInWithToken) {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-muted/30 p-6">
-        <p className="text-sm text-muted-foreground">Daxil olunur...</p>
-      </div>
-    );
   }
 
   return (

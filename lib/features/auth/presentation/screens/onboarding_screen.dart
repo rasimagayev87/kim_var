@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -268,6 +269,24 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(loc.authEmailNotVerifiedError)),
       );
+    } on FirebaseFunctionsException catch (e) {
+      // P0 / C-3 — the two rejections `FirebaseAuthRepository
+      // .completeOnboarding` does NOT translate into a domain exception
+      // (it maps only `failed-precondition` and the `email-not-verified`
+      // `permission-denied`, and rethrows the rest). Both were
+      // previously invisible for the same reason the two handlers above
+      // were: `AsyncValue.guard` swallowed them and this screen
+      // navigated to HomeScreen regardless. Now that the controller
+      // rethrows, they surface here with a message the user can
+      // actually act on instead of a raw `[cloud_functions/...]` dump.
+      if (!mounted) return;
+      setState(() => _saving = false);
+      final message = switch (e.code) {
+        'already-exists' => loc.onboardingUsernameUnavailableError,
+        'resource-exhausted' => loc.registerGenericError,
+        _ => loc.registerGenericError,
+      };
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);

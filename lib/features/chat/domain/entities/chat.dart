@@ -32,6 +32,34 @@ class Chat {
   final Map<String, bool> archivedBy;
   final Map<String, bool> mutedBy;
 
+  /// P0 / H-4 — per-user "Söhbəti sil". Same uid-keyed-map shape as
+  /// [archivedBy] right above, and for the same structural reason (one
+  /// shared document, two participants), but it replaces something that
+  /// used to be a real delete: `deleteChat` removed the shared document
+  /// outright, and the `onChatDeleted` cascade then took BOTH people's
+  /// messages and Storage media with it. Either participant could
+  /// therefore erase the other's history — which, in the harassment
+  /// case this app has to assume, is the abuser deleting the evidence
+  /// out of the victim's own account.
+  ///
+  /// A client may only ever set its OWN key (`firestore.rules` enforces
+  /// this on the map itself, not just the field name). The document is
+  /// hard-deleted only once every participant's flag is `true`, by
+  /// `hardDeleteFullyHiddenChat` (functions/src/index.ts), whose delete
+  /// still runs the same `onChatDeleted` cleanup. A new message clears
+  /// the map server-side, so the thread comes back for both sides.
+  final Map<String, bool> hiddenFor;
+
+  /// Post-launch QA — "məndən sil" (`deleteMessageForMe`) only ever hides
+  /// a message for the ONE uid who deleted it; the shared [lastMessage]/
+  /// [lastMessageType] on this same doc can't reflect that without also
+  /// changing what the OTHER participant sees. Written exclusively by
+  /// `onChatMessageDeletedForUser` (functions/src/index.ts, Admin SDK —
+  /// `firestore.rules` blocks any client write to this field) whenever a
+  /// uid's own "məndən sil" targets what was, at that moment, their own
+  /// current preview. See [previewFor].
+  final Map<String, ({String text, MessageType? type})> lastMessageOverride;
+
   const Chat({
     required this.id,
     required this.participantIds,
@@ -47,6 +75,8 @@ class Chat {
     this.pinnedBy = const {},
     this.archivedBy = const {},
     this.mutedBy = const {},
+    this.hiddenFor = const {},
+    this.lastMessageOverride = const {},
   });
 
   String otherParticipant(String myUid) =>
@@ -60,7 +90,22 @@ class Chat {
 
   bool isMutedFor(String uid) => mutedBy[uid] == true;
 
+  /// True when [uid] has removed this conversation from their own list.
+  bool isHiddenFor(String uid) => hiddenFor[uid] == true;
+
   /// True when [uid] is the recipient of a still-pending request and
   /// must accept/decline before the conversation can continue.
   bool needsResponseFrom(String uid) => status == ChatRequestStatus.pending && uid != initiatorId;
+
+  /// The chat-list preview [uid] should actually see — their own
+  /// [lastMessageOverride] entry if "məndən sil" has ever hidden what
+  /// was their current preview, otherwise the shared [lastMessage]/
+  /// [lastMessageType] every other participant without an override also
+  /// sees. See [lastMessageOverride]'s own doc comment for who writes it
+  /// and why it can never come from a raw client write.
+  ({String text, MessageType? type}) previewFor(String uid) {
+    final override = lastMessageOverride[uid];
+    if (override != null) return override;
+    return (text: lastMessage, type: lastMessageType);
+  }
 }

@@ -23,9 +23,19 @@ and Storage are shared with the Flutter app in the parent directory.
      accounts → Generate new private key. Copy `project_id`,
      `client_email`, and `private_key` out of the downloaded JSON.
 3. `npm run dev` — starts at http://localhost:3000
-4. Visit `/api/health` to confirm the Admin SDK can reach the project
-   (returns `{ ok: true, sampleUserCount: ... }` once credentials are
-   correct).
+4. Sign in at `/login` with an admin account to confirm the Admin SDK
+   can reach the project — the dashboard's counters come straight
+   through it, so a working dashboard is the same proof the old
+   `/api/health` route gave.
+
+   > That route was **removed** (P0 / H-8). It called
+   > `getAdminAuth().listUsers(1)` with no authentication whatsoever,
+   > and Proxy's matcher excludes `/api` — so anyone on the internet
+   > could confirm the panel's existence, read back `projectId`, get the
+   > raw Firebase error text on failure, and make the backend issue
+   > Firebase Auth Admin API calls on demand. Its own comment called it
+   > a temporary Phase 1 check "to be deleted once a real dashboard is
+   > live"; the dashboard has been live for a long time.
 
 ## Notes
 

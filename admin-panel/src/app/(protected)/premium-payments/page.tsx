@@ -7,7 +7,7 @@ import { listPayments } from "@/lib/data/payments";
 
 export default async function PremiumPaymentsPage() {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateVenues")) {
+  if (!admin || !hasPermission(admin.role, "managePayments")) {
     redirect("/dashboard");
   }
 

@@ -22,6 +22,7 @@ const PERMISSION_MATRIX = {
     manageFeedback: true,
     manageAdmins: true,
     moderateIdentityVerifications: true,
+    managePayments: true,
   },
   moderator: {
     manageUsers: false,
@@ -36,6 +37,20 @@ const PERMISSION_MATRIX = {
     // (which also grants permanent, identity-linked trust: VIP), not
     // the moderator-accessible level of ordinary content moderation.
     moderateIdentityVerifications: false,
+    // P0 / H-7 — moving money is not content moderation. Every payment
+    // action used to be gated on `moderateVenues`, which moderators
+    // hold, on the reasoning that "every payment here originates from a
+    // venue-listing decision". That reasoning covered where the
+    // payments come FROM, not what the actions DO: `initiateRefund`
+    // flips a payment to `refund_pending`, which fires the
+    // `processPaymentRefund` trigger, which calls Epoint's real
+    // `/reverse` API — an actual bank reversal, with no amount cap, no
+    // second approval, and no MFA anywhere in this panel.
+    // `markPinBoxPayoutPaid` is the mirror image: it writes off a
+    // venue's outstanding balance as settled. A compromised or
+    // dishonest moderator account could work through the payments list
+    // reversing real charges.
+    managePayments: false,
   },
 } as const satisfies Record<AdminRole, Record<string, boolean>>;
 

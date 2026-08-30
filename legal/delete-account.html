@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hesabın Silinməsi / Delete Account — PeakPin</title>
+<style>
+  :root {
+    --bg: #F4F6F8;
+    --surface: #EEF2F4;
+    --card: #FFFFFF;
+    --text: #111827;
+    --text-secondary: #6B7280;
+    --accent: #12D6E8;
+    --divider: rgba(0,0,0,.08);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", Roboto, sans-serif;
+    line-height: 1.65;
+  }
+  .wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+  }
+  .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .logo {
+    font-weight: 800;
+    font-size: 19px;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .logo span {
+    color: #08BDD0;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  header h1 {
+    font-size: 22px;
+    margin: 8px 0 4px;
+  }
+  header .updated {
+    color: var(--text-secondary);
+    font-size: 14px;
+  }
+  .lang-toggle {
+    display: flex;
+    background: var(--surface);
+    border-radius: 99px;
+    padding: 4px;
+    gap: 2px;
+  }
+  .lang-toggle button {
+    border: none;
+    background: transparent;
+    padding: 7px 16px;
+    border-radius: 99px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: .2s;
+  }
+  .lang-toggle button.active {
+    background: var(--accent);
+    color: #fff;
+  }
+  section.card {
+    background: var(--card);
+    border-radius: 22px;
+    padding: 32px 28px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  h2 {
+    font-size: 17px;
+    margin-top: 32px;
+    margin-bottom: 10px;
+  }
+  h2:first-child { margin-top: 0; }
+  p, li { color: var(--text); font-size: 15px; }
+  strong { color: var(--text); }
+  ul, ol { padding-left: 20px; }
+  a { color: var(--accent); }
+  .lang-block { display: none; }
+  .lang-block.active { display: block; }
+  .note {
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 14px 16px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin: 10px 0 0;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 4px;
+    font-size: 14px;
+  }
+  table th, table td {
+    text-align: left;
+    padding: 10px 8px;
+    border-bottom: 1px solid var(--divider);
+    vertical-align: top;
+  }
+  table th {
+    color: var(--text-secondary);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  footer {
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-bar">
+    <div class="logo">Peak<span>Pin</span></div>
+    <div class="lang-toggle">
+      <button class="active" onclick="showLang('az', this)">AZ</button>
+      <button onclick="showLang('en', this)">EN</button>
+    </div>
+  </div>
+
+  <header>
+    <h1 id="page-title">Hesabın Silinməsi</h1>
+    <div class="updated" id="updated-line">PeakPin mobil tətbiqi · Son yenilənmə: 30 avqust 2026</div>
+  </header>
+
+  <section class="card">
+    <div class="lang-block active" id="az">
+      <h2>1. Ümumi məlumat</h2>
+      <p><strong>PeakPin</strong> mobil tətbiqinin istifadəçiləri hesablarını istənilən vaxt, birbaşa tətbiq daxilindən, dəstək xidmətinə müraciət etmədən silə bilərlər. Bu səhifə həmin prosesi, silinən məlumatların tam siyahısını və qanuni səbəblərlə məhdud müddətə saxlanılan məlumatları izah edir.</p>
+
+      <h2>2. Hesabı necə silmək olar</h2>
+      <p>Hesabınızı silmək üçün tətbiq daxilində bu addımları izləyin:</p>
+      <ol>
+        <li><strong>Profil</strong> bölməsinə keçin</li>
+        <li><strong>Ayarlar</strong>-a daxil olun</li>
+        <li>Aşağı sürüşdürüb <strong>"Hesabı sil"</strong> düyməsini tapın</li>
+        <li>Təhlükəsizlik səbəbindən sistem son daxil olmanızın yaxın zamanda (bir neçə dəqiqə əvvəl) olmasını tələb edə bilər — bu halda yenidən daxil olmanız xahiş olunacaq</li>
+        <li>Xəbərdarlıq mesajını oxuyub təsdiqləyin</li>
+      </ol>
+      <p class="note">Silmə əməliyyatı DƏRHAL həyata keçirilir və geri qaytarıla bilməz. Silinmə üçün dəstək xidmətinə yazmağa ehtiyac yoxdur — istənilən vaxt özünüz tətbiq daxilində edə bilərsiniz.</p>
+
+      <h2>3. Tam silinən məlumatlar</h2>
+      <p>Hesabınızı sildikdə aşağıdakılar dərhal və tamamilə silinir:</p>
+      <ul>
+        <li>Profil məlumatlarınız (ad, soyad, doğum tarixi, cins, ölkə/şəhər, telefon nömrəsi, istifadəçi adı)</li>
+        <li>Profil şəkliniz, paylaşdığınız bütün foto/video materiallar (Postlar)</li>
+        <li>Story-ləriniz</li>
+        <li>Yaratdığınız Məkan (venue) elanlarınız</li>
+        <li>Yaratdığınız Təklif (offer) elanlarınız</li>
+        <li>Kimlik doğrulama üçün göndərdiyiniz sənədlər (vəsiqə şəkilləri, selfie) — dərhal silinir</li>
+        <li>İzləmə/izləyici əlaqələriniz (follows)</li>
+        <li>İstifadəçi adınız və telefon nömrəniz sistemdən azad edilir (yeni hesab üçün yenidən istifadə oluna bilər)</li>
+      </ul>
+
+      <h2>4. Digər iştirakçıları qorumaq üçün qismən saxlanılan məlumatlar</h2>
+      <p>Bəzi məlumatlar TAM SİLİNMİR, çünki bu, başqa istifadəçilərin öz tarixçəsini itirməsinə səbəb olardı. Bu hallarda YALNIZ sizin şəxsi əlaqəniz silinir/gizlədilir:</p>
+      <table>
+        <tr><th>Məlumat</th><th>Nə baş verir</th></tr>
+        <tr><td>Göndərdiyiniz söhbət mesajları</td><td>Mətni "İstifadəçi hesabını silib" formasında yer tutucu ilə əvəz olunur, əlavə etdiyiniz şəkil/video/səs faylı silinir. Söhbətin özü digər iştirakçı üçün qalır.</td></tr>
+        <tr><td>Yaratdığınız tədbirlər (events)</td><td>Silinmir, arxivləşdirilir — digər qatılanların öz tarixçəsi qorunur. Sizin adınız "sahib silinib" kimi işarələnir.</td></tr>
+        <tr><td>PinBox sifarişləriniz (aldığınız qutular)</td><td>Sifariş qeydi silinmir (məkanın öz satış/hesabat tarixçəsinin bir hissəsidir), amma sizinlə əlaqəsi anonimləşdirilir.</td></tr>
+      </table>
+
+      <h2>5. Qanuni/mühasibat səbəblərlə saxlanılan məlumatlar və müddət</h2>
+      <p>Aşağıdakılar, tətbiq qanunvericiliyinə (mühasibat, vergi və maliyyə hesabatlılığı tələblərinə) uyğun olaraq, hesabınız silindikdən SONRA da saxlanılır:</p>
+      <ul>
+        <li><strong>Ödəniş/əməliyyat qeydləri</strong> — real pul əməliyyatlarının (abunəlik, təklif haqqı, PinBox alışı və s.) maliyyə qeydləri, mühasibat uçotu məqsədilə saxlanılır. Bu qeydlər artıq şəxsi profilinizə bağlı deyil.</li>
+        <li><strong>Hesabın silinmə faktı</strong> — daxili audit jurnalında yalnız istifadəçi ID-si və silinmə tarixi formasında, müddətsiz saxlanılır (heç bir şəxsi məlumat ehtiva etmir).</li>
+      </ul>
+      <p class="note">Kimlik doğrulama sənədləriniz istisnadır — onlar hesab silinərkən DƏRHAL silinir, heç bir əlavə müddət üçün saxlanılmır.</p>
+
+      <h2>6. Alternativ üsul</h2>
+      <p>Tətbiqə giriş edə bilmirsinizsə (məsələn, hesabınıza artıq daxil ola bilmirsiniz), silinmə tələbini aşağıdakı əlaqə vasitəsilə göndərə bilərsiniz — sorğunuz eyni qaydada icra olunacaq.</p>
+
+      <h2>7. Əlaqə</h2>
+      <p>Suallarınız və ya hesab silinməsi ilə bağlı tələbləriniz üçün: <a href="mailto:ceo@peakpin.app">ceo@peakpin.app</a></p>
+
+      <h2>8. Əlaqəli sənədlər</h2>
+      <p><a href="/privacy-policy.html">Məxfilik Siyasəti</a> · <a href="/terms-of-service.html">İstifadə Şərtləri</a></p>
+    </div>
+
+    <div class="lang-block" id="en">
+      <h2>1. General Information</h2>
+      <p>Users of the <strong>PeakPin</strong> mobile app can delete their account at any time, directly from within the app, without needing to contact support. This page explains that process, the full list of data that gets deleted, and the data retained for a limited period for legal reasons.</p>
+
+      <h2>2. How to Delete Your Account</h2>
+      <p>To delete your account, follow these steps inside the app:</p>
+      <ol>
+        <li>Go to <strong>Profile</strong></li>
+        <li>Open <strong>Settings</strong></li>
+        <li>Scroll down and find <strong>"Delete Account"</strong></li>
+        <li>For security reasons, the system may require that you signed in recently (within the last few minutes) — if not, you'll be asked to sign in again</li>
+        <li>Read and confirm the warning message</li>
+      </ol>
+      <p class="note">Deletion happens IMMEDIATELY and cannot be undone. You do not need to contact support to delete your account — you can do it yourself, at any time, from within the app.</p>
+
+      <h2>3. Data Deleted Completely</h2>
+      <p>When you delete your account, the following is deleted immediately and completely:</p>
+      <ul>
+        <li>Your profile information (first/last name, date of birth, gender, country/city, phone number, username)</li>
+        <li>Your profile photo and all photos/videos you shared (Posts)</li>
+        <li>Your Stories</li>
+        <li>Venues you created</li>
+        <li>Offers you created</li>
+        <li>Documents submitted for identity verification (ID photos, selfie) — deleted immediately</li>
+        <li>Your follow/follower relationships</li>
+        <li>Your username and phone number are released back to the system (available for reuse on a new account)</li>
+      </ul>
+
+      <h2>4. Data Partially Retained to Protect Other Users</h2>
+      <p>Some data is NOT fully deleted, because doing so would erase other users' own history. In these cases, ONLY your personal association is removed/hidden:</p>
+      <table>
+        <tr><th>Data</th><th>What happens</th></tr>
+        <tr><td>Chat messages you sent</td><td>The text is replaced with a "User deleted their account" placeholder, and any photo/video/voice attachment is deleted. The conversation itself remains for the other participant.</td></tr>
+        <tr><td>Events you created</td><td>Not deleted — archived, so other attendees keep their own history. Your name is marked as "creator deleted".</td></tr>
+        <tr><td>PinBox orders you placed</td><td>The order record is not deleted (it's part of the venue's own sales/accounting history), but its link to you is anonymized.</td></tr>
+      </table>
+
+      <h2>5. Data Retained for Legal/Accounting Reasons, and for How Long</h2>
+      <p>The following is retained AFTER your account is deleted, in compliance with applicable accounting, tax, and financial reporting obligations:</p>
+      <ul>
+        <li><strong>Payment/transaction records</strong> — financial records of real monetary transactions (subscriptions, offer placement fees, PinBox purchases, etc.) are retained for accounting purposes. These records are no longer linked to your personal profile.</li>
+        <li><strong>The fact that the account was deleted</strong> — kept indefinitely in an internal audit log, containing only a user ID and deletion date (no personal information).</li>
+      </ul>
+      <p class="note">Identity verification documents are the one exception — they are deleted IMMEDIATELY upon account deletion, with no additional retention period.</p>
+
+      <h2>6. Alternative Method</h2>
+      <p>If you're unable to access the app (for example, you can no longer sign in), you can request deletion via the contact below — your request will be processed the same way.</p>
+
+      <h2>7. Contact</h2>
+      <p>For questions or account deletion requests: <a href="mailto:ceo@peakpin.app">ceo@peakpin.app</a></p>
+
+      <h2>8. Related Documents</h2>
+      <p><a href="/privacy-policy.html">Privacy Policy</a> · <a href="/terms-of-service.html">Terms of Service</a></p>
+    </div>
+  </section>
+
+  <footer>© 2026 PeakPin. Bütün hüquqlar qorunur. / All rights reserved.</footer>
+</div>
+
+<script>
+function showLang(lang, btn) {
+  document.querySelectorAll('.lang-block').forEach(el => el.classList.remove('active'));
+  document.getElementById(lang).classList.add('active');
+  document.querySelectorAll('.lang-toggle button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('page-title').textContent = lang === 'az' ? 'Hesabın Silinməsi' : 'Delete Account';
+  document.getElementById('updated-line').textContent = lang === 'az'
+    ? 'PeakPin mobil tətbiqi · Son yenilənmə: 30 avqust 2026'
+    : 'PeakPin mobile app · Last updated: August 30, 2026';
+  document.documentElement.lang = lang;
+}
+</script>
+</body>
+</html>

@@ -32,9 +32,19 @@ keçəndə (bu miqyasda username-enumeration iqtisadi cəhətdən cəlbedici olu
 tezliyini izləməyə başlamaq lazımdır (hazırda izlənmir, bu ayrıca kiçik
 tapşırıqdır).
 
-### Banlanmış istifadəçi `posts`/`stories`/`pinboxes`/`venueEvents`/`supportMessages` yarada bilir
-**Nə:** `isActiveUser()` yoxlaması bu 5 kolleksiyanın `create` qaydasına
+### Banlanmış istifadəçi `pinboxes`/`venueEvents`/`supportMessages` yarada bilir
+**Nə:** `isActiveUser()` yoxlaması bu 3 kolleksiyanın `create` qaydasına
 tətbiq olunmayıb.
+
+> **2026-08-30 yenilənməsi (P0 / C-3):** `posts`, `stories` və post
+> `comments` bu siyahıdan ÇIXARILDI və artıq `isActiveUser()` ilə
+> qorunur. Səbəb ban deyil: həmin yoxlama eyni zamanda `users/{uid}`
+> sənədi ÜMUMİYYƏTLƏ olmayan hesabları da bloklayır — yəni
+> `completeOnboarding`-in 18+ qapısından keçməmiş hesabları. Bu, xərc
+> mülahizəsi ilə tarazlanan moderasiya məsələsi deyil, uşaq
+> təhlükəsizliyi və mağaza siyasəti məsələsidir. `supportMessages`
+> qəsdən qorunmamış qalır ki, məhz bu vəziyyətdə ilişmiş istifadəçi
+> dəstəyə yaza bilsin.
 **Niyə qəbul edilib:** xərc qərarı — hər yazı yolunda əlavə bir `get()`
 sorğusu (banlanma statusunu yoxlamaq üçün) hər YAZI əməliyyatının qiymətini
 artırır; banlanmış istifadəçinin YENİ məzmun yaratması nadir hadisədir (adətən

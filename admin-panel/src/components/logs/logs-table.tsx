@@ -28,6 +28,7 @@ const ACTION_LABELS: Record<string, string> = {
   "user.unverified": "Verified ləğv edildi",
   "user.vipGranted": "VIP verildi",
   "user.vipRevoked": "VIP ləğv edildi",
+  "user.deleted": "Hesab tam silindi",
   "post.deleted": "Post silindi",
   "comment.deleted": "Şərh silindi",
   "report.statusChanged": "Şikayət statusu dəyişdi",

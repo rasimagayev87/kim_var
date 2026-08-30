@@ -1,17 +1,43 @@
 "use client";
 
 import { useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { ModerationNoteDialog } from "@/components/moderation/moderation-note-dialog";
-import { sendUserWarning, setUserBanned, setUserIdentityVerified, setUserPremium } from "@/lib/actions/users";
+import { deleteUserAccount, sendUserWarning, setUserBanned, setUserIdentityVerified, setUserPremium } from "@/lib/actions/users";
 import type { AdminUserRow } from "@/lib/data/users";
 
 export function UserDetailActions({ user }: { user: AdminUserRow }) {
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  function runDelete() {
+    startTransition(async () => {
+      const label = user.username ? `@${user.username} (${user.uid})` : user.uid;
+      const result = await deleteUserAccount(user.uid, label);
+      if (result.ok) {
+        toast.success("Hesab tam silindi.");
+        router.push("/users");
+      } else {
+        toast.error(result.error === "forbidden" ? "Bu əməliyyat üçün icazəniz yoxdur." : "Silinmə uğursuz oldu.");
+      }
+    });
+  }
 
   function run(action: () => Promise<{ ok: boolean; error?: string }>, successMessage: string) {
     startTransition(async () => {
@@ -93,6 +119,27 @@ export function UserDetailActions({ user }: { user: AdminUserRow }) {
       >
         {user.banned ? "Blokdan çıxar" : "Ban et"}
       </Button>
+
+      <AlertDialog>
+        <AlertDialogTrigger render={<Button variant="destructive" className="w-full" disabled={pending} />}>
+          Hesabı tam sil
+        </AlertDialogTrigger>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hesabı tam silmək istədiyinizə əminsiniz?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(user.username ? `@${user.username}` : user.uid)} — bu, Auth hesabını VƏ bütün Firestore/Storage
+              məlumatlarını (profil, çatlar, postlar, məkanlar, təkliflər) həmişəlik siləcək. Geri qaytarıla bilməz.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Ləğv et</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" disabled={pending} onClick={runDelete}>
+              Bəli, tam sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

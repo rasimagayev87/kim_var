@@ -50,8 +50,16 @@ describe("Prompt 2 / K-2 — chat mesajları", () => {
    * bir-birindən asılı olmasın deyə — paylaşılan sənəd üzərində
    * ardıcıl mutasiyalar əvvəlki testin vəziyyətini sonrakı testə sızdıra
    * bilər, məhz bu səbəbdən `deletedFor` testlərindən biri ilk cəhddə
-   * yanlış keçmişdi). */
-  async function seedFreshMessage(deletedFor: string[] = []): Promise<string> {
+   * yanlış keçmişdi).
+   *
+   * `deletedFor` PARAMETRİ VERİLMƏSƏ, sahə ÜMUMİYYƏTLƏ YAZILMIR — bu,
+   * real `FirebaseChatRepository._sendMessage`-in yaratdığı mesajın
+   * DƏQİQ EYNİSİDİR (o da bu sahəni heç vaxt başlanğıcda yazmır). Post-
+   * launch QA tapıntısı: köhnə versiya bu funksiyada HƏMİŞƏ `deletedFor:
+   * []`-i əvvəlcədən yazırdı, ona görə də rules-dakı `resource.data.
+   * deletedFor`-un sənəddə sahə YOXDURSA partladığı boşluq heç vaxt
+   * sınanmamışdı — istifadəçinin real şikayəti məhz bunun nəticəsi idi. */
+  async function seedFreshMessage(deletedFor?: string[]): Promise<string> {
     let messageId = "";
     await seed(async (fs) => {
       const ref = doc(collection(fs(), ...messagePath));
@@ -62,7 +70,7 @@ describe("Prompt 2 / K-2 — chat mesajları", () => {
         type: "text",
         text: "salam",
         sentAt: new Date(),
-        deletedFor,
+        ...(deletedFor !== undefined ? { deletedFor } : {}),
       });
     });
     return messageId;
@@ -94,14 +102,31 @@ describe("Prompt 2 / K-2 — chat mesajları", () => {
     await assertFails(updateDoc(doc(db, ...messagePath, messageId), { mediaUrl: "https://evil.example/x.jpg" }));
   });
 
-  test("deletedFor-a öz uid-ini əlavə etmək keçir", async () => {
-    const messageId = await seedFreshMessage();
+  // Post-launch QA — bu, əsl istifadəçi şikayətinin dəqiq təkrarıdır:
+  // `deletedFor` sahəsi HEÇ OLMAYAN (real client-in yaratdığı kimi) bir
+  // mesajda "özün üçün sil" göndərənin ÖZ mesajında da, DİGƏR
+  // iştirakçının mesajında da işləməli idi — hər ikisi eyni rule-dan
+  // keçir, sender/receiver fərqi yoxdur.
+  test("deletedFor sahəsi olmayan mesajda göndərənin ÖZÜ öz uid-ini əlavə edə bilir (sahə yoxdursa)", async () => {
+    const messageId = await seedFreshMessage(); // sahə YAZILMIR — real client kimi
+    const db = testEnv.authenticatedContext(uidA).firestore();
+    await assertSucceeds(updateDoc(doc(db, ...messagePath, messageId), { deletedFor: arrayUnion(uidA) }));
+  });
+
+  test("deletedFor sahəsi olmayan BAŞQASININ mesajında alıcı öz uid-ini əlavə edə bilir (sahə yoxdursa — əsl şikayət)", async () => {
+    const messageId = await seedFreshMessage(); // sahə YAZILMIR — real client kimi
+    const db = testEnv.authenticatedContext(uidB).firestore();
+    await assertSucceeds(updateDoc(doc(db, ...messagePath, messageId), { deletedFor: arrayUnion(uidB) }));
+  });
+
+  test("deletedFor sahəsi ARTIQ MÖVCUDDURSA (əvvəlki davranış) öz uid-ini əlavə etmək yenə keçir", async () => {
+    const messageId = await seedFreshMessage([]); // sahə açıq şəkildə yazılır, boş massiv
     const db = testEnv.authenticatedContext(uidB).firestore();
     await assertSucceeds(updateDoc(doc(db, ...messagePath, messageId), { deletedFor: arrayUnion(uidB) }));
   });
 
   test("deletedFor-a başqasının uid-ini əlavə etmək rədd edilir", async () => {
-    const messageId = await seedFreshMessage(); // deletedFor: [] — uidB hələ orada deyil
+    const messageId = await seedFreshMessage(); // sahə yoxdur — uidB hələ orada deyil
     const db = testEnv.authenticatedContext(uidA).firestore();
     await assertFails(updateDoc(doc(db, ...messagePath, messageId), { deletedFor: arrayUnion(uidB) }));
   });

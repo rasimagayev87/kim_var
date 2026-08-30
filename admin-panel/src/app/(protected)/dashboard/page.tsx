@@ -6,6 +6,8 @@ import { AiModerationPanel, AiSummaryPanel } from "@/components/dashboard/AiPane
 import { ReportStatsPanel } from "@/components/dashboard/ReportStatsPanel";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { TopVenuesPanel, SubscriptionsPanel } from "@/components/dashboard/ListPanels";
+import { hasPermission } from "@/lib/auth/permissions";
+import { getCurrentAdmin } from "@/lib/auth/server";
 import { getDashboardStats, getOnlineUsersCount, getRegistrationsLast7Days, getTodayRevenue } from "@/lib/data/dashboard";
 import type { KpiDatum, AnalyticsSeries } from "@/lib/types";
 
@@ -39,11 +41,21 @@ function weekdayLabel(isoDate: string): string {
  * component's own comments for exactly what's missing.
  */
 export default async function DashboardPage() {
+  // P0 / H-7 — the revenue figures are gated on the same
+  // `managePayments` permission as the payment screens themselves.
+  // Splitting money handling out of `moderateVenues` would be a half
+  // measure if the daily revenue total stayed on the one page every
+  // moderator lands on. Fetched conditionally rather than fetched and
+  // hidden, so a moderator's session never reads the `payments`
+  // collection at all — hiding a card client-side is not a boundary.
+  const admin = await getCurrentAdmin();
+  const canSeeRevenue = hasPermission(admin?.role, "managePayments");
+
   const [stats, registrations, onlineUsers, todayRevenue] = await Promise.all([
     getDashboardStats(),
     getRegistrationsLast7Days(),
     getOnlineUsersCount(),
-    getTodayRevenue(),
+    canSeeRevenue ? getTodayRevenue() : Promise.resolve(null),
   ]);
 
   const todayNewUsers = registrations.at(-1)?.count ?? 0;
@@ -55,7 +67,9 @@ export default async function DashboardPage() {
     { id: "active-offers", label: "Aktiv Təkliflər", value: stats.activeOffers, icon: "Tag", tone: "pink" },
     { id: "active-events", label: "Aktiv Tədbirlər", value: stats.activeEvents, icon: "Calendar", tone: "purple" },
     { id: "active-pinboxes", label: "Aktiv PinBox-lar", value: stats.activePinBoxes, icon: "Package", tone: "amber" },
-    { id: "revenue-today", label: "Gəlir (Bugün)", value: todayRevenue, unit: "AZN", icon: "Wallet", tone: "success" },
+    ...(todayRevenue !== null
+      ? ([{ id: "revenue-today", label: "Gəlir (Bugün)", value: todayRevenue, unit: "AZN", icon: "Wallet", tone: "success" }] as KpiDatum[])
+      : []),
     { id: "subscriptions", label: "Abunəliklər", value: 0, icon: "CreditCard", tone: "purple" },
     { id: "reports", label: "Reports", value: stats.pendingReports, icon: "Flag", tone: "danger" },
     { id: "pending-approvals", label: "Gözləyən Təsdiqlər", value: stats.pendingModeration, icon: "ShieldAlert", tone: "amber" },
@@ -83,12 +97,15 @@ export default async function DashboardPage() {
     label: "Offers",
     points: [{ date: "bugün", value: stats.activeOffers }],
   };
-  const revenueSeries: AnalyticsSeries = {
-    id: "revenue",
-    label: "Revenue",
-    unit: "AZN",
-    points: [{ date: "bugün", value: todayRevenue }],
-  };
+  const revenueSeries: AnalyticsSeries | null =
+    todayRevenue === null
+      ? null
+      : {
+          id: "revenue",
+          label: "Revenue",
+          unit: "AZN",
+          points: [{ date: "bugün", value: todayRevenue }],
+        };
   const retentionSeries: AnalyticsSeries = {
     id: "retention",
     label: "Retention",
@@ -128,7 +145,7 @@ export default async function DashboardPage() {
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           <AnalyticsCard series={dailyActiveUsersSeries} tone="#7C3AED" />
           <AnalyticsCard series={newUsersSeries} tone="#00D4E6" />
-          <AnalyticsCard series={revenueSeries} tone="#10B981" />
+          {revenueSeries && <AnalyticsCard series={revenueSeries} tone="#10B981" />}
           <AnalyticsCard series={businessesSeries} tone="#F59E0B" />
           <AnalyticsCard series={offersSeries} tone="#EC4899" />
           <AnalyticsCard series={retentionSeries} tone="#00D4E6" />

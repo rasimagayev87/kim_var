@@ -1,11 +1,10 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 
 import '../../../../../core/utils/app_logger.dart';
-import '../../../../../core/utils/private_data_ref.dart';
 import '../../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/repositories/firebase_notification_preferences_repository.dart';
 import '../../domain/entities/notification_preferences.dart';
@@ -155,18 +154,24 @@ class NotificationPreferencesController {
   Future<void> _registerFcmToken(String uid) async {
     final token = await FirebaseMessaging.instance.getToken();
     if (token != null) {
-      await _addToken(uid, token);
+      await _addToken(token);
     }
     FirebaseMessaging.instance.onTokenRefresh.listen((newToken) {
-      _addToken(uid, newToken);
+      _addToken(newToken);
     });
   }
 
-  Future<void> _addToken(String uid, String token) async {
+  /// P0 / H-9 — goes through the `registerFcmToken` Cloud Function
+  /// instead of writing `fcmTokens` directly. That array is the input
+  /// to `messaging.sendEachForMulticast`, so a client-writable list of
+  /// push targets meant an account could insert ANOTHER user's device
+  /// token and have its own notifications delivered there;
+  /// `firestore.rules` now blocks the field outright.
+  Future<void> _addToken(String token) async {
     try {
-      await privateDataRef(uid).update({
-        'fcmTokens': FieldValue.arrayUnion([token]),
-      });
+      await FirebaseFunctions.instance
+          .httpsCallable('registerFcmToken')
+          .call<Map<String, dynamic>>({'token': token});
     } catch (e, st) {
       logError('notification_providers.NotificationPreferencesController._addToken', e, st);
     }
@@ -185,9 +190,11 @@ class NotificationPreferencesController {
     try {
       final token = await FirebaseMessaging.instance.getToken();
       if (token == null) return;
-      await privateDataRef(uid).update({
-        'fcmTokens': FieldValue.arrayRemove([token]),
-      });
+      // P0 / H-9 — see `_addToken` above. Deliberately still called
+      // BEFORE sign-out: the callable needs a live `request.auth`.
+      await FirebaseFunctions.instance
+          .httpsCallable('unregisterFcmToken')
+          .call<Map<String, dynamic>>({'token': token});
     } catch (e, st) {
       logError('notification_providers.NotificationPreferencesController.unregisterFcmToken', e, st);
     }

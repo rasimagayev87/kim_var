@@ -87,6 +87,11 @@ class _ChatHeader extends StatelessWidget {
   final String callsDisabledTooltip;
   final bool peerIdentityVerified;
   final bool peerPremium;
+  /// Independent of [onTapProfile]/the peer's profile stream — deleting
+  /// the chat must stay reachable even when the peer's `users/{uid}` doc
+  /// is gone (profile screen unreachable, see [onTapProfile]'s doc
+  /// comment), since that used to be the ONLY place this action lived.
+  final VoidCallback onDeleteChat;
 
   const _ChatHeader({
     required this.peerName,
@@ -104,6 +109,7 @@ class _ChatHeader extends StatelessWidget {
     required this.callsDisabledTooltip,
     required this.peerIdentityVerified,
     required this.peerPremium,
+    required this.onDeleteChat,
   });
 
   @override
@@ -220,6 +226,26 @@ class _ChatHeader extends StatelessWidget {
                   color: callsEnabled ? ChatLightColors.inkSoft : ChatLightColors.inkFaint,
                   size: 23,
                 ),
+              ),
+              PopupMenuButton<void>(
+                icon: const Icon(Icons.more_vert, color: ChatLightColors.inkSoft, size: 21),
+                onSelected: (_) => onDeleteChat(),
+                itemBuilder: (menuContext) => [
+                  PopupMenuItem<void>(
+                    value: null,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          AppLocalizations.of(menuContext).actionDelete,
+                          style: const TextStyle(color: AppColors.error),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -596,6 +622,40 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
     }
   }
 
+  /// Mirrors `UserProfileScreen._confirmDeleteChat` — same confirm dialog,
+  /// same `deleteChat` call, same post-delete navigation — but reachable
+  /// from `_ChatHeader`'s own menu regardless of whether the peer's
+  /// profile stream ever resolves, since that was the only route before.
+  Future<void> _confirmDeleteChat(BuildContext context, AppLocalizations loc) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(loc.chatDeleteConfirmTitle),
+        content: Text(loc.chatDeleteConfirmMessage),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: Text(loc.actionDelete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      await ref.read(chatControllerProvider.notifier).deleteChat(_chatId);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatDeletedNotice)));
+      Navigator.popUntil(context, (route) => route.isFirst);
+    } catch (e, st) {
+      logError('chat_conversation_screen._confirmDeleteChat', e, st);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatRequestActionErrorMessage)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
@@ -685,6 +745,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                   callsEnabled: chat?.status == ChatRequestStatus.accepted &&
                       ref.watch(featureFlagProvider(FeatureFlag.calls)),
                   callsDisabledTooltip: loc.chatCallDisabledTooltip,
+                  onDeleteChat: () => _confirmDeleteChat(context, loc),
                 ),
                 _OngoingCallBanner(otherUid: widget.otherUid),
                 Expanded(
@@ -1039,11 +1100,24 @@ class _MessageBubble extends ConsumerWidget {
 
     switch (action) {
       case _MessageMenuAction.deleteForMe:
-        await ref.read(chatControllerProvider.notifier).deleteMessageForMe(chatId: chatId, messageId: message.id);
+        // Bonus post-launch QA finding — the returned bool used to be
+        // silently dropped, so a failed delete (rules rejection, offline,
+        // anything) looked identical to a successful one: no error, the
+        // message just stayed put with no explanation why.
+        final deletedForMe =
+            await ref.read(chatControllerProvider.notifier).deleteMessageForMe(chatId: chatId, messageId: message.id);
+        if (!deletedForMe && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatMessageDeleteFailedError)));
+        }
       case _MessageMenuAction.deleteForEveryone:
         final confirmed = await _confirmDeleteForEveryone(context, loc);
         if (confirmed != true || !context.mounted) return;
-        await ref.read(chatControllerProvider.notifier).deleteMessageForEveryone(chatId: chatId, messageId: message.id);
+        final deletedForEveryone = await ref
+            .read(chatControllerProvider.notifier)
+            .deleteMessageForEveryone(chatId: chatId, messageId: message.id);
+        if (!deletedForEveryone && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatMessageDeleteFailedError)));
+        }
       case _MessageMenuAction.forward:
         if (!context.mounted) return;
         await Navigator.push(

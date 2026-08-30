@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase-admin/app";
-import { FieldValue, getFirestore, GeoPoint, Timestamp } from "firebase-admin/firestore";
+import { FieldPath, FieldValue, getFirestore, GeoPoint, Timestamp } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import { getStorage } from "firebase-admin/storage";
 import { BatchResponse, getMessaging } from "firebase-admin/messaging";
@@ -23,6 +23,7 @@ import {
 } from "./epoint";
 import { geohashForLocation } from "geofire-common";
 import { verifyAppleNotification, verifyAppleTransaction, verifyGoogleSubscription } from "./iap";
+import { CHAT_MEDIA_FOLDERS, chatMediaPathForMessage, isChatHiddenByEveryone } from "./chat-media";
 
 // `enforceAppCheck: false` on every onCall function below — deliberately
 // reverted from `true`. iOS release builds activate App Check via
@@ -82,6 +83,27 @@ const DELETED_SENDER_PLACEHOLDER = "Bu istifadəçi hesabını silib";
 //     constraint as `country`.
 function privateDataRef(uid: string): FirebaseFirestore.DocumentReference {
   return db.collection("users").doc(uid).collection("private").doc("data");
+}
+
+// Post-launch QA — `completeOnboarding`/`findNearbyUsers` diagnostics.
+// The stuck-account incident that motivated the `completeOnboarding`
+// `tx.create`→`tx.set(merge:true)` fix (see that function's own comment)
+// took real effort to trace precisely BECAUSE neither function logged
+// anything identifying WHO called them or WHEN — every clue had to be
+// reconstructed after the fact from HTTP status/latency alone, with no
+// way to confirm which invocations belonged to the same uid. This is a
+// structured, one-line-per-call breadcrumb (uid, whether a request.auth
+// was present at all, and a timestamp) so a similar incident is instantly
+// traceable next time instead of requiring the same reconstruction.
+// Deliberately minimal — not a general-purpose call logger for every
+// function, just these two, which have already caused a real incident.
+function logCallableInvocation(functionName: string, request: { auth?: { uid: string } | null | undefined }): void {
+  logger.info(`${functionName}: invocation`, {
+    functionName,
+    uid: request.auth?.uid ?? null,
+    authStatus: request.auth ? "present" : "missing",
+    calledAt: new Date().toISOString(),
+  });
 }
 
 // Düzəliş Prompt 11 / Y-1 — a deleted/banned account's Firebase ID
@@ -203,6 +225,34 @@ function epointEnvValue(): string {
  * shouldn't fail the report-creation write it's reacting to, since the
  * report itself is already safely in Firestore either way.
  */
+/**
+ * HTML-escapes one interpolated value for the report e-mails below
+ * (P0, class-search finding A-3).
+ *
+ * Those templates interpolated `reason`, `reporter.name`,
+ * `reported.name`, `eventTitle` and `reviewComment` raw — every one of
+ * them free text an ordinary user types, `reason` up to the 1000
+ * characters `firestore.rules` allows. The recipient is
+ * privacy@peakpin.app, i.e. this project's own staff, so a report body
+ * of `<a href="https://evil.test/reset">Hesabı bərpa et</a>` arrived as
+ * a working link in an e-mail that genuinely came from PeakPin's own
+ * sending domain — a phishing lure with our own DKIM signature on it.
+ *
+ * Escapes the five characters that matter for HTML text and attribute
+ * context. Not a general-purpose sanitizer: everything here is
+ * interpolated into element TEXT, never into a URL, a script, or an
+ * unquoted attribute, so escaping is the correct and complete answer
+ * for this call site rather than a stripping/allowlisting pass.
+ */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function sendPrivacyNotificationEmail(subject: string, html: string): Promise<void> {
   try {
     const response = await fetch("https://api.resend.com/emails", {
@@ -319,6 +369,25 @@ export const deleteAccount = onCall({ region: "us-central1", enforceAppCheck: fa
   await deleteStoragePrefix(`profile_photos/${uid}/`);
   await deleteStoragePrefix(`stories/${uid}/`);
   await deleteStoragePrefix(`posts/${uid}/`);
+  // F-4 — owner-scoped listing imagery. `deleteUserVenues`/
+  // `deleteUserOffers` above delete `venue_photos/{venueId}.jpg` and
+  // `offer_photos/{offerId}.jpg`, which is the PRE-Düzəliş-Prompt-3
+  // flat layout; every upload since that migration writes
+  // `{prefix}/{ownerUid}/{id}.jpg` instead, so those photos have in
+  // practice survived every account deletion. `pinbox_photos/` and
+  // `event_covers/` were never covered at all. This is a privacy
+  // failure, not stray-file hygiene: it is data the user was told was
+  // deleted, still in the bucket and still readable by anyone holding
+  // its download URL (which needs no Firebase session — see
+  // `extensions/storage-resize-images.env`'s own note on how those
+  // tokens work). A prefix delete covers every object this uid owns
+  // without needing individual ids; the per-id flat deletes above are
+  // kept for objects still on the legacy paths (storage.rules'
+  // transition block).
+  await deleteStoragePrefix(`venue_photos/${uid}/`);
+  await deleteStoragePrefix(`offer_photos/${uid}/`);
+  await deleteStoragePrefix(`pinbox_photos/${uid}/`);
+  await deleteStoragePrefix(`event_covers/${uid}/`);
   await db.collection("accountDeletions").add({ uid, deletedAt: FieldValue.serverTimestamp() });
   await auth.deleteUser(uid);
 
@@ -412,6 +481,7 @@ const RESERVED_USERNAMES = new Set([
  * exactly the one already there.
  */
 export const completeOnboarding = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  logCallableInvocation("completeOnboarding", request);
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "unauthenticated");
@@ -534,21 +604,40 @@ export const completeOnboarding = onCall({ region: "us-central1", enforceAppChec
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
-    tx.create(privateDataRef(uid), {
-      loginProvider,
-      ...(authUser.email ? { email: authUser.email } : {}),
-      phoneNumber,
-      birthDate: Timestamp.fromDate(birthDate),
-      gender,
-      city,
-      consent: {
-        termsAccepted: true,
-        acceptedAt: FieldValue.serverTimestamp(),
-        termsVersion: data.termsVersion ?? null,
-        privacyVersion: data.privacyVersion ?? null,
+    // `tx.set(..., {merge: true})`, NOT `tx.create()` — unlike `userRef`
+    // right above (which genuinely never exists before onboarding),
+    // this doc CAN already exist by the time onboarding runs: the
+    // re-consent dialog (`consent_dialog.dart`'s `_accept()`) and other
+    // "runs whenever a session exists, independent of onboarding
+    // status" writers (location, profile-visit tracking — see this
+    // function's own history) merge-write onto this exact path with no
+    // idea whether onboarding has happened yet. `tx.create()` here used
+    // to throw `ALREADY_EXISTS` the moment any of those raced ahead of
+    // it, and — because that error was never caught — aborted the
+    // WHOLE transaction, including the otherwise-fine `userRef` write
+    // above, permanently stuck-in-onboarding (every retry hit the same
+    // now-permanent conflict). `merge: true` makes this idempotent
+    // with whatever partial state already got written, the same way
+    // every other one of this doc's writers already treats it.
+    tx.set(
+      privateDataRef(uid),
+      {
+        loginProvider,
+        ...(authUser.email ? { email: authUser.email } : {}),
+        phoneNumber,
+        birthDate: Timestamp.fromDate(birthDate),
+        gender,
+        city,
+        consent: {
+          termsAccepted: true,
+          acceptedAt: FieldValue.serverTimestamp(),
+          termsVersion: data.termsVersion ?? null,
+          privacyVersion: data.privacyVersion ?? null,
+        },
+        updatedAt: FieldValue.serverTimestamp(),
       },
-      updatedAt: FieldValue.serverTimestamp(),
-    });
+      { merge: true },
+    );
   });
 
   if (usernameTaken) {
@@ -556,6 +645,164 @@ export const completeOnboarding = onCall({ region: "us-central1", enforceAppChec
   }
 
   return { success: true };
+});
+
+/**
+ * P0 / H-9 — the four write paths that had to move server-side when
+ * `users/{uid}/private/data` stopped being fully client-writable.
+ *
+ * Düzəliş Prompt 4 moved `birthDate`, `email`, `phoneNumber`, `consent`,
+ * `loginProvider`, `fcmTokens` and `knownDeviceSignatures` OFF the
+ * public `users/{uid}` document (where `touchesLockedUserFields()`
+ * guarded several of them) and INTO a subcollection whose only rule was
+ * `allow read, write: if request.auth.uid == userId` — i.e. fully
+ * client-writable. The rules-level lock did not travel with the fields;
+ * `firestore.rules` still listed `'birthDate'` in a blocklist for a
+ * document that no longer contains it. The practical effect was that
+ * the 18+ gate `completeOnboarding` enforces could be undone with a
+ * single `set(..., {birthDate}, {merge:true})` right afterwards.
+ *
+ * `firestore.rules`' `private/{document}` rule now rejects any write
+ * touching those fields, so the legitimate client flows that DID write
+ * some of them need a server entry point. Each one below takes its
+ * value from a source the caller cannot forge rather than from
+ * `request.data`, which is the actual improvement — not just relocation.
+ *
+ * NOT moved server-side (deliberate, revised from this fix's own
+ * planning): `activeCheckinVenueId`. It looked server-only on paper,
+ * but `FirebaseVenueRemoteDatasource.checkIn`/`checkOut` write it
+ * inside a client transaction together with the
+ * `venues/{id}/activeCheckins/{uid}` document it points at — locking it
+ * would break check-in outright, and the field is a self-referential
+ * pointer whose only consumer is the same user's own next check-out
+ * (`onActiveCheckinCreated`/`onActiveCheckinDeleted` reconcile it
+ * server-side anyway). Lying about it harms nobody but the liar.
+ */
+
+/** Registers this device's FCM token on the caller's own private doc.
+ *
+ * Was a direct client `arrayUnion` write. Moved here because
+ * `fcmTokens` is the input to `messaging.sendEachForMulticast` — a
+ * client-writable list of push targets meant an account could insert
+ * ANOTHER user's token and have its own notifications delivered to that
+ * person's device. That required knowing the victim's token, which is
+ * why the audit rated it low; token strings do leak (logs, crash
+ * reports, support transcripts), so the precondition is not one worth
+ * relying on. Token rotation is rare (install, reinstall, occasional
+ * refresh), so a callable costs effectively nothing here. */
+export const registerFcmToken = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  await assertActiveUser(uid);
+  await enforceRateLimit("fcm-token", uid, 20, 3600);
+
+  const token = request.data?.token as string | undefined;
+  // FCM registration tokens are long opaque strings; the bound is a
+  // sanity cap against someone stuffing the array, not a format check
+  // (Firebase itself is the only authority on what a valid token looks
+  // like, and it rejects bad ones at send time).
+  if (!token || typeof token !== "string" || token.length < 32 || token.length > 4096) {
+    throw new HttpsError("invalid-argument", "token etibarsızdır.");
+  }
+
+  await privateDataRef(uid).set({ fcmTokens: FieldValue.arrayUnion(token) }, { merge: true });
+  return { ok: true };
+});
+
+/** Removes this device's FCM token from the caller's own private doc —
+ * called right before sign-out so a signed-out device stops receiving
+ * pushes meant for whoever signs in next. Best-effort by design on the
+ * client side; see `registerFcmToken` for why this moved server-side. */
+export const unregisterFcmToken = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  // Deliberately NO `assertActiveUser` — a banned or just-deleted
+  // account signing out should still be able to detach its device
+  // token; refusing that would leave the token receiving pushes.
+  const token = request.data?.token as string | undefined;
+  if (!token || typeof token !== "string") {
+    throw new HttpsError("invalid-argument", "token tələb olunur.");
+  }
+
+  await privateDataRef(uid).set({ fcmTokens: FieldValue.arrayRemove(token) }, { merge: true });
+  return { ok: true };
+});
+
+/**
+ * Records the caller's acceptance of the current Terms/Privacy
+ * versions — the re-consent dialog's write path (`consent_dialog.dart`
+ * `_accept()`), which used to write `consent` directly.
+ *
+ * The versions are read from `config/legal` HERE rather than taken from
+ * `request.data`: `consent` is a legal record, and a client-supplied
+ * version string meant the stored record could claim acceptance of a
+ * version the user was never shown. `acceptedAt` is a server timestamp
+ * for the same reason. Same "trust the server's own config, not the
+ * client's claim" shape as `currentBusinessOffer()` and its callers.
+ */
+export const recordConsent = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  await enforceRateLimit("consent", uid, 20, 3600);
+
+  const snap = await db.collection("config").doc("legal").get();
+  const termsVersion = snap.data()?.currentTermsVersion as string | undefined;
+  const privacyVersion = snap.data()?.currentPrivacyVersion as string | undefined;
+  if (!termsVersion || !privacyVersion) {
+    logger.error("recordConsent: config/legal is missing or incomplete");
+    throw new HttpsError("failed-precondition", "legal-config-missing");
+  }
+
+  await privateDataRef(uid).set(
+    {
+      consent: {
+        termsAccepted: true,
+        acceptedAt: FieldValue.serverTimestamp(),
+        termsVersion,
+        privacyVersion,
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
+  return { termsVersion, privacyVersion };
+});
+
+/**
+ * Mirrors the caller's VERIFIED Firebase Auth email onto their private
+ * doc — `FirebaseAccountRepository.syncEmailFromAuth`'s write half.
+ *
+ * Takes no arguments on purpose. The old client write passed
+ * `auth.currentUser.email`, which is genuine in the real app but is
+ * just a string a modified client chooses; the admin panel displays
+ * this value and support/moderation act on it. Reading it from
+ * `request.auth.token` instead makes it unforgeable — the same value,
+ * from the one source that can't be tampered with.
+ *
+ * `email_verified` is required for the same reason
+ * `completeOnboarding` requires it: Firebase's own
+ * `verifyBeforeUpdateEmail` flow (the ONLY way the app changes this
+ * address, see `updateEmail`) never lands an unverified address on the
+ * Auth record, so demanding it here costs nothing and closes the
+ * "changed but not confirmed" window.
+ */
+export const syncContactEmail = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  await assertActiveUser(uid);
+  await enforceRateLimit("email-sync", uid, 20, 3600);
+
+  const email = request.auth?.token.email as string | undefined;
+  if (!email) throw new HttpsError("failed-precondition", "no-email-on-token");
+  if (request.auth?.token.email_verified !== true) {
+    throw new HttpsError("failed-precondition", "email-not-verified");
+  }
+
+  const current = (await privateDataRef(uid).get()).data()?.email as string | undefined;
+  if (current === email) return { email, changed: false };
+
+  await privateDataRef(uid).set({ email, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  return { email, changed: true };
 });
 
 // Mirrors the client's own `_countryCandidatesProvider`/
@@ -598,6 +845,101 @@ function ageYearsFromBirthDate(birthDate: unknown): number | null {
 const NEARBY_MARKER_GRID_STEP_DEG = 100 / 111320;
 function roundToGrid(value: number): number {
   return Math.round(value / NEARBY_MARKER_GRID_STEP_DEG) * NEARBY_MARKER_GRID_STEP_DEG;
+}
+
+/**
+ * P0 / H-1 (a) — quantizes the `distanceMeters` label to the SAME ~100 m
+ * granularity [roundToGrid] already applies to the marker position.
+ *
+ * The two used to disagree, and the finer of the two is what actually
+ * defined the privacy level: the marker was grid-rounded, but the exact
+ * haversine distance rode along in the same response. Since a caller
+ * also controls their own query origin (`private/data.lat`/`lng` is
+ * written by the client, and locking it would achieve nothing — a
+ * rooted device spoofs GPS below the app entirely), three calls from
+ * three chosen origins trilaterate a target to sub-metre precision.
+ * Bucketing collapses that to ~100 m, i.e. exactly what the rounded
+ * marker already discloses — the anti-averaging property of
+ * [roundToGrid] carries over, since the same true distance always
+ * lands in the same bucket.
+ *
+ * Floored at 100 rather than allowed to reach 0: a literal "0 m" reads
+ * as "standing next to you", which is both the most sensitive answer
+ * and one this function should never give. Everything within ~150 m
+ * therefore reports as 100 m. `formatDistance` (Dart) renders whole
+ * metres below 1 km, so this shows as "100 m aralı", "200 m aralı" —
+ * no client or localization change is needed.
+ */
+const NEARBY_DISTANCE_BUCKET_METERS = 100;
+function bucketDistanceMeters(meters: number): number {
+  return Math.max(
+    NEARBY_DISTANCE_BUCKET_METERS,
+    Math.round(meters / NEARBY_DISTANCE_BUCKET_METERS) * NEARBY_DISTANCE_BUCKET_METERS,
+  );
+}
+
+/**
+ * P0 / H-1 (b) — rejects a nearby query whose origin moved further
+ * since the caller's previous query than any real journey could.
+ *
+ * Explicitly a PARTIAL mitigation, and stated as such rather than
+ * dressed up: a client can always lie about its own GPS, and without
+ * device attestation (App Check, currently off by deliberate decision —
+ * see this file's top comment) the server cannot tell a spoofed fix
+ * from a real one. What this does buy is time. Trilateration needs
+ * several probes from origins separated by a meaningful baseline, taken
+ * close enough together that the target hasn't moved; forcing a real
+ * wait between those probes makes the target's own movement the
+ * dominant error term, and makes city-scale automated scanning
+ * expensive rather than instant. Bucketing (above) is the primary fix.
+ *
+ * 300 km/h is far above any ground vehicle and is only compared inside
+ * a 15-minute window, so ordinary travel — including a long drive, and
+ * including a flight once the caller has been offline through it —
+ * never trips it. A cold GPS fix is wrong by hundreds of metres, not
+ * hundreds of kilometres.
+ *
+ * Stored in its own server-only collection rather than on
+ * `users/{uid}/private/data`, which is client-writable by design (an
+ * attacker could otherwise reset their own last-known probe between
+ * calls and disable the check).
+ */
+const NEARBY_MAX_PLAUSIBLE_SPEED_KMH = 300;
+const NEARBY_PROBE_WINDOW_MS = 15 * 60 * 1000;
+
+async function assertPlausibleMovement(uid: string, lat: number, lng: number): Promise<void> {
+  const ref = db.collection("nearbyProbes").doc(uid);
+  const now = Date.now();
+  const previous = (await ref.get()).data();
+  const prevLat = previous?.lat as number | undefined;
+  const prevLng = previous?.lng as number | undefined;
+  const prevAt = previous?.at as number | undefined;
+
+  let implausible = false;
+  if (typeof prevLat === "number" && typeof prevLng === "number" && typeof prevAt === "number") {
+    const elapsedMs = now - prevAt;
+    if (elapsedMs > 0 && elapsedMs < NEARBY_PROBE_WINDOW_MS) {
+      const movedKm = haversineMeters(prevLat, prevLng, lat, lng) / 1000;
+      const speedKmh = movedKm / (elapsedMs / 3_600_000);
+      implausible = speedKmh > NEARBY_MAX_PLAUSIBLE_SPEED_KMH;
+      if (implausible) {
+        logger.warn("findNearbyUsers: implausible movement between queries", {
+          uid,
+          movedKm: Math.round(movedKm),
+          elapsedSeconds: Math.round(elapsedMs / 1000),
+          speedKmh: Math.round(speedKmh),
+        });
+      }
+    }
+  }
+
+  // The probe is recorded even when rejected — otherwise an attacker
+  // could alternate a rejected jump with an accepted one and keep the
+  // stored origin conveniently stale.
+  await ref.set({ lat, lng, at: now });
+  if (implausible) {
+    throw new HttpsError("failed-precondition", "implausible-movement");
+  }
 }
 
 /** `'male'`/`'female'` map to this schema's existing free-text `gender`
@@ -685,6 +1027,18 @@ export const getDiscoverCandidates = onCall({ region: "us-central1", enforceAppC
   if (!uid) {
     throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
   }
+  await assertActiveUser(uid);
+  // P0 — this was the ONLY collection-wide scan with no limiter at all,
+  // and the most expensive one in the file: `world` mode reads 500
+  // `users` documents plus a `private/data` document for each
+  // (`withPrivateData`), so ~1000 reads per call. Unbounded, that is a
+  // billing attack rather than a data-theft one — a VIP account
+  // (a monthly subscription) could run it in a loop and burn real money
+  // with nothing "breached". Shares the `nearby` counter with
+  // `findNearbyUsers`/`previewVenueAudience` deliberately: all three
+  // answer the same question over the same collection, so a separate
+  // scope would just let an attacker spread the load across them.
+  await enforceRateLimit("nearby", uid, 10, 60);
 
   const mode = request.data?.mode as string | undefined;
   if (mode !== "country" && mode !== "world") {
@@ -795,6 +1149,7 @@ const NEARBY_RESULT_CAP = 50;
  * collection-wide entry points.
  */
 export const findNearbyUsers = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  logCallableInvocation("findNearbyUsers", request);
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -822,6 +1177,8 @@ export const findNearbyUsers = onCall({ region: "us-central1", enforceAppCheck: 
   if (typeof lat !== "number" || typeof lng !== "number") {
     throw new HttpsError("failed-precondition", "no-position-on-file");
   }
+  // P0 / H-1 (b) — see [assertPlausibleMovement].
+  await assertPlausibleMovement(uid, lat, lng);
   const myBlockedUsers = (callerSnap.data()?.blockedUsers as string[] | undefined) ?? [];
 
   const candidates = await withPrivateData(scanSnap.docs);
@@ -840,7 +1197,11 @@ export const findNearbyUsers = onCall({ region: "us-central1", enforceAppCheck: 
     .slice(0, NEARBY_RESULT_CAP)
     .map(({ candidate, distanceMeters }) => ({
       ...buildPublicCandidatePayload(candidate.id, candidate.data),
-      distanceMeters,
+      // P0 / H-1 (a) — quantized to the same ~100 m as the marker
+      // position above; the raw value never leaves this function. The
+      // sort a few lines up still uses the exact distance, so ordering
+      // stays correct within a bucket.
+      distanceMeters: bucketDistanceMeters(distanceMeters),
     }));
 
   return { candidates: results };
@@ -866,11 +1227,32 @@ export const findNearbyUsers = onCall({ region: "us-central1", enforceAppCheck: 
  * `venueAudienceCountProvider`'s own doc comment) — only a count is
  * ever returned, never which users matched.
  */
+// P0 / H-2 — the smallest audience count this function will report
+// precisely. Below it the answer collapses to 0.
+//
+// Without this, a venue owner had a yes/no presence oracle: pick a
+// point, ask for a tiny radius, and a 0→1 transition confirms a
+// specific person is standing there right now. Ghost Mode and each
+// candidate's own visibility radius are both honoured by the filter
+// below, but neither answers "is ANYONE within 50 m of this doorway",
+// which is the question that makes it a physical-safety problem rather
+// than an analytics one. A k of 5 keeps the feature's actual purpose
+// (roughly how many people would this reach) intact — an owner
+// choosing an audience radius does not need to distinguish 1 from 4.
+const VENUE_AUDIENCE_MIN_REPORTABLE_COUNT = 5;
+
+/** Upper bound on a venue's audience radius, matching the largest
+ * value `VenueProfileScreen`'s own radius picker offers. A cap is
+ * needed regardless of the picker because `radiusKm` used to arrive
+ * unbounded from the client. */
+const VENUE_AUDIENCE_MAX_RADIUS_KM = 50;
+
 export const previewVenueAudience = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
   }
+  await assertActiveUser(uid);
 
   const venueId = request.data?.venueId as string | undefined;
   if (!venueId) {
@@ -886,7 +1268,16 @@ export const previewVenueAudience = onCall({ region: "us-central1", enforceAppCh
 
   await enforceRateLimit("nearby", uid, 10, 60);
 
+  // P0 / H-2 — `mode` is now an explicit allowlist. It used to fall
+  // through to the distance-shaped scan for ANY unrecognized value and
+  // then, because the `mode === "distance"` branch below didn't match
+  // either, return the raw count of every online user — a
+  // platform-wide metric leaked by sending a typo.
   const mode = request.data?.mode as string | undefined;
+  if (mode !== "distance" && mode !== "country" && mode !== "world") {
+    throw new HttpsError("invalid-argument", "mode 'distance', 'country' və ya 'world' olmalıdır.");
+  }
+
   let query: FirebaseFirestore.Query;
   if (mode === "country") {
     const country = request.data?.country as string | undefined;
@@ -911,12 +1302,24 @@ export const previewVenueAudience = onCall({ region: "us-central1", enforceAppCh
 
   let count: number;
   if (mode === "distance") {
-    const lat = request.data?.lat as number | undefined;
-    const lng = request.data?.lng as number | undefined;
-    const radiusKm = request.data?.radiusKm as number | undefined;
-    if (typeof lat !== "number" || typeof lng !== "number" || typeof radiusKm !== "number") {
-      throw new HttpsError("invalid-argument", "lat/lng/radiusKm tələb olunur.");
+    // P0 / H-2 — the query centre is the VENUE's own stored position,
+    // never `request.data.lat`/`lng`. The ownership check above only
+    // ever proved "this venue is yours"; the scan then ran against
+    // whatever coordinates the caller supplied, so owning one venue
+    // anywhere licensed an audience-density probe at any point on
+    // Earth. (A venue document exists from `submitVenue` onward, i.e.
+    // BEFORE its first payment clears, so this didn't even cost
+    // anything.) The client still sends lat/lng; they are ignored.
+    const lat = venue.lat as number | undefined;
+    const lng = venue.lng as number | undefined;
+    if (typeof lat !== "number" || typeof lng !== "number") {
+      throw new HttpsError("failed-precondition", "venue-has-no-position");
     }
+    const requestedRadiusKm = request.data?.radiusKm as number | undefined;
+    if (typeof requestedRadiusKm !== "number" || !Number.isFinite(requestedRadiusKm) || requestedRadiusKm <= 0) {
+      throw new HttpsError("invalid-argument", "radiusKm müsbət ədəd olmalıdır.");
+    }
+    const radiusKm = Math.min(requestedRadiusKm, VENUE_AUDIENCE_MAX_RADIUS_KM);
     count = nonGhost.filter((c) => {
       if (typeof c.data.lat !== "number" || typeof c.data.lng !== "number") return false;
       const distanceMeters = haversineMeters(lat, lng, c.data.lat as number, c.data.lng as number);
@@ -926,7 +1329,8 @@ export const previewVenueAudience = onCall({ region: "us-central1", enforceAppCh
     count = nonGhost.length;
   }
 
-  return { count };
+  // k-anonymity floor — see [VENUE_AUDIENCE_MIN_REPORTABLE_COUNT].
+  return { count: count < VENUE_AUDIENCE_MIN_REPORTABLE_COUNT ? 0 : count };
 });
 
 const SEARCH_BY_NAME_LIMIT = 20;
@@ -978,6 +1382,12 @@ export const searchUsersByName = onCall({ region: "us-central1", enforceAppCheck
   if (!uid) {
     throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
   }
+  await assertActiveUser(uid);
+  // P0 — shares the `search` counter with `searchUsersByUsername`; both
+  // feed the same search box, so one budget across the pair is what a
+  // debounced type-ahead actually needs.
+  await enforceRateLimit("search", uid, 30, 60);
+
   const query = (request.data?.query as string | undefined)?.trim().toLowerCase() ?? "";
   if (!query) return { profiles: [] };
 
@@ -1002,13 +1412,85 @@ export const searchUsersByName = onCall({ region: "us-central1", enforceAppCheck
   return { profiles };
 });
 
+/**
+ * P0 / H-6 — username-prefix search, moved off the client.
+ *
+ * `firestore.rules` closed `allow list` on `usernames`, which this
+ * replaces. RT-25 had already closed `list` on `users` itself to stop
+ * mass scraping, but `usernames` was left listable and is a complete
+ * `username → uid` index: `orderBy(documentId).startAt([''])` plus
+ * paging walked the entire user base, and each uid then resolved to a
+ * full public profile through the still-open single-document `get` —
+ * including `blockedUsers` (a social graph) and `reportedCount` (a
+ * moderation signal). One extra hop, same outcome.
+ *
+ * `allow get` on `usernames` deliberately stays open, including to
+ * signed-out callers (see `docs/ACCEPTED_RISKS.md` and
+ * `deep_link_handler.dart`'s `_openProfileByUsername`): resolving ONE
+ * already-known username is public profile discovery, which this app
+ * wants. Enumerating ALL of them is not. That distinction is the whole
+ * point of splitting `get` from `list`.
+ *
+ * Mirrors `searchUsersByName`'s shape exactly — same result cap, same
+ * bidirectional block filter, same fixed field allowlist — since the
+ * two feed the same search screen.
+ */
+export const searchUsersByUsername = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  }
+  await assertActiveUser(uid);
+  await enforceRateLimit("search", uid, 30, 60);
+
+  const query = (request.data?.query as string | undefined)?.trim().toLowerCase() ?? "";
+  if (!query) return { profiles: [] };
+
+  // `\uf8ff` is the highest code point in the Basic Multilingual
+  // Plane — the standard Firestore prefix-range idiom, and exactly what
+  // the client query this replaces used (`_kPrefixRangeEnd`).
+  const usernamesSnap = await db
+    .collection("usernames")
+    .orderBy(FieldPath.documentId())
+    .startAt(query)
+    .endAt(`${query}\uf8ff`)
+    .limit(SEARCH_BY_NAME_LIMIT)
+    .get();
+
+  const uids = usernamesSnap.docs
+    .map((d) => d.data()?.uid as string | undefined)
+    .filter((u): u is string => typeof u === "string" && u !== uid);
+  if (uids.length === 0) return { profiles: [] };
+
+  const [callerSnap, profileSnaps] = await Promise.all([
+    db.collection("users").doc(uid).get(),
+    db.getAll(...uids.map((u) => db.collection("users").doc(u))),
+  ]);
+  const myBlockedUsers = (callerSnap.data()?.blockedUsers as string[] | undefined) ?? [];
+
+  const profiles = profileSnaps
+    .filter((d) => d.exists)
+    .filter((d) => !myBlockedUsers.includes(d.id))
+    .filter((d) => !((d.data()?.blockedUsers as string[] | undefined) ?? []).includes(uid))
+    .map((d) => buildSearchProfilePayload(d.id, d.data()!));
+
+  return { profiles };
+});
+
 /** Chat messages this user sent — replaced, not deleted, so the other
  * participant's chat history stays intact. Same scope also owns Storage
- * cleanup: each message's own `mediaUrl` (image/video/audio) is deleted
+ * cleanup: each message's own media (image/video/audio) is deleted
  * from Storage right before the field itself is cleared, using the exact
  * `senderId == uid` set already being queried here — never the whole
  * `{chatId}` folder, since that would also delete the OTHER
- * participant's media. */
+ * participant's media.
+ *
+ * P0 / C-1 — the path comes from [chatMediaPathForMessage] (server-
+ * computed) rather than the message's own `mediaUrl` string; see that
+ * helper's doc comment for the vector this closes. This call site was
+ * the SECOND entry point into it: a user could plant messages pointing
+ * at arbitrary objects and then delete their own account to trigger the
+ * same arbitrary deletion. */
 async function replaceMessagesWithPlaceholder(uid: string): Promise<void> {
   const chatsSnap = await db.collection("chats").where("participants", "array-contains", uid).get();
 
@@ -1016,8 +1498,7 @@ async function replaceMessagesWithPlaceholder(uid: string): Promise<void> {
     const messagesSnap = await chatDoc.ref.collection("messages").where("senderId", "==", uid).get();
     await Promise.all(
       messagesSnap.docs.map(async (messageDoc) => {
-        const mediaUrl = messageDoc.data().mediaUrl as string | undefined;
-        if (mediaUrl) await deleteStorageObjectByUrl(mediaUrl);
+        await deleteChatMessageMedia(chatDoc.id, messageDoc.id, messageDoc.data());
         await messageDoc.ref.update({
           text: DELETED_SENDER_PLACEHOLDER,
           mediaUrl: FieldValue.delete(),
@@ -1117,8 +1598,25 @@ async function deleteStories(uid: string): Promise<void> {
  * same way a receipt survives closing the account that made it. */
 async function deleteUserDocAndSubcollections(uid: string): Promise<void> {
   const userRef = db.collection("users").doc(uid);
+  // F-3 — `likedPosts`, `reposts` and `notifiedEvents` were missing
+  // here, so every account deletion left three subcollections behind:
+  // the reverse like index, the repost list, and the per-event push
+  // dedup markers. `firestore.rules` declares eleven subcollections
+  // under `users/{uid}`; these ten plus the deliberately-kept
+  // `payments` (financial/audit record) is the complete set. Found by
+  // auditing the admin panel's own copy of this routine against this
+  // one — both had the same gap.
   const subcollections = [
-    "media", "notifications", "favoriteOffers", "notifiedVenues", "sessions", "profileViews", "private",
+    "media",
+    "notifications",
+    "favoriteOffers",
+    "likedPosts",
+    "reposts",
+    "notifiedVenues",
+    "notifiedEvents",
+    "sessions",
+    "profileViews",
+    "private",
   ];
   for (const name of subcollections) {
     const snap = await userRef.collection(name).get();
@@ -1215,16 +1713,53 @@ async function deleteIdentityVerifications(uid: string): Promise<void> {
 async function deleteStorageFile(path: string): Promise<void> {
   try {
     await storage.bucket().file(path).delete();
-  } catch {
-    // Best-effort — no file at this path (e.g. never uploaded) isn't a failure.
+  } catch (e) {
+    // Best-effort — no file at this path (e.g. never uploaded) isn't a
+    // failure. Logged rather than swallowed silently (P0 / C-1): the
+    // bare `catch {}` this replaces made a caller passing a WRONG path
+    // completely invisible, which is exactly what let the old
+    // `deleteStorageObjectByUrl(mediaUrl)` vector be probed without
+    // leaving any trace. A genuine "already gone" delete logs at warn
+    // level too — noisy is the correct trade here, since every delete
+    // this file performs is now on a path the SERVER computed, so an
+    // unexpected miss means a real bug worth seeing.
+    logger.warn("deleteStorageFile: delete failed (path may not exist)", { path, error: String(e) });
+  }
+}
+
+/**
+ * P0 / H-5 — asserts a client-supplied media URL points at THIS
+ * project's own Storage bucket, or throws.
+ *
+ * The venue/offer/PinBox image fields all arrive through callables
+ * (`submitVenue`, `updateVenue`, `submitOffer`, `updateOffer`,
+ * `updatePinBox`), which run on the Admin SDK and therefore bypass
+ * `firestore.rules` entirely — so the equivalent rules-side check
+ * (`isOwnStorageUrl`) does not cover them and this is the only place
+ * that can. See that rule's comment for why an external URL is both a
+ * viewer-tracking primitive and a moderation bypass.
+ *
+ * Prefix comparison rather than a regex: the value is compared against
+ * a fixed, fully-qualified origin + bucket, so there is no pattern for
+ * a crafted host (`https://firebasestorage.googleapis.com.evil.test/`)
+ * to slip through.
+ */
+const OWN_STORAGE_URL_PREFIX = "https://firebasestorage.googleapis.com/v0/b/kim-var-73ce9.firebasestorage.app/o/";
+
+function assertOwnStorageUrl(url: unknown, fieldName: string): void {
+  if (typeof url !== "string" || !url.startsWith(OWN_STORAGE_URL_PREFIX)) {
+    throw new HttpsError("invalid-argument", `${fieldName} yalnız PeakPin Storage ünvanı ola bilər.`);
   }
 }
 
 /** Resolves a Firebase Storage download URL
  * (`.../o/{encodedPath}?alt=media&token=...`) back to its bucket object
  * path. The Admin SDK has no `refFromURL` — that's a client-SDK-only
- * convenience — so this is the one place that reimplements it, shared
- * by `deleteStorageObjectByUrl` and `forwardChatMedia`'s copy step.
+ * convenience — so this is the one place that reimplements it. Its ONLY
+ * remaining caller is `forwardChatMedia`'s copy step, which validates
+ * the resolved path against `CHAT_MEDIA_FOLDERS` plus real chat
+ * membership before touching it; the former `deleteStorageObjectByUrl`
+ * caller (which did NOT validate, see P0 / C-1) is gone.
  * Returns `null` for a URL that doesn't match the expected `/o/` shape. */
 function storagePathFromUrl(url: string): string | null {
   const marker = "/o/";
@@ -1237,13 +1772,16 @@ function storagePathFromUrl(url: string): string | null {
   return decodeURIComponent(encodedPath);
 }
 
-/** Mirrors what the Flutter client's own `deleteMessageForEveryone`
- * already does with `_storage.refFromURL(mediaUrl).delete()`. A URL
- * that doesn't resolve to a path is silently skipped; an
- * already-missing object is handled by `deleteStorageFile`'s own
- * best-effort catch. */
-async function deleteStorageObjectByUrl(url: string): Promise<void> {
-  const path = storagePathFromUrl(url);
+/** Deletes one chat message's own media, if it has any — see
+ * [chatMediaPathForMessage] (`./chat-media`) for why the path is
+ * recomputed from server-known values rather than taken from the
+ * message's client-written `mediaUrl` field (P0 / C-1). */
+async function deleteChatMessageMedia(
+  chatId: string,
+  messageId: string,
+  data: FirebaseFirestore.DocumentData,
+): Promise<void> {
+  const path = chatMediaPathForMessage(chatId, messageId, data);
   if (!path) return;
   await deleteStorageFile(path);
 }
@@ -1262,11 +1800,16 @@ async function deleteStoragePrefix(prefix: string): Promise<void> {
  * (found in Prompt 3, HIGH): before this, a forwarded photo/video/
  * voice message just copied the ORIGINAL message's `mediaUrl` string
  * verbatim into the new message doc — both messages pointed at the
- * exact same Storage object. `deleteMessageForEveryone`'s
- * `deleteStorageObjectByUrl` unconditionally deletes whatever object
- * its own message pointed at, with no ref-count against other
- * messages — so deleting the ORIGINAL message also silently broke
- * every forwarded copy's media (a 404 on next render).
+ * exact same Storage object. `deleteMessageForEveryone` (client-side)
+ * deletes whatever object its own message pointed at, with no ref-count
+ * against other messages — so deleting the ORIGINAL message also
+ * silently broke every forwarded copy's media (a 404 on next render).
+ * The server-side deletions (`onChatDeleted`/`replaceMessagesWithPlaceholder`)
+ * now derive that path from (chatId, senderId, messageId) instead of the
+ * URL — see [chatMediaPathForMessage] — which ALSO makes this
+ * independent-copy step load-bearing for correctness: each forward's
+ * own path is keyed by its own message id, so no two messages can ever
+ * resolve to the same object again.
  *
  * The fix is this one narrow server-side copy step, NOT a full
  * `forwardMessage` rewrite: `FirebaseChatRepository.forwardMessage`
@@ -1287,8 +1830,6 @@ async function deleteStoragePrefix(prefix: string): Promise<void> {
  * exactly where that message's media "should" live regardless of
  * where it came from.
  */
-const CHAT_MEDIA_FOLDERS = ["chat_photos", "chat_videos", "chat_audio"] as const;
-
 export const forwardChatMedia = onCall(
   { region: "us-central1", enforceAppCheck: false },
   async (request) => {
@@ -1310,7 +1851,7 @@ export const forwardChatMedia = onCall(
     // be a participant of the chat it came from.
     const sourcePath = storagePathFromUrl(sourceUrl);
     const sourceFolder = sourcePath?.split("/")[0];
-    if (!sourcePath || !sourceFolder || !(CHAT_MEDIA_FOLDERS as readonly string[]).includes(sourceFolder)) {
+    if (!sourcePath || !sourceFolder || !CHAT_MEDIA_FOLDERS.includes(sourceFolder)) {
       throw new HttpsError("invalid-argument", "Fayl yolu etibarsızdır.");
     }
     const sourceChatId = sourcePath.split("/")[1];
@@ -2808,6 +3349,14 @@ export const joinWaitlist = onCall({ region: "us-central1", enforceAppCheck: fal
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
   await assertActiveUser(uid);
 
+  // P0 — every join writes an entry, re-runs
+  // `maintainWaitlistQueuePositions` over the whole queue, AND pushes a
+  // notification to the venue owner. The only duplicate guard is on
+  // `phoneNumber`, which the caller chooses freely, so a loop with
+  // made-up numbers was an owner-notification flood plus queue
+  // pollution. Nobody legitimately joins five queues an hour.
+  await enforceRateLimit("waitlist", uid, 5, 3600);
+
   const venueId = request.data?.venueId as string | undefined;
   if (!venueId) throw new HttpsError("invalid-argument", "venueId tələb olunur.");
 
@@ -3576,6 +4125,7 @@ export const updateVenue = onCall(
     const name = (data.name as string | undefined)?.trim();
     const category = data.category as string | undefined;
     const photoUrl = data.photoUrl as string | undefined; // only present if a new photo was uploaded
+    if (photoUrl !== undefined) assertOwnStorageUrl(photoUrl, "photoUrl"); // P0 / H-5
     const lat = data.lat as number | undefined;
     const lng = data.lng as number | undefined;
     const address = (data.address as string | undefined)?.trim();
@@ -3731,6 +4281,7 @@ export const updateOffer = onCall(
     const startDate = data.startDate as string | undefined;
     const endDate = data.endDate as string | undefined;
     const imageUrl = data.imageUrl as string | undefined; // only present if a new photo was uploaded
+    if (imageUrl !== undefined) assertOwnStorageUrl(imageUrl, "imageUrl"); // P0 / H-5
     const terms = (data.terms as string | undefined)?.trim();
     const activeHours = data.activeHours as Record<string, unknown> | undefined;
     const activeDays = (data.activeDays as string[] | undefined) ?? [];
@@ -3860,6 +4411,7 @@ export const updatePinBox = onCall(
     const pickupWindowStart = data.pickupWindowStart as string | undefined;
     const pickupWindowEnd = data.pickupWindowEnd as string | undefined;
     const imageUrl = data.imageUrl as string | undefined; // only present if a new photo was uploaded
+    if (imageUrl !== undefined) assertOwnStorageUrl(imageUrl, "imageUrl"); // P0 / H-5
 
     if (
       !pinboxId || !title || !description || originalPrice === undefined ||
@@ -4769,6 +5321,7 @@ export const submitVenue = onCall(
     if (!clientVenueId || !name || !category || !photoUrl || lat === undefined || lng === undefined || !address || !openingHours) {
       throw new HttpsError("invalid-argument", "Tələb olunan sahələr çatışmır.");
     }
+    assertOwnStorageUrl(photoUrl, "photoUrl"); // P0 / H-5
 
     const fee = venueSubscriptionFeeByCategory[category];
     if (fee === undefined) {
@@ -5172,19 +5725,199 @@ const CHAT_PREVIEW_LABELS: Record<string, string> = {
  * independent Storage object, so deleting one message's file here can
  * never break a DIFFERENT message living in some other chat.
  */
+/**
+ * P0 / H-4 — hard-deletes a chat once BOTH participants have hidden it.
+ *
+ * `firestore.rules` no longer lets any client delete a `chats/{chatId}`
+ * document (one participant deleting it wiped the other's history and
+ * media, see that rule's comment). "Söhbəti sil" now sets
+ * `hiddenFor.{own uid}` instead, and this trigger is what finally
+ * removes the document — deliberately by deleting the SAME document a
+ * client used to delete, so `onChatDeleted` below fires exactly as it
+ * always did and the messages plus their Storage objects are cleaned up
+ * through the one existing cascade rather than a second, parallel one.
+ *
+ * Fires only on the transition INTO the fully-hidden state (`before`
+ * not hidden by everyone, `after` hidden by everyone) — otherwise every
+ * subsequent write to an already-fully-hidden document would re-attempt
+ * the delete.
+ */
+export const hardDeleteFullyHiddenChat = onDocumentUpdated("chats/{chatId}", async (event) => {
+  const before = event.data?.before.data();
+  const after = event.data?.after.data();
+  if (!before || !after) return;
+
+  const participants = after.participants;
+  if (isChatHiddenByEveryone(participants, before.hiddenFor)) return; // already handled
+  if (!isChatHiddenByEveryone(participants, after.hiddenFor)) return;
+
+  logger.info("hardDeleteFullyHiddenChat: both participants hid this chat, deleting", {
+    chatId: event.params.chatId,
+  });
+  // Deleting the parent document is what triggers `onChatDeleted`,
+  // which owns the messages + media cleanup.
+  await event.data!.after.ref.delete();
+});
+
 export const onChatDeleted = onDocumentDeleted("chats/{chatId}", async (event) => {
   const chatRef = event.data?.ref;
   if (!chatRef) return;
+  const { chatId } = event.params;
 
   const messagesSnap = await chatRef.collection("messages").get();
   await Promise.all(
     messagesSnap.docs.map(async (doc) => {
-      const mediaUrl = doc.data().mediaUrl as string | undefined;
-      if (mediaUrl) await deleteStorageObjectByUrl(mediaUrl);
+      // P0 / C-1 — the Storage path is recomputed from (chatId, this
+      // message's own id, its rules-pinned `senderId`, its `type`),
+      // NOT read out of the client-written `mediaUrl` field. See
+      // [chatMediaPathForMessage]'s doc comment for the full reasoning:
+      // the old `deleteStorageObjectByUrl(mediaUrl)` here accepted any
+      // string containing "/o/" as a bucket path and deleted it with
+      // Admin SDK privileges, and it also destroyed the ORIGINAL post
+      // media of any shared-post message in the thread.
+      await deleteChatMessageMedia(chatId, doc.id, doc.data());
       await doc.ref.delete();
     }),
   );
 });
+
+// Post-launch QA — "hər kəs üçün sil" (`deleteMessageForEveryone`, a
+// raw client delete of the message doc, see `FirebaseChatRepository`)
+// used to leave `chats/{chatId}`'s own `lastMessage`/`lastMessageType`/
+// `lastMessageAt`/`lastMessageSenderId` completely untouched — those
+// fields are a denormalized TEXT COPY taken once at send time, never a
+// live reference to the message doc, so the chats-list preview kept
+// showing a message's content even after that message was gone from
+// the conversation itself. This is exactly the privacy gap the report
+// called out: the person who just deleted a message "for everyone" has
+// no way to know their own text is still visible in the list.
+//
+// Only recomputes when the just-deleted message WAS the chat's current
+// preview — compared via `chats.lastMessageAt.isEqual(deletedMessage.
+// sentAt)`, which is reliable because both are written from the SAME
+// `FieldValue.serverTimestamp()` commit inside `_sendMessage`'s one
+// transaction. Deleting an OLDER message (already superseded by a
+// newer one) is an explicit no-op — the preview is correctly whatever
+// it already was, no write happens at all.
+export const onChatMessageDeleted = onDocumentDeleted(
+  "chats/{chatId}/messages/{messageId}",
+  async (event) => {
+    const deletedData = event.data?.data();
+    const deletedSentAt = deletedData?.sentAt as Timestamp | undefined;
+    if (!deletedSentAt) return;
+
+    const { chatId } = event.params;
+    const chatRef = db.collection("chats").doc(chatId);
+    const chatSnap = await chatRef.get();
+    // The whole chat may be mid-cascade-delete (`onChatDeleted` above,
+    // which deletes every message doc too) — nothing left to update.
+    if (!chatSnap.exists) return;
+
+    const currentLastMessageAt = chatSnap.data()?.lastMessageAt as Timestamp | undefined;
+    if (!currentLastMessageAt || !currentLastMessageAt.isEqual(deletedSentAt)) {
+      return; // Not the current preview — explicit no-op, nothing to recompute.
+    }
+
+    const remainingSnap = await chatRef.collection("messages").orderBy("sentAt", "desc").limit(1).get();
+
+    if (remainingSnap.empty) {
+      await chatRef.update({ lastMessage: "", lastMessageType: "deleted" });
+      return;
+    }
+
+    const remaining = remainingSnap.docs[0].data();
+    await chatRef.update({
+      lastMessage: (remaining.text as string | undefined) ?? "",
+      lastMessageType: remaining.type as string,
+      lastMessageAt: remaining.sentAt,
+      lastMessageSenderId: remaining.senderId as string | undefined,
+    });
+  },
+);
+
+// How many of a chat's most-recent messages `onChatMessageDeletedForUser`
+// below scans, newest-first, to find the first one NOT in the uid's own
+// `deletedFor` — Firestore has no "array-not-contains" query, so this is
+// an in-memory filter over a bounded page rather than a real query.
+// Matches this file's existing "bounded candidate scan" convention (see
+// `NEARBY_CANDIDATE_SCAN_LIMIT`). A uid who has "məndən sil"-ed MORE than
+// this many consecutive most-recent messages (unusual — normal use
+// deletes one at a time) would fall through to the `deleted` fallback
+// below even though an older, still-visible-to-them message technically
+// exists further back; documented limitation, not treated as a bug.
+const LAST_MESSAGE_OVERRIDE_SCAN_LIMIT = 100;
+
+// Post-launch QA — "məndən sil" (`deleteMessageForMe`, which only ever
+// adds the caller's own uid to that ONE message's `deletedFor`) is the
+// harder half of the same bug: `chats/{chatId}` is the ONE doc BOTH
+// participants read for the list preview, so nothing here may depend on
+// who's asking — a per-user override map on that same doc
+// (`lastMessageOverride.{uid}`, exactly mirroring how `unreadCount`/
+// `pinnedBy`/`archivedBy`/`mutedBy` already track other per-participant
+// state on this one shared doc) is what lets the OTHER participant's
+// view stay completely unaffected. Written ONLY here (Admin SDK,
+// bypasses rules) — `firestore.rules`' `chats/{chatId}` update rule
+// explicitly blocks this field from any client write, so neither
+// participant can fabricate what the OTHER one sees in their own list.
+//
+// Same "was this actually their current preview" guard as
+// `onChatMessageDeleted` above, just evaluated per-uid against either
+// their existing override's timestamp or (if they have none yet) the
+// shared `lastMessageAt` — hiding an old, already-superseded message is
+// a no-op for that uid exactly like it is for the shared fields.
+export const onChatMessageDeletedForUser = onDocumentUpdated(
+  "chats/{chatId}/messages/{messageId}",
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!before || !after) return;
+
+    const beforeDeletedFor = (before.deletedFor as string[] | undefined) ?? [];
+    const afterDeletedFor = (after.deletedFor as string[] | undefined) ?? [];
+    if (afterDeletedFor.length <= beforeDeletedFor.length) return; // not a new self-hide
+    const newlyHiddenFor = afterDeletedFor.filter((uid) => !beforeDeletedFor.includes(uid));
+    if (newlyHiddenFor.length === 0) return;
+
+    const messageSentAt = after.sentAt as Timestamp | undefined;
+    if (!messageSentAt) return;
+
+    const { chatId } = event.params;
+    const chatRef = db.collection("chats").doc(chatId);
+    const chatSnap = await chatRef.get();
+    if (!chatSnap.exists) return;
+
+    const chatData = chatSnap.data()!;
+    const sharedLastMessageAt = chatData.lastMessageAt as Timestamp | undefined;
+    const existingOverride = (chatData.lastMessageOverride as Record<string, { at?: Timestamp }> | undefined) ?? {};
+
+    const updates: Record<string, unknown> = {};
+    for (const uid of newlyHiddenFor) {
+      const uidCurrentPreviewAt = existingOverride[uid]?.at ?? sharedLastMessageAt;
+      if (!uidCurrentPreviewAt || !uidCurrentPreviewAt.isEqual(messageSentAt)) continue;
+
+      const recentSnap = await chatRef
+        .collection("messages")
+        .orderBy("sentAt", "desc")
+        .limit(LAST_MESSAGE_OVERRIDE_SCAN_LIMIT)
+        .get();
+      const visible = recentSnap.docs.find(
+        (doc) => !((doc.data().deletedFor as string[] | undefined) ?? []).includes(uid),
+      );
+
+      updates[`lastMessageOverride.${uid}`] = visible
+        ? {
+            text: (visible.data().text as string | undefined) ?? "",
+            type: visible.data().type as string,
+            at: visible.data().sentAt,
+          }
+        : { text: "", type: "deleted", at: messageSentAt };
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await chatRef.update(updates);
+    }
+  },
+);
 
 /**
  * Sends a real push notification to the recipient's device(s) whenever
@@ -5210,6 +5943,40 @@ export const onChatMessageCreated = onDocumentCreated(
     const senderId = message.senderId as string | undefined;
     const receiverId = message.receiverId as string | undefined;
     if (!senderId || !receiverId) return;
+
+    // P0 / H-4 — a new message un-hides the conversation for BOTH
+    // sides. Without this, "Söhbəti sil" would be permanent from the
+    // hider's point of view: the other participant could keep writing
+    // and the thread would never reappear.
+    //
+    // KNOWN RACE, accepted: this trigger runs asynchronously after the
+    // message document is written, so a user who hides a chat in the
+    // sub-second window between those two events has their hide undone
+    // and sees the conversation reappear. Observed for real while
+    // building the end-to-end cascade test, which initially failed for
+    // exactly this reason. Left as-is deliberately — the failure
+    // direction is to SHOW a conversation rather than hide one, which
+    // is the safe side for a change whose entire purpose is stopping
+    // one participant from making a thread disappear; it is
+    // self-correcting (hide again); and the alternative (timestamping
+    // every `hiddenFor` entry and comparing against the message's own
+    // `sentAt`) buys a one-second edge case at the cost of a more
+    // complex field shape that `firestore.rules` would then also have
+    // to validate.
+    //
+    // Done server-side, and FIRST, on purpose. Server-side because
+    // `firestore.rules` only lets a client set its OWN `hiddenFor` key,
+    // so the sender structurally cannot clear the receiver's. First
+    // because everything below this point has early returns (muted
+    // receiver, receiver already has the chat open) that are about
+    // whether to PUSH a notification — none of them should decide
+    // whether the conversation is visible at all.
+    const chatRef = db.collection("chats").doc(chatId);
+    const chatSnapForHidden = await chatRef.get();
+    const hiddenFor = (chatSnapForHidden.data()?.hiddenFor ?? {}) as Record<string, boolean>;
+    if (hiddenFor[senderId] === true || hiddenFor[receiverId] === true) {
+      await chatRef.update({ [`hiddenFor.${senderId}`]: false, [`hiddenFor.${receiverId}`]: false });
+    }
 
     const chatSnap = await db.collection("chats").doc(chatId).get();
     const mutedBy = (chatSnap.data()?.mutedBy ?? {}) as Record<string, boolean>;
@@ -5318,10 +6085,10 @@ export const onUserReportCreated = onDocumentCreated(
 
     await sendPrivacyNotificationEmail(
       "Yeni istifadəçi şikayəti — PeakPin",
-      `<p><strong>Şikayətçi:</strong> ${reporter.name} (${reporterId})</p>
-       <p><strong>Şikayət olunan:</strong> ${reported.name} (${reportedUserId})</p>
-       <p><strong>Səbəb:</strong> ${reason}</p>
-       ${data.chatId ? `<p><strong>Söhbət ID:</strong> ${data.chatId}</p>` : ""}
+      `<p><strong>Şikayətçi:</strong> ${escapeHtml(reporter.name)} (${reporterId})</p>
+       <p><strong>Şikayət olunan:</strong> ${escapeHtml(reported.name)} (${reportedUserId})</p>
+       <p><strong>Səbəb:</strong> ${escapeHtml(reason)}</p>
+       ${data.chatId ? `<p><strong>Söhbət ID:</strong> ${escapeHtml(String(data.chatId))}</p>` : ""}
        <p>Baxmaq üçün admin paneldəki "İstifadəçilər" bölümünə keçin.</p>`
     );
 
@@ -5358,9 +6125,9 @@ export const onEventReportCreated = onDocumentCreated(
 
     await sendPrivacyNotificationEmail(
       "Yeni tədbir şikayəti — PeakPin",
-      `<p><strong>Şikayətçi:</strong> ${reporter.name} (${reportedBy})</p>
-       <p><strong>Tədbir:</strong> ${eventTitle} (${eventId})</p>
-       <p><strong>Səbəb:</strong> ${reason}</p>
+      `<p><strong>Şikayətçi:</strong> ${escapeHtml(reporter.name)} (${reportedBy})</p>
+       <p><strong>Tədbir:</strong> ${escapeHtml(eventTitle)} (${eventId})</p>
+       <p><strong>Səbəb:</strong> ${escapeHtml(reason)}</p>
        <p>Baxmaq üçün admin paneldəki "Tədbir şikayətləri" bölümünə keçin.</p>`
     );
 
@@ -5397,9 +6164,9 @@ export const onReviewReportCreated = onDocumentCreated(
 
     await sendPrivacyNotificationEmail(
       "Yeni rəy şikayəti — PeakPin",
-      `<p><strong>Şikayətçi:</strong> ${reporter.name} (${reporterId})</p>
-       <p><strong>Rəy:</strong> ${reviewComment} (${reviewId})</p>
-       <p><strong>Səbəb:</strong> ${reason}</p>
+      `<p><strong>Şikayətçi:</strong> ${escapeHtml(reporter.name)} (${reporterId})</p>
+       <p><strong>Rəy:</strong> ${escapeHtml(reviewComment)} (${reviewId})</p>
+       <p><strong>Səbəb:</strong> ${escapeHtml(reason)}</p>
        <p>Baxmaq üçün admin paneldəki "Rəy şikayətləri" bölümünə keçin.</p>`
     );
 
@@ -5932,6 +6699,10 @@ export const submitOffer = onCall(
     const uid = request.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
     await assertActiveUser(uid);
+    // P0 — same Epoint/moderation cost per call as `submitVenue`,
+    // shared `submit-listing` counter, higher ceiling: offers are
+    // created far more often than venues.
+    await enforceRateLimit("submit-listing", uid, 10, 3600);
 
     const data = request.data as Record<string, unknown>;
     const clientOfferId = data.offerId as string | undefined;
@@ -5971,6 +6742,11 @@ export const submitOffer = onCall(
     if ((await offerRef.get()).exists) {
       throw new HttpsError("already-exists", "Bu ID artıq istifadə olunub.");
     }
+
+    // P0 / H-5 — optional (an offer may carry no image), but if one is
+    // supplied it must be ours.
+    const offerImageUrl = data.imageUrl as string | undefined;
+    if (offerImageUrl !== undefined) assertOwnStorageUrl(offerImageUrl, "imageUrl");
 
     const baseOfferData = {
       ownerId: uid,

@@ -22,7 +22,7 @@ import type { ActionResult } from "./venues";
  */
 export async function markPinBoxPayoutPaid(payoutId: string): Promise<ActionResult> {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateVenues")) {
+  if (!admin || !hasPermission(admin.role, "managePayments")) {
     return { ok: false, error: "forbidden" };
   }
 

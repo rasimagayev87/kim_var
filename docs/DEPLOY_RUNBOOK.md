@@ -268,7 +268,37 @@ Production-a keçməzdən əvvəl:
 ☐ Real ödəniş testi icra edildi (Prompt 6-nın təlimatı, 2 AZN boost)
 ☐ Data Safety bəyannaməsi yeniləndi (Analytics, Crashlytics, Branch)
 ☐ Managed publishing AÇIQ qalır
+☐ [YENİ] Saxta seed məlumatı silindi (aşağı bax)
 ```
+
+### 7.1. ⚠️ Saxta seed məlumatının silinməsi — production-dan ƏVVƏL MƏCBURİDİR
+
+2-ci mərhələnin (Storage miqrasiyası) doğrulaması zamanı (2026-08-29/30)
+aşkar edildi: `venues`/`offers`/`pinboxes`/`venueEvents` kolleksiyalarında
+100+ sənəd **saxta seed məlumatıdır** — real istifadəçi fəaliyyəti deyil.
+Təsdiq (3 əlamət birlikdə):
+
+- Hamısının `createdAt`-ı 2026-08-29, saat 17:39:52–17:40:08 aralığında —
+  16 saniyə ərzində toplu yaradılıb.
+- Hamısı EYNİ tək `ownerId`-ə aiddir, fərqli "restoran" adları ilə (biri
+  hətta insan adı daşıyır: "Elnur Musaoğlu").
+- Offer/PinBox/Event-lərin şəkilləri ÖZLƏRİNİNKİ deyil — təsadüfi venue
+  şəkillərinə istinad edir, kiçik bir hovuzdan təkrar istifadə olunub.
+
+```
+☐ Firestore Console-da ownerId=3cyKZtOCJjhfeWFWMNOA8OGCUaG3-ə aid BÜTÜN
+  venues/offers/pinboxes sənədləri (+ onlara istinad edən venueEvents)
+  tapıldı və siyahıya alındı
+☐ Bu sənədlər real istifadəçi məzmunu OLMADIĞI TƏSDİQLƏNDİ (əl ilə,
+  başqa uid-lərə aid HEÇ bir real sənədə toxunmadan)
+☐ Silindi (Firestore + uyğun Storage faylları)
+☐ Silmədən SONRA yenidən yoxlanıldı: Kəşf et/axtarış ekranlarında
+  saxta məzmun artıq görünmür
+```
+
+Bu addım Storage miqrasiyasının (2-ci mərhələ) NƏTİCƏSİ kimi aşkar
+edildi, amma İCRASI production-a keçmədən əvvələ (7-ci mərhələ) aiddir
+— indi (miqrasiya zamanı) SİLİNMİR, sadəcə qeyd olunur.
 
 ---
 

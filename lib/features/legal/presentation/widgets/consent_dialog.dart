@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
@@ -70,14 +71,15 @@ class _ConsentDialogState extends ConsumerState<_ConsentDialog> {
   Future<void> _accept() async {
     setState(() => _submitting = true);
     try {
-      await privateDataRef(widget.uid).set({
-        'consent': {
-          'termsAccepted': true,
-          'acceptedAt': FieldValue.serverTimestamp(),
-          'termsVersion': widget.termsVersion,
-          'privacyVersion': widget.privacyVersion,
-        },
-      }, SetOptions(merge: true));
+      // P0 / H-9 — `consent` is a legal acceptance record, so it is no
+      // longer written from here. `recordConsent` (Cloud Function) reads
+      // the accepted versions from `config/legal` itself rather than
+      // trusting the two version strings this widget happens to hold,
+      // and stamps `acceptedAt` server-side; `firestore.rules` blocks
+      // the field from any client write. The versions passed to this
+      // widget still drive what the user is SHOWN — they just no longer
+      // decide what gets recorded as agreed to.
+      await FirebaseFunctions.instance.httpsCallable('recordConsent').call<Map<String, dynamic>>();
       if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e, st) {

@@ -266,8 +266,19 @@ describe("Prompt 11 — bannedUsers kolleksiyası client-dən əlçatan deyil", 
 // Bu testlər BUG DEYİL, sənədləşdirilmiş, qəbul edilmiş qərardır (Prompt
 // 11-in Variant B qərarı) — "keçir" gözləntisi ilə yazılıb ki, gələcəkdə
 // kimsə bunu səhvən "düzəldilməli boşluq" saymasın.
+//
+// P0 / C-3 YENİLƏNMƏSİ (2026-08-30) — `posts` və `stories` bu siyahıdan
+// ÇIXARILDI və aşağıdakı iki test "keçir"dən "rədd edilir"ə çevrildi.
+// Səbəb Variant B-nin öz mühakiməsinin dəyişməsi DEYİL (banlanmış
+// hesabın məzmun yaratmasının xərc-fayda balansı eyni qalır) — səbəb
+// odur ki, `isActiveUser()` eyni anda `users/{uid}` sənədi ÜMUMİYYƏTLƏ
+// olmayan hesabları da bloklayır, yəni `completeOnboarding`-in 18+
+// qapısından keçməmişləri. Bu, artıq moderasiya xərci məsələsi deyil,
+// uşaq təhlükəsizliyi məsələsidir. `pinboxes`/`venueEvents`/
+// `supportMessages` qəsdən açıq qalır (aşağıdakı 3 test dəyişmir);
+// `supportMessages` xüsusilə — ilişmiş istifadəçi dəstəyə yaza bilməlidir.
 // ---------------------------------------------------------------------------
-describe("Prompt 11 — hələ açıqdır, QƏSDƏN (Prompt 11 Variant B qərarı, gələcək bir promptda yenidən baxılacaq)", () => {
+describe("Prompt 11 — qəsdən açıq qalan yollar (P0 / C-3-dən sonra: posts/stories artıq bağlıdır)", () => {
   const banned = "p11-open-banned";
   const venueId = "p11-open-venue";
 
@@ -280,14 +291,14 @@ describe("Prompt 11 — hələ açıqdır, QƏSDƏN (Prompt 11 Variant B qərar�
     });
   });
 
-  test("hələ açıqdır — banlanmış istifadəçi post yaza bilir", async () => {
+  test("BAĞLANDI (P0 / C-3) — banlanmış istifadəçi post yaza BİLMİR", async () => {
     const db = testEnv.authenticatedContext(banned).firestore();
-    await assertSucceeds(setDoc(doc(collection(db, "posts")), { userId: banned, caption: "test", createdAt: new Date() }));
+    await assertFails(setDoc(doc(collection(db, "posts")), { userId: banned, caption: "test", createdAt: new Date() }));
   });
 
-  test("hələ açıqdır — banlanmış istifadəçi story yaza bilir", async () => {
+  test("BAĞLANDI (P0 / C-3) — banlanmış istifadəçi story yaza BİLMİR", async () => {
     const db = testEnv.authenticatedContext(banned).firestore();
-    await assertSucceeds(setDoc(doc(collection(db, "stories")), { creatorId: banned, mediaUrl: "https://example.com/s.jpg" }));
+    await assertFails(setDoc(doc(collection(db, "stories")), { creatorId: banned, mediaUrl: "https://example.com/s.jpg" }));
   });
 
   test("hələ açıqdır — banlanmış istifadəçi (öz venue-sinə) pinbox yaza bilir", async () => {
@@ -322,4 +333,4 @@ describe("Prompt 11 — hələ açıqdır, QƏSDƏN (Prompt 11 Variant B qərar�
 });
 
 // Say: 22 test (5 kolleksiya × 3 hal = 15, bannedUsers özü = 2,
-// qəsdən-açıq 5 yol = 5).
+// qəsdən-açıq 3 yol + P0/C-3 ilə bağlanmış 2 yol = 5).

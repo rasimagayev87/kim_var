@@ -1,4 +1,8 @@
-enum MessageType { text, image, video, audio, post, call }
+// `deleted` is never a real message's own `type` — it only ever appears
+// as `Chat.lastMessage(Override)`'s type, meaning "the message that used
+// to be the preview is gone now" (see `onChatMessageDeleted`/
+// `onChatMessageDeletedForUser`, functions/src/index.ts).
+enum MessageType { text, image, video, audio, post, call, deleted }
 
 enum CallMessageType { voice, video }
 

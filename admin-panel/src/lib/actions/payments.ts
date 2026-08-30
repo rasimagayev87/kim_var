@@ -16,13 +16,15 @@ import type { ActionResult } from "./venues";
  * API and flips straight to `refunded` on success. This is the fallback
  * for the cases that don't (a pre-Epoint-integration payment with no
  * captured transaction id, or Epoint itself rejecting the reversal —
- * both surface an admin notification pointing back here). Same
- * `moderateVenues` permission as venue moderation, since every payment
- * here today originates from a venue-listing decision.
+ * both surface an admin notification pointing back here). Gated on
+ * `managePayments` (P0 / H-7) — this used to share `moderateVenues`
+ * with venue moderation on the reasoning that every payment here
+ * originates from a venue-listing decision, which describes where the
+ * payments come from rather than what this action does to them.
  */
 export async function markPaymentRefunded(paymentId: string): Promise<ActionResult> {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateVenues")) {
+  if (!admin || !hasPermission(admin.role, "managePayments")) {
     return { ok: false, error: "forbidden" };
   }
 
@@ -72,7 +74,7 @@ export async function markPaymentRefunded(paymentId: string): Promise<ActionResu
  */
 export async function initiateRefund(paymentId: string): Promise<ActionResult> {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateVenues")) {
+  if (!admin || !hasPermission(admin.role, "managePayments")) {
     return { ok: false, error: "forbidden" };
   }
 

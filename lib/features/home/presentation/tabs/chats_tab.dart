@@ -5,6 +5,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/app_logger.dart';
 import '../../../../core/widgets/friendly_error_state.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/domain/entities/chat.dart';
@@ -94,6 +95,13 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
       if (_filter == _ChatFilter.requests) return isRequest;
       if (isRequest) return false;
 
+      // P0 / H-4 — a conversation this user removed stays out of every
+      // filter, including "arxiv" and "oxunmamış". Filtered here rather
+      // than in the query because Firestore has no "map value is not
+      // true" predicate — the same reason `archivedBy` right below is
+      // also an in-memory filter.
+      if (chat.isHiddenFor(myUid)) return false;
+
       final archived = chat.isArchivedFor(myUid);
       if (_filter == _ChatFilter.archived) return archived;
       if (archived) return false;
@@ -107,7 +115,10 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
         final peer = ref.watch(publicProfileProvider(chat.otherParticipant(myUid))).valueOrNull;
         final name = _azSearchKey(peer?.name ?? '');
         final username = _azSearchKey(peer?.username ?? '');
-        final lastMessage = _azSearchKey(chat.lastMessage);
+        // `previewFor(myUid)` — a "məndən sil" override shouldn't stay
+        // searchable in this uid's own list either (see `_ChatCard`'s
+        // identical reasoning for the same call).
+        final lastMessage = _azSearchKey(chat.previewFor(myUid).text);
         return name.contains(q) || username.contains(q) || lastMessage.contains(q);
       }).toList();
     }
@@ -482,12 +493,18 @@ class _ChatCard extends ConsumerWidget {
     final isUnread = unread > 0;
     const cardRadius = 20.0;
 
-    final preview = switch (chat.lastMessageType) {
+    // `previewFor(myUid)` — NOT `chat.lastMessage`/`chat.lastMessageType`
+    // directly — so a "məndən sil" override (this uid's own, if any)
+    // takes precedence over the shared fields every other participant
+    // sees. See `Chat.previewFor`'s own doc comment.
+    final myPreview = chat.previewFor(myUid);
+    final preview = switch (myPreview.type) {
       MessageType.image => '📷 ${loc.chatImageMessageLabel}',
       MessageType.video => '🎥 ${loc.chatVideoMessageLabel}',
       MessageType.audio => '🎤 ${loc.chatAudioMessageLabel}',
       MessageType.post => '📎 ${loc.chatPostMessageLabel}',
-      _ => chat.lastMessage,
+      MessageType.deleted => loc.chatMessageDeletedPreviewLabel,
+      _ => myPreview.text,
     };
 
     return Padding(
@@ -510,25 +527,60 @@ class _ChatCard extends ConsumerWidget {
         ),
         endActionPane: ActionPane(
           motion: const StretchMotion(),
-          extentRatio: 0.5,
+          extentRatio: 0.72,
+          // Post-launch QA — was hardcoded to `setArchived(chat.id, true)`,
+          // so a full swipe in the Arxivlənənlər tab also archived (a
+          // no-op write, already `true`) instead of unarchiving: the row
+          // still visually disappeared (Dismissible always removes its
+          // widget once dismissed) but the chat silently stayed archived,
+          // invisible in Hamısı until the user re-opened Arxivlənənlər and
+          // it reappeared there. Toggling off `isArchived` makes dismiss
+          // do "remove from the tab you're looking at" in both tabs.
           dismissible: DismissiblePane(
-            onDismissed: () => ref.read(chatListControllerProvider.notifier).setArchived(chat.id, true),
+            onDismissed: () => ref.read(chatListControllerProvider.notifier).setArchived(chat.id, !isArchived),
           ),
           children: [
-            SlidableAction(
-              onPressed: (_) => ref.read(chatListControllerProvider.notifier).setArchived(chat.id, !isArchived),
-              backgroundColor: ChatLightColors.inkSoft,
-              foregroundColor: Colors.white,
-              icon: isArchived ? Icons.unarchive_outlined : Icons.archive_outlined,
-              label: isArchived ? loc.chatsUnarchiveAction : loc.chatsArchiveAction,
-              borderRadius: BorderRadius.circular(cardRadius),
-            ),
+            // Post-launch QA — Səssiz et (mute) revealed FIRST (leftmost).
+            // Sil sits in the MIDDLE deliberately: a full swipe always
+            // toggles archived state via `dismissible.onDismissed` above
+            // (independent of button order), never deletes, so putting
+            // Sil at the far edge — where a full swipe visually lands —
+            // made it look like the swipe would delete when it actually
+            // archived/unarchived. Keeping Arxivlə/Arxivdən çıxar last
+            // (next to the dismiss threshold) makes the edge action match
+            // what dismissing actually does; Sil in the middle is reachable
+            // only by a deliberate partial swipe + tap, never by dismiss.
             SlidableAction(
               onPressed: (_) => ref.read(chatListControllerProvider.notifier).setMuted(chat.id, !isMuted),
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               icon: isMuted ? Icons.notifications_active_outlined : Icons.notifications_off_outlined,
               label: isMuted ? loc.chatsUnmuteAction : loc.chatsMuteAction,
+              borderRadius: BorderRadius.circular(cardRadius),
+            ),
+            // Post-launch QA — the only way to delete a chat used to be
+            // via the other participant's profile-screen menu, which
+            // becomes unreachable once their account is deleted (profile
+            // stream returns null, header tap disables itself). This
+            // button is independent of that entirely. Deliberately NOT
+            // wired to `dismissible.onDismissed` above — a full swipe
+            // only ever toggles archived state, per explicit decision, so
+            // deleting always requires this dedicated button + its
+            // confirmation.
+            SlidableAction(
+              onPressed: (_) => _confirmDeleteChat(context, ref, loc),
+              backgroundColor: AppColors.error,
+              foregroundColor: Colors.white,
+              icon: Icons.delete_outline,
+              label: loc.actionDelete,
+              borderRadius: BorderRadius.circular(cardRadius),
+            ),
+            SlidableAction(
+              onPressed: (_) => ref.read(chatListControllerProvider.notifier).setArchived(chat.id, !isArchived),
+              backgroundColor: ChatLightColors.inkSoft,
+              foregroundColor: Colors.white,
+              icon: isArchived ? Icons.unarchive_outlined : Icons.archive_outlined,
+              label: isArchived ? loc.chatsUnarchiveAction : loc.chatsArchiveAction,
               borderRadius: BorderRadius.circular(cardRadius),
             ),
           ],
@@ -675,6 +727,35 @@ class _ChatCard extends ConsumerWidget {
       }
     }
     ref.read(chatListControllerProvider.notifier).setPinned(chat.id, !isPinned);
+  }
+
+  Future<void> _confirmDeleteChat(BuildContext context, WidgetRef ref, AppLocalizations loc) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(loc.chatDeleteConfirmTitle),
+        content: Text(loc.chatDeleteConfirmMessage),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: Text(loc.actionDelete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await ref.read(chatControllerProvider.notifier).deleteChat(chat.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatDeletedNotice)));
+    } catch (e, st) {
+      logError('chats_tab.deleteChat', e, st);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatRequestActionErrorMessage)));
+    }
   }
 
   String _formatTimestamp(AppLocalizations loc, DateTime dateTime) {

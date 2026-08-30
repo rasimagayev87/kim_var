@@ -435,4 +435,35 @@ describe("K-3 — users/{uid} get: bir-istiqamətli (yalnız bloklanan tərəf g
     const db = testEnv.authenticatedContext(a).firestore();
     await assertSucceeds(getDoc(doc(db, "users", a)));
   });
+
+  // Post-launch QA tapıntısı — `resource.data.get(...)` sənəd heç
+  // MÖVCUD olmayanda (`resource == null`) qiymətləndirilə bilmirdi və
+  // Firestore bunu real blok kimi permission-denied ilə rədd edirdi.
+  // Bu, HƏR yeni qeydiyyatı qırırdı: `_hydrateFromFirestore` öz
+  // `users/{uid}` sənədini `completeOnboarding`-dən ƏVVƏL oxuyur, o an
+  // sənəd hələ yoxdur. Bu iki test dəqiq REGRESSIYA sərhədini qeyd
+  // edir: sənəd yoxdursa keçməlidir (boş nəticə), sənəd VAR və blok
+  // varsa yenə də rədd edilməlidir — düzəliş bunlardan yalnız BİRİNCİNİ
+  // dəyişməli idi.
+  test("mövcud olmayan users/{uid} sənədinin oxunması icazəlidir (boş nəticə, permission-denied YOX)", async () => {
+    const viewer = "p5-profile5-viewer";
+    const missing = "p5-profile5-missing"; // heç yaradılmayıb
+    await seed(async (fs) => {
+      await setDoc(doc(fs, "users", viewer), userFixture(viewer));
+    });
+    const db = testEnv.authenticatedContext(viewer).firestore();
+    const snap = await assertSucceeds(getDoc(doc(db, "users", missing)));
+    if (snap.exists()) throw new Error("Sənəd mövcud olmamalı idi — test fixture-u səhvdir");
+  });
+
+  test("bloklanmış MÖVCUD sənədin oxunması `resource == null` düzəlişindən sonra da rədd edilir (regressiya)", async () => {
+    const a = "p5-profile6-a";
+    const b = "p5-profile6-b";
+    await seed(async (fs) => {
+      await setDoc(doc(fs, "users", a), userFixture(a, { blockedUsers: [b] }));
+      await setDoc(doc(fs, "users", b), userFixture(b));
+    });
+    const db = testEnv.authenticatedContext(b).firestore();
+    await assertFails(getDoc(doc(db, "users", a)));
+  });
 });

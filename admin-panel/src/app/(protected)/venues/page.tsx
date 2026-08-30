@@ -11,7 +11,8 @@ function parseStatus(value: string | undefined): VenueStatusFilter {
     value === "needs_revision" ||
     value === "approved" ||
     value === "inactive" ||
-    value === "rejected"
+    value === "rejected" ||
+    value === "awaiting_payment"
     ? value
     : "all";
 }

@@ -231,15 +231,15 @@ class FirebaseAccountRepository implements AccountRepository {
     final authEmail = user?.email;
     if (user == null || authEmail == null) return;
 
-    // `email` lives on `users/{uid}/private/data` (Düzəliş Prompt 4).
-    final privateRef = privateDataRef(user.uid, firestore: _firestore);
-    final doc = await privateRef.get();
-    final storedEmail = doc.data()?['email'] as String?;
-    if (storedEmail == authEmail) return;
-
-    await privateRef.set(
-      {'email': authEmail, 'updatedAt': FieldValue.serverTimestamp()},
-      SetOptions(merge: true),
-    );
+    // `email` lives on `users/{uid}/private/data` (Düzəliş Prompt 4) and
+    // is server-only since P0 / H-9: the admin panel and support act on
+    // this value, and a direct client write let a modified client put
+    // anything there. `syncContactEmail` takes NO arguments — it reads
+    // the address off `request.auth.token` (and requires it verified),
+    // which is the same value this method used to send but from the one
+    // source that can't be forged. The local `authEmail` read above is
+    // kept only as a cheap "is there anything to sync at all" guard.
+    if (authEmail.isEmpty) return;
+    await FirebaseFunctions.instance.httpsCallable('syncContactEmail').call<Map<String, dynamic>>();
   }
 }
