@@ -86,16 +86,22 @@ qərar deyil yarımçıq tətbiq idi).
 | `users/*/profileViews` | Zərər real, amma **ölçüldü**: hər profil açılışında bir yazı, üstəlik mövcud incognito oxusu. Tətbiq etmək tətbiqin ən isti yazma yolunun oxu sayını üç dəfə artırardı. Daha ucuz həll oxu tərəfində süzgəcdir — `BACKLOG.md` |
 | `pinboxes`, `venueEvents` | Moderasiya növbəsinə düşür; admin rədd edir |
 
-**KRİTİK QEYD — yazma qapısı hər şeyi həll etmir.** Banlanmış hesab
-`private/data`-ya öz `lat`/`lng`-ini, `users/{uid}`-ə isə
-`online`/`lastSeen` yaza bilir, və `findNearbyUsers`/
-`getDiscoverCandidates`-in namizəd süzgəcləri **ban statusunu
-YOXLAMIR** — yalnız bloklanma, ghost mode, onlayn olma və məsafə.
-Yəni banlanmış hesab token-i bitənə qədər (~1 saat, aşağıdakı
-maddəyə bax) başqalarının kəşf nəticələrində qalır. `private/*`
-yazısını bağlamaq bunu **düzəltməzdi**, çünki onu görünən saxlayan
-sahə (`online`) tamam başqa sənəddədir. Doğru həll namizəd
-süzgəcində ban yoxlamasıdır — `BACKLOG.md`.
+**QEYD — yazma qapısı görünürlüyü həll etmir; o, ayrıca bağlandı.**
+Banlanmış hesab `private/data`-ya öz `lat`/`lng`-ini, `users/{uid}`-ə
+isə `online`/`lastSeen` yaza bilir, və `findNearbyUsers`/
+`getDiscoverCandidates`-in namizəd süzgəcləri əvvəllər ban statusunu
+YOXLAMIRDI — yəni banlanmış hesab başqalarının kəşf nəticələrində
+qalırdı. Bu, yuxarıdakı siyahının davamı deyil, ayrı bir sinifdir:
+`private/*` yazısını bağlamaq onu **düzəltməzdi**, çünki hesabı
+görünən saxlayan sahə (`online`) tamam başqa sənəddədir.
+
+2026-08-30-da bağlandı (`BACKLOG.md` #20): hər iki süzgəcə
+`banned !== true` şərti əlavə edildi. Doğruluq mənbəyi
+`bannedUsers/{uid}` olaraq qalır; `users/{uid}/private/data.banned`
+yalnız oxu tərəfi üçün güzgüdür və `serverOnlyFields()` ilə
+qorunur. **Fərqləndikləri halda tombstone üstündür** — heç bir qayda
+və heç bir callable güzgüyə baxmır, ona görə bayat güzgü ən pisi
+kimisə siyahıda görünən saxlaya bilər, icazə verə bilməz.
 
 **Nə vaxt yenidən baxılmalı:** `moderationLogs`-da qeydə alınan
 "banlanmış-istifadəçi-yeni-məzmun" hadisələri 1 təqvim ayında 20-ni

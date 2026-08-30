@@ -77,6 +77,26 @@ describe("d4 — BAĞLANAN yollar", () => {
     );
   });
 
+  test("activeCheckins: banlanmış hesab check-in edə BİLMİR", async () => {
+    const db = testEnv.authenticatedContext(BANNED).firestore();
+    await assertFails(setDoc(doc(db, "venues", VENUE, "activeCheckins", BANNED), { createdAt: new Date() }));
+  });
+
+  test("activeCheckins: aktiv hesab edə bilir", async () => {
+    const db = testEnv.authenticatedContext(OK).firestore();
+    await assertSucceeds(setDoc(doc(db, "venues", VENUE, "activeCheckins", OK), { createdAt: new Date() }));
+  });
+
+  test("activeCheckins: check-in halında banlanan hesab ÇIXA bilir", async () => {
+    // Silmə qəsdən qorunmayıb — əks halda ban zamanı içəridə olan
+    // adam məkanın canlı sayında ilişib qalardı.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "venues", VENUE, "activeCheckins", BANNED), { createdAt: new Date() });
+    });
+    const db = testEnv.authenticatedContext(BANNED).firestore();
+    await assertSucceeds(deleteDoc(doc(db, "venues", VENUE, "activeCheckins", BANNED)));
+  });
+
   test("chats: banlanmış hesab söhbət sənədi yarada BİLMİR", async () => {
     // `messages` C-3-dən bəri qorunurdu, valideyn sənəd yox — yarımçıq
     // tətbiqin özü. Banlanmış hesab boş da olsa qurbanın söhbət
@@ -107,5 +127,34 @@ describe("d4 — QƏSDƏN açıq qalan yollar (xərc qərarı)", () => {
     const db = testEnv.authenticatedContext(BANNED).firestore();
     await assertSucceeds(setDoc(doc(db, "posts", "d4-post", "likes", BANNED), {}));
     await assertSucceeds(deleteDoc(doc(db, "posts", "d4-post", "likes", BANNED)));
+  });
+});
+
+describe("d4 — `private/data.banned` güzgüsü client-dən qorunur", () => {
+  // Güzgü Kəşf et süzgəcinin oxuduğu yeganə sahədir. Sahib öz private
+  // sənədinin demək olar hər sahəsini yaza bilir, ona görə bu bir
+  // sətir olmasa banlanmış hesab sadəcə bayrağı silib geri qayıdardı.
+  test("sahib `banned` yaza BİLMİR", async () => {
+    const db = testEnv.authenticatedContext(OK).firestore();
+    await assertFails(
+      setDoc(doc(db, "users", OK, "private", "data"), { banned: false }, { merge: true }),
+    );
+  });
+
+  test("banlanmış hesab öz bayrağını silə BİLMİR", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "users", BANNED, "private", "data"), { banned: true }, { merge: true });
+    });
+    const db = testEnv.authenticatedContext(BANNED).firestore();
+    await assertFails(
+      setDoc(doc(db, "users", BANNED, "private", "data"), { banned: false }, { merge: true }),
+    );
+  });
+
+  test("digər private sahələr həmişəki kimi yazıla bilir", async () => {
+    const db = testEnv.authenticatedContext(OK).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, "users", OK, "private", "data"), { lat: 40.4093, lng: 49.8671 }, { merge: true }),
+    );
   });
 });

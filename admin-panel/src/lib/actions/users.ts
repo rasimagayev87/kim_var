@@ -1,5 +1,6 @@
 "use server";
 
+import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 
 import { hasPermission, type Permission } from "@/lib/auth/permissions";
@@ -153,12 +154,52 @@ export async function setUserBanned(uid: string, banned: boolean): Promise<Actio
     // request.auth != null` (any signed-in user can read the whole
     // document) — a `banned` field there would leak ban status to
     // anyone viewing the profile.
-    const bannedUserRef = getAdminDb().collection("bannedUsers").doc(uid);
+    //
+    // SOURCE OF TRUTH: `bannedUsers/{uid}`. Everything that ENFORCES a
+    // ban reads it — `isActiveUser()` in firestore.rules and
+    // `assertActiveUser()` in functions/src/index.ts.
+    //
+    // `users/{uid}/private/data.banned` is a READ-SIDE MIRROR of the
+    // same fact and nothing more. It exists because the Discover and
+    // nearby candidate filters have to exclude banned accounts from
+    // hundreds of candidates per call, and consulting `bannedUsers`
+    // there would mean one extra document read per candidate on the
+    // app's most expensive endpoint; `withPrivateData` has already
+    // fetched the private document, so the mirror is free. It lives on
+    // the private doc rather than the public one for the same reason
+    // this collection exists at all (see the paragraph above): a
+    // `banned` field on `users/{uid}` would expose ban status to
+    // anyone who can view a profile. `serverOnlyFields()` in
+    // firestore.rules keeps the owner from clearing it.
+    //
+    // IF THE TWO EVER DISAGREE, THE TOMBSTONE WINS. A stale mirror can
+    // only leave a banned account visible in a list; it can never
+    // grant a permission, because no rule and no callable consults it.
+    // Do not turn this field into an authorization input.
+    //
+    // Both writes go in ONE batch so the pair cannot half-apply.
+    const db = getAdminDb();
+    const batch = db.batch();
+    const bannedUserRef = db.collection("bannedUsers").doc(uid);
+    const privateRef = db.collection("users").doc(uid).collection("private").doc("data");
     if (banned) {
-      await bannedUserRef.set({ bannedAt: new Date() });
+      batch.set(bannedUserRef, { bannedAt: new Date() });
+      batch.set(privateRef, { banned: true }, { merge: true });
     } else {
-      await bannedUserRef.delete();
+      batch.delete(bannedUserRef);
+      // Removed rather than set to `false` — an absent field and
+      // `false` read identically at every consumer (`!== true`), and
+      // leaving a tombstone-shaped `banned: false` behind on every
+      // account that was ever unbanned serves nothing.
+      //
+      // `set`/`merge`, not `update`: `update` fails when the document
+      // does not exist, and that failure would take the whole batch
+      // with it — an admin unable to lift a ban because the account
+      // never had a private doc is a worse outcome than a redundant
+      // write.
+      batch.set(privateRef, { banned: FieldValue.delete() }, { merge: true });
     }
+    await batch.commit();
     await logModerationAction({
       actor: check.admin,
       action: banned ? "user.banned" : "user.unbanned",

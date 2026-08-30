@@ -1114,6 +1114,19 @@ export const getDiscoverCandidates = onCall({ region: "us-central1", enforceAppC
     .filter((c) => c.id !== uid)
     .filter((c) => !myBlockedUsers.includes(c.id))
     .filter((c) => !((c.data.blockedUsers as string[] | undefined) ?? []).includes(uid))
+    // Banned accounts stay out of Discover too — see the identical
+    // filter in `findNearbyUsers` for why this reads a mirror instead
+    // of `bannedUsers`, and which one wins on disagreement.
+    .filter((c) => c.data.banned !== true)
+    // BACKLOG #20 — the same staleness gate `findNearbyUsers` applies.
+    // The query above can only ask `online == true`, and that flag is
+    // written by the client: a crash or force-quit before the
+    // `online: false` write leaves it set forever. This function had
+    // no second check, so anyone who ever force-quit stayed listed as
+    // present indefinitely — see [isRecentlyOnlineServer]'s own
+    // comment, which describes exactly the case its sibling was
+    // already guarding against and this one was not.
+    .filter((c) => isRecentlyOnlineServer(c.data.online, c.data.lastSeen))
     .filter((c) => isWithinTargetVisibilityRadius(c.data, viewerLat, viewerLng, viewerCountry))
     .filter((c) => matchesGenderFilter(c.data.gender, genderFilter))
     .map((c) => buildPublicCandidatePayload(c.id, c.data));
@@ -1218,6 +1231,19 @@ export const findNearbyUsers = onCall({ region: "us-central1", enforceAppCheck: 
     .filter((c) => c.id !== uid)
     .filter((c) => !myBlockedUsers.includes(c.id))
     .filter((c) => !((c.data.blockedUsers as string[] | undefined) ?? []).includes(uid))
+    // Ban applies to visibility, not just to what the account can do.
+    // `bannedUsers/{uid}` is the source of truth, but reading it per
+    // candidate would add one document read for every one of the
+    // hundreds scanned here — a ~50% increase on this app's most
+    // expensive endpoint. `private/data.banned` is a mirror written by
+    // `setUserBanned` in the same batch as the tombstone, and
+    // `withPrivateData` above has already fetched that document, so
+    // this filter is free. IF THE TWO EVER DISAGREE, `bannedUsers`
+    // WINS: it is what `isActiveUser()`/`assertActiveUser()` enforce,
+    // and a stale mirror can only make someone visible who should not
+    // be — never the reverse. Never make an authorization decision
+    // from this field; it exists to filter a list.
+    .filter((c) => c.data.banned !== true)
     .filter((c) => c.data.ghostModeEnabled !== true)
     .filter((c) => isRecentlyOnlineServer(c.data.online, c.data.lastSeen))
     .filter((c) => typeof c.data.lat === "number" && typeof c.data.lng === "number")

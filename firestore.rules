@@ -476,7 +476,15 @@ service cloud.firestore {
         function serverOnlyFields() {
           return [
             'birthDate', 'phoneNumber', 'email', 'consent', 'loginProvider',
-            'fcmTokens', 'knownDeviceSignatures', 'blockedByUsers'
+            'fcmTokens', 'knownDeviceSignatures', 'blockedByUsers',
+            // Read-side mirror of `bannedUsers/{uid}` — see
+            // `setUserBanned` (admin panel) for why it lives on the
+            // OWNER-ONLY private doc rather than the public one, and
+            // which of the two is authoritative. It must be here: the
+            // owner can write every other field of this document, so
+            // without this line a banned user would simply delete the
+            // flag that hides them from Discover.
+            'banned'
           ];
         }
 
@@ -1527,7 +1535,21 @@ service cloud.firestore {
       allow read: if request.auth != null &&
         (request.auth.uid == userId ||
          request.auth.uid == get(/databases/$(database)/documents/venues/$(venueId)).data.ownerId);
-      allow create, update, delete: if request.auth != null && request.auth.uid == userId;
+      // `isActiveUser()` on create (self-verification / d4). A check-in
+      // feeds `audienceHistory` and the peak-hour notifications sent to
+      // venue owners, so a banned account writing them is data
+      // poisoning rather than noise. Affordable here because checking
+      // in is a deliberate, occasional act — the client writes once on
+      // arrival and deletes on departure, with no heartbeat in between
+      // (`FirebaseVenueRemoteDatasource.checkIn`/`checkOut`), so the
+      // `update` verb below is not actually exercised today.
+      allow create: if request.auth != null && request.auth.uid == userId &&
+        isActiveUser(request.auth.uid);
+      // Departure must never be blocked: a user banned WHILE checked in
+      // still has to be able to remove themselves, and the trigger that
+      // maintains the venue's live count depends on that delete
+      // arriving.
+      allow update, delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // Audit trail proving which version of the "PeakPin Biznes
