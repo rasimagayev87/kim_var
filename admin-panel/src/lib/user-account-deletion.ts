@@ -53,6 +53,10 @@ export async function deleteUserAccountPermanently(uid: string): Promise<void> {
   await scrubFromOthersBlockLists(uid);
   await deleteStories(uid);
   await deleteUserPosts(uid);
+  // Both run BEFORE `deleteUserVenues`, which removes the venue
+  // documents `anonymizeUserVenueEvents` resolves events through.
+  await anonymizeUserPinBoxes(uid);
+  await anonymizeUserVenueEvents(uid);
   await deleteUserVenues(uid);
   await deleteUserOffers(uid);
   await anonymizePinBoxOrders(uid);
@@ -80,6 +84,12 @@ export async function deleteUserAccountPermanently(uid: string): Promise<void> {
   await deleteStoragePrefix(`pinbox_photos/${uid}/`);
   await deleteStoragePrefix(`event_covers/${uid}/`);
   await db.collection("accountDeletions").add({ uid, deletedAt: FieldValue.serverTimestamp(), deletedByAdmin: true });
+  // Ban tombstone, removed LAST — see `deleteAccount`
+  // (functions/src/index.ts) for the ordering argument: removing it
+  // while `users/{uid}` still exists would flip a banned account back
+  // to "active" (`isActiveUser` = user exists AND no tombstone) for the
+  // rest of the sequence.
+  await db.collection("bannedUsers").doc(uid).delete();
 
   try {
     await auth.deleteUser(uid);
@@ -107,6 +117,65 @@ async function replaceMessagesWithPlaceholder(uid: string): Promise<void> {
         await messageDoc.ref.update({ text: DELETED_SENDER_PLACEHOLDER, mediaUrl: FieldValue.delete(), deletedSender: true });
       }),
     );
+  }
+}
+
+/** PinBox listings owned by this user — anonymized and closed, not
+ * deleted. Mirrors `anonymizeUserPinBoxes` in functions/src/index.ts;
+ * see that function for the full reasoning (buyers' `pinboxOrders` and
+ * `venuePayouts` rows point at these documents, so deleting them would
+ * strip the meaning out of records that must survive).
+ *
+ * Boxes still holding paid, un-redeemed orders raise an admin
+ * notification — that money cannot be honoured any more. */
+async function anonymizeUserPinBoxes(uid: string): Promise<void> {
+  const db = getAdminDb();
+  const snap = await db.collection("pinboxes").where("ownerId", "==", uid).get();
+  if (snap.empty) return;
+
+  await Promise.all(
+    snap.docs.map((doc) => doc.ref.update({ ownerDeleted: true, status: "inactive", updatedAt: FieldValue.serverTimestamp() })),
+  );
+
+  const counts = await Promise.all(
+    snap.docs.map(async (doc) => {
+      const orders = await db
+        .collection("pinboxOrders")
+        .where("pinboxId", "==", doc.id)
+        .where("status", "==", "reserved")
+        .get();
+      return { title: (doc.data().title as string | undefined) ?? doc.id, count: orders.size };
+    }),
+  );
+  const stranded = counts.filter((r) => r.count > 0);
+  if (stranded.length === 0) return;
+
+  const total = stranded.reduce((sum, r) => sum + r.count, 0);
+  await db.collection("adminNotifications").add({
+    type: "pinbox.orphaned_reserved_orders",
+    message:
+      `Hesab silindi (${uid}) — sahibsiz qalan PinBox-larda ${total} ödənilmiş, təhvil verilməmiş sifariş var: ` +
+      stranded.map((r) => `"${r.title}" (${r.count})`).join(", ") +
+      ". Bu sifarişlər artıq təhvil verilə bilməz, əl ilə geri qaytarılmalıdır.",
+    targetType: "user",
+    targetId: uid,
+    read: false,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+}
+
+/** Venue events at this user's venues — cancelled and anonymized.
+ * Mirrors `anonymizeUserVenueEvents` in functions/src/index.ts. */
+async function anonymizeUserVenueEvents(uid: string): Promise<void> {
+  const db = getAdminDb();
+  const venuesSnap = await db.collection("venues").where("ownerId", "==", uid).get();
+  const venueIds = venuesSnap.docs.map((d) => d.id);
+  if (venueIds.length === 0) return;
+
+  for (let i = 0; i < venueIds.length; i += 30) {
+    const chunk = venueIds.slice(i, i + 30);
+    const eventsSnap = await db.collection("venueEvents").where("venueId", "in", chunk).get();
+    await Promise.all(eventsSnap.docs.map((doc) => doc.ref.update({ ownerDeleted: true, status: "cancelled" })));
   }
 }
 

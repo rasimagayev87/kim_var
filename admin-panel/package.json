@@ -10,6 +10,7 @@
     "bootstrap-admin": "tsx --env-file=.env.local scripts/bootstrap-admin.ts",
     "revoke-admin-sessions": "tsx --env-file=.env.local scripts/revoke-admin-sessions.ts",
     "list-external-media-urls": "tsx --env-file=.env.local scripts/list-external-media-urls.ts",
+    "audit-phone-numbers": "tsx --env-file=.env.local scripts/audit-phone-numbers.ts",
     "set-legal-version": "tsx --env-file=.env.local scripts/set-legal-version.ts",
     "set-event-categories": "tsx --env-file=.env.local scripts/set-event-categories.ts",
     "set-waitlist-categories": "tsx --env-file=.env.local scripts/set-waitlist-categories.ts",

@@ -112,9 +112,29 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   void _applyDialCodeForCountry(String? country) {
     final dialCode = _dialCodeFor(country);
     final current = _phoneController.text;
-    final rest = _autoDialCode != null && current.startsWith(_autoDialCode!)
-        ? current.substring(_autoDialCode!.length)
-        : (_autoDialCode == null ? current : '');
+    String rest;
+    if (_autoDialCode != null && current.startsWith(_autoDialCode!)) {
+      rest = current.substring(_autoDialCode!.length);
+    } else if (_autoDialCode == null) {
+      // BACKLOG #8 — this branch produced `+994 +994502749898`.
+      //
+      // It runs the first time a country is picked, and it used to keep
+      // `current` verbatim as the "local part". That is right when the
+      // user typed bare digits, and wrong when they typed the full
+      // international number BEFORE choosing a country — a completely
+      // ordinary thing to do — because the dial code was then prepended
+      // to a string that already had one. `_finish` strips spaces before
+      // submitting, so what reached Firestore was `+994+994502749898`,
+      // which is exactly the malformed value found in production.
+      //
+      // Any leading `+…` the user typed is their own dial code, so the
+      // country picker replaces it rather than stacking on top of it.
+      rest = current.trimLeft().startsWith('+')
+          ? current.trimLeft().replaceFirst(RegExp(r'^\+\d{1,4}\s*'), '')
+          : current;
+    } else {
+      rest = '';
+    }
     _autoDialCode = dialCode;
     _phoneController.text = '$dialCode $rest'.trimRight();
     _phoneController.selection = TextSelection.collapsed(offset: _phoneController.text.length);

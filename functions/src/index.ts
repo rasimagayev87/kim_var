@@ -24,6 +24,7 @@ import {
 import { geohashForLocation } from "geofire-common";
 import { verifyAppleNotification, verifyAppleTransaction, verifyGoogleSubscription } from "./iap";
 import { CHAT_MEDIA_FOLDERS, chatMediaPathForMessage, isChatHiddenByEveryone } from "./chat-media";
+import { InvalidPhoneNumberError, normalizePhoneNumber } from "./phone";
 
 // `enforceAppCheck: false` on every onCall function below — deliberately
 // reverted from `true`. iOS release builds activate App Check via
@@ -359,6 +360,11 @@ export const deleteAccount = onCall({ region: "us-central1", enforceAppCheck: fa
   await scrubFromOthersBlockLists(uid);
   await deleteStories(uid);
   await deleteUserPosts(uid);
+  // Both run BEFORE `deleteUserVenues`: `anonymizeUserVenueEvents`
+  // resolves events through the owner's venue ids, which stop existing
+  // the moment those venue documents are deleted.
+  await anonymizeUserPinBoxes(uid);
+  await anonymizeUserVenueEvents(uid);
   await deleteUserVenues(uid);
   await deleteUserOffers(uid);
   await anonymizePinBoxOrders(uid);
@@ -389,6 +395,22 @@ export const deleteAccount = onCall({ region: "us-central1", enforceAppCheck: fa
   await deleteStoragePrefix(`pinbox_photos/${uid}/`);
   await deleteStoragePrefix(`event_covers/${uid}/`);
   await db.collection("accountDeletions").add({ uid, deletedAt: FieldValue.serverTimestamp() });
+  // Ban tombstone, removed LAST — after `users/{uid}` is already gone
+  // (BACKLOG #14).
+  //
+  // Ordering is the whole point. `isActiveUser()` (firestore.rules) and
+  // `assertActiveUser` (this file) both mean
+  // `exists(users/{uid}) && !exists(bannedUsers/{uid})`. Deleting the
+  // tombstone EARLY, while `users/{uid}` still exists, would flip a
+  // banned account back to "active" for the rest of this ~15-step
+  // sequence — long enough to send messages, place calls or file
+  // reports. Deleting it here, after the user document is gone, cannot:
+  // the first half of that condition already fails.
+  //
+  // Before `auth.deleteUser` rather than after, so a failure in that
+  // final Auth call leaves no tombstone behind for a uid that will
+  // never be used again.
+  await db.collection("bannedUsers").doc(uid).delete();
   await auth.deleteUser(uid);
 
   return { success: true };
@@ -499,13 +521,23 @@ export const completeOnboarding = onCall({ region: "us-central1", enforceAppChec
   const gender = typeof data.gender === "string" ? data.gender : "";
   const country = typeof data.country === "string" ? data.country : "";
   const city = typeof data.city === "string" ? data.city : "";
-  const phoneNumber = typeof data.phoneNumber === "string" ? data.phoneNumber.trim() : "";
+  const rawPhoneNumber = typeof data.phoneNumber === "string" ? data.phoneNumber.trim() : "";
   const businessStatus = typeof data.businessStatus === "string" ? data.businessStatus : "";
   const bio = typeof data.bio === "string" ? data.bio : "";
   const birthDateMs = data.birthDateMs;
 
-  if (!username || !firstName || !lastName || !gender || !country || !city || !phoneNumber || !businessStatus) {
+  if (!username || !firstName || !lastName || !gender || !country || !city || !rawPhoneNumber || !businessStatus) {
     throw new HttpsError("invalid-argument", "missing-required-field");
+  }
+  // BACKLOG #8 — normalised here, not only on the client. This number is
+  // written exactly once and there is no edit screen, so a malformed
+  // value from an older build is permanent; every install currently in
+  // the wild predates the client-side fix.
+  let phoneNumber: string;
+  try {
+    phoneNumber = normalizePhoneNumber(rawPhoneNumber);
+  } catch (e) {
+    throw new HttpsError("invalid-argument", e instanceof InvalidPhoneNumberError ? e.reason : "invalid-phone-number");
   }
   if (typeof birthDateMs !== "number" || !Number.isFinite(birthDateMs)) {
     throw new HttpsError("invalid-argument", "invalid-birth-date");
@@ -1638,7 +1670,89 @@ async function anonymizePinBoxOrders(uid: string): Promise<void> {
   await Promise.all(snap.docs.map((doc) => doc.ref.update({ buyerDeleted: true })));
 }
 
-/** Events this user created — archived (kept for other participants'
+/**
+ * PinBox listings owned by this user — anonymized and closed, not
+ * deleted (BACKLOG #15).
+ *
+ * Same "keep the record, drop the identity" shape as
+ * `anonymizePinBoxOrders` and `archiveCreatedEvents`: a PinBox is not
+ * only the owner's listing, it is also what every buyer's own
+ * `pinboxOrders` row and every `venuePayouts` obligation points at. Hard
+ * deletion would leave those pointing at nothing, so a buyer's order
+ * history would render as a blank or "unknown box" — the record would
+ * survive with its meaning removed, which is the opposite of what an
+ * order history is for.
+ *
+ * `status: "inactive"` is what actually takes it out of circulation:
+ * every discovery query filters on `status == "active"`
+ * (`FirebasePinBoxRemoteDatasource`), and `reservePinBoxOrder` now also
+ * refuses a box whose venue is gone.
+ *
+ * Any box still holding RESERVED (paid, un-redeemed) orders raises an
+ * admin notification rather than being silently closed: that money has
+ * been taken for something nobody can hand over any more, and it needs
+ * a human to refund it.
+ */
+async function anonymizeUserPinBoxes(uid: string): Promise<void> {
+  const snap = await db.collection("pinboxes").where("ownerId", "==", uid).get();
+  if (snap.empty) return;
+
+  await Promise.all(
+    snap.docs.map((doc) => doc.ref.update({ ownerDeleted: true, status: "inactive", updatedAt: FieldValue.serverTimestamp() })),
+  );
+
+  const reservedCounts = await Promise.all(
+    snap.docs.map(async (doc) => {
+      const orders = await db
+        .collection("pinboxOrders")
+        .where("pinboxId", "==", doc.id)
+        .where("status", "==", "reserved")
+        .get();
+      return { id: doc.id, title: (doc.data().title as string | undefined) ?? doc.id, count: orders.size };
+    }),
+  );
+  const stranded = reservedCounts.filter((r) => r.count > 0);
+  if (stranded.length === 0) return;
+
+  const total = stranded.reduce((sum, r) => sum + r.count, 0);
+  await notifyAdmins({
+    type: "pinbox.orphaned_reserved_orders",
+    message:
+      `Hesab silindi (${uid}) — sahibsiz qalan PinBox-larda ${total} ödənilmiş, təhvil verilməmiş sifariş var: ` +
+      stranded.map((r) => `"${r.title}" (${r.count})`).join(", ") +
+      ". Bu sifarişlər artıq təhvil verilə bilməz, əl ilə geri qaytarılmalıdır.",
+    targetType: "user",
+    targetId: uid,
+  });
+}
+
+/**
+ * Venue events at venues this user owned — cancelled and anonymized,
+ * same reasoning as `anonymizeUserPinBoxes` above, minus the money:
+ * `venueEvents` carries no participant list (that lives in the separate
+ * `events` collection, handled by `archiveCreatedEvents`), so nothing is
+ * stranded by closing one. `cancelled` is the status the client already
+ * understands for an event that will not happen, and every discovery
+ * query filters on `status in ["upcoming", "live"]`.
+ */
+async function anonymizeUserVenueEvents(uid: string): Promise<void> {
+  const venuesSnap = await db.collection("venues").where("ownerId", "==", uid).get();
+  const venueIds = venuesSnap.docs.map((d) => d.id);
+  if (venueIds.length === 0) return;
+
+  // `where in` caps at 30 values per query; venue counts are small, but
+  // chunking keeps this correct for a power user rather than silently
+  // missing the tail.
+  for (let i = 0; i < venueIds.length; i += 30) {
+    const chunk = venueIds.slice(i, i + 30);
+    const eventsSnap = await db.collection("venueEvents").where("venueId", "in", chunk).get();
+    await Promise.all(
+      eventsSnap.docs.map((doc) => doc.ref.update({ ownerDeleted: true, status: "cancelled" })),
+    );
+  }
+}
+
+/** Events this user created — archived (kept for other participants
  * history), not deleted outright. */
 async function archiveCreatedEvents(uid: string): Promise<void> {
   const snap = await db.collection("events").where("creatorId", "==", uid).get();
@@ -3461,8 +3575,19 @@ export const joinWaitlist = onCall({ region: "us-central1", enforceAppCheck: fal
     throw new HttpsError("invalid-argument", "partySize 1-10 aralığında tam ədəd olmalıdır.");
   }
 
-  const phoneNumber = (request.data?.phoneNumber as string | undefined)?.trim();
-  if (!phoneNumber) throw new HttpsError("invalid-argument", "phoneNumber tələb olunur.");
+  const rawPhone = (request.data?.phoneNumber as string | undefined)?.trim();
+  if (!rawPhone) throw new HttpsError("invalid-argument", "phoneNumber tələb olunur.");
+  // Normalised for the same reason as `completeOnboarding`, plus one
+  // specific to this flow: the duplicate check below is an equality
+  // match on this exact string, so two spellings of the same number
+  // ("+994 50 274 98 98" and "+994502749898") would each get their own
+  // queue entry.
+  let phoneNumber: string;
+  try {
+    phoneNumber = normalizePhoneNumber(rawPhone);
+  } catch (e) {
+    throw new HttpsError("invalid-argument", e instanceof InvalidPhoneNumberError ? e.reason : "invalid-phone-number");
+  }
 
   const note = request.data?.note as string | undefined;
   if (note !== undefined && typeof note !== "string") {
@@ -3471,6 +3596,15 @@ export const joinWaitlist = onCall({ region: "us-central1", enforceAppCheck: fal
 
   const venueSnap = await db.collection("venues").doc(venueId).get();
   if (!venueSnap.exists) throw new HttpsError("not-found", "Məkan tapılmadı.");
+
+  // Must be a live venue. A `pending`/`rejected`/`awaiting_payment`/
+  // `subscription_overdue` venue is not discoverable, so the only way to
+  // reach its queue is a stale link or a direct call — and joining the
+  // queue of a venue that is not open for business is meaningless for
+  // the guest and noise for the owner.
+  if (venueSnap.data()?.status !== "approved") {
+    throw new HttpsError("failed-precondition", "venue-unavailable");
+  }
 
   const venueCategory = venueSnap.data()?.category as string | undefined;
   if (venueCategory && OFFER_ONLY_VENUE_CATEGORIES.includes(venueCategory)) {
@@ -6418,6 +6552,26 @@ export const reservePinBoxOrder = onCall(
       if (!snap.exists) throw new HttpsError("not-found", "PinBox tapılmadı.");
       const data = snap.data()!;
 
+      // The venue behind the box must still exist AND still be approved.
+      // This function previously read no venue at all — it validated the
+      // PinBox document and nothing else — which meant a box whose
+      // owner had deleted their account, or whose venue had been
+      // rejected or suspended for non-payment, still took real money:
+      // discovery filters only on `status == "active"` (see
+      // `FirebasePinBoxRemoteDatasource`), the charge went through, a
+      // `venuePayouts` row was written with `ownerId: null`, and
+      // `redeemPinBoxOrder` then refused every redemption attempt
+      // because it requires the venue's owner. The buyer paid for
+      // something nobody could hand over.
+      //
+      // Read inside the transaction, not before it, so a venue deleted
+      // between the check and the stock decrement cannot slip through.
+      const venueSnap = await tx.get(db.collection("venues").doc(data.venueId as string));
+      if (!venueSnap.exists) throw new HttpsError("failed-precondition", "venue-unavailable");
+      if (venueSnap.data()?.status !== "approved") {
+        throw new HttpsError("failed-precondition", "venue-unavailable");
+      }
+
       if (data.status !== "active") throw new HttpsError("failed-precondition", "not-active");
 
       // Belt-and-braces against a stale client list: the Flutter
@@ -6543,6 +6697,17 @@ export const generatePinBoxQrToken = onCall({ region: "us-central1", enforceAppC
 
   const pinboxSnap = await db.collection("pinboxes").doc(order.pinboxId as string).get();
   const pinbox = pinboxSnap.data();
+  // Existence only — deliberately NOT `status === "approved"`.
+  //
+  // This order is already paid for. If the venue were suspended for an
+  // unpaid subscription mid-pickup-window, refusing the QR code would
+  // punish the BUYER for the owner's billing problem, and
+  // `redeemPinBoxOrder` (which only requires the caller to own the
+  // venue) would still let the handover happen. A venue that no longer
+  // exists is different: nobody can ever redeem the code, so a clear
+  // error beats a token that silently never works.
+  const qrVenueSnap = await db.collection("venues").doc(order.venueId as string).get();
+  if (!qrVenueSnap.exists) throw new HttpsError("failed-precondition", "venue-unavailable");
   const pickupStart = (pinbox?.pickupWindowStart as Timestamp | undefined)?.toMillis();
   const pickupEnd = (pinbox?.pickupWindowEnd as Timestamp | undefined)?.toMillis();
   const now = Date.now();

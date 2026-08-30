@@ -11,7 +11,11 @@ Hər maddənin tam kontekst/səbəbi [ACCEPTED_RISKS.md](ACCEPTED_RISKS.md)-da.
 
 * **Bağlandığı üçün çıxarılan maddələr:** köhnə #11 (`auth_screen.dart`-ın
   ümumi `catch` bloku — C-3 ilə birlikdə həll edildi, controller artıq
-  rethrow edir).
+  rethrow edir); köhnə #8 (telefon ikiqat prefiksi), köhnə #14
+  (`bannedUsers` tombstone-u), köhnə #15 (orphan `pinboxes`/`venueEvents`)
+  — hamısı 2026-08-30-da bağlandı. Nömrələr yenidən istifadə
+  EDİLMİR: qalan maddələr öz nömrələrini saxlayır ki, keçmiş
+  müzakirələrdəki istinadlar qırılmasın.
 * **Yeni əlavə edilənlər:** #12 (SVG content-type), #13 (`reviews` list),
   #14 (`bannedUsers` tombstone), #15 (hesab silinməsində qalan orphan
   sənədlər). Hər biri auditdə tapılıb, heç biri buraxılışı bloklamır.
@@ -104,29 +108,6 @@ işləməz qalır, ehtiyatla edilməlidir).
 **Niyə #7:** orta təsir, orta-yüksək iş həcmi, mağaza tərəfindən tələb
 olunmur.
 
-## 8. Telefon nömrəsində ikiqat ölkə prefiksi bug-ı
-
-**Mənbə:** Təmizlik Prompt (production məlumatının silinməsi) — Mərhələ
-3-ün doğrulanması zamanı təsadüfən aşkar edildi. `rasimagayev80@gmail.com`
-hesabının `users/{uid}/private/data.phoneNumber` sahəsi
-`"+994+994502749898"` kimi saxlanılıb — ölkə kodu (`+994`) İKİ DƏFƏ.
-**Ehtimal edilən səbəb (təsdiqlənməyib, YALNIZ oxunan datadan çıxarım):**
-`lib/features/auth/presentation/widgets/country_dial_code.dart`-ın dial-kod
-siyahısı (`+994` = Azərbaycan) və onboarding/profil ekranlarının
-`_applyDialCodeForCountry`-yə bənzər avtomatik-prefiks məntiqi — istifadəçi
-telefon sahəsinə ARTIQ `+994` ilə başlayan nömrə yazıbsa, kod bunu
-yoxlamadan YENƏ öz prefiksini əlavə edə bilər. Kod OXUNMADI, bu, sadəcə
-simptomdan irəli gələn fərziyyədir.
-**Təxmini iş həcmi:** ~2-4 saat (kökü tapmaq + düzəltmək + mövcud
-istifadəçilərin `phoneNumber` sahələrini təmizləyən kiçik bir miqrasiya
-skripti — indi yalnız 1 real istifadəçi olduğu üçün miqrasiya çox
-kiçikdir).
-**Niyə #9 (aşağı prioritet):** funksional pozuntu deyil (görünür SMS/zəng
-funksiyası bu sahədən asılı deyil, əks halda daha tez aşkar edilərdi),
-sadəcə data-keyfiyyəti məsələsidir — amma launch-dan əvvəl, ideal
-olaraq yeni istifadəçi bazası böyüməzdən əvvəl düzəldilməlidir ki, hər
-yeni qeydiyyatda təkrarlanmasın.
-
 ## 9. Real MFA (TOTP)
 
 **Mənbə:** Prompt 10 / AUTH-8b
@@ -216,36 +197,6 @@ allow list: if false;` + məkan profilinin rəy siyahısı üçün
 **Prioritet səbəbi:** məxfilik təsiri realdır, amma istismarı üçün daxil
 olmuş hesab lazımdır və hazırda `reviews` praktiki olaraq boşdur.
 
-## 14. `bannedUsers/{uid}` tombstone-u hesab silinəndə qalır
-
-**Mənbə:** Audit 2 / F-5 (`user-account-deletion.ts` auditi)
-**Nə:** Nə `deleteAccount` (Cloud Function), nə də admin panelin
-`deleteUserAccountPermanently`-si `bannedUsers/{uid}` sənədini silmir.
-Banlanmış hesab silinəndə tombstone bucket-də qalır.
-**Təsiri:** praktiki olaraq YOXDUR — Firebase uid-ləri təkrar istifadə
-olunmur, yəni tombstone heç vaxt yanlış hesaba aid olmayacaq. Yalnız
-gigiyena məsələsidir.
-**Təxmini iş həcmi:** ~15 dəqiqə, hər iki kod bazasında bir sətir
-(`db.collection("bannedUsers").doc(uid).delete()`).
-
-## 15. Hesab silinməsində qalan orphan sənədlər (pinboxes, venueEvents)
-
-**Mənbə:** Audit 2 / F-4-ün araşdırması zamanı aşkarlandı
-**Nə:** `deleteAccount` (və admin paneldəki eyni məntiq) istifadəçinin
-`posts`/`venues`/`offers`/`stories` sənədlərini silir, amma
-**`pinboxes`** və **`venueEvents`** sənədlərinə toxunmur. Məkan silinəndən
-sonra onlara istinad edən PinBox və tədbir sənədləri orphan qalır.
-**Niyə bu turda EDİLMƏDİ:** silmə qərarı sadə deyil — PinBox sənədinin
-arxasında alıcıların `pinboxOrders`-ı və `venuePayouts` öhdəlikləri dayanır
-(`anonymizePinBoxOrders`-un öz şərhi məhz buna görə sifarişləri silmir,
-anonimləşdirir). Yəni burada "sil" yox, "arxivləşdir/anonimləşdir" qərarı
-lazımdır — `archiveCreatedEvents` naxışına bənzər.
-**Təxmini iş həcmi:** ~4-6 saat (qərar + hər iki kod bazasında tətbiq +
-testlər).
-**Qeyd:** Storage tərəfi bu turda bağlandı — `pinbox_photos/{uid}/` və
-`event_covers/{uid}/` prefiksləri artıq silinir, yəni ŞƏKİLLƏR qalmır,
-yalnız sənədlər qalır.
-
 ## 16. Admin paneldə səkkiz əskik səhifə (RBAC hazırdır, məzmun yoxdur)
 
 **Mənbə:** 5 rollu RBAC işi (2026-08-30)
@@ -326,3 +277,56 @@ deploy + sənəd yeniləməsi). Backend silinməsi ayrıca ~10 dəqiqə.
 **Niyə yüksək prioritet:** ucuzdur, və bağlamadığımız müddətcə hər
 admin panel dəyişikliyi "deploy edildi" zənn edilib canlıya çıxmama
 riski daşıyır — bu risk artıq bir dəfə gerçəkləşib.
+
+## 18. `phoneNumbers/{phone}` kolleksiyası ölüdür
+
+**Mənbə:** BACKLOG #8 araşdırması (2026-08-30)
+**Nə:** Kolleksiyaya **heç bir yerdə yazılmır**. Yeganə toxunan kod
+`releasePhoneNumberReservation`-dır (həm `functions/src/index.ts`, həm
+`admin-panel/src/lib/user-account-deletion.ts`) və o, yalnız oxuyub
+silir. Üstəlik açar kimi `authUser.phoneNumber`-i (Firebase Auth
+qeydini) istifadə edir — telefon/OTP girişi isə tətbiqdən çıxarılıb
+(bax `AuthRepository`-nin öz şərhi), yəni həmin sahə həmişə `null`-dur
+və funksiya hər dəfə no-op edir.
+
+**Nəticə:** "bir nömrə — bir hesab" unikallıq mexanizmi mövcud kimi
+görünür, amma **işləmir**. İstifadəçinin nömrəsi
+`users/{uid}/private/data.phoneNumber`-dədir və orada heç bir unikallıq
+yoxlaması yoxdur — eyni nömrə istənilən sayda hesabda ola bilər.
+
+**Nə edilməli — iki yoldan biri:**
+- **(a) Sənədləşdir və təmizlə:** unikallıq tələb olunmursa,
+  `releasePhoneNumberReservation`-ı və `phoneNumbers` istinadlarını hər
+  iki kod bazasından sil, `firestore.rules`-a kolleksiyanın istifadə
+  edilmədiyini yazan şərh əlavə et.
+- **(b) Həqiqətən tət et:** unikallıq lazımdırsa,
+  `completeOnboarding`-də normalizə edilmiş nömrə üçün
+  `phoneNumbers/{e164}` sənədini tranzaksiyada yarat (`usernames`
+  naxışının eynisi) və hesab silinəndə burax.
+
+**Qərar məhsul sualıdır:** eyni telefon nömrəsi ilə birdən çox hesab
+olmasına icazə verilirmi? Cavab bilinmədən kodu silmək də, tətbiq etmək
+də səhv ola bilər.
+
+**Təxmini iş həcmi:** (a) ~1 saat · (b) ~3-4 saat + miqrasiya.
+
+## 19. Məkan statusunun asılı axınlarda yoxlanılması — qalan hallar
+
+**Mənbə:** 2026-08-30 sweep (BACKLOG #15 ilə birlikdə)
+**Nə:** Məkandan asılı axınların hamısı nəzərdən keçirildi. Aydın
+hallar həmin turda bağlandı (`reservePinBoxOrder`, `joinWaitlist`,
+`generatePinBoxQrToken`, `offers/*/redemptions`, `venues/*/likes`).
+Aşağıdakı üçü QƏSDƏN toxunulmadı, çünki `status == 'approved'` tələbi
+legitim iş axınını sındıra bilər və bu, məhsul qərarıdır:
+
+| Axın | Sual |
+|---|---|
+| `submitOffer` | Sahib məkanı `pending` ikən təklif hazırlaya bilməlidirmi? Hazırda bilir. Tələb qoyulsa, moderasiya gözləyən sahib heç nə hazırlaya bilməz |
+| `createVenuePremiumCheckout` | `pending` məkana premium almaq — sahib təsdiqi gözləyərkən ödəyə bilər. `rejected` məkana ödəniş isə puldur itkisidir |
+| `createBoostCheckout` | Təklifin öz statusu da yoxlanılmır — `rejected` təklifi boost etmək pul itkisidir |
+
+**Qəsdən EDİLMƏYƏN:** `redeemPinBoxOrder`-ə status yoxlaması. Abunə
+borcuna görə dayandırılmış məkanda təhvili bloklamaq **alıcını**
+cəzalandırardı — sifariş artıq ödənilib.
+
+**Təxmini iş həcmi:** ~2 saat (qərar veriləndən sonra).
