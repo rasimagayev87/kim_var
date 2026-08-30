@@ -29,9 +29,12 @@ function formatAmount(amount: number, currency: string): string {
 export function PinBoxPayoutsTable({
   payouts,
   canMarkPaid,
+  canManagePayments,
 }: {
   payouts: AdminPinBoxPayoutRow[];
   canMarkPaid: boolean;
+  /** See `PaymentsTable` — read-only roles get no action column. */
+  canManagePayments: boolean;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -102,7 +105,14 @@ export function PinBoxPayoutsTable({
                 <StatusBadge status={payout.status} />
               </TableCell>
               <TableCell>
-                {payout.status === "pending" && (
+                {/* Two separate gates, deliberately: `canManagePayments`
+                    is authorization (a read-only role gets no button at
+                    all), `canMarkPaid` is the existing month-end
+                    business rule (button present but disabled, with the
+                    reason in its tooltip). Collapsing them would either
+                    hide the control from people who may use it or show
+                    a permanently-failing one to people who may not. */}
+                {payout.status === "pending" && canManagePayments && (
                   <Button
                     size="sm"
                     variant="outline"

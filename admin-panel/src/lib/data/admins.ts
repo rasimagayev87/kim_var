@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getAdminDb } from "@/lib/firebase/admin";
-import type { AdminRole } from "@/lib/auth/session";
+import type { AdminRole } from "@/lib/auth/roles";
 
 export interface AdminRosterRow {
   uid: string;

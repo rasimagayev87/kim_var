@@ -26,7 +26,7 @@ const WEEKDAY_LABELS = ["Bazar ertəsi", "Çərşənbə axşamı", "Çərşənb�
 
 export default async function VenueDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateVenues")) {
+  if (!admin || !hasPermission(admin.role, "viewVenues")) {
     redirect("/dashboard");
   }
 
@@ -139,7 +139,12 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ id
         </CardContent>
       </Card>
 
-      <Card>
+      {/* Moderation panel — `moderateVenues`. A read-only role (`finance`,
+          `support`, `analyst` here) opens this page to read the
+          listing, so the whole card is omitted rather than shown
+          with dead buttons; `set*Status` re-checks server-side. */}
+      {hasPermission(admin.role, "moderateVenues") && (
+        <Card>
         <CardHeader>
           <CardTitle className="text-base">Moderasiya</CardTitle>
         </CardHeader>
@@ -151,6 +156,7 @@ export default async function VenueDetailPage({ params }: { params: Promise<{ id
           />
         </CardContent>
       </Card>
+      )}
 
       {hasPermission(admin.role, "manageVenues") && (
         <Card>

@@ -47,7 +47,18 @@ function formatAmount(amount: number, currency: string): string {
   return `${amount.toLocaleString("az-AZ")} ${currency}`;
 }
 
-export function PaymentsTable({ payments }: { payments: AdminPaymentRow[] }) {
+export function PaymentsTable({
+  payments,
+  canManagePayments,
+}: {
+  payments: AdminPaymentRow[];
+  // Passed down from the page's own `hasPermission` check. `support`
+  // and `analyst` open this screen read-only (`viewPayments`), so the
+  // action column must not render for them. `markPaymentRefunded`
+  // re-checks `managePayments` server-side regardless — this only stops
+  // showing a control that would always fail.
+  canManagePayments: boolean;
+}) {
   const [pending, startTransition] = useTransition();
 
   function handleMarkRefunded(id: string) {
@@ -108,7 +119,7 @@ export function PaymentsTable({ payments }: { payments: AdminPaymentRow[] }) {
                 <StatusBadge status={payment.status} />
               </TableCell>
               <TableCell>
-                {payment.status === "refund_pending" && (
+                {payment.status === "refund_pending" && canManagePayments && (
                   <Button size="sm" variant="outline" disabled={pending} onClick={() => handleMarkRefunded(payment.id)}>
                     Geri qaytarıldı kimi işarələ
                   </Button>

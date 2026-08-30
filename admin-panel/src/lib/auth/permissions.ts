@@ -1,20 +1,61 @@
-import type { AdminRole } from "./session";
+import type { AdminRole } from "./roles";
 
 /**
  * Every role → action check lives here, in one place, instead of
  * scattered `role === "admin"` conditionals across screens and API
- * routes. Coarse today (2 roles, a handful of actions) on purpose —
- * full RBAC (per-resource grants, custom roles) isn't required yet —
- * but adding a 3rd role or a finer-grained permission later is a
- * matrix edit here, not a hunt-and-patch across the app.
+ * routes. Adding a role or a permission is an edit to this one matrix,
+ * not a hunt across the app.
  *
- * `moderator` = content moderation only, per the product spec: venues/
- * offers/feedback, never user management, broadcasts, or the admin
- * roster itself.
+ * ── Reading this matrix ────────────────────────────────────────────
+ * Permissions come in two shapes, and the split is what makes
+ * "view-only" access expressible at all:
+ *
+ *   `viewX`   — may open the screen and read what is on it.
+ *   `manageX` / `moderateX` / other verbs — may perform the actions on
+ *               that screen.
+ *
+ * A role with `viewX: true, manageX: false` sees the page with its
+ * action controls hidden AND is rejected by the Server Actions behind
+ * them. Hiding a button is never the boundary; the action's own
+ * `hasPermission` call is (see any file in lib/actions/).
+ *
+ * ── `admin` is a strict superset ───────────────────────────────────
+ * There is no permission below that `admin` lacks. See `AdminRole`'s
+ * own doc comment for why separation of duties was rejected here.
+ *
+ * ── Permissions with nothing to guard yet ──────────────────────────
+ * Several entries are marked NO SURFACE YET. The screen or feature
+ * they describe does not exist in this codebase — the permission is
+ * defined anyway so that whoever builds it finds the access decision
+ * already made and already reviewed, instead of inventing a second,
+ * differently-named permission for the same thing. They are inert
+ * today: nothing calls `hasPermission` with them.
  */
 const PERMISSION_MATRIX = {
   admin: {
+    // ── view ──────────────────────────────────────────────────────
+    viewDashboard: true,
+    viewUsers: true,
+    viewVenues: true,
+    viewOffers: true,
+    viewPinBoxes: true,
+    viewEvents: true,
+    viewSubscriptions: true,
+    viewBoosts: true,
+    viewPayments: true,
+    viewFinancials: true,
+    viewEpointTransactions: true,
+    viewSupportMessages: true,
+    viewBroadcasts: true,
+    viewAnalytics: true,
+    viewEngagementMetrics: true,
+    viewRevenue: true,
+    viewAuditLogs: true,
+    viewAdminNotifications: true,
+    // ── act ───────────────────────────────────────────────────────
     manageUsers: true,
+    banUsers: true,
+    deleteUsers: true,
     moderateVenues: true,
     manageVenues: true,
     moderateOffers: true,
@@ -23,40 +64,231 @@ const PERMISSION_MATRIX = {
     manageAdmins: true,
     moderateIdentityVerifications: true,
     managePayments: true,
+    manageSubscriptions: true,
+    manageBoosts: true,
+    manageFinancials: true,
+    manageSupportMessages: true,
+    manageSystemSettings: true,
+    exportData: true,
+    exportFinancialData: true,
   },
+
+  /** Content moderation. Gains user visibility and the ban action in
+   * this revision (previously `/users` was closed to moderators
+   * entirely and banning required `manageUsers`); permanent account
+   * deletion stays admin-only. Sees no financial screen at all — that
+   * separation was the point of P0 / H-7. */
   moderator: {
+    viewDashboard: true,
+    viewUsers: true,
+    viewVenues: true,
+    viewOffers: true,
+    viewPinBoxes: true,
+    viewEvents: true,
+    viewSubscriptions: true,
+    viewBoosts: true,
+    viewPayments: false,
+    viewFinancials: false,
+    viewEpointTransactions: false,
+    viewSupportMessages: true,
+    viewBroadcasts: true,
+    viewAnalytics: true,
+    viewEngagementMetrics: true,
+    viewRevenue: false,
+    viewAuditLogs: true,
+    viewAdminNotifications: true,
     manageUsers: false,
+    banUsers: true,
+    deleteUsers: false,
     moderateVenues: true,
     manageVenues: false,
     moderateOffers: true,
     broadcastNotifications: false,
     manageFeedback: true,
     manageAdmins: false,
-    // Government ID photos + a selfie are the most sensitive data this
-    // app handles — gated at the same admin-only level as manageUsers
-    // (which also grants permanent, identity-linked trust: VIP), not
-    // the moderator-accessible level of ordinary content moderation.
     moderateIdentityVerifications: false,
-    // P0 / H-7 — moving money is not content moderation. Every payment
-    // action used to be gated on `moderateVenues`, which moderators
-    // hold, on the reasoning that "every payment here originates from a
-    // venue-listing decision". That reasoning covered where the
-    // payments come FROM, not what the actions DO: `initiateRefund`
-    // flips a payment to `refund_pending`, which fires the
-    // `processPaymentRefund` trigger, which calls Epoint's real
-    // `/reverse` API — an actual bank reversal, with no amount cap, no
-    // second approval, and no MFA anywhere in this panel.
-    // `markPinBoxPayoutPaid` is the mirror image: it writes off a
-    // venue's outstanding balance as settled. A compromised or
-    // dishonest moderator account could work through the payments list
-    // reversing real charges.
     managePayments: false,
+    manageSubscriptions: false,
+    manageBoosts: false,
+    manageFinancials: false,
+    manageSupportMessages: false,
+    manageSystemSettings: false,
+    exportData: false,
+    exportFinancialData: false,
+  },
+
+  /** Money. Deliberately cannot see the user list, reports, or KYC —
+   * none of which it needs, all of which carry identity data. Venue and
+   * offer screens stay visible because a payment is meaningless without
+   * knowing which listing it belongs to. */
+  finance: {
+    viewDashboard: true,
+    viewUsers: false,
+    viewVenues: true,
+    viewOffers: true,
+    viewPinBoxes: false,
+    viewEvents: false,
+    viewSubscriptions: true,
+    viewBoosts: true,
+    viewPayments: true,
+    viewFinancials: true,
+    viewEpointTransactions: true,
+    viewSupportMessages: true,
+    viewBroadcasts: false,
+    viewAnalytics: true,
+    viewEngagementMetrics: false,
+    viewRevenue: true,
+    viewAuditLogs: true,
+    viewAdminNotifications: true,
+    manageUsers: false,
+    banUsers: false,
+    deleteUsers: false,
+    moderateVenues: false,
+    manageVenues: false,
+    moderateOffers: false,
+    broadcastNotifications: false,
+    manageFeedback: false,
+    manageAdmins: false,
+    moderateIdentityVerifications: false,
+    managePayments: true,
+    manageSubscriptions: true,
+    manageBoosts: true,
+    manageFinancials: true,
+    manageSupportMessages: false,
+    manageSystemSettings: false,
+    exportData: false,
+    exportFinancialData: true,
+  },
+
+  /** Customer-facing. Reads user profiles to answer questions, and owns
+   * reports and support conversations — but never edits a user, never
+   * bans, and never touches money. */
+  support: {
+    viewDashboard: true,
+    viewUsers: true,
+    viewVenues: true,
+    viewOffers: true,
+    viewPinBoxes: true,
+    viewEvents: true,
+    viewSubscriptions: true,
+    viewBoosts: true,
+    viewPayments: true,
+    viewFinancials: false,
+    viewEpointTransactions: true,
+    viewSupportMessages: true,
+    viewBroadcasts: true,
+    viewAnalytics: true,
+    viewEngagementMetrics: false,
+    viewRevenue: false,
+    viewAuditLogs: true,
+    viewAdminNotifications: true,
+    manageUsers: false,
+    banUsers: false,
+    deleteUsers: false,
+    moderateVenues: false,
+    manageVenues: false,
+    moderateOffers: false,
+    broadcastNotifications: true,
+    manageFeedback: true,
+    manageAdmins: false,
+    moderateIdentityVerifications: false,
+    managePayments: false,
+    manageSubscriptions: false,
+    manageBoosts: false,
+    manageFinancials: false,
+    manageSupportMessages: true,
+    manageSystemSettings: false,
+    exportData: false,
+    exportFinancialData: false,
+  },
+
+  /** Numbers only. Every screen carrying names, e-mail addresses, phone
+   * numbers or report text is closed to this role — user list, reports,
+   * audit logs, and the admin-notification feed (whose messages
+   * interpolate reporter/owner names directly). What it can see is
+   * either an aggregate or a listing, never a person.
+   *
+   * NOTE: as of this revision there is no analytics screen in the
+   * codebase, so this role's own workspace does not exist yet — the
+   * role is defined and enforced, its content comes later. */
+  analyst: {
+    viewDashboard: true,
+    viewUsers: false,
+    viewVenues: true,
+    viewOffers: true,
+    viewPinBoxes: true,
+    viewEvents: true,
+    viewSubscriptions: true,
+    viewBoosts: true,
+    viewPayments: true,
+    viewFinancials: true,
+    viewEpointTransactions: true,
+    viewSupportMessages: true,
+    viewBroadcasts: false,
+    viewAnalytics: true,
+    viewEngagementMetrics: true,
+    viewRevenue: true,
+    viewAuditLogs: false,
+    viewAdminNotifications: false,
+    manageUsers: false,
+    banUsers: false,
+    deleteUsers: false,
+    moderateVenues: false,
+    manageVenues: false,
+    moderateOffers: false,
+    broadcastNotifications: false,
+    manageFeedback: false,
+    manageAdmins: false,
+    moderateIdentityVerifications: false,
+    managePayments: false,
+    manageSubscriptions: false,
+    manageBoosts: false,
+    manageFinancials: false,
+    manageSupportMessages: false,
+    manageSystemSettings: false,
+    exportData: false,
+    exportFinancialData: false,
   },
 } as const satisfies Record<AdminRole, Record<string, boolean>>;
 
 export type Permission = keyof (typeof PERMISSION_MATRIX)["admin"];
 
+/**
+ * Permissions that no screen or Server Action consumes yet, because the
+ * feature they describe has not been built. Listed explicitly so the
+ * gap is visible rather than inferred, and so a test can assert the
+ * list stays honest as features land.
+ *
+ * Anyone building one of these screens: the access decision is already
+ * made above — wire the existing permission rather than adding a new
+ * one with a different name for the same thing.
+ */
+export const UNIMPLEMENTED_PERMISSIONS: readonly Permission[] = [
+  "viewEvents", // no events screen (only /event-reports)
+  "viewBoosts", // boosts are rows inside /payments, no dedicated screen
+  "viewFinancials", // no financial-reports screen
+  "viewEpointTransactions", // Epoint rows live inside /payments
+  "viewSupportMessages", // `supportMessages` has no admin screen at all
+  "viewAnalytics", // no /analytics screen
+  "viewEngagementMetrics", // no DAU/WAU/MAU screen
+  "manageBoosts",
+  "manageFinancials",
+  "manageSupportMessages",
+  "manageSystemSettings", // no /settings screen
+  "exportData", // no export exists anywhere
+  "exportFinancialData",
+];
+
 export function hasPermission(role: AdminRole | null | undefined, permission: Permission): boolean {
   if (!role) return false;
-  return PERMISSION_MATRIX[role][permission];
+  const row = PERMISSION_MATRIX[role];
+  // Defensive: `role` is typed, but it originates from a custom claim.
+  // `roleFromClaims` already rejects anything unrecognised, so this can
+  // only fire if that allowlist and this matrix ever disagree — in
+  // which case denying is the correct answer.
+  if (!row) return false;
+  return row[permission] ?? false;
 }
+
+/** The full matrix, for the roster UI and for tests. Read-only. */
+export const PERMISSIONS_BY_ROLE = PERMISSION_MATRIX;

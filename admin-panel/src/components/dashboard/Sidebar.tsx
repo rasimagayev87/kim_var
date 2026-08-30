@@ -41,7 +41,7 @@ const EXISTING_NAV: {
   countKey?: keyof PendingCounts;
 }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-  { href: "/users", label: "İstifadəçilər", icon: Users, permission: "manageUsers" },
+  { href: "/users", label: "İstifadəçilər", icon: Users, permission: "viewUsers" },
   {
     href: "/identity-verifications",
     label: "Kimlik doğrulama",
@@ -49,45 +49,58 @@ const EXISTING_NAV: {
     permission: "moderateIdentityVerifications",
     countKey: "identityVerifications",
   },
-  { href: "/venues", label: "Məkanlar", icon: Store, permission: "moderateVenues", countKey: "venues" },
-  { href: "/payments", label: "Ödənişlər", icon: CreditCard, permission: "managePayments", countKey: "payments" },
+  { href: "/venues", label: "Məkanlar", icon: Store, permission: "viewVenues", countKey: "venues" },
+  { href: "/payments", label: "Ödənişlər", icon: CreditCard, permission: "viewPayments", countKey: "payments" },
   {
     href: "/premium-payments",
     label: "Premium Biznes Ödənişləri",
     icon: Sparkles,
-    permission: "managePayments",
+    permission: "viewSubscriptions",
     countKey: "premiumPayments",
   },
   {
     href: "/pinbox-payouts",
     label: "PinBox öhdəlikləri",
     icon: CreditCard,
-    permission: "managePayments",
+    permission: "viewPayments",
     countKey: "pinboxPayouts",
   },
-  { href: "/offers", label: "Təkliflər", icon: Tag, permission: "moderateOffers", countKey: "offers" },
-  { href: "/pinboxes", label: "PinBox", icon: Package, permission: "moderateOffers", countKey: "pinboxes" },
+  { href: "/offers", label: "Təkliflər", icon: Tag, permission: "viewOffers", countKey: "offers" },
+  { href: "/pinboxes", label: "PinBox", icon: Package, permission: "viewPinBoxes", countKey: "pinboxes" },
   { href: "/feedback", label: "Şikayətlər", icon: Flag, permission: "manageFeedback", countKey: "reports" },
   {
     href: "/event-reports",
     label: "Tədbir şikayətləri",
     icon: Flag,
-    permission: "moderateVenues",
+    permission: "manageFeedback",
     countKey: "eventReports",
   },
   {
     href: "/review-reports",
     label: "Rəy şikayətləri",
     icon: Flag,
-    permission: "moderateVenues",
+    permission: "manageFeedback",
     countKey: "reviewReports",
   },
-  { href: "/notifications", label: "Bildirişlər", icon: Bell, permission: "broadcastNotifications" },
-  { href: "/logs", label: "Loglar", icon: ScrollText },
+  { href: "/notifications", label: "Bildirişlər", icon: Bell, permission: "viewBroadcasts" },
+  { href: "/logs", label: "Loglar", icon: ScrollText, permission: "viewAuditLogs" },
   { href: "/admins", label: "Admin idarəetməsi", icon: ShieldCheck, permission: "manageAdmins" },
 ];
 
 // New — no backend behind these yet, "Tezliklə" until each is wired up.
+//
+// Deliberately NOT permission-filtered: there is no page behind any of
+// them, so there is nothing to authorize and a role filter here would
+// only be decoration. The access decision has already been made though
+// — when each screen is built, gate it on the permission already
+// defined in lib/auth/permissions.ts rather than inventing a new one:
+//   /map            → viewUsers (it plots user positions)
+//   /subscriptions  → viewSubscriptions / manageSubscriptions
+//   /analytics      → viewAnalytics, plus viewEngagementMetrics for
+//                     DAU/WAU/MAU and viewRevenue for revenue panels
+//   /roles          → manageAdmins
+//   /settings       → manageSystemSettings
+//   /ai-center      → not yet decided; pick or add a permission then.
 const PLANNED_NAV = [
   { href: "/map", label: "Xəritə", icon: MapPinned, badge: "Tezliklə" },
   { href: "/subscriptions", label: "Abunəliklər", icon: CreditCard, badge: "Tezliklə" },

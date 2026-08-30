@@ -24,7 +24,7 @@ export default async function UsersPage({
   // — this is the actual enforcement, since a hidden link doesn't stop
   // a direct URL visit. Matches the spec's "moderator: dəyişiklik yoxdur
   // istifadəçi idarəetməsinə" as no access at all, not read-only.
-  if (!admin || !hasPermission(admin.role, "manageUsers")) {
+  if (!admin || !hasPermission(admin.role, "viewUsers")) {
     redirect("/dashboard");
   }
 

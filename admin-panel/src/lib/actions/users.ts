@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
-import { hasPermission } from "@/lib/auth/permissions";
+import { hasPermission, type Permission } from "@/lib/auth/permissions";
 import { getCurrentAdmin } from "@/lib/auth/server";
 import type { AdminSession } from "@/lib/auth/session";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
@@ -22,16 +22,18 @@ export interface ActionResult {
  * route refactor) isn't something this can lean on. See lib/auth/
  * server.ts's doc comment for the same reasoning applied elsewhere.
  */
-async function requireUserManagement(): Promise<{ admin: AdminSession } | { denied: ActionResult }> {
+async function requireUserPermission(
+  permission: Permission,
+): Promise<{ admin: AdminSession } | { denied: ActionResult }> {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "manageUsers")) {
+  if (!admin || !hasPermission(admin.role, permission)) {
     return { denied: { ok: false, error: "forbidden" } };
   }
   return { admin };
 }
 
 export async function setUserIdentityVerified(uid: string, verified: boolean): Promise<ActionResult> {
-  const check = await requireUserManagement();
+  const check = await requireUserPermission("manageUsers");
   if ("denied" in check) return check.denied;
 
   try {
@@ -56,7 +58,12 @@ export async function setUserIdentityVerified(uid: string, verified: boolean): P
 }
 
 export async function setUserPremium(uid: string, premium: boolean): Promise<ActionResult> {
-  const check = await requireUserManagement();
+  // Stays on `manageUsers` (admin only) rather than moving to
+  // `manageSubscriptions` alongside `setVenuePremium`: this is reached
+  // from the user detail page, which `finance` cannot open at all
+  // (`viewUsers: false`). Granting the action without the screen would
+  // be a permission that reads as available and never is.
+  const check = await requireUserPermission("manageUsers");
   if ("denied" in check) return check.denied;
 
   try {
@@ -90,7 +97,7 @@ export async function setUserPremium(uid: string, premium: boolean): Promise<Act
  * opt-in content, same stance as e.g. `venueRejected`/`pinboxRejected`.
  */
 export async function sendUserWarning(uid: string, reason: string): Promise<ActionResult> {
-  const check = await requireUserManagement();
+  const check = await requireUserPermission("manageUsers");
   if ("denied" in check) return check.denied;
 
   const trimmedReason = reason.trim();
@@ -118,7 +125,9 @@ export async function sendUserWarning(uid: string, reason: string): Promise<Acti
 }
 
 export async function setUserBanned(uid: string, banned: boolean): Promise<ActionResult> {
-  const check = await requireUserManagement();
+  // `banUsers`, not `manageUsers` — moderators ban but never edit a
+  // profile or delete an account.
+  const check = await requireUserPermission("banUsers");
   if ("denied" in check) return check.denied;
 
   try {
@@ -181,7 +190,9 @@ export async function setUserBanned(uid: string, banned: boolean): Promise<Actio
  * it's called.
  */
 export async function deleteUserAccount(uid: string, label: string): Promise<ActionResult> {
-  const check = await requireUserManagement();
+  // `deleteUsers` — irreversible, admin only. Deliberately narrower
+  // than `banUsers`: a ban is undoable, this is not.
+  const check = await requireUserPermission("deleteUsers");
   if ("denied" in check) return check.denied;
 
   try {

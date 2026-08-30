@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { ROLE_LABELS } from "@/lib/auth/role-labels";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { AdminRosterRow } from "@/lib/data/admins";
 import { AdminRowActions } from "./admin-row-actions";
@@ -48,7 +49,7 @@ export function AdminsTable({ admins, currentUid }: { admins: AdminRosterRow[]; 
                   variant={admin.role === "admin" ? "default" : admin.role === "moderator" ? "secondary" : "destructive"}
                   className="capitalize"
                 >
-                  {admin.role ?? "naməlum rol"}
+                  {admin.role ? ROLE_LABELS[admin.role] : "naməlum rol"}
                 </Badge>
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">{formatDate(admin.addedAt)}</TableCell>

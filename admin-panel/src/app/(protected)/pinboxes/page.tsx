@@ -18,7 +18,7 @@ export default async function PinBoxesPage({
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateOffers")) {
+  if (!admin || !hasPermission(admin.role, "viewPinBoxes")) {
     redirect("/dashboard");
   }
 

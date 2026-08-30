@@ -19,7 +19,7 @@ function formatDate(iso: string | null): string {
 
 export default async function UserDetailPage({ params }: { params: Promise<{ uid: string }> }) {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "manageUsers")) {
+  if (!admin || !hasPermission(admin.role, "viewUsers")) {
     redirect("/dashboard");
   }
 
@@ -80,7 +80,12 @@ export default async function UserDetailPage({ params }: { params: Promise<{ uid
           <CardTitle className="text-base">Əməliyyatlar</CardTitle>
         </CardHeader>
         <CardContent>
-          <UserDetailActions user={user} />
+          <UserDetailActions
+            user={user}
+            canManage={hasPermission(admin.role, "manageUsers")}
+            canBan={hasPermission(admin.role, "banUsers")}
+            canDelete={hasPermission(admin.role, "deleteUsers")}
+          />
         </CardContent>
       </Card>
 

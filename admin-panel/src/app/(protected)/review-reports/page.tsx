@@ -16,7 +16,7 @@ export default async function ReviewReportsPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateVenues")) {
+  if (!admin || !hasPermission(admin.role, "manageFeedback")) {
     redirect("/dashboard");
   }
 

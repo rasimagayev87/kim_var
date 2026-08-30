@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { KpiCard } from "@/components/dashboard/KpiCard";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { AnalyticsCard } from "@/components/dashboard/AnalyticsCard";
@@ -48,8 +49,21 @@ export default async function DashboardPage() {
   // moderator lands on. Fetched conditionally rather than fetched and
   // hidden, so a moderator's session never reads the `payments`
   // collection at all — hiding a card client-side is not a boundary.
+  // NEWLY GUARDED in the five-role revision — the dashboard previously
+  // had no check of its own and relied entirely on the layout's "is
+  // there a session at all". `viewDashboard` is true for all five roles,
+  // so nobody loses access; the gate exists so that a future role can be
+  // excluded here without this page being the one place that forgot to
+  // ask.
   const admin = await getCurrentAdmin();
-  const canSeeRevenue = hasPermission(admin?.role, "managePayments");
+  if (!admin || !hasPermission(admin.role, "viewDashboard")) {
+    redirect("/unauthorized");
+  }
+
+  // Revenue moved from `managePayments` to `viewRevenue` — the two are
+  // no longer the same question. `analyst` reads revenue but performs no
+  // payment action; `support` sees payments but not revenue totals.
+  const canSeeRevenue = hasPermission(admin.role, "viewRevenue");
 
   const [stats, registrations, onlineUsers, todayRevenue] = await Promise.all([
     getDashboardStats(),

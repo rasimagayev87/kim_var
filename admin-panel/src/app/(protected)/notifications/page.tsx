@@ -7,7 +7,7 @@ import { getCurrentAdmin } from "@/lib/auth/server";
 
 export default async function NotificationsPage() {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "broadcastNotifications")) {
+  if (!admin || !hasPermission(admin.role, "viewBroadcasts")) {
     redirect("/dashboard");
   }
 
@@ -18,6 +18,12 @@ export default async function NotificationsPage() {
         <p className="text-sm text-muted-foreground">İstifadəçilərə sistem bildirişi göndərin.</p>
       </div>
 
+      {/* The page is `viewBroadcasts`, the FORM is
+          `broadcastNotifications`. `moderator` holds the first and not
+          the second — it may see that broadcasting exists and what has
+          been sent, but not send. `sendBroadcast`/`countBroadcastAudience`
+          both re-check server-side. */}
+      {hasPermission(admin.role, "broadcastNotifications") ? (
       <Card>
         <CardHeader>
           <CardTitle>Yeni bildiriş</CardTitle>
@@ -29,6 +35,16 @@ export default async function NotificationsPage() {
           <BroadcastForm />
         </CardContent>
       </Card>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle>Yeni bildiriş</CardTitle>
+            <CardDescription>
+              Bu bölməni yalnız oxu icazəniz var — bildiriş göndərmək üçün admin və ya support rolu tələb olunur.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
     </div>
   );
 }

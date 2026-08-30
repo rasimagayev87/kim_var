@@ -245,3 +245,39 @@ testlər).
 **Qeyd:** Storage tərəfi bu turda bağlandı — `pinbox_photos/{uid}/` və
 `event_covers/{uid}/` prefiksləri artıq silinir, yəni ŞƏKİLLƏR qalmır,
 yalnız sənədlər qalır.
+
+## 16. Admin paneldə səkkiz əskik səhifə (RBAC hazırdır, məzmun yoxdur)
+
+**Mənbə:** 5 rollu RBAC işi (2026-08-30)
+**Nə:** İcazə matrisi səkkiz sahəni əhatə edir, amma onların heç birinin
+admin paneldə səhifəsi yoxdur. İcazələr təyin edilib və `permissions.ts`-də
+`UNIMPLEMENTED_PERMISSIONS` siyahısında açıq işarələnib — yəni səhifə
+yazılanda yeni icazə icad etmək lazım deyil, mövcudunu qoşmaq kifayətdir.
+
+| Səhifə | Hazır icazə | Kim görür / kim idarə edir |
+|---|---|---|
+| Tədbirlər siyahısı | `viewEvents` | admin, moderator, support, analyst |
+| Boost idarəetməsi | `viewBoosts` / `manageBoosts` | hamı görür; admin + finance idarə edir |
+| Maliyyə hesabatları | `viewFinancials` / `manageFinancials` | admin, finance, analyst görür |
+| Epoint əməliyyatları | `viewEpointTransactions` | admin, finance, support, analyst |
+| Support müraciətləri (`supportMessages`) | `viewSupportMessages` / `manageSupportMessages` | hamı görür; admin + support idarə edir |
+| Analitika (`/analytics`) | `viewAnalytics` | hamı |
+| DAU / WAU / MAU | `viewEngagementMetrics` | admin, moderator, analyst |
+| Sistem ayarları (`/settings`) | `manageSystemSettings` | yalnız admin |
+| Export (CSV/Excel) | `exportData` / `exportFinancialData` | admin; finance yalnız maliyyə |
+
+**Nəticə — bu, gözlənilən vəziyyətdir, nöqsan deyil:** `analyst` rolunun
+bu gün praktik olaraq öz iş sahəsi YOXDUR (analitika səhifəsi mövcud
+deyil; yalnız dashboard-un mövcud kartlarını görür). `finance` qismən
+funksionaldır — ödəniş, PinBox payout və premium ekranları işləyir, amma
+maliyyə hesabatları və export yoxdur. Rollar hazırdır, məzmun sonra gəlir.
+
+**Təxmini iş həcmi:** hər səhifə ayrıca, ~0.5-2 gün. `supportMessages`
+səhifəsi ən çox dəyər verəndir (kolleksiya artıq doludur və heç bir
+oxuma səthi yoxdur); `/analytics` isə `analyst` rolunu mənalı edən
+yeganə səhifədir.
+
+**Diqqət (export üçün):** `exportFinancialData` finance-ə verilir, amma
+matrisin qəsdən qərarı budur ki, həmin export-da istifadəçi PII-si
+OLMAMALIDIR — `finance` `viewUsers` icazəsinə malik deyil, ona görə
+export onun ekranda görə bilmədiyi məlumatı fayla çıxarmamalıdır.

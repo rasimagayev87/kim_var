@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAdminAuth } from "@/lib/firebase/admin";
+import { isAdminRole, type AdminRole } from "./roles";
 
 export const SESSION_COOKIE_NAME = "__session";
 
@@ -9,7 +10,11 @@ export const SESSION_COOKIE_NAME = "__session";
 // for weeks. `createSessionCookie` wants this in milliseconds.
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 5;
 
-export type AdminRole = "admin" | "moderator";
+// The role vocabulary lives in `roles.ts` — no imports, so client
+// components can use it without dragging `server-only` and the Admin
+// SDK into the browser bundle. Re-exported here so existing
+// server-side imports keep working unchanged.
+export { ADMIN_ROLES, isAdminRole, type AdminRole } from "./roles";
 
 export interface AdminSession {
   uid: string;
@@ -17,8 +22,17 @@ export interface AdminSession {
   role: AdminRole;
 }
 
+/**
+ * The single place a role is derived from a verified token. Strict
+ * allowlist, and deliberately fail-closed: anything that is not one of
+ * the five known roles — a typo, a hand-edited claim, a role removed in
+ * a later version — yields `null`, and both callers turn `null` into
+ * "no session at all" rather than a session with reduced rights. A
+ * partially-recognised admin is a worse failure mode than a locked-out
+ * one, because only the second is obvious to the person it happens to.
+ */
 function roleFromClaims(claims: Record<string, unknown>): AdminRole | null {
-  return claims.role === "admin" || claims.role === "moderator" ? claims.role : null;
+  return isAdminRole(claims.role) ? claims.role : null;
 }
 
 /**

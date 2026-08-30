@@ -22,7 +22,21 @@ import { ModerationNoteDialog } from "@/components/moderation/moderation-note-di
 import { deleteUserAccount, sendUserWarning, setUserBanned, setUserIdentityVerified, setUserPremium } from "@/lib/actions/users";
 import type { AdminUserRow } from "@/lib/data/users";
 
-export function UserDetailActions({ user }: { user: AdminUserRow }) {
+export function UserDetailActions({
+  user,
+  canManage,
+  canBan,
+  canDelete,
+}: {
+  user: AdminUserRow;
+  /** `manageUsers` — identity badge, VIP, warnings. Admin only. */
+  canManage: boolean;
+  /** `banUsers` — admin and moderator. A ban is reversible, which is
+   * why it sits lower than deletion. */
+  canBan: boolean;
+  /** `deleteUsers` — admin only, irreversible. */
+  canDelete: boolean;
+}) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -62,6 +76,11 @@ export function UserDetailActions({ user }: { user: AdminUserRow }) {
 
   return (
     <div className="space-y-5">
+      {/* `manageUsers` — admin only. `moderator` and `support` open this
+          page read-only, so the switches are absent for them; the actions
+          behind them reject regardless. */}
+      {canManage && (
+        <>
       <div className="flex items-center justify-between">
         <Label htmlFor="verified-switch" className="flex flex-col items-start gap-0.5">
           <span>Kimlik nişanı</span>
@@ -94,7 +113,10 @@ export function UserDetailActions({ user }: { user: AdminUserRow }) {
           }
         />
       </div>
+        </>
+      )}
 
+      {canManage && (
       <ModerationNoteDialog
         triggerLabel="Xəbərdarlıq göndər"
         triggerVariant="outline"
@@ -105,7 +127,10 @@ export function UserDetailActions({ user }: { user: AdminUserRow }) {
         submitLabel="Göndər"
         onSubmit={warn}
       />
+      )}
 
+      {/* `banUsers` — admin and moderator. */}
+      {canBan && (
       <Button
         variant={user.banned ? "outline" : "destructive"}
         className="w-full"
@@ -119,7 +144,10 @@ export function UserDetailActions({ user }: { user: AdminUserRow }) {
       >
         {user.banned ? "Blokdan çıxar" : "Ban et"}
       </Button>
+      )}
 
+      {/* `deleteUsers` — admin only, irreversible. */}
+      {canDelete && (
       <AlertDialog>
         <AlertDialogTrigger render={<Button variant="destructive" className="w-full" disabled={pending} />}>
           Hesabı tam sil
@@ -140,6 +168,7 @@ export function UserDetailActions({ user }: { user: AdminUserRow }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      )}
     </div>
   );
 }

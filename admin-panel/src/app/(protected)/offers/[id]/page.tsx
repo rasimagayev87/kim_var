@@ -39,7 +39,7 @@ const DAY_LABELS: Record<string, string> = {
 
 export default async function OfferDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateOffers")) {
+  if (!admin || !hasPermission(admin.role, "viewOffers")) {
     redirect("/dashboard");
   }
 
@@ -164,7 +164,12 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
         </CardContent>
       </Card>
 
-      <Card>
+      {/* Moderation panel — `moderateOffers`. A read-only role (`finance`,
+          `support`, `analyst` here) opens this page to read the
+          listing, so the whole card is omitted rather than shown
+          with dead buttons; `set*Status` re-checks server-side. */}
+      {hasPermission(admin.role, "moderateOffers") && (
+        <Card>
         <CardHeader>
           <CardTitle className="text-base">Moderasiya</CardTitle>
         </CardHeader>
@@ -176,6 +181,7 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
           />
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

@@ -30,7 +30,11 @@ async function requireVenueModeration(): Promise<{ admin: AdminSession } | { den
  * `setUserPremium` in actions/users.ts for the same reason. */
 async function requireVenueManagement(): Promise<{ admin: AdminSession } | { denied: ActionResult }> {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "manageVenues")) {
+  // `manageSubscriptions` (admin + finance), not `manageVenues`.
+  // Venue premium is a paid entitlement, so it belongs to whoever owns
+  // billing; `finance` reaches it from `/venues/[id]`, which that role
+  // can open read-only (`viewVenues: true`).
+  if (!admin || !hasPermission(admin.role, "manageSubscriptions")) {
     return { denied: { ok: false, error: "forbidden" } };
   }
   return { admin };

@@ -27,7 +27,7 @@ function formatPrice(amount: number): string {
 
 export default async function PinBoxDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateOffers")) {
+  if (!admin || !hasPermission(admin.role, "viewPinBoxes")) {
     redirect("/dashboard");
   }
 
@@ -123,7 +123,12 @@ export default async function PinBoxDetailPage({ params }: { params: Promise<{ i
         </CardContent>
       </Card>
 
-      <Card>
+      {/* Moderation panel — `moderateOffers`. A read-only role
+          (`support`, `analyst`) opens this page to read the listing,
+          so the whole card is omitted rather than shown with dead
+          buttons; `setPinBoxStatus` re-checks server-side. */}
+      {hasPermission(admin.role, "moderateOffers") && (
+        <Card>
         <CardHeader>
           <CardTitle className="text-base">Moderasiya</CardTitle>
         </CardHeader>
@@ -131,6 +136,7 @@ export default async function PinBoxDetailPage({ params }: { params: Promise<{ i
           <PinBoxStatusActions id={pinbox.id} status={pinbox.status} />
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

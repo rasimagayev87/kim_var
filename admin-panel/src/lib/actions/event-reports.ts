@@ -15,7 +15,10 @@ export interface ActionResult {
 
 async function requireEventModeration(): Promise<{ admin: AdminSession } | { denied: ActionResult }> {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateVenues")) {
+  // `manageFeedback`, not `moderateVenues` — these are complaint
+  // queues, not venue moderation, and `support` owns complaints.
+  // Unchanged for admin/moderator, who hold both.
+  if (!admin || !hasPermission(admin.role, "manageFeedback")) {
     return { denied: { ok: false, error: "forbidden" } };
   }
   return { admin };

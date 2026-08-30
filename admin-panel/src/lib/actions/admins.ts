@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentAdmin } from "@/lib/auth/server";
-import type { AdminRole, AdminSession } from "@/lib/auth/session";
+import { isAdminRole, type AdminRole, type AdminSession } from "@/lib/auth/session";
 import { getAdminAuth, getAdminDb } from "@/lib/firebase/admin";
 import { logModerationAction } from "./log";
 
@@ -52,7 +52,7 @@ async function requireAdminManagement(): Promise<{ admin: AdminSession } | { den
  * Firebase CLI.
  */
 function isValidRole(role: unknown): role is AdminRole {
-  return role === "admin" || role === "moderator";
+  return isAdminRole(role);
 }
 
 /**

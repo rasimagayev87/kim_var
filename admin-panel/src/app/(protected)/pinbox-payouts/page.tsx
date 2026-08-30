@@ -17,7 +17,7 @@ export default async function PinBoxPayoutsPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "managePayments")) {
+  if (!admin || !hasPermission(admin.role, "viewPayments")) {
     redirect("/dashboard");
   }
 
@@ -40,7 +40,7 @@ export default async function PinBoxPayoutsPage({
 
       <PinBoxPayoutsFilters initialStatus={status} />
 
-      <PinBoxPayoutsTable payouts={payouts} canMarkPaid={canMarkPaid} />
+      <PinBoxPayoutsTable canManagePayments={hasPermission(admin.role, "managePayments")}  payouts={payouts} canMarkPaid={canMarkPaid} />
     </div>
   );
 }

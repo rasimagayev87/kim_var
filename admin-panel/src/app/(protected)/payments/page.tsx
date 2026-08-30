@@ -24,7 +24,7 @@ export default async function PaymentsPage({
   searchParams: Promise<{ status?: string }>;
 }) {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "managePayments")) {
+  if (!admin || !hasPermission(admin.role, "viewPayments")) {
     redirect("/dashboard");
   }
 
@@ -45,7 +45,7 @@ export default async function PaymentsPage({
 
       <PaymentsFilters initialStatus={status} />
 
-      <PaymentsTable payments={payments} />
+      <PaymentsTable canManagePayments={hasPermission(admin.role, "managePayments")}  payments={payments} />
     </div>
   );
 }

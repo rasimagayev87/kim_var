@@ -23,26 +23,30 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { changeAdminRole, removeAdmin } from "@/lib/actions/admins";
+import { ROLE_LABELS } from "@/lib/auth/role-labels";
+import { ADMIN_ROLES, type AdminRole } from "@/lib/auth/roles";
 import type { AdminRosterRow } from "@/lib/data/admins";
 
 const ERROR_MESSAGES: Record<string, string> = {
   "cannot-change-self": "Öz rolunuzu dəyişə və ya özünüzü silə bilməzsiniz — başqa bir admin bunu etməlidir.",
   "last-admin": "Bu, sonuncu admin hesabıdır — rolu dəyişdirilə və ya silinə bilməz. Əvvəlcə ikinci admin əlavə edin.",
-  "invalid-role": "Naməlum rol. Yalnız 'admin' və 'moderator' qəbul edilir.",
+  "invalid-role": "Naməlum rol seçildi.",
   forbidden: "Bu əməliyyat üçün icazəniz yoxdur.",
 };
 
 export function AdminRowActions({ admin }: { admin: AdminRosterRow }) {
   const [pending, startTransition] = useTransition();
-  // An unknown stored role has no meaningful "toggle to the other
-  // one" — offer promotion to `admin`, which is also the repair path.
-  const otherRole = admin.role === "admin" ? "moderator" : "admin";
+  // With five roles a two-way toggle no longer expresses the choice —
+  // one menu entry per role the account does NOT currently hold. An
+  // unknown stored role (see `AdminRosterRow.role`) matches none of
+  // them, so every role is offered, which is also the repair path for
+  // an account locked out by a bad claim.
 
-  function handleRoleChange() {
+  function handleRoleChange(nextRole: AdminRole) {
     startTransition(async () => {
-      const result = await changeAdminRole(admin.uid, otherRole);
+      const result = await changeAdminRole(admin.uid, nextRole);
       if (result.ok) {
-        toast.success(`Rol ${otherRole} olaraq dəyişdirildi.`);
+        toast.success(`Rol ${ROLE_LABELS[nextRole]} olaraq dəyişdirildi.`);
       } else {
         toast.error(ERROR_MESSAGES[result.error ?? ""] ?? "Rol dəyişdirilmədi.");
       }
@@ -66,9 +70,11 @@ export function AdminRowActions({ admin }: { admin: AdminRosterRow }) {
         Əməliyyatlar
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={handleRoleChange}>
-          {otherRole === "admin" ? "Admin et" : "Moderator et"}
-        </DropdownMenuItem>
+        {ADMIN_ROLES.filter((r) => r !== admin.role).map((r) => (
+          <DropdownMenuItem key={r} onClick={() => handleRoleChange(r)}>
+            {`${ROLE_LABELS[r]} et`}
+          </DropdownMenuItem>
+        ))}
         <DropdownMenuSeparator />
         <AlertDialog>
           <AlertDialogTrigger render={<DropdownMenuItem variant="destructive" onSelect={(event) => event.preventDefault()} />}>

@@ -3,6 +3,9 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { ROLE_LABELS } from "@/lib/auth/role-labels";
+import { ADMIN_ROLES, type AdminRole } from "@/lib/auth/roles";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,13 +19,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { addAdmin } from "@/lib/actions/admins";
-import type { AdminRole } from "@/lib/auth/session";
 
 const ERROR_MESSAGES: Record<string, string> = {
   "email-taken": "Bu email ünvanı artıq mövcud bir hesaba aiddir (mobil istifadəçi ola bilər) — admin hesabları tam ayrı email istifadə etməlidir.",
   "invalid-input": "Email boş, parol isə ən azı 6 simvol olmalıdır.",
   forbidden: "Bu əməliyyat üçün icazəniz yoxdur.",
-  "invalid-role": "Naməlum rol. Yalnız 'admin' və 'moderator' qəbul edilir.",
+  "invalid-role": "Naməlum rol seçildi.",
 };
 
 export function AddAdminDialog() {
@@ -85,8 +87,11 @@ export function AddAdminDialog() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="moderator">Moderator</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
+                {ADMIN_ROLES.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {ROLE_LABELS[r]}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

@@ -23,7 +23,7 @@ export default async function VenuesPage({
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateVenues")) {
+  if (!admin || !hasPermission(admin.role, "viewVenues")) {
     redirect("/dashboard");
   }
 

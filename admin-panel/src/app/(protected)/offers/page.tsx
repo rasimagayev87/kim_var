@@ -18,7 +18,7 @@ export default async function OffersPage({
   searchParams: Promise<{ q?: string; status?: string }>;
 }) {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "moderateOffers")) {
+  if (!admin || !hasPermission(admin.role, "viewOffers")) {
     redirect("/dashboard");
   }
 
