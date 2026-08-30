@@ -38,8 +38,17 @@ export function AdminsTable({ admins, currentUid }: { admins: AdminRosterRow[]; 
                 )}
               </TableCell>
               <TableCell>
-                <Badge variant={admin.role === "admin" ? "default" : "secondary"} className="capitalize">
-                  {admin.role}
+                {/* P0 follow-up / RBAC-B — an unrecognised stored role is
+                    shown as such, in the destructive variant, rather than
+                    silently rendered as "admin". Such an account cannot
+                    sign in at all (`roleFromClaims` only accepts the two
+                    known values), so the row needs to read as "something
+                    is wrong here", not as the highest privilege level. */}
+                <Badge
+                  variant={admin.role === "admin" ? "default" : admin.role === "moderator" ? "secondary" : "destructive"}
+                  className="capitalize"
+                >
+                  {admin.role ?? "naməlum rol"}
                 </Badge>
               </TableCell>
               <TableCell className="text-sm text-muted-foreground">{formatDate(admin.addedAt)}</TableCell>

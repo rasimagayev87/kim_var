@@ -1247,14 +1247,28 @@ service cloud.firestore {
           request.resource.data.comment.size() <= 500;
       }
 
-      // Was fully public (`if true`) — closed to any-signed-in-user
-      // (Düzəliş Prompt 2 / INFRA-8) after confirming every client read
-      // site (`watchVenueReviews`, `watchMyReview`, `exportUserData`)
-      // only ever runs post-sign-in, and the admin panel never reads
-      // this via a client SDK (server-side Admin SDK only, which
-      // bypasses this rule anyway) — nothing legitimate needed the
-      // fully-open door.
-      allow read: if request.auth != null;
+      // Was fully public (`if true`), then narrowed to any-signed-in-user
+      // (Düzəliş Prompt 2 / INFRA-8) — which fixed the wrong axis. The
+      // problem was never authentication, it was ENUMERATION: `read`
+      // grants `list` too, so any signed-in account could pull the whole
+      // collection, and a review here is not ordinary content. It can
+      // only exist behind `hasVerifiedVisit` (a waitlist entry the
+      // venue's own staff marked `seated`), so its existence proves a
+      // specific person was physically inside a specific venue — and the
+      // document id is `{venueId}_{userId}`. One query returned the
+      // entire "who was where" graph, i.e. exactly the exposure Düzəliş
+      // Prompt 4 removed from the location feed, via a different route.
+      //
+      // `get` stays open — reading one already-known review id
+      // (`watchMyReview`, a plain `.doc()` read) is not enumeration.
+      // Same `get`-vs-`list` split as `usernames`.
+      //
+      // The venue profile's review list now comes from the
+      // `listVenueReviews` callable (functions/src/index.ts), which also
+      // applies a bidirectional block filter and a result cap that a raw
+      // client query never could.
+      allow get: if request.auth != null;
+      allow list: if false;
 
       allow create: if request.auth != null &&
         reviewId == request.resource.data.venueId + '_' + request.auth.uid &&

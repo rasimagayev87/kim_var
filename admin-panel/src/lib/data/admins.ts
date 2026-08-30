@@ -6,7 +6,19 @@ import type { AdminRole } from "@/lib/auth/session";
 export interface AdminRosterRow {
   uid: string;
   email: string;
-  role: AdminRole;
+  /**
+   * `null` when the stored value is neither `admin` nor `moderator`
+   * (P0 follow-up / RBAC-B).
+   *
+   * This used to be `data.role === "moderator" ? "moderator" : "admin"`,
+   * which rendered ANY unrecognised value — including one that leaves the
+   * account unable to sign in at all, since `roleFromClaims` only accepts
+   * those two — as a full "admin" row. On the one screen whose job is
+   * showing who holds which privileges, the safest-looking answer was
+   * also the most wrong one. Surfacing it as unknown makes a corrupt or
+   * hand-edited roster entry visible instead of flattering it.
+   */
+  role: AdminRole | null;
   addedAt: string | null;
   addedBy: string | null;
 }
@@ -28,7 +40,7 @@ export async function listAdmins(): Promise<AdminRosterRow[]> {
     return {
       uid: doc.id,
       email: (data.email as string) ?? "",
-      role: data.role === "moderator" ? "moderator" : "admin",
+      role: data.role === "admin" || data.role === "moderator" ? data.role : null,
       addedAt: addedAt ? addedAt.toDate().toISOString() : null,
       addedBy: (data.addedBy as string) ?? null,
     };

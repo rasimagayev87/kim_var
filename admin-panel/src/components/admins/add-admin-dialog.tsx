@@ -22,6 +22,7 @@ const ERROR_MESSAGES: Record<string, string> = {
   "email-taken": "Bu email ünvanı artıq mövcud bir hesaba aiddir (mobil istifadəçi ola bilər) — admin hesabları tam ayrı email istifadə etməlidir.",
   "invalid-input": "Email boş, parol isə ən azı 6 simvol olmalıdır.",
   forbidden: "Bu əməliyyat üçün icazəniz yoxdur.",
+  "invalid-role": "Naməlum rol. Yalnız 'admin' və 'moderator' qəbul edilir.",
 };
 
 export function AddAdminDialog() {

@@ -1,3 +1,4 @@
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../core/utils/app_logger.dart';
@@ -24,13 +25,52 @@ class FirebaseReviewRepository implements ReviewRepository {
     }
   }
 
+  /// P0 / M-7 — server-side, was a raw `reviews` LIST query.
+  ///
+  /// A review can only exist behind `hasVerifiedVisit`, so it proves the
+  /// author was physically inside the venue; with `{venueId}_{userId}`
+  /// document ids, an open `list` handed any signed-in account the whole
+  /// "who was where" graph. `firestore.rules` now denies `list`
+  /// outright. The callable additionally filters blocked pairs in both
+  /// directions, which this query never did.
+  ///
+  /// No longer a live `snapshots()` stream — a deliberate, accepted
+  /// trade. Callers that write a review invalidate this provider to
+  /// refresh (see `review_providers.dart`); `watchMyReview` below is
+  /// untouched and still real-time, since a single-document `.doc()`
+  /// read is a `get`, not a `list`.
   @override
   Stream<List<Review>> watchVenueReviews(String venueId) {
-    return _reviews
-        .where('venueId', isEqualTo: venueId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs.map((d) => _safeReview(d.id, d.data())).whereType<Review>().toList());
+    return Stream.fromFuture(fetchVenueReviews(venueId));
+  }
+
+  @override
+  Future<List<Review>> fetchVenueReviews(String venueId) async {
+    try {
+      final callable = FirebaseFunctions.instance.httpsCallable('listVenueReviews');
+      final result = await callable.call<Map<String, dynamic>>({'venueId': venueId});
+      final raw = (result.data['reviews'] as List).cast<dynamic>();
+      return raw
+          .map((e) => _safeReviewFromMap(Map<String, dynamic>.from(e as Map)))
+          .whereType<Review>()
+          .toList();
+    } catch (e, st) {
+      logError('firebase_review_repository.fetchVenueReviews', e, st);
+      return const [];
+    }
+  }
+
+  /// Same per-document isolation as [_safeReview], for the callable's
+  /// plain-map response: one malformed entry drops out of the list
+  /// instead of blanking the whole venue's reviews.
+  Review? _safeReviewFromMap(Map<String, dynamic> data) {
+    final id = data['id'] as String? ?? '';
+    try {
+      return Review.fromJson(data);
+    } catch (e, st) {
+      logError('firebase_review_repository.Review.fromJson($id)', e, st);
+      return null;
+    }
   }
 
   @override

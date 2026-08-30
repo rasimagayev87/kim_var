@@ -27,11 +27,15 @@ import type { AdminRosterRow } from "@/lib/data/admins";
 
 const ERROR_MESSAGES: Record<string, string> = {
   "cannot-change-self": "Öz rolunuzu dəyişə və ya özünüzü silə bilməzsiniz — başqa bir admin bunu etməlidir.",
+  "last-admin": "Bu, sonuncu admin hesabıdır — rolu dəyişdirilə və ya silinə bilməz. Əvvəlcə ikinci admin əlavə edin.",
+  "invalid-role": "Naməlum rol. Yalnız 'admin' və 'moderator' qəbul edilir.",
   forbidden: "Bu əməliyyat üçün icazəniz yoxdur.",
 };
 
 export function AdminRowActions({ admin }: { admin: AdminRosterRow }) {
   const [pending, startTransition] = useTransition();
+  // An unknown stored role has no meaningful "toggle to the other
+  // one" — offer promotion to `admin`, which is also the repair path.
   const otherRole = admin.role === "admin" ? "moderator" : "admin";
 
   function handleRoleChange() {

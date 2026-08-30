@@ -1477,6 +1477,102 @@ export const searchUsersByUsername = onCall({ region: "us-central1", enforceAppC
   return { profiles };
 });
 
+const VENUE_REVIEWS_LIMIT = 100;
+
+/**
+ * P0 / M-7 — a venue's review list, moved off the client.
+ *
+ * `firestore.rules` closed `allow list` on `reviews`, which this
+ * replaces. The collection was readable by any signed-in user as a
+ * whole, and a review is not ordinary user-generated content here: it
+ * can only exist behind `hasVerifiedVisit`, i.e. a waitlist entry a
+ * venue's own staff marked `seated`. Its existence is therefore proof
+ * that a specific person was physically inside a specific venue. With
+ * the document id being `{venueId}_{userId}`, one unbounded list query
+ * returned the whole "who was where" graph — the same class of exposure
+ * Düzəliş Prompt 4 spent an entire pass removing from the location
+ * feed, reachable by a completely different route.
+ *
+ * `allow get` stays open: reading ONE review whose id you already have
+ * (`watchMyReview`, which is a plain `.doc()` read) is not enumeration.
+ * Same `get`-vs-`list` distinction as `usernames`.
+ *
+ * Block filtering is applied here, which the raw query never did — a
+ * blocked pair should not see each other's reviews in either direction,
+ * matching `searchUsersByName`/`searchUsersByUsername`.
+ *
+ * Returns plain JSON, not Firestore documents, so the client's own
+ * `Review.fromJson` shape is what defines the contract; `createdAt`/
+ * `updatedAt`/`ownerReply.repliedAt` are sent as epoch milliseconds and
+ * the client's `TimestampConverter` handles the rest.
+ */
+export const listVenueReviews = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) {
+    throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
+  }
+  await assertActiveUser(uid);
+  // Own scope rather than sharing `search`: this is a per-venue read a
+  // user performs while browsing, so it runs more often than a search
+  // box and shouldn't be able to exhaust that budget (or vice versa).
+  await enforceRateLimit("venue-reviews", uid, 60, 60);
+
+  const venueId = request.data?.venueId as string | undefined;
+  if (!venueId) throw new HttpsError("invalid-argument", "venueId tələb olunur.");
+
+  const [callerSnap, snap] = await Promise.all([
+    db.collection("users").doc(uid).get(),
+    db
+      .collection("reviews")
+      .where("venueId", "==", venueId)
+      .orderBy("createdAt", "desc")
+      .limit(VENUE_REVIEWS_LIMIT)
+      .get(),
+  ]);
+  const myBlockedUsers = (callerSnap.data()?.blockedUsers as string[] | undefined) ?? [];
+
+  // One `users/{authorId}` read per distinct author, to check the
+  // reverse block direction. Deduplicated because a venue's reviews are
+  // one-per-user by construction (`{venueId}_{userId}` doc ids), so this
+  // is at most `VENUE_REVIEWS_LIMIT` reads and usually far fewer.
+  const authorIds = [...new Set(snap.docs.map((d) => d.data().userId as string).filter(Boolean))];
+  const authorSnaps = authorIds.length > 0
+    ? await db.getAll(...authorIds.map((a) => db.collection("users").doc(a)))
+    : [];
+  const blockedMe = new Set(
+    authorSnaps
+      .filter((a) => ((a.data()?.blockedUsers as string[] | undefined) ?? []).includes(uid))
+      .map((a) => a.id),
+  );
+
+  const millis = (v: unknown): number | null => (v instanceof Timestamp ? v.toMillis() : null);
+
+  const reviews = snap.docs
+    .filter((d) => {
+      const authorId = d.data().userId as string | undefined;
+      return !!authorId && !myBlockedUsers.includes(authorId) && !blockedMe.has(authorId);
+    })
+    .map((d) => {
+      const data = d.data();
+      const reply = data.ownerReply as FirebaseFirestore.DocumentData | undefined;
+      return {
+        id: d.id,
+        venueId: data.venueId as string,
+        userId: data.userId as string,
+        rating: data.rating as number,
+        comment: (data.comment as string | undefined) ?? "",
+        waitlistEntryId: (data.waitlistEntryId as string | undefined) ?? "",
+        createdAt: millis(data.createdAt),
+        updatedAt: millis(data.updatedAt) ?? millis(data.createdAt),
+        ...(reply
+          ? { ownerReply: { text: (reply.text as string | undefined) ?? "", repliedAt: millis(reply.repliedAt) } }
+          : {}),
+      };
+    });
+
+  return { reviews };
+});
+
 /** Chat messages this user sent — replaced, not deleted, so the other
  * participant's chat history stays intact. Same scope also owns Storage
  * cleanup: each message's own media (image/video/audio) is deleted

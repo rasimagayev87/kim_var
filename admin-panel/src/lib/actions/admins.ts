@@ -33,9 +33,58 @@ async function requireAdminManagement(): Promise<{ admin: AdminSession } | { den
  * `email-taken` instead of silently attaching the role claim to that
  * account.
  */
+/**
+ * Runtime validation for the `role` argument (P0 follow-up / RBAC-A).
+ *
+ * `addAdmin`/`changeAdminRole` declare this parameter as `AdminRole`, but
+ * they are Server Actions: the value arrives over the network from a
+ * browser and TypeScript's types are erased before it gets here. Nothing
+ * previously checked it.
+ *
+ * Passing an unrecognised role does NOT grant anything — `roleFromClaims`
+ * (lib/auth/session.ts) is a strict allowlist, so an unknown claim
+ * resolves to `null` and no session is ever minted. The danger runs the
+ * other way: `changeAdminRole(uid, "finance")` sets a claim that can
+ * never authenticate again, permanently locking that account out of the
+ * panel. With one or two admins on this project that can strand the
+ * whole thing, and the emergency-token recovery path was deliberately
+ * removed (P0 / C-2), leaving only a manual claim repair via the
+ * Firebase CLI.
+ */
+function isValidRole(role: unknown): role is AdminRole {
+  return role === "admin" || role === "moderator";
+}
+
+/**
+ * How many accounts would still hold the `admin` role if [excludingUid]
+ * lost it (P0 follow-up / RBAC last-admin guard).
+ *
+ * Counted from the `admins` roster rather than from custom claims,
+ * because Firebase Auth cannot be queried by claim — that limitation is
+ * exactly why this collection exists (see lib/data/admins.ts). The
+ * roster is kept in sync by these same three actions, so it is
+ * authoritative enough for a "would this leave nobody in charge" check;
+ * being wrong in the conservative direction (refusing a legitimate
+ * change) is far cheaper than being wrong the other way.
+ *
+ * `changeAdminRole`/`removeAdmin` already refuse to act on the caller's
+ * own account, which makes the last-admin case unreachable TODAY with a
+ * single admin. This guard exists so it stays unreachable if that
+ * self-check is ever relaxed, and so the failure is a clear error rather
+ * than a locked-out project.
+ */
+async function remainingAdminCount(excludingUid: string): Promise<number> {
+  const snap = await getAdminDb().collection("admins").where("role", "==", "admin").get();
+  return snap.docs.filter((doc) => doc.id !== excludingUid).length;
+}
+
 export async function addAdmin(email: string, password: string, role: AdminRole): Promise<ActionResult> {
   const check = await requireAdminManagement();
   if ("denied" in check) return check.denied;
+
+  if (!isValidRole(role)) {
+    return { ok: false, error: "invalid-role" };
+  }
 
   const trimmedEmail = email.trim().toLowerCase();
   if (!trimmedEmail || password.length < 6) {
@@ -93,6 +142,17 @@ export async function changeAdminRole(uid: string, role: AdminRole): Promise<Act
     return { ok: false, error: "cannot-change-self" };
   }
 
+  if (!isValidRole(role)) {
+    return { ok: false, error: "invalid-role" };
+  }
+
+  // Demoting the final admin would leave nobody able to manage admins,
+  // broadcast, or handle payments — and nobody able to undo it from
+  // inside the panel.
+  if (role !== "admin" && (await remainingAdminCount(uid)) === 0) {
+    return { ok: false, error: "last-admin" };
+  }
+
   try {
     await getAdminAuth().setCustomUserClaims(uid, { role });
     await getAdminDb().collection("admins").doc(uid).update({ role });
@@ -123,6 +183,12 @@ export async function removeAdmin(uid: string): Promise<ActionResult> {
 
   if (uid === check.admin.uid) {
     return { ok: false, error: "cannot-change-self" };
+  }
+
+  // Same reasoning as `changeAdminRole`'s own last-admin guard: removing
+  // the final admin strands the panel with no way back in.
+  if ((await remainingAdminCount(uid)) === 0) {
+    return { ok: false, error: "last-admin" };
   }
 
   try {

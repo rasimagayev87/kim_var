@@ -1,7 +1,13 @@
 import '../entities/review.dart';
 
 abstract class ReviewRepository {
+  /// P0 / M-7 — backed by the `listVenueReviews` callable, not a live
+  /// Firestore query (`reviews` no longer permits `list`). Emits once.
   Stream<List<Review>> watchVenueReviews(String venueId);
+
+  /// One-shot variant of [watchVenueReviews], for callers that want to
+  /// refresh explicitly after writing a review.
+  Future<List<Review>> fetchVenueReviews(String venueId);
 
   Stream<Review?> watchMyReview({required String venueId, required String userId});
 
