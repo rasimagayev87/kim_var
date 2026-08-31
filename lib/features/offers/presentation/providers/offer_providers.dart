@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,6 +54,31 @@ final myOffersProvider = StreamProvider.autoDispose<List<Offer>>((ref) {
   return ref.watch(offerRepositoryProvider).watchMyOffers(uid);
 });
 
+/// The ids of birthday offers THIS user is a target of.
+///
+/// Replaces reading `Offer.targetUserIds`, which the server no longer
+/// writes: that field was the list of uids with a birthday today,
+/// sitting on a document readable by every signed-in user, which put
+/// back in public exactly the `birthDate` the app keeps in
+/// `private/data`. The server now writes one marker per recipient into
+/// `users/{uid}/birthdayOffers/{offerId}` — owner-readable only — so
+/// this device learns which offers are for IT and nothing about anyone
+/// else.
+///
+/// Typically 0–3 documents: a user gets birthday offers on one day a
+/// year, from the handful of venues that acted. Cached by Riverpod for
+/// the screen's lifetime rather than re-read per offer.
+final myBirthdayOfferIdsProvider = FutureProvider.autoDispose<Set<String>>((ref) async {
+  final uid = _currentUid();
+  if (uid == null) return const <String>{};
+  final snap = await FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .collection('birthdayOffers')
+      .get();
+  return snap.docs.map((d) => d.id).toSet();
+});
+
 /// Offer Details' "Digər aktiv təkliflər" section.
 final otherOffersForVenueProvider = FutureProvider.autoDispose.family<List<Offer>, ({String venueId, String excludeOfferId})>(
   (ref, args) async {
@@ -60,9 +86,9 @@ final otherOffersForVenueProvider = FutureProvider.autoDispose.family<List<Offer
         await ref.watch(offerRepositoryProvider).fetchOtherActiveOffersForVenue(args.venueId, excludeOfferId: args.excludeOfferId);
     // Same `OfferType.birthday` visibility rule as `nearbyOffersProvider`
     // — this is still an "everyone visiting this venue" surface.
-    final myUid = _currentUid();
+    final myBirthdayOfferIds = await ref.watch(myBirthdayOfferIdsProvider.future);
     return offers
-        .where((o) => o.offerType != OfferType.birthday || (myUid != null && o.targetUserIds.contains(myUid)))
+        .where((o) => o.offerType != OfferType.birthday || myBirthdayOfferIds.contains(o.id))
         .toList();
   },
 );
@@ -366,16 +392,19 @@ final nearbyOffersProvider = FutureProvider.autoDispose<List<OfferWithDistance>>
   }
 
   // `OfferType.birthday` offers are never for "everyone" — only the
-  // specific uids in `targetUserIds` (the matched birthday users) may
-  // ever see one here, same as every other offer type is otherwise
-  // open to. A direct link (the target user's own "your offer is
-  // ready" push, see `onOfferUpdated`'s birthday-approval branch in
-  // functions/src/index.ts) still reaches `OfferDetailsScreen` fine —
-  // this filter only ever touches the "everyone" list providers, never
-  // a single-doc fetch by id.
-  final myUid = _currentUid();
+  // matched birthday users may ever see one here, same as every other
+  // offer type is otherwise open to. A direct link (the target user's
+  // own "your offer is ready" push, see `onOfferUpdated`'s
+  // birthday-approval branch in functions/src/index.ts) still reaches
+  // `OfferDetailsScreen` fine — this filter only ever touches the
+  // "everyone" list providers, never a single-doc fetch by id.
+  //
+  // Keyed on [myBirthdayOfferIdsProvider] rather than the offer's own
+  // `targetUserIds`: that array named every user with a birthday today
+  // on a publicly readable document. See that provider's doc comment.
+  final myBirthdayOfferIds = await ref.watch(myBirthdayOfferIdsProvider.future);
   result = result
-      .where((r) => r.offer.offerType != OfferType.birthday || (myUid != null && r.offer.targetUserIds.contains(myUid)))
+      .where((r) => r.offer.offerType != OfferType.birthday || myBirthdayOfferIds.contains(r.offer.id))
       .toList();
 
   return _sortBoostedFirst(result);

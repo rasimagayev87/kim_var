@@ -1590,6 +1590,11 @@
   "vipBillingComingSoonMessage": "Ödəniş sistemi tezliklə aktivləşəcək.",
   "vipCurrentPackageTitle": "Cari paket",
   "vipCurrentPackageActiveLabel": "Aktiv",
+  "vipCurrentPackageExpiresLabel": "{date} tarixinədək aktiv",
+  "@vipCurrentPackageExpiresLabel": {
+    "description": "Abunəliyin bitmə tarixi",
+    "placeholders": { "date": { "type": "String" } }
+  },
   "vipManageButton": "İdarə et",
   "vipFeatureGhostTitle": "Ghost Mode",
   "vipFeatureGhostDescription": "Digər istifadəçiləri gör, amma sən xəritədə görünmə.",

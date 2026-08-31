@@ -586,3 +586,49 @@ eyni formasıdır və hər ikisi eyni sessiyada edilməlidir.
 **Yenidən baxılma şərti:** eyni vaxtlı aktiv istifadəçi sayı 1000-i
 keçəndə, VƏ YA Firestore aylıq oxu xərci ümumi infrastruktur xərcinin
 20%-ni keçəndə.
+
+## 26. `birthdayMatches` təmizlənmir, `offerCreated` ölü sahədir
+
+**Mənbə:** ad günü axınının auditi (2026-08-31)
+
+**Nə:** `computeBirthdayMatches` hər gün uyğun məkan başına bir
+`birthdayMatches/{YYYY-MM-DD}_{venueId}` sənədi yazır. Bu sənədlər
+**heç vaxt silinmir** — nə planlaşdırılmış təmizləmə, nə TTL var.
+Gündəlik artım = həmin gün radiusunda ad günü olan uyğun məkanların
+sayı. Bugün əhəmiyyətsizdir; 1000 uyğun məkanda ildə ~365 000 sənəd.
+
+Sənəddəki `offerCreated: false` sahəsi **heç vaxt `true` edilmir** —
+kodda onu yeniləyən sətir yoxdur. Yəni «sahib bu eşleşmədən təklif
+yaratdımı» sualına cavab verməli olan sahə həmişə yalan deyir.
+
+**Nə edilməli:** (a) `expireLapsedPremium` naxışı ilə gündəlik
+təmizləmə — N gündən köhnə sənədləri sil (7 gün kifayətdir, çünki
+`submitOffer` yalnız həmin günün eşleşməsini qəbul edir); (b) ya
+`offerCreated`-i `submitOffer`-in `assertBirthdayTargeting` yolunda
+`true` etmək, ya da sahəni tamamilə silmək. İkincisi seçilirsə,
+sənəddə niyə silindiyi yazılmalıdır.
+
+**Təxmini iş həcmi:** ~1 saat.
+
+## 27. Ödəniş təsviri serverdə yaranır — çoxdilli deyil
+
+**Mənbə:** Ödənişlər ekranının düzəldilməsi (2026-08-31)
+
+**Nə:** `payments/{id}.description` ödəniş anında serverdə qurulur və
+**yalnız Azərbaycancadır**: `Məkan abunəliyi — {ad}`, `PinBox —
+{başlıq}`, `Təklif yerləşdirmə haqqı — {başlıq}`. Server yazma anında
+oxuyanın dilini bilmir.
+
+**Nəticə:** rus və ya ingilis dilində işlədən istifadəçi Ödənişlər
+ekranında qarışıq görüntü alır — başlıq (`type`-ın l10n etiketi)
+tərcümə olunur, detal sətri yox.
+
+**Niyə indi qəbul edilir:** alternativ, `description`-ı strukturlaşmış
+sahələrə bölmək (`kind` + `subjectName`) və client-də qurmaqdır — bu,
+sxem dəyişikliyidir və mövcud ödəniş sənədləri üçün miqrasiya tələb
+edir. Mətn oxunaqlıdır və məbləğ/tarix onsuz da dil-neytraldır.
+
+**Nə vaxt yenidən baxılmalı:** tətbiq Azərbaycandan kənar bazara
+çıxanda, VƏ YA çoxdilli istifadəçilərin payı əhəmiyyətli olanda.
+
+**Təxmini iş həcmi:** ~3-4 saat (sxem + miqrasiya + client formatlama).

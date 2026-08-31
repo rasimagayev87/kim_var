@@ -1590,6 +1590,11 @@
   "vipBillingComingSoonMessage": "Оплата будет доступна в ближайшее время.",
   "vipCurrentPackageTitle": "Текущий пакет",
   "vipCurrentPackageActiveLabel": "Активен",
+  "vipCurrentPackageExpiresLabel": "Активно до {date}",
+  "@vipCurrentPackageExpiresLabel": {
+    "description": "Дата окончания подписки",
+    "placeholders": { "date": { "type": "String" } }
+  },
   "vipManageButton": "Управлять",
   "vipFeatureGhostTitle": "Ghost Mode",
   "vipFeatureGhostDescription": "Видьте других пользователей, оставаясь невидимым на карте.",

@@ -94,17 +94,30 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(uid)).data.get('businessStatus', 'active') != 'none';
     }
 
-    // Offer-only categories (Şərab evi/wineHouse, Təmizlik/homeServices,
-    // Ev alqı-satqısı/realEstate) — cannot create Events or PinBox
-    // listings; enforced here AND in `joinWaitlist`'s
-    // `OFFER_ONLY_VENUE_CATEGORIES` (functions/src/index.ts). Rules
-    // can't import that TS constant, so this literal list is a
-    // hand-synced mirror of it — see this file's own note at each call
-    // site below. Mirrors `kCategoryCapabilities` in
-    // lib/core/constants/category_capabilities.dart on the client side.
-    function isOfferOnlyCategory(venueId) {
+    // ALLOWLISTS, replacing the three-item `isOfferOnlyCategory`
+    // blacklist these call sites used to check.
+    //
+    // The blacklist answered "is this one of the three offer-only
+    // categories" (wineHouse/homeServices/realEstate). The product rule
+    // is narrower and positive: each feature has its own set of
+    // permitted categories, held until now ONLY in the Flutter UI
+    // (`kPinboxEligibleVenueCategories`, `config/eventCategories`).
+    // PinBox and Event documents are created by DIRECT client writes,
+    // so these rules were the entire server-side gate — and they let a
+    // hotel, a gym or a clinic create either by skipping the UI.
+    //
+    // HAND-SYNCED MIRROR of `functions/src/venue-categories.ts` and of
+    // `venue.dart`'s Dart sets. Rules cannot import either, so
+    // `tests/rules/venue-categories.test.ts` parses all three files and
+    // fails when any pair drifts. Change one, change all three.
+    function isEventCategory(venueId) {
       return get(/databases/$(database)/documents/venues/$(venueId)).data.category
-        in ['wineHouse', 'homeServices', 'realEstate'];
+        in ['restaurant', 'pub', 'fastFood', 'cinema', 'nightClub', 'kidsEntertainment', 'independentArtist'];
+    }
+
+    function isPinBoxCategory(venueId) {
+      return get(/databases/$(database)/documents/venues/$(venueId)).data.category
+        in ['restaurant', 'coffeeShop', 'fastFood', 'sweetsShop', 'perfumeryCosmetics', 'supermarket'];
     }
 
     // P0 / H-5 — whether [url] points at THIS project's own Firebase
@@ -711,6 +724,25 @@ service cloud.firestore {
       // exists to expose only to them); a signed-in user may only ever
       // write their OWN entry, and never on their own profile (viewing
       // yourself isn't a "visit").
+      // Which birthday-targeted offers THIS user may see.
+      //
+      // Replaces the `offers.targetUserIds` array, which was the list
+      // of uids whose birthday is today, sitting on a document whose
+      // rule is `allow read: if request.auth != null`. `birthDate` was
+      // deliberately moved to `private/data` as PII; that array put the
+      // same fact back in public view for anyone who read the offer.
+      //
+      // Inverting it — a marker in each recipient's own space instead
+      // of a roster on the shared document — gives the client the same
+      // yes/no it needs while telling nobody about anyone else.
+      // Server-written only (`notifyBirthdayTargetUsers`); the raw list
+      // lives in `offers/{offerId}/private/targeting`, which is closed
+      // to every client.
+      match /birthdayOffers/{offerId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
       match /profileViews/{viewerId} {
         allow read: if request.auth != null && request.auth.uid == userId;
         allow create, update: if request.auth != null &&
@@ -1375,11 +1407,18 @@ service cloud.firestore {
     // per user per venue" structural: a second attempt just overwrites
     // the first doc.
     match /reviews/{reviewId} {
-      // Faza 1: only the categories that already have the waitlist
-      // feature — same set as `config/waitlistCategories
-      // .enabledCategories` (admin-panel/scripts/set-waitlist
-      // -categories.ts). Hardcoded rather than a third `get()` per
-      // write; expand this list together with Faza 2.
+      // Only the categories that have the waitlist feature — a review
+      // can only exist behind a `seated` waitlist entry, so the two
+      // sets cannot differ without one of them being pointless.
+      //
+      // This is the SAME list as `WAITLIST_ELIGIBLE_CATEGORIES`
+      // (functions/src/venue-categories.ts) and
+      // `kWaitlistEligibleVenueCategories` (venue.dart), and
+      // `tests/rules/venue-categories.test.ts` asserts that it is. It
+      // used to be described as a copy of
+      // `config/waitlistCategories.enabledCategories` — a Firestore
+      // document that turned out to be read by the client and by
+      // nothing else, which is why the lists moved into code.
       function isEligibleCategory(venueId) {
         return get(/databases/$(database)/documents/venues/$(venueId)).data.category in
           ['restaurant', 'pub', 'fastFood', 'coffeeShop', 'teaHouse', 'karaoke', 'sweetsShop', 'gameHall', 'spa', 'carWash'];
@@ -1866,6 +1905,18 @@ service cloud.firestore {
     // update distinction (a `create` request fails if the doc already
     // exists) is what actually enforces "once per user", not
     // client-side UI state.
+    // A birthday offer's raw recipient list — the uids
+    // `computeBirthdayMatches` found. Closed to everyone, exactly like
+    // `venues/{id}/private/counters`: the number of people with a
+    // birthday today is a statistic, the list of them is a disclosure
+    // of a `private/data` field. Only `submitOffer` writes it (Admin
+    // SDK, in the same transaction as the offer) and only
+    // `notifyBirthdayTargetUsers` reads it. Clients get their own
+    // `users/{uid}/birthdayOffers/{offerId}` marker instead.
+    match /offers/{offerId}/private/{document} {
+      allow read, write: if false;
+    }
+
     match /offers/{offerId}/redemptions/{userId} {
       allow read: if request.auth != null;
       // The offer must still exist and still be live. Previously this
@@ -1911,7 +1962,7 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.ownerId &&
         request.auth.uid == get(/databases/$(database)/documents/venues/$(request.resource.data.venueId)).data.ownerId &&
         isBusinessUser(request.auth.uid) &&
-        !isOfferOnlyCategory(request.resource.data.venueId) &&
+        isPinBoxCategory(request.resource.data.venueId) &&
         request.resource.data.status == 'pending' &&
         request.resource.data.stockRemaining == request.resource.data.stockTotal &&
         // P0 / H-5 — PinBox creation is one of the few listing flows
@@ -1948,7 +1999,7 @@ service cloud.firestore {
           // `venueName`/`venuePhotoUrl`/`stockTotal` joined the lock
           // (P0, class-search finding C-c) — same omission as `offers`
           // above, same reasoning. `category` matters most here: the
-          // create rule enforces `!isOfferOnlyCategory(venueId)`, and
+          // create rule enforces `isPinBoxCategory(venueId)`, and
           // that check only ever runs at create, so an approved PinBox
           // could be moved into a category the feature is not allowed
           // in at all. `stockTotal` is the denominator every "N of M
@@ -2024,7 +2075,7 @@ service cloud.firestore {
 
       allow create: if request.auth != null &&
         request.auth.uid == get(/databases/$(database)/documents/venues/$(request.resource.data.venueId)).data.ownerId &&
-        !isOfferOnlyCategory(request.resource.data.venueId) &&
+        isEventCategory(request.resource.data.venueId) &&
         request.resource.data.status == 'upcoming' &&
         coverImageUrlCreateOk() &&
         descriptionSizeOk();

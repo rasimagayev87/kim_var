@@ -7,8 +7,16 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// visibilityRadiusMode/Km, showReadReceipts, twoFactorEnabled,
 /// ghostModeEnabled, incognitoBrowsingEnabled, notificationPreferences,
 /// mapLocationSettings, activeChatId, activeCheckinVenueId,
-/// lastVisitorsCheckedAt, premiumExpiresAt, loginProvider,
-/// appVersion/buildNumber/platform/osVersion/lastSeenAt. Also
+/// lastVisitorsCheckedAt, loginProvider,
+/// appVersion/buildNumber/platform/osVersion/lastSeenAt.
+///
+/// `premiumExpiresAt` was listed here and does NOT live in this
+/// document: `grantPremium` (functions/src/index.ts) writes it to the
+/// PUBLIC `users/{uid}` doc, where `touchesLockedUserFields()` in
+/// firestore.rules keeps the client from touching it. Removed on
+/// 2026-08-31 — a comment naming the wrong location is how a reader
+/// ends up querying an empty path, which is exactly the defect
+/// BACKLOG #25 and the Ödənişlər screen both turned out to be. Also
 /// `blockedByUsers` (Düzəliş Prompt 5 / K-3) — the reverse of the
 /// public `blockedUsers` array, trigger-maintained (`onUserUpdated`,
 /// functions/src/index.ts), read only to filter this user's OWN feeds.

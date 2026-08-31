@@ -33,3 +33,23 @@ final _premiumStatusProvider = StreamProvider.autoDispose<bool>((ref) {
       .snapshots()
       .map((snap) => snap.data()?['premium'] as bool? ?? false);
 });
+
+/// When the signed-in user's VIP runs out, or null when they have none.
+///
+/// `users/{uid}.premiumExpiresAt` is written by `grantPremium`
+/// (functions/src/index.ts) on the PUBLIC user document and locked
+/// against client writes by `touchesLockedUserFields()` in
+/// firestore.rules — so it is both trustworthy and readable by its
+/// owner. Nothing displayed it: the VIP screen said only "Aktiv", so
+/// somebody who had paid could not see which plan they were on or when
+/// it ended.
+final premiumExpiresAtProvider = StreamProvider.autoDispose<DateTime?>((ref) {
+  ref.watch(authStateProvider);
+  final uid = fb.FirebaseAuth.instance.currentUser?.uid;
+  if (uid == null) return Stream.value(null);
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .snapshots()
+      .map((snap) => (snap.data()?['premiumExpiresAt'] as Timestamp?)?.toDate());
+});

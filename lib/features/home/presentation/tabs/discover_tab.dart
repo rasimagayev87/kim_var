@@ -217,7 +217,19 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                       icon: const Icon(Icons.add_circle_outline, color: AppColors.textSecondary),
                     ),
                 ],
-                if (_view == _DiscoverView.offers && hasBusinessAccess) ...[
+                // PinBox is the one filter whose manage icon is NOT
+                // business-gated: its screen opens on "Aldıqlarım", the
+                // buyer's own orders, and every user can buy a PinBox
+                // from the Canlı tab. Gating the icon meant anyone who
+                // answered "not a business" at onboarding paid for a
+                // box and then had no screen to find it on — the order,
+                // its pickup window and its QR code were reachable only
+                // from the one-time purchase-confirmation push.
+                // "Yaratdıqlarım" stays owner-only inside the screen
+                // itself (`eligibleVenues.isNotEmpty`), so this exposes
+                // no owner surface.
+                if (_view == _DiscoverView.offers &&
+                    (hasBusinessAccess || listingFilter == ListingFilter.pinbox)) ...[
                   _buildListingManageIcon(loc, listingFilter, myEventVenues, myPinboxVenues),
                   if (ref.watch(featureFlagProvider(FeatureFlag.offers)))
                     IconButton(

@@ -237,14 +237,22 @@ class LiveFeedService {
 
   /// "Yeni təkliflər" + "Doğum günü" both come from the same
   /// `offers` geo-query — split by `offerType` afterward. Birthday
-  /// offers are filtered to `targetUserIds` containing [myUid],
-  /// mirroring `nearbyOffersProvider`'s own identical privacy rule
-  /// (a birthday offer is never "for everyone", even within radius).
+  /// offers are filtered to [myBirthdayOfferIds], mirroring
+  /// `nearbyOffersProvider`'s own identical privacy rule (a birthday
+  /// offer is never "for everyone", even within radius).
+  ///
+  /// [myBirthdayOfferIds] comes from the caller's own
+  /// `users/{uid}/birthdayOffers` markers, NOT from the offer's
+  /// `targetUserIds` — that array listed every user with a birthday
+  /// today on a document any signed-in user can read, republishing the
+  /// `birthDate` the app keeps in `private/data`. See
+  /// `myBirthdayOfferIdsProvider`.
   Future<List<LiveFeedItem>> fetchOfferAndBirthdayItems({
     required double lat,
     required double lng,
     required double radiusKm,
     required String? myUid,
+    required Set<String> myBirthdayOfferIds,
     required Duration freshWindow,
     required Map<String, String?> photoUrlByVenueId,
   }) async {
@@ -272,8 +280,7 @@ class LiveFeedService {
       final distanceMeters = r.distanceFromCenterInKm * 1000;
 
       if (offerType == 'birthday') {
-        final targetUserIds = (data['targetUserIds'] as List?)?.cast<String>() ?? const [];
-        if (myUid == null || !targetUserIds.contains(myUid)) continue;
+        if (!myBirthdayOfferIds.contains(r.documentSnapshot.id)) continue;
         items.add(LiveFeedItem(
           id: 'birthday_${r.documentSnapshot.id}',
           type: LiveFeedType.birthday,

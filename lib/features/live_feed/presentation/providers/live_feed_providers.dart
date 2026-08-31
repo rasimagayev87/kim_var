@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../location/presentation/providers/location_providers.dart';
+import '../../../offers/presentation/providers/offer_providers.dart';
 import '../../../venue_follow/presentation/providers/venue_follow_providers.dart';
 import '../../data/live_feed_service.dart';
 import '../../domain/entities/live_feed_item.dart';
@@ -213,6 +214,11 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
           lng: params.lng,
           radiusKm: params.radiusKm,
           myUid: fb.FirebaseAuth.instance.currentUser?.uid,
+          // Which birthday offers are for THIS user — see
+          // `myBirthdayOfferIdsProvider`. Usually an empty set (a user
+          // has a birthday one day a year), so this costs a single
+          // empty-collection read on the poll cycle.
+          myBirthdayOfferIds: await _ref.read(myBirthdayOfferIdsProvider.future),
           freshWindow: liveFeedFreshWindow,
           photoUrlByVenueId: photoUrlByVenueId,
         );

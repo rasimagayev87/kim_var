@@ -1590,6 +1590,11 @@
   "vipBillingComingSoonMessage": "Ödeme sistemi yakında etkinleştirilecek.",
   "vipCurrentPackageTitle": "Mevcut paket",
   "vipCurrentPackageActiveLabel": "Aktif",
+  "vipCurrentPackageExpiresLabel": "{date} tarihine kadar aktif",
+  "@vipCurrentPackageExpiresLabel": {
+    "description": "Abonelik bitiş tarihi",
+    "placeholders": { "date": { "type": "String" } }
+  },
   "vipManageButton": "Yönet",
   "vipFeatureGhostTitle": "Ghost Mode",
   "vipFeatureGhostDescription": "Diğer kullanıcıları gör, ama sen haritada görünme.",

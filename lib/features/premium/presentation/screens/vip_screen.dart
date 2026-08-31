@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -309,14 +310,35 @@ class _PackagePill extends StatelessWidget {
   }
 }
 
-class _CurrentPackageCard extends StatelessWidget {
+/// Which package the remaining span corresponds to.
+///
+/// Derived, not stored — see [_CurrentPackageCard]. Thresholds sit
+/// above each period's own length so a subscription part-way through
+/// its term still reads as the plan it is: anything over ~7 months is
+/// yearly, over ~2 months is quarterly, otherwise monthly.
+String _planLabel(AppLocalizations loc, DateTime expiresAt) {
+  final daysLeft = expiresAt.difference(DateTime.now()).inDays;
+  if (daysLeft > 210) return loc.vipPeriodYearly;
+  if (daysLeft > 62) return loc.vipPeriodQuarterly;
+  return loc.vipPeriodMonthly;
+}
+
+class _CurrentPackageCard extends ConsumerWidget {
   final VoidCallback onManage;
 
   const _CurrentPackageCard({required this.onManage});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
+    // "Aktiv" alone was everything this card said. Someone who had paid
+    // could not see which plan they bought or when it runs out — the
+    // data was on `users/{uid}.premiumExpiresAt` the whole time, just
+    // never read. The plan name is derived from the remaining span
+    // rather than stored: nothing persists which SKU was purchased, and
+    // inventing a field for it would need a migration for anyone who
+    // subscribed before today.
+    final expiresAt = ref.watch(premiumExpiresAtProvider).valueOrNull;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -332,9 +354,19 @@ class _CurrentPackageCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(loc.vipCurrentPackageTitle, style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  expiresAt == null
+                      ? loc.vipCurrentPackageTitle
+                      : '${loc.vipCurrentPackageTitle} · ${_planLabel(loc, expiresAt)}',
+                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+                ),
                 const SizedBox(height: 2),
-                Text(loc.vipCurrentPackageActiveLabel, style: AppTextStyles.caption.copyWith(fontSize: 12.5)),
+                Text(
+                  expiresAt == null
+                      ? loc.vipCurrentPackageActiveLabel
+                      : loc.vipCurrentPackageExpiresLabel(DateFormat('dd.MM.yyyy').format(expiresAt)),
+                  style: AppTextStyles.caption.copyWith(fontSize: 12.5),
+                ),
               ],
             ),
           ),

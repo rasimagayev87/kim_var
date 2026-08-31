@@ -86,13 +86,16 @@ enum VenueCategory {
 /// A venue in one of these categories still starts out
 /// [Venue.birthdayNotificationsEnabled] `true` only as a DEFAULT — the
 /// owner can turn it back off from the create/edit form.
+/// `hotel` and `kidsEntertainment` were removed on 2026-08-31 (15 → 13)
+/// on product direction. Mirrored server-side in
+/// `functions/src/venue-categories.ts`; the parity test
+/// `tests/rules/venue-categories.test.ts` fails if the two drift.
 const kBirthdayEligibleVenueCategories = <VenueCategory>{
   VenueCategory.restaurant,
   VenueCategory.pub,
   VenueCategory.coffeeShop,
   VenueCategory.sweetsShop,
   VenueCategory.fastFood,
-  VenueCategory.hotel,
   VenueCategory.cinema,
   VenueCategory.karaoke,
   VenueCategory.nightClub,
@@ -100,8 +103,40 @@ const kBirthdayEligibleVenueCategories = <VenueCategory>{
   VenueCategory.cosmetology,
   VenueCategory.photoStudio,
   VenueCategory.beautySalon,
-  VenueCategory.kidsEntertainment,
   VenueCategory.perfumeryCosmetics,
+};
+
+/// Venues that may create Events.
+///
+/// Previously read from `config/eventCategories` in Firestore — a list
+/// no server code ever consulted, so it decorated the UI while
+/// `firestore.rules` allowed any non-offer-only category to create an
+/// event. Now a code constant on both sides; see
+/// `functions/src/venue-categories.ts` for why the config documents
+/// were retired rather than kept as a second source of truth.
+const kEventEligibleVenueCategories = <VenueCategory>{
+  VenueCategory.restaurant,
+  VenueCategory.pub,
+  VenueCategory.fastFood,
+  VenueCategory.cinema,
+  VenueCategory.nightClub,
+  VenueCategory.kidsEntertainment,
+  VenueCategory.independentArtist,
+};
+
+/// Venues that may run a walk-in queue ("Növbə"). Same reasoning as
+/// [kEventEligibleVenueCategories]; replaces `config/waitlistCategories`.
+const kWaitlistEligibleVenueCategories = <VenueCategory>{
+  VenueCategory.restaurant,
+  VenueCategory.pub,
+  VenueCategory.fastFood,
+  VenueCategory.coffeeShop,
+  VenueCategory.teaHouse,
+  VenueCategory.karaoke,
+  VenueCategory.sweetsShop,
+  VenueCategory.gameHall,
+  VenueCategory.spa,
+  VenueCategory.carWash,
 };
 
 /// Categories PinBox (surprise-box discount sales) can be created for —

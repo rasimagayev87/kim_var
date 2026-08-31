@@ -25,7 +25,7 @@ import { geohashForLocation } from "geofire-common";
 import { verifyAppleNotification, verifyAppleTransaction, verifyGoogleSubscription } from "./iap";
 import { CHAT_MEDIA_FOLDERS, chatMediaPathForMessage, isChatHiddenByEveryone, resizedVariantPath } from "./chat-media";
 import { isCancellableOnListingDelete, isPaymentTargetMissing } from "./payment-targets";
-import { OFFER_ONLY_VENUE_CATEGORIES, venueSubscriptionFeeByCategory } from "./venue-fees";
+import { venueSubscriptionFeeByCategory } from "./venue-fees";
 import {
   bucketDistanceMeters,
   clampAudienceRadiusKm,
@@ -39,6 +39,11 @@ import {
 } from "./geo";
 import { InvalidPhoneNumberError, normalizePhoneNumber } from "./phone";
 import { isGatedCategory } from "./notification-categories";
+import { bakuDateKey, isBirthdayToday } from "./birthday";
+// `isEventCategory` is deliberately absent: event creation is a direct
+// client write with no callable, so `firestore.rules` is its only
+// server gate. The constant still exists for the parity test.
+import { isBirthdayCategory, isPinBoxCategory, isWaitlistCategory } from "./venue-categories";
 
 // `enforceAppCheck: false` on every onCall function below — deliberately
 // reverted from `true`. iOS release builds activate App Check via
@@ -3241,16 +3246,11 @@ interface BirthdayUserDoc {
 export const computeBirthdayMatches = onSchedule(
   { schedule: "5 0 * * *", timeZone: "Asia/Baku", region: "europe-west1" },
   async () => {
-    const bakuParts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Baku",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    }).formatToParts(new Date());
-    const bakuYear = bakuParts.find((p) => p.type === "year")?.value ?? "";
-    const bakuMonth = bakuParts.find((p) => p.type === "month")?.value ?? "";
-    const bakuDay = bakuParts.find((p) => p.type === "day")?.value ?? "";
-    const bakuDateKey = `${bakuYear}-${bakuMonth}-${bakuDay}`;
+    const now = new Date();
+    // Both sides of the birthday comparison are now read in Asia/Baku —
+    // see `./birthday`, and the doc comment there for why the UTC
+    // extraction this replaces fired a day early.
+    const todayKey = bakuDateKey(now);
 
     const [optedInUsersSnap, eligibleVenuesSnap] = await Promise.all([
       db.collection("users").where("birthdayOffersOptIn", "==", true).limit(BIRTHDAY_CANDIDATE_LIMIT).get(),
@@ -3276,10 +3276,7 @@ export const computeBirthdayMatches = onSchedule(
       if (data.ghostModeEnabled) return;
       const birthDate = data.birthDate as Timestamp | undefined;
       if (!birthDate) return;
-      const bd = birthDate.toDate();
-      const bdMonth = String(bd.getUTCMonth() + 1).padStart(2, "0");
-      const bdDay = String(bd.getUTCDate()).padStart(2, "0");
-      if (bdMonth !== bakuMonth || bdDay !== bakuDay) return;
+      if (!isBirthdayToday(birthDate.toDate(), now)) return;
       birthdayUsers.push({
         uid: doc.id,
         lat: data.lat,
@@ -3293,6 +3290,11 @@ export const computeBirthdayMatches = onSchedule(
 
     for (const venueDoc of eligibleVenuesSnap.docs) {
       const venue = venueDoc.data();
+      // Category allowlist — `birthdayNotificationsEnabled` alone was
+      // the whole gate, so any approved venue that flipped the toggle
+      // (a clinic, a car wash) entered the birthday flow. The toggle
+      // still governs opt-out; this governs eligibility.
+      if (!isBirthdayCategory(venue.category)) continue;
       const venueLat = venue.lat as number | undefined;
       const venueLng = venue.lng as number | undefined;
       const venueCountry = venue.country as string | undefined;
@@ -3312,12 +3314,12 @@ export const computeBirthdayMatches = onSchedule(
       // Doc id is deterministic (date + venue), so a re-run for the
       // same day (retry, manual trigger) never double-counts or
       // double-pushes for a venue already processed today.
-      const matchRef = db.collection("birthdayMatches").doc(`${bakuDateKey}_${venueDoc.id}`);
+      const matchRef = db.collection("birthdayMatches").doc(`${todayKey}_${venueDoc.id}`);
       if ((await matchRef.get()).exists) continue;
 
       await matchRef.set({
         venueId: venueDoc.id,
-        date: bakuDateKey,
+        date: todayKey,
         matchedUserIds,
         count: matchedUserIds.length,
         notified: false,
@@ -3887,8 +3889,12 @@ export const joinWaitlist = onCall({ region: "us-central1", enforceAppCheck: fal
     throw new HttpsError("failed-precondition", "venue-unavailable");
   }
 
+  // ALLOWLIST, not the three-item blacklist this used to check — see
+  // `./venue-categories`. The blacklist answered "is this one of the
+  // three offer-only categories", which let a hotel or a clinic accept
+  // queue entries; the product rule is a specific set of ten.
   const venueCategory = venueSnap.data()?.category as string | undefined;
-  if (venueCategory && OFFER_ONLY_VENUE_CATEGORIES.includes(venueCategory)) {
+  if (!isWaitlistCategory(venueCategory)) {
     throw new HttpsError("failed-precondition", "Bu məkan kateqoriyası növbə funksiyasını dəstəkləmir.");
   }
 
@@ -4207,14 +4213,99 @@ export const decrementSeatsOnWaitlistSeated = onDocumentUpdated(
  * from everyone else) — notifying by proximity instead would both
  * miss the point and leak it to people it was never meant for.
  */
+/**
+ * Validates a birthday offer's targeting against the server's own
+ * record of who actually has a birthday — or throws.
+ *
+ * `submitOffer` used to copy `targetUserIds` and `birthdayMatchId`
+ * straight from the request onto the offer document, with no check at
+ * all. `notifyBirthdayTargetUsers` then pushed to every uid in that
+ * list. So any approved venue owner could send "🎉 Sənə xüsusi ad günü
+ * təklifi!" to ANY set of users, on any day, whether or not it was
+ * their birthday — a targeted push primitive dressed as a feature.
+ * `updateOffer` never touched these fields and `firestore.rules` locks
+ * both on update, so `submitOffer` was the only way in and is the only
+ * place this check is needed.
+ *
+ * `birthdayMatches` is the source of truth: `computeBirthdayMatches`
+ * writes it with the Admin SDK and its rule is `allow write: if false`,
+ * so a client cannot manufacture a match to point at.
+ *
+ * Returns `null` for an ordinary offer, so the caller can treat "not a
+ * birthday offer" and "a valid birthday offer" without a second flag.
+ */
+async function assertBirthdayTargeting(
+  data: Record<string, unknown>,
+  venueId: string,
+): Promise<{ matchId: string; userIds: string[] } | null> {
+  const matchId = data.birthdayMatchId as string | undefined;
+  const requested = (data.targetUserIds as string[] | undefined) ?? [];
+
+  if (!matchId && requested.length === 0) return null;
+  // Neither half is meaningful alone: a match with nobody selected
+  // sends nothing, and a uid list with no match is exactly the
+  // unvalidated shape this function exists to reject.
+  if (!matchId || requested.length === 0) {
+    rejectRequest("invalid-argument", "offer.birthday-targeting-incomplete",
+      "Ad günü təklifi üçün həm eşleşmə, həm hədəf siyahısı tələb olunur.",
+      { hasMatchId: Boolean(matchId), targetCount: requested.length });
+  }
+
+  const matchSnap = await db.collection("birthdayMatches").doc(matchId).get();
+  if (!matchSnap.exists) {
+    rejectRequest("invalid-argument", "offer.birthday-match-not-found",
+      "Ad günü eşleşməsi tapılmadı.", { matchId });
+  }
+  const match = matchSnap.data()!;
+
+  // The match belongs to ONE venue. Without this an owner could quote
+  // another venue's match id and inherit its recipient list.
+  if (match.venueId !== venueId) {
+    rejectRequest("permission-denied", "offer.birthday-match-foreign-venue",
+      "Bu ad günü eşleşməsi başqa məkana aiddir.", { matchId, venueId });
+  }
+
+  const matched = new Set((match.matchedUserIds as string[] | undefined) ?? []);
+  const outside = requested.filter((uid) => !matched.has(uid));
+  if (outside.length > 0) {
+    rejectRequest("permission-denied", "offer.birthday-target-outside-match",
+      "Hədəf siyahısı ad günü eşleşməsindən kənar istifadəçi ehtiva edir.",
+      { matchId, outsideCount: outside.length });
+  }
+
+  // De-duplicated: a repeated uid would otherwise mean a repeated push.
+  return { matchId, userIds: [...new Set(requested)] };
+}
+
 async function notifyBirthdayTargetUsers(offerId: string, offer: FirebaseFirestore.DocumentData): Promise<void> {
-  const targetUserIds = (offer.targetUserIds as string[] | undefined) ?? [];
+  // Read from the server-only subcollection, never from the offer
+  // document — the uid list is deliberately not on a doc every signed
+  // -in user can read (see `assertBirthdayTargeting` and the
+  // `offers/{id}/private/{document}` rule).
+  const targetingSnap = await db.collection("offers").doc(offerId).collection("private").doc("targeting").get();
+  const targetUserIds = (targetingSnap.data()?.userIds as string[] | undefined) ?? [];
   if (targetUserIds.length === 0) return;
   const venueName = (offer.venueName as string | undefined) ?? "";
 
   await Promise.all(
-    targetUserIds.map((uid) =>
-      notifyUser({
+    targetUserIds.map(async (uid) => {
+      // The recipient's own marker — this is what replaces the public
+      // `offers.targetUserIds` array as the client's visibility check.
+      // Each user can read only their own subcollection, so nobody
+      // learns whose birthday it is; the offer document itself carries
+      // `offerType: 'birthday'` and nothing about whom it is for.
+      //
+      // Written BEFORE the push so the offer is already visible when
+      // the notification lands — the reverse order would deep-link into
+      // a feed that has not caught up yet.
+      await db
+        .collection("users")
+        .doc(uid)
+        .collection("birthdayOffers")
+        .doc(offerId)
+        .set({ offerId, venueName, createdAt: FieldValue.serverTimestamp() });
+
+      await notifyUser({
         uid,
         category: "venueOffers",
         type: "birthdayOffer",
@@ -4225,8 +4316,8 @@ async function notifyBirthdayTargetUsers(offerId: string, offer: FirebaseFiresto
         params: { venueName },
         targetId: offerId,
         targetType: "offer",
-      }),
-    ),
+      });
+    }),
   );
 }
 
@@ -4973,6 +5064,17 @@ export const updatePinBox = onCall(
       const current = snap.data()!;
       if (current.ownerId !== uid) throw new HttpsError("permission-denied", "Bu qutunun sahibi deyilsiniz.");
 
+      // Category allowlist, checked on every re-publish and not only at
+      // creation: both this and `resubmitPinBox` push the box back
+      // through moderation and back into discovery, so a venue whose
+      // category changed to an ineligible one must not be able to
+      // relist through an edit. One venue read on an infrequent owner
+      // action — see `./venue-categories`.
+      const venueSnap = await tx.get(db.collection("venues").doc(current.venueId as string));
+      if (!isPinBoxCategory(venueSnap.data()?.category)) {
+        throw new HttpsError("failed-precondition", "Bu məkan kateqoriyası PinBox funksiyasını dəstəkləmir.");
+      }
+
       const contentChanged =
         current.title !== title ||
         current.description !== description ||
@@ -5033,6 +5135,11 @@ export const resubmitPinBox = onCall({ region: "us-central1", enforceAppCheck: f
     if (data.ownerId !== uid) throw new HttpsError("permission-denied", "Bu qutunun sahibi deyilsiniz.");
     if (data.status !== "active" && data.status !== "needs_revision") {
       throw new HttpsError("failed-precondition", "not-eligible");
+    }
+    // Same allowlist as `updatePinBox` — see its comment.
+    const venueSnap = await tx.get(db.collection("venues").doc(data.venueId as string));
+    if (!isPinBoxCategory(venueSnap.data()?.category)) {
+      throw new HttpsError("failed-precondition", "Bu məkan kateqoriyası PinBox funksiyasını dəstəkləmir.");
     }
 
     tx.update(ref, {
@@ -7389,6 +7496,8 @@ export const submitOffer = onCall(
     const offerImageUrl = data.imageUrl as string | undefined;
     if (offerImageUrl !== undefined) assertOwnStorageUrl(offerImageUrl, "imageUrl");
 
+    const birthdayTargeting = await assertBirthdayTargeting(data, venueId);
+
     const baseOfferData = {
       ownerId: uid,
       venueId,
@@ -7410,8 +7519,13 @@ export const submitOffer = onCall(
       terms: (data.terms as string | undefined) ?? null,
       activeHours: (data.activeHours as Record<string, unknown> | undefined) ?? null,
       activeDays: (data.activeDays as string[] | undefined) ?? [],
-      ...(data.birthdayMatchId ? { birthdayMatchId: data.birthdayMatchId } : {}),
-      ...((data.targetUserIds as string[] | undefined)?.length ? { targetUserIds: data.targetUserIds } : {}),
+      ...(birthdayTargeting ? { birthdayMatchId: birthdayTargeting.matchId } : {}),
+      // `targetUserIds` is NO LONGER WRITTEN HERE — see
+      // [assertBirthdayTargeting] for the validation, and the
+      // `private/targeting` write after this document is created for
+      // where the list now lives. The offer document keeps only
+      // `offerType: 'birthday'`, which says THAT an offer is targeted
+      // without saying at whom.
       ...(data.personalMessage ? { personalMessage: data.personalMessage } : {}),
       reviewNote: null,
       reviewedBy: null,
@@ -7428,6 +7542,18 @@ export const submitOffer = onCall(
       const freeOffersUsed = (freshVenue.freeOffersUsed as number | undefined) ?? 0;
       const windowEnd = (freshVenue.freeOfferWindowEnd as Timestamp | undefined)?.toDate();
       const isFree = isFoundingVenue && freeOffersUsed < FOUNDING_VENUE_FREE_OFFERS && !!windowEnd && new Date() < windowEnd;
+
+      // The targeted uid list rides in a server-only subcollection, in
+      // the SAME transaction as the offer itself — an offer that is
+      // `offerType: 'birthday'` must never exist without its targeting,
+      // or `notifyBirthdayTargetUsers` would silently reach nobody.
+      if (birthdayTargeting) {
+        tx.set(offerRef.collection("private").doc("targeting"), {
+          userIds: birthdayTargeting.userIds,
+          matchId: birthdayTargeting.matchId,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+      }
 
       if (isFree) {
         tx.set(offerRef, { ...baseOfferData, status: "pending" });

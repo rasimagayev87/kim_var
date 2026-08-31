@@ -1704,6 +1704,11 @@
   "vipBillingComingSoonMessage": "Billing will be enabled soon.",
   "vipCurrentPackageTitle": "Current package",
   "vipCurrentPackageActiveLabel": "Active",
+  "vipCurrentPackageExpiresLabel": "Active until {date}",
+  "@vipCurrentPackageExpiresLabel": {
+    "description": "Subscription end date",
+    "placeholders": { "date": { "type": "String" } }
+  },
   "vipManageButton": "Manage",
   "vipFeatureGhostTitle": "Ghost Mode",
   "vipFeatureGhostDescription": "See other users without appearing on the map yourself.",
