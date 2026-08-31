@@ -94,6 +94,25 @@ class NotificationsScreen extends ConsumerWidget {
                   value: prefs.venueUpdates,
                   onChanged: (v) => onCategoryChanged('venueUpdates', v),
                 ),
+                // Both switches below already existed as stored fields
+                // and as server-side gates on the admin panel's
+                // broadcasts — with no UI. The user could not reach
+                // them, so "PeakPin-dən elanlar" and promotional
+                // messages were effectively unrefusable.
+                SettingsToggleRow(
+                  icon: Icons.campaign_outlined,
+                  title: loc.notifSystemTitle,
+                  subtitle: loc.notifSystemSubtitle,
+                  value: prefs.systemNotifications,
+                  onChanged: (v) => onCategoryChanged('systemNotifications', v),
+                ),
+                SettingsToggleRow(
+                  icon: Icons.sell_outlined,
+                  title: loc.notifMarketingTitle,
+                  subtitle: loc.notifMarketingSubtitle,
+                  value: prefs.marketing,
+                  onChanged: (v) => onCategoryChanged('marketing', v),
+                ),
               ],
             ),
             const SizedBox(height: 16),

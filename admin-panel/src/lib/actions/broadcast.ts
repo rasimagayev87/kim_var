@@ -40,7 +40,10 @@ async function requireBroadcastPermission(): Promise<{ admin: AdminSession } | {
 /** Resolves a segment to the exact uid list it targets — kept separate
  * from `sendBroadcast` so the UI can show a live "N istifadəçiyə
  * göndəriləcək" count before the admin actually commits to sending. */
-export async function countBroadcastAudience(segment: BroadcastSegment): Promise<number | { error: string }> {
+export async function countBroadcastAudience(
+  segment: BroadcastSegment,
+  type: BroadcastType,
+): Promise<number | { error: string }> {
   const check = await requireBroadcastPermission();
   if ("denied" in check) return { error: check.denied.error ?? "forbidden" };
 
@@ -49,8 +52,30 @@ export async function countBroadcastAudience(segment: BroadcastSegment): Promise
   if (segment === "vip") query = query.where("premium", "==", true);
   if (segment === "verified") query = query.where("identityVerified", "==", true);
 
-  const snap = await query.count().get();
-  return snap.data().count;
+  // Counts what will ACTUALLY be sent, not the raw segment size.
+  //
+  // This used to be a bare `.count()`, so the admin saw "500
+  // istifadəçiyə göndəriləcək" and the send reported a smaller number
+  // with no explanation. For `promotion` the gap is now the whole
+  // audience — opt-in means almost nobody until users turn the switch
+  // on — and a preview that hides that would read as a bug in the
+  // send, not as the consent rule working.
+  //
+  // Costs one `private/data` read per candidate, same as `sendBroadcast`
+  // itself. Acceptable: this runs when an admin opens the compose
+  // screen, not per request.
+  const snap = await query.select().get();
+  if (snap.empty) return 0;
+
+  const prefKey = PREFERENCE_KEY_BY_TYPE[type];
+  const optInOnly = prefKey === "marketing";
+  const privateSnaps = await Promise.all(
+    snap.docs.map((doc) => doc.ref.collection("private").doc("data").get()),
+  );
+  return privateSnaps.filter((s) => {
+    const value = s.data()?.notificationPreferences?.[prefKey];
+    return optInOnly ? value === true : value !== false;
+  }).length;
 }
 
 /**
@@ -101,9 +126,26 @@ export async function sendBroadcast({
     const privateSnaps = await Promise.all(
       snap.docs.map((doc) => doc.ref.collection("private").doc("data").get()),
     );
-    const targetDocs = snap.docs.filter(
-      (_doc, i) => privateSnaps[i].data()?.notificationPreferences?.[prefKey] !== false,
-    );
+    // OPT-IN for `marketing`, opt-OUT for everything else.
+    //
+    // `!== false` for every key was wrong for promotions specifically.
+    // `updatePreferences` (the Flutter repository) writes only the keys
+    // a user has actually toggled, so `marketing` is ABSENT from
+    // Firestore for everyone who never opened the switch — and absent
+    // read as consent. The client meanwhile defaulted it to `false` and
+    // showed the switch off. Every user was being shown "promotions
+    // off" while the server counted them as opted in.
+    //
+    // Promotional messaging is the one category where silence must not
+    // mean yes: several jurisdictions require prior consent, and the
+    // product decision is the same regardless. `=== true` demands the
+    // stored flag, so a user reaches this audience only by turning the
+    // switch on themselves.
+    const optInOnly = prefKey === "marketing";
+    const targetDocs = snap.docs.filter((_doc, i) => {
+      const value = privateSnaps[i].data()?.notificationPreferences?.[prefKey];
+      return optInOnly ? value === true : value !== false;
+    });
     if (targetDocs.length === 0) {
       return { ok: false, error: "empty-audience" };
     }

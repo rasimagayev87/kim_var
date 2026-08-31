@@ -38,6 +38,7 @@ import {
   VENUE_AUDIENCE_RADIUS_OPTIONS_KM,
 } from "./geo";
 import { InvalidPhoneNumberError, normalizePhoneNumber } from "./phone";
+import { isGatedCategory } from "./notification-categories";
 
 // `enforceAppCheck: false` on every onCall function below — deliberately
 // reverted from `true`. iOS release builds activate App Check via
@@ -2297,7 +2298,20 @@ async function notifyUser(params: {
   const privateData = (await privateDataRef(params.uid).get()).data() ?? {};
 
   const prefs = (privateData.notificationPreferences ?? {}) as Record<string, boolean>;
-  if (prefs[params.category] === false) return;
+  // `security` and `account` are deliberately NOT gated — see
+  // [UNGATED_NOTIFICATION_CATEGORIES] (`./notification-categories`) for
+  // which types live there and why, and
+  // `tests/rules/notification-categories.test.ts`, which fails if a
+  // transactional type is ever moved back under a toggle.
+  //
+  // Before this, the check was an unconditional
+  // `if (prefs[params.category] === false) return;`, which meant even
+  // `security` could be silenced by writing
+  // `notificationPreferences.security = false` — a field the client
+  // legitimately owns (it holds the user's own choices, so it is not in
+  // `serverOnlyFields()`), and one no UI ever offered. The Settings
+  // screen showing no switch was the only thing "protecting" it.
+  if (isGatedCategory(params.category) && prefs[params.category] === false) return;
 
   await db
     .collection("users")
@@ -2477,7 +2491,7 @@ export const onUserUpdated = onDocumentUpdated("users/{userId}", async (event) =
   if (before.premium !== true && after.premium === true) {
     await notifyUser({
       uid: event.params.userId,
-      category: "venueUpdates",
+      category: "account",
       type: "vipGranted",
       title: "VIP statusu aktivləşdi",
       body: "Siz artıq VIP istifadəçi statusundasınız.",
@@ -3519,7 +3533,7 @@ export const onVenueCreated = onDocumentCreated("venues/{venueId}", async (event
 
   await notifyUser({
     uid: ownerId,
-    category: "venueUpdates",
+    category: "account",
     type: "venueAdded",
     title: "Məkanınız əlavə edildi",
     body: name ? `"${name}" uğurla yaradıldı.` : "Məkanınız uğurla yaradıldı.",
@@ -3552,7 +3566,7 @@ export const onVenueUpdated = onDocumentUpdated("venues/{venueId}", async (event
   if (before.verified !== after.verified && after.verified === true) {
     await notifyUser({
       uid: ownerId,
-      category: "venueUpdates",
+      category: "account",
       type: "venueVerified",
       title: "Məkanınız təsdiqləndi",
       body: name ? `"${name}" artıq təsdiqlənmiş məkandır.` : "Məkanınız təsdiqləndi.",
@@ -3573,7 +3587,7 @@ export const onVenueUpdated = onDocumentUpdated("venues/{venueId}", async (event
     if (notification) {
       await notifyUser({
         uid: ownerId,
-        category: "venueUpdates",
+        category: "account",
         ...notification,
         targetId: event.params.venueId,
         targetType: "venue",
@@ -3674,7 +3688,7 @@ export const onOfferUpdated = onDocumentUpdated("offers/{offerId}", async (event
   if (notification) {
     await notifyUser({
       uid: ownerId,
-      category: "venueOffers",
+      category: "account",
       ...notification,
       targetId: event.params.offerId,
       targetType: "offer",
@@ -3912,7 +3926,7 @@ export const joinWaitlist = onCall({ region: "us-central1", enforceAppCheck: fal
   const quotedVenue = venueName ? `"${venueName}"` : "Məkanınız";
   await notifyUser({
     uid: ownerId,
-    category: "venueUpdates",
+    category: "account",
     type: "venueWaitlistJoined",
     title: "Növbəyə yeni yazılış",
     body: `${quotedVenue} növbəsinə ${partySize} nəfərlik yeni yazılış oldu.`,
@@ -3957,7 +3971,7 @@ export const maintainWaitlistQueuePositions = onDocumentWritten(
       if (userId) {
         await notifyUser({
           uid: userId,
-          category: "venueUpdates",
+          category: "account",
           type: "waitlistCalled",
           title: "Sıra sizindir!",
           body: venueName ? `${venueName} — 5 dəqiqəyə gəlin.` : "5 dəqiqəyə gəlin.",
@@ -4134,7 +4148,7 @@ export const disableWaitlistOnIneligibleCategory = onDocumentUpdated("venues/{ve
       if (!userId) return Promise.resolve();
       return notifyUser({
         uid: userId,
-        category: "venueUpdates",
+        category: "account",
         type: "waitlistDisabled",
         title: "Növbə deaktiv edildi",
         body: venueName
@@ -5046,7 +5060,7 @@ export const onPinBoxCreated = onDocumentCreated("pinboxes/{pinboxId}", async (e
 
   await notifyUser({
     uid: ownerId,
-    category: "venueOffers",
+    category: "account",
     type: "pinboxAdded",
     title: "Qutunuz əlavə edildi",
     body: title ? `"${title}" uğurla yaradıldı, admin təsdiqini gözləyir.` : "Qutunuz uğurla yaradıldı.",
@@ -5081,7 +5095,7 @@ export const onPinBoxUpdated = onDocumentUpdated("pinboxes/{pinboxId}", async (e
   if (notification) {
     await notifyUser({
       uid: ownerId,
-      category: "venueOffers",
+      category: "account",
       ...notification,
       targetId: event.params.pinboxId,
       targetType: "pinbox",
@@ -5200,7 +5214,7 @@ export const onIdentityVerificationUpdated = onDocumentUpdated("identityVerifica
   if (after.status === "approved") {
     await notifyUser({
       uid: userId,
-      category: "venueUpdates",
+      category: "account",
       type: "identityVerificationApproved",
       title: "Kimliyiniz təsdiqləndi",
       body: "Profilinizdə mavi tık nişanı aktivləşdi.",
@@ -5212,7 +5226,7 @@ export const onIdentityVerificationUpdated = onDocumentUpdated("identityVerifica
   const reason = typeof after.rejectionReason === "string" && after.rejectionReason.trim() ? after.rejectionReason.trim() : undefined;
   await notifyUser({
     uid: userId,
-    category: "venueUpdates",
+    category: "account",
     type: "identityVerificationRejected",
     title: "Kimlik doğrulaması rədd edildi",
     body: reason ? `Səbəb: ${reason}` : "Müraciətiniz rədd edildi.",
@@ -5651,7 +5665,7 @@ export const renewVenueSubscriptions = onSchedule(
 
         await notifyUser({
           uid: ownerId,
-          category: "venueUpdates",
+          category: "account",
           type: "venueSubscriptionDue",
           title: "Məkan abunəliyi ödənişi tələb olunur",
           body: venueName ? `"${venueName}" üçün abunəlik ödənişini tamamlayın.` : "Abunəlik ödənişini tamamlayın.",
@@ -8129,7 +8143,7 @@ async function applyPaymentOutcome(
       if (payment.type === "offer_placement_fee") {
         await notifyUser({
           uid: ownerId,
-          category: "venueOffers",
+          category: "account",
           type: "offerPaymentConfirmed",
           title: "Ödəniş təsdiqləndi",
           body: `${quoted} üçün ödəniş qəbul edildi, indi nəzərdən keçirilir.`,
@@ -8147,7 +8161,7 @@ async function applyPaymentOutcome(
         const hours = payment.boostHours as number;
         await notifyUser({
           uid: ownerId,
-          category: "venueOffers",
+          category: "account",
           type: "offerBoosted",
           title: "Təklifiniz önə çəkildi",
           body: `${quoted} ${hours} saat önə çəkildi.`,
@@ -8174,7 +8188,7 @@ async function applyPaymentOutcome(
       const quoted = name ? `"${name}"` : "Məkanınız";
       await notifyUser({
         uid: ownerId,
-        category: "venueUpdates",
+        category: "account",
         type: isFirstPayment ? "venuePaymentConfirmed" : "venueSubscriptionRenewed",
         title: isFirstPayment ? "Ödəniş təsdiqləndi" : "Abunəlik yeniləndi",
         body: isFirstPayment
@@ -8198,7 +8212,7 @@ async function applyPaymentOutcome(
       const quoted = name ? `"${name}"` : "Məkanınız";
       await notifyUser({
         uid: ownerId,
-        category: "venueUpdates",
+        category: "account",
         type: "venuePremiumActivated",
         title: "Premium status aktivləşdi",
         body: `${quoted} indi premium statusundadır (${months} ay).`,
@@ -8221,7 +8235,7 @@ async function applyPaymentOutcome(
       const quoted = title ? `"${title}"` : "PinBox";
       await notifyUser({
         uid: ownerId,
-        category: "venueOffers",
+        category: "account",
         type: "pinboxOrderConfirmed",
         title: "Sifariş təsdiqləndi",
         body: `${quoted} sifarişiniz təsdiqləndi, QR biletiniz hazırdır.`,
@@ -8260,7 +8274,7 @@ async function applyPaymentOutcome(
     }
     await notifyUser({
       uid: ownerId,
-      category: "venueOffers",
+      category: "account",
       type: "paymentFailed",
       title: "Ödəniş uğursuz oldu",
       body: name ? `"${name}": ${reason}` : reason,
@@ -9167,7 +9181,7 @@ export const expireVenuePremium = onSchedule({ schedule: "every 24 hours", regio
     const quoted = name ? `"${name}"` : "Məkanınızın";
     await notifyUser({
       uid: ownerId,
-      category: "venueUpdates",
+      category: "account",
       type: "venuePremiumExpiringSoon",
       title: "Premium statusunuz bitir",
       body: `${quoted} premium statusu ${daysLeft} gün sonra bitir.`,

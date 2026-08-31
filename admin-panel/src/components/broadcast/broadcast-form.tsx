@@ -36,17 +36,22 @@ export function BroadcastForm() {
   const [pending, startTransition] = useTransition();
   const [countPending, startCountTransition] = useTransition();
 
+  // Recounts on TYPE as well as segment — the audience now depends on
+  // both, since each broadcast type is filtered by its own preference
+  // key and `promotion` is opt-in (see `countBroadcastAudience`).
+  // Without `type` here the preview would go stale the moment the
+  // admin switched to a promotion.
   useEffect(() => {
     let cancelled = false;
     startCountTransition(async () => {
-      const result = await countBroadcastAudience(segment);
+      const result = await countBroadcastAudience(segment, type);
       if (cancelled) return;
       setAudience(typeof result === "number" ? result : 0);
     });
     return () => {
       cancelled = true;
     };
-  }, [segment]);
+  }, [segment, type]);
 
   const canSubmit = title.trim().length > 0 && body.trim().length > 0 && !pending;
 

@@ -1649,6 +1649,46 @@ service cloud.firestore {
             request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
             request.resource.data.status == 'cancelled') ||
           (isVenueOwner() &&
+            // The owner may only move an entry that is still LIVE.
+            //
+            // Without this the owner branch constrained the destination
+            // status but not the origin, so a `cancelled`, `noShow` or
+            // `seated` entry could be set back to `called` — and
+            // `maintainWaitlistQueuePositions` fires `waitlistCalled`
+            // on any `!= called` → `called` transition. The result was
+            // a "Sıra sizindir! — 5 dəqiqəyə gəlin" push to someone who
+            // had already cancelled and gone home.
+            //
+            // This became worth fixing rather than tolerating when
+            // `waitlistCalled` moved to the ungated `account` category
+            // (see functions/src/notification-categories.ts): the
+            // recipient used to be able to escape it by switching off
+            // "Məkan yenilikləri", and now cannot. Making a message
+            // unsilenceable and leaving a path that sends it wrongly is
+            // the half-fix that turns a good change into a worse one.
+            //
+            // `['waiting', 'called']` is EXACTLY what the owner's
+            // screen can reach: `VenueWaitlistScreen` queries
+            // `whereIn: [waiting, called]`, so a terminal entry is not
+            // even rendered — waiting rows offer Çağır/Sil, called rows
+            // offer Oturdu/Gəlmədi. Nothing legitimate is lost.
+            //
+            // DELIBERATELY NOT ADDING `noShow` → `waiting`. A venue
+            // marking someone no-show by mistake while they are still
+            // standing there is a real scenario, but there is no screen
+            // that could undo it — the entry vanishes from the only
+            // list the owner has. Granting the permission now would be
+            // a permission ahead of its feature, the same mistake this
+            // file made with `audienceHistory`. If that undo is ever
+            // built it needs its own decision, and specifically a way
+            // to restore the entry WITHOUT re-firing `waitlistCalled`
+            // (re-calling the person afterwards should notify; silently
+            // reinstating them should not).
+            //
+            // A `called` → `called` re-write stays allowed and is
+            // harmless: the trigger trips only on a change INTO
+            // `called`, so it cannot double-send.
+            resource.data.status in ['waiting', 'called'] &&
             // `seatedAt` — stamped alongside `status: seated` by the
             // same `markSeated` write (see `firebase_waitlist_
             // repository.dart`), the review system's proof of visit.

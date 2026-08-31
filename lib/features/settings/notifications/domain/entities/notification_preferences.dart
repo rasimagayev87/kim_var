@@ -1,40 +1,49 @@
-/// Stored as a nested `notificationPreferences` map on `users/{uid}`
-/// (not a new collection) — the existing owner-update rule on that
-/// doc already covers it, no rules change needed.
+/// Stored as a nested `notificationPreferences` map on
+/// `users/{uid}/private/data` — owner-writable by design (these are the
+/// user's own choices, so the field is deliberately NOT in
+/// `serverOnlyFields()`), and readable/writable by nobody else.
+///
+/// Every key here is gated server-side in `notifyUser`
+/// (functions/src/index.ts). Two categories are deliberately absent:
+/// `security` and `account` are UNGATED — see
+/// `functions/src/notification-categories.ts` for which notification
+/// types they cover and why a failed charge or a "your table is ready"
+/// must not be silenceable. They are not fields here because there is
+/// no switch to store.
+///
+/// `newUsers` and `emailEnabled` were removed on 2026-08-31: no server
+/// code read either. `newUsers` gated nothing at all, and
+/// `emailEnabled` described an email service this project has never
+/// had. A stored flag nothing consults is a switch that lies.
 class NotificationPreferences {
   final bool messages;
   final bool followers;
-  final bool newUsers;
   final bool likes;
   final bool comments;
   final bool venueOffers;
   final bool venueUpdates;
-  final bool security;
   final bool systemNotifications;
   final bool marketing;
 
-  /// Master switch — off overrides every category above (they all
-  /// stay unsubscribed on-device regardless of their own flag).
+  /// Master switch. Suppresses the PUSH for every notification —
+  /// including the ungated `security`/`account` ones — but not the
+  /// in-app feed entry, which `notifyUser` writes before consulting
+  /// this. So a user who turns this off still finds "ödənişiniz
+  /// uğursuz oldu" waiting in Bildirişlər; they have chosen not to be
+  /// interrupted, not to be uninformed. Matches what the OS-level
+  /// permission would do anyway, which the app cannot override.
   final bool pushEnabled;
-
-  /// No transactional email service is configured yet (same gap noted
-  /// for account email changes) — this is a real, stored preference,
-  /// but nothing currently sends an email because of it.
-  final bool emailEnabled;
 
   const NotificationPreferences({
     this.messages = true,
     this.followers = true,
-    this.newUsers = true,
     this.likes = true,
     this.comments = true,
     this.venueOffers = true,
     this.venueUpdates = true,
-    this.security = true,
     this.systemNotifications = true,
     this.marketing = false,
     this.pushEnabled = true,
-    this.emailEnabled = false,
   });
 
   bool categoryValue(String key) {
@@ -43,8 +52,6 @@ class NotificationPreferences {
         return messages;
       case 'followers':
         return followers;
-      case 'newUsers':
-        return newUsers;
       case 'likes':
         return likes;
       case 'comments':
@@ -53,8 +60,6 @@ class NotificationPreferences {
         return venueOffers;
       case 'venueUpdates':
         return venueUpdates;
-      case 'security':
-        return security;
       case 'systemNotifications':
         return systemNotifications;
       case 'marketing':
