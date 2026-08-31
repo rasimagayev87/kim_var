@@ -68,6 +68,16 @@ const EXISTING_NAV: {
     countKey: "pinboxPayouts",
   },
   { href: "/offers", label: "Təkliflər", icon: Tag, permission: "viewOffers", countKey: "offers" },
+  {
+    href: "/subscriptions",
+    label: "Abunəliklər",
+    icon: CreditCard,
+    // Open to every role — the money columns inside are gated
+    // separately on `viewRevenue`, in the query rather than the markup.
+    permission: "viewSubscriptions",
+  },
+  { href: "/analytics", label: "Analitika", icon: BarChart3, permission: "viewAnalytics" },
+  { href: "/roles", label: "Rollar və İcazələr", icon: KeyRound, permission: "manageAdmins" },
   { href: "/pinboxes", label: "PinBox", icon: Package, permission: "viewPinBoxes", countKey: "pinboxes" },
   { href: "/feedback", label: "Şikayətlər", icon: Flag, permission: "manageFeedback", countKey: "reports" },
   {
@@ -88,27 +98,28 @@ const EXISTING_NAV: {
   { href: "/logs", label: "Loglar", icon: ScrollText, permission: "viewAuditLogs" },
   { href: "/admins", label: "Admin idarəetməsi", icon: ShieldCheck, permission: "manageAdmins" },
 ];
-
-// New — no backend behind these yet, "Tezliklə" until each is wired up.
+// Three of these are now real screens and moved into EXISTING_NAV
+// above, where the permission filter applies to them like everything
+// else. What is left here has no backend and, deliberately, no route:
 //
-// Deliberately NOT permission-filtered: there is no page behind any of
-// them, so there is nothing to authorize and a role filter here would
-// only be decoration. The access decision has already been made though
-// — when each screen is built, gate it on the permission already
-// defined in lib/auth/permissions.ts rather than inventing a new one:
-//   /map            → viewUsers (it plots user positions)
-//   /subscriptions  → viewSubscriptions / manageSubscriptions
-//   /analytics      → viewAnalytics, plus viewEngagementMetrics for
-//                     DAU/WAU/MAU and viewRevenue for revenue panels
-//   /roles          → manageAdmins
-//   /settings       → manageSystemSettings
-//   /ai-center      → not yet decided; pick or add a permission then.
+//   /map        — plots user positions. Building it would reopen the
+//                 tracking surface Prompt 4 and H-1 closed; if it is
+//                 ever built it should plot VENUES, not people. Needs
+//                 its own security decision first.
+//   /settings   — writes `config/*` (`businessOffer`, `iapTesters`,
+//                 `waitlistCategories`). A wrong value there breaks the
+//                 app for everyone; needs validation and an audit trail
+//                 designed before a form exists. Permission is already
+//                 decided: `manageSystemSettings`.
+//   /ai-center  — scope undefined. Not to be built until what it does
+//                 is decided.
+//
+// See docs/BACKLOG.md #16. These render as links with no target on
+// purpose: the badge is the whole point, so nobody assumes the screen
+// exists.
 const PLANNED_NAV = [
   { href: "/map", label: "Xəritə", icon: MapPinned, badge: "Tezliklə" },
-  { href: "/subscriptions", label: "Abunəliklər", icon: CreditCard, badge: "Tezliklə" },
   { href: "/ai-center", label: "AI Mərkəzi", icon: Sparkles, badge: "Tezliklə" },
-  { href: "/analytics", label: "Analytics", icon: BarChart3, badge: "Tezliklə" },
-  { href: "/roles", label: "Rollar və İcazələr", icon: KeyRound, badge: "Tezliklə" },
 ];
 
 export function Sidebar({ role, pendingCounts }: { role: AdminRole; pendingCounts: PendingCounts }) {

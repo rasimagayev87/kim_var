@@ -197,41 +197,55 @@ allow list: if false;` + məkan profilinin rəy siyahısı üçün
 **Prioritet səbəbi:** məxfilik təsiri realdır, amma istismarı üçün daxil
 olmuş hesab lazımdır və hazırda `reviews` praktiki olaraq boşdur.
 
-## 16. Admin paneldə səkkiz əskik səhifə (RBAC hazırdır, məzmun yoxdur)
+## 16. Admin paneldə qalan üç əskik səhifə
 
-**Mənbə:** 5 rollu RBAC işi (2026-08-30)
-**Nə:** İcazə matrisi səkkiz sahəni əhatə edir, amma onların heç birinin
-admin paneldə səhifəsi yoxdur. İcazələr təyin edilib və `permissions.ts`-də
-`UNIMPLEMENTED_PERMISSIONS` siyahısında açıq işarələnib — yəni səhifə
-yazılanda yeni icazə icad etmək lazım deyil, mövcudunu qoşmaq kifayətdir.
+**Mənbə:** 5 rollu RBAC işi (2026-08-30), 2026-08-30-da yeniləndi.
 
-| Səhifə | Hazır icazə | Kim görür / kim idarə edir |
-|---|---|---|
-| Tədbirlər siyahısı | `viewEvents` | admin, moderator, support, analyst |
-| Boost idarəetməsi | `viewBoosts` / `manageBoosts` | hamı görür; admin + finance idarə edir |
-| Maliyyə hesabatları | `viewFinancials` / `manageFinancials` | admin, finance, analyst görür |
-| Epoint əməliyyatları | `viewEpointTransactions` | admin, finance, support, analyst |
-| Support müraciətləri (`supportMessages`) | `viewSupportMessages` / `manageSupportMessages` | hamı görür; admin + support idarə edir |
-| Analitika (`/analytics`) | `viewAnalytics` | hamı |
-| DAU / WAU / MAU | `viewEngagementMetrics` | admin, moderator, analyst |
-| Sistem ayarları (`/settings`) | `manageSystemSettings` | yalnız admin |
-| Export (CSV/Excel) | `exportData` / `exportFinancialData` | admin; finance yalnız maliyyə |
+**Bağlandı:** səkkiz maddədən üçü quruldu — **`/roles`** (icazə
+matrisi, `manageAdmins`), **`/analytics`** (`viewAnalytics` +
+blok-səviyyəli `viewEngagementMetrics`/`viewRevenue`),
+**`/subscriptions`** (`viewSubscriptions`, məbləğ `viewRevenue` ilə).
+Hər üçü oxu-yalnızdır. Qalan beş maddədən ikisi (`viewFinancials`
+hesabatları, export) hələ də ekran gözləyir; üçü aşağıda, hər biri
+öz səbəbi ilə.
 
-**Nəticə — bu, gözlənilən vəziyyətdir, nöqsan deyil:** `analyst` rolunun
-bu gün praktik olaraq öz iş sahəsi YOXDUR (analitika səhifəsi mövcud
-deyil; yalnız dashboard-un mövcud kartlarını görür). `finance` qismən
-funksionaldır — ödəniş, PinBox payout və premium ekranları işləyir, amma
-maliyyə hesabatları və export yoxdur. Rollar hazırdır, məzmun sonra gəlir.
+### Qurulmayan üç səhifə
 
-**Təxmini iş həcmi:** hər səhifə ayrıca, ~0.5-2 gün. `supportMessages`
-səhifəsi ən çox dəyər verəndir (kolleksiya artıq doludur və heç bir
-oxuma səthi yoxdur); `/analytics` isə `analyst` rolunu mənalı edən
-yeganə səhifədir.
+**`/map` — Xəritə. Təhlükəsizlik qərarı tələb edir.**
+Admin xəritəsi istifadəçi koordinatlarını göstərərsə, Düzəliş
+Prompt 4-də (`lat`/`lng` public `users` sənədindən `private/data`-ya
+köçürüldü) və P0 / H-1-də (məsafə 100 m-ə kvantlaşdırıldı, sürət
+yoxlaması əlavə edildi) bağladığımız izləmə səthini **yenidən açar** —
+bu dəfə admin panelin öz sessiyası vasitəsilə. Üstəlik `viewUsers`
+icazəsi altında olardı, yəni `moderator` da görərdi.
+**Şərt:** qurulacaqsa yalnız **məkanları** göstərsin, istifadəçiləri
+yox. İstifadəçi koordinatı istənilirsə, əvvəlcə ayrıca qərar lazımdır:
+kim, hansı halda, hansı dəqiqliklə və hansı audit qeydi ilə.
 
-**Diqqət (export üçün):** `exportFinancialData` finance-ə verilir, amma
-matrisin qəsdən qərarı budur ki, həmin export-da istifadəçi PII-si
-OLMAMALIDIR — `finance` `viewUsers` icazəsinə malik deyil, ona görə
-export onun ekranda görə bilmədiyi məlumatı fayla çıxarmamalıdır.
+**`/settings` — Tənzimləmələr. Validasiya və audit dizaynı tələb edir.**
+`config/*` sənədlərinə yazacaq: `businessOffer` (abunə müqaviləsinin
+versiyası və URL-i — `submitVenue` ona güvənir), `iapTesters`
+(Sandbox qəbzi ilə pulsuz VIP alan uid-lər), `waitlistCategories`,
+`eventCategories`, `legal`. Səhv dəyər tətbiqi sındırır: məsələn
+`legal.documentUrl` boş qalsa razılıq dialoqu açılmır, `iapTesters`-ə
+səhv uid əlavə edilsə həmin hesab pulsuz VIP alır.
+**Şərt:** sahə-səviyyəli validasiya, dəyişikliyin `moderationLogs`-a
+yazılması, və kim dəyişdi/nə vaxt/köhnə dəyər nə idi. İcazə artıq
+təyin edilib: `manageSystemSettings` (yalnız admin).
+
+**`/ai-center` — AI Mərkəzi. Əhatəsi müəyyən deyil.**
+Nə edəcəyi qərarlaşmayıb — moderasiya köməkçisi, məzmun xülasəsi,
+yoxsa başqa şey. Nə etdiyi bilinməyən səhifənin icazəsini seçmək də
+mümkün deyil. **Qurulmasın** ta ki əhatə yazılana qədər.
+
+### Qalan iki ekran
+
+`viewFinancials` (maliyyə hesabatları) və `exportData`/
+`exportFinancialData` — icazələri var, ekranları yoxdur.
+`UNIMPLEMENTED_PERMISSIONS` onları elan edir.
+
+**Təxmini iş həcmi:** `/settings` ~1 gün · `/map` (yalnız məkanlar)
+~4 saat · `/ai-center` — əhatə yazılana qədər qiymətləndirilə bilməz.
 
 ## 17. Vercel layihəsini GitHub-a bağlamaq (admin panel deploy-u)
 
@@ -384,3 +398,30 @@ yazmaqdır.
   hamısını örtür. **Tövsiyə olunan.**
 
 **Təxmini iş həcmi:** (a) ~1 saat · (b) ~40 dəqiqə.
+
+## 22. `subscription_overdue` admin paneldə "approved" kimi görünür
+
+**Mənbə:** `/subscriptions` səhifəsinin qurulması (2026-08-30)
+**Nə:** `renewVenueSubscriptions` (`functions/src/index.ts:5403`) ödəniş
+gecikəndə məkanı `status: "subscription_overdue"` edir və belə məkan
+kəşfdə görünmür. Admin panelin `VenueStatus` birləşməsində
+(`lib/data/venues.ts:55`) bu dəyər **yoxdur**, `parseStatus` isə
+tanımadığı hər dəyəri **`"approved"`-a** çevirir.
+
+**Nəticə:** `/venues` səhifəsində abunə borcuna görə dayandırılmış
+məkan **təsdiqlənmiş** kimi görünür. Bu, admin roster-indəki
+«naməlum rol» qüsuru ilə eyni sinifdir — köhnəlmiş allowlist, üstəlik
+xoşagələn defolta yığılma — amma nəticəsi daha pisdir, çünki orada
+`null` göstərilirdi, burada isə yanlış status göstərilir.
+
+**Bu turda düzəldilmədi**, çünki `VenueStatus` birləşməsini
+genişləndirmək `/venues` səhifəsinin filtrlərinə, `setVenueStatus`
+server action-una və `StatusBadge` komponentinə toxunur — üç
+səhifənin əhatəsindən kənardır. `/subscriptions` öz status
+birləşməsini ayrıca elan edir, məhz bu çevirməni miras almamaq üçün.
+
+**Düzəliş:** `VenueStatus`-a `"subscription_overdue"` əlavə etmək,
+`parseStatus`-un defoltunu `"approved"`-dan çıxarmaq (tanınmayan dəyər
+üçün `null` və ya açıq "naməlum"), `/venues` filtrinə əlavə etmək.
+
+**Təxmini iş həcmi:** ~1 saat + testlər.

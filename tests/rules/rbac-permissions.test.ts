@@ -237,3 +237,70 @@ describe("RBAC — bildiriş: iki ayrı anlayış", () => {
     assert.equal(hasPermission("analyst", "viewAdminNotifications"), false);
   });
 });
+
+describe("RBAC — üç yeni səhifə", () => {
+  // Səhifələr Server Component-dir və `redirect()` çağırır, ona görə
+  // burada yoxlanılan şey səhifənin özü deyil, onun oxuduğu qərardır:
+  // hansı rol üçün `hasPermission` true qaytarır. Səhifə həmin
+  // funksiyanı birbaşa çağırır — arada başqa məntiq yoxdur.
+
+  test("/roles yalnız admin-ə açıqdır", () => {
+    // Rol strukturu daxili məlumatdır: hansı rolu ələ keçirməyin nə
+    // verdiyini sətir-sətir göstərir.
+    assert.equal(hasPermission("admin", "manageAdmins"), true);
+    for (const role of ["moderator", "finance", "support", "analyst"] as AdminRole[]) {
+      assert.equal(hasPermission(role, "manageAdmins"), false, `${role} /roles görməməlidir`);
+    }
+  });
+
+  test("/analytics hər rola açıqdır", () => {
+    for (const role of ADMIN_ROLES) {
+      assert.equal(hasPermission(role, "viewAnalytics"), true, role);
+    }
+  });
+
+  test("/analytics aktivlik bloku: finance və support GÖRMÜR", () => {
+    for (const role of ["admin", "moderator", "analyst"] as AdminRole[]) {
+      assert.equal(hasPermission(role, "viewEngagementMetrics"), true, role);
+    }
+    for (const role of ["finance", "support"] as AdminRole[]) {
+      assert.equal(hasPermission(role, "viewEngagementMetrics"), false, role);
+    }
+  });
+
+  test("/analytics gəlir bloku: moderator və support GÖRMÜR", () => {
+    for (const role of ["admin", "finance", "analyst"] as AdminRole[]) {
+      assert.equal(hasPermission(role, "viewRevenue"), true, role);
+    }
+    for (const role of ["moderator", "support"] as AdminRole[]) {
+      assert.equal(hasPermission(role, "viewRevenue"), false, role);
+    }
+  });
+
+  test("/subscriptions hər rola açıqdır, məbləğ isə yalnız viewRevenue ilə", () => {
+    for (const role of ADMIN_ROLES) {
+      assert.equal(hasPermission(role, "viewSubscriptions"), true, `${role} səhifəni görməlidir`);
+    }
+    // Məbləğ sütunu — səhifə ilə eyni deyil.
+    assert.equal(hasPermission("moderator", "viewRevenue"), false);
+    assert.equal(hasPermission("support", "viewRevenue"), false);
+    assert.equal(hasPermission("finance", "viewRevenue"), true);
+  });
+
+  test("analyst-in yeni səhifələrdə də PII səthi yoxdur", () => {
+    // Analytics analyst üçün qurulub; bu, ona başqa qapı açmamalıdır.
+    for (const p of ["viewUsers", "viewAuditLogs", "viewAdminNotifications", "manageFeedback"] as const) {
+      assert.equal(hasPermission("analyst", p), false, p);
+    }
+  });
+
+  test("üç səhifənin icazələri artıq 'səhifə yoxdur' siyahısında deyil", () => {
+    for (const p of ["viewAnalytics", "viewEngagementMetrics", "viewRevenue", "viewSubscriptions", "manageAdmins"] as const) {
+      assert.equal(
+        UNIMPLEMENTED_PERMISSIONS.includes(p),
+        false,
+        `${p} üçün səhifə var, siyahıdan çıxarılmalıdır`,
+      );
+    }
+  });
+});

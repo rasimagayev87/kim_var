@@ -24,6 +24,7 @@ import {
 import { geohashForLocation } from "geofire-common";
 import { verifyAppleNotification, verifyAppleTransaction, verifyGoogleSubscription } from "./iap";
 import { CHAT_MEDIA_FOLDERS, chatMediaPathForMessage, isChatHiddenByEveryone, resizedVariantPath } from "./chat-media";
+import { OFFER_ONLY_VENUE_CATEGORIES, venueSubscriptionFeeByCategory } from "./venue-fees";
 import {
   bucketDistanceMeters,
   clampAudienceRadiusKm,
@@ -5194,40 +5195,6 @@ export const expireListingRevisionDeadlines = onSchedule(
   },
 );
 
-/**
- * Independently declared copy of `_venueListingFeeFor` in
- * `lib/features/venues/data/repositories/firebase_venue_repository.dart`
- * — Cloud Functions can't import that Dart file, so this table is kept
- * in sync by hand. Exhaustive on purpose (see that file's own doc
- * comment for why) — a `switch` with no default here would silently
- * fall through to `undefined` for a category added on the Flutter side
- * but forgotten here, so this uses a plain lookup object instead and
- * `renewVenueSubscriptions` treats a missing entry as a bug to log, not
- * a 0 AZN charge.
- */
-const venueSubscriptionFeeByCategory: Record<string, number> = {
-  restaurant: 30, pub: 30, coffeeShop: 25, fastFood: 25, teaHouse: 15, sweetsShop: 20,
-  hotel: 30, motel: 20, cinema: 30, karaoke: 30, gameHall: 30, nightClub: 30,
-  fitness: 30, gym: 30, spa: 30, footballField: 25, clinic: 30, beautySalon: 30,
-  barbershop: 20, cosmetology: 30, tattoo: 20, photoStudio: 20, kidsEntertainment: 30,
-  pharmacyOptics: 30, dentalClinic: 30, perfumeryCosmetics: 25, carWash: 20, carRepair: 20,
-  supermarket: 30, bookstoreStationery: 20, petStore: 20, tailor: 15, dryCleaning: 25,
-  applianceRepair: 20, tutoringCenter: 25,
-  // Offer-only categories — see OFFER_ONLY_VENUE_CATEGORIES below and
-  // lib/core/constants/category_capabilities.dart on the Dart side.
-  wineHouse: 30, homeServices: 20, realEstate: 25,
-  independentArtist: 30, other: 25,
-};
-
-/** Categories restricted to offers-only — cannot create Events, PinBox
- * listings, or waitlist entries. Enforced here (`joinWaitlist`) and
- * mirrored as literal strings in firestore.rules' `isOfferOnlyCategory`
- * (Rules can't import this constant — see that function's own comment
- * for the duplication-risk note). Mirrors
- * `lib/core/constants/category_capabilities.dart`'s `kCategoryCapabilities`
- * on the Dart/client side.
- */
-const OFFER_ONLY_VENUE_CATEGORIES = ["wineHouse", "homeServices", "realEstate"];
 
 const SUBSCRIPTION_CYCLE_MS = 30 * 24 * 60 * 60 * 1000;
 

@@ -329,15 +329,18 @@ export const UNIMPLEMENTED_PERMISSIONS: readonly Permission[] = [
   "viewFinancials", // no financial-reports screen
   "viewEpointTransactions", // Epoint rows live inside /payments
   "viewSupportMessages", // `supportMessages` has no admin screen at all
-  "viewAnalytics", // no /analytics screen
-  "viewEngagementMetrics", // no DAU/WAU/MAU screen
   "manageBoosts",
   "manageFinancials",
   "manageSupportMessages",
-  "manageSystemSettings", // no /settings screen
+  "manageSystemSettings", // no /settings screen — see BACKLOG #16
   "exportData", // no export exists anywhere
   "exportFinancialData",
 ];
+// `viewAnalytics` and `viewEngagementMetrics` were removed from this
+// list when `/analytics` landed. `viewRevenue`, `viewSubscriptions`
+// and `manageAdmins` were never in it — they already had screens
+// (`/payments`, venue detail, `/admins`) and now gate `/analytics`'s
+// revenue block, `/subscriptions`, and `/roles` as well.
 
 export function hasPermission(role: AdminRole | null | undefined, permission: Permission): boolean {
   if (!role) return false;

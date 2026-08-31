@@ -4,6 +4,22 @@
       "collectionGroup": "users",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "createdAt", "order": "ASCENDING" },
+        { "fieldPath": "lastSeen", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "venues",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "category", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "premium", "order": "ASCENDING" },
         { "fieldPath": "premiumExpiresAt", "order": "ASCENDING" }
       ]
