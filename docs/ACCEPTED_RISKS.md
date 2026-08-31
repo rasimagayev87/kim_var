@@ -286,3 +286,49 @@ bağlandı), Storage kvotası `forwardChatMedia` amplifikasiyası nəzərə
 alınaraq yeniləndi, magic-byte və `reviews` maddələrinə auditin tapdığı
 AYRI (və həll edilə bilən) problemlər əlavə edildi. Əvvəlki yeniləmə:
 Düzəliş Prompt 10.
+
+---
+
+## Admin panel qaydası — səhifə-səviyyəli `Promise.all` xəta idarəetməsi tələb edir
+
+**Bu, qəbul edilmiş risk deyil — pozulmamalı qaydadır.** Buraya
+yazılıb, çünki eyni nasazlıq **üç dəfə** baş verib və hər dəfə eyni
+formada.
+
+**Qayda:** admin panelin hər səhifəsində birdən çox Firestore sorğusu
+paralel işlədilirsə, **hər biri ayrıca tutulmalıdır**. Bir sorğunun
+rədd edilməsi səhifəni öldürməməlidir.
+
+**Niyə:** `Promise.all` ilk rədd edilən promise-də bütün nəticəni
+atır. Server Component-də bu, 500 deməkdir — istifadəçi «This page
+couldn't load» görür, digər on sorğunun nəticəsi hazır olsa belə.
+
+**Ən çox rast gəlinən səbəb — composite indeks.** Yeni sorğu yeni
+indeks tələb edirsə, indeks qurulana qədər (dəqiqələr) və ya
+`firestore.indexes.json`-a əlavə edilməyibsə (həmişəlik) həmin sorğu
+`FAILED_PRECONDITION` atır.
+
+**Tarixçə:**
+1. `getPendingCounts` — `payments(type,status,createdAt)` sorğusu
+   **hər qorunan səhifənin layout-unu** aşağı saldı. `try/catch` ilə
+   düzəldildi (`lib/data/pending-counts.ts`-dəki şərhə bax).
+2. `/analytics` — `sum()` aqreqatının **cəmlənən sahəni** də indeksdə
+   tələb etməsi (`payments(status,createdAt,amount)`); səhifə ilk
+   yüklənişdə 500 verdi.
+3. Eyni forma `/dashboard` və `/subscriptions`-da da mövcud idi —
+   sınmamışdı, sadəcə hələ sınmamışdı.
+
+**Necə tətbiq edilir:** `safeAnalyticsQuery` (`lib/data/analytics.ts`)
+— sorğunu işlədir, xətanı **loglayır** və `null` qaytarır. Səhifə
+sınan blokları adları ilə banner-də göstərir.
+
+**İki incəlik:**
+* Xəta **udulmamalıdır** — səssizcə boş qalan panel öz növbəsində
+  başqa bir qüsurdur.
+* Fallback dəyər **etiketlənməlidir**. Dashboard-dakı sıfırlar açıq
+  şəkildə «həqiqi dəyər deyil» yazısı ilə gəlir: etiketsiz sıfır
+  «0 moderasiya gözləyir» ilə «soruşa bilmədik»i eyniləşdirir və
+  xəta səhifəsindən pisdir.
+
+**Yeni səhifə yazan üçün:** `/analytics`-in `page.tsx`-inə bax, eyni
+naxışı təkrarla.

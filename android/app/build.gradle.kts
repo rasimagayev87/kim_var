@@ -5,6 +5,7 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
     id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
 }
 
 // android/key.properties + android/keystore/peakpin-release.jks — both
@@ -72,6 +73,25 @@ android {
 
     buildTypes {
         release {
+            // BACKLOG #4 / ACCEPTED_RISKS C1a — R8 was off, so the
+            // shipped APK's Java/Kotlin side was fully readable with
+            // `apktool`/`jadx`. Turning it on shrinks and obfuscates
+            // that side; it does NOT touch Dart, which is already AOT
+            // native code in `libapp.so` (Dart obfuscation is
+            // `flutter build --obfuscate`, deliberately not used here).
+            //
+            // `proguard-android-optimize.txt` is Android's own
+            // baseline; `proguard-rules.pro` holds this app's keep
+            // rules and explains what each one protects. Read that file
+            // before touching this line.
+            isMinifyEnabled = true
+            // Drops unreferenced resources once R8 knows what code
+            // survives. Requires minification to be on.
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
             // Düzəliş Prompt 10 / INFRA-37 — this USED to fall back to
             // debug signing silently whenever key.properties was
             // missing, with no way to tell a deliberate local-dev build

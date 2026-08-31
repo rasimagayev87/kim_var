@@ -22,6 +22,12 @@ plugins {
     id("com.android.application") version "9.0.1" apply false
     id("org.jetbrains.kotlin.android") version "2.3.20" apply false
     id("com.google.gms.google-services") version "4.4.2" apply false
+    // Uploads the R8 mapping file to Crashlytics on every release
+    // build. Not optional now that minification is on: without it,
+    // every crash report arrives as `a.b.c(Unknown Source)` and the
+    // Crashlytics integration stops being worth having. Was never
+    // needed before because nothing was obfuscated.
+    id("com.google.firebase.crashlytics") version "3.0.2" apply false
 }
 
 include(":app")
