@@ -40,7 +40,9 @@
   "verifyEmailBody": "We sent a verification link to {email}. Click it, then tap the button below.",
   "@verifyEmailBody": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "verifyEmailNotYetVerifiedNotice": "Not verified yet. Click the link, then try again.",
@@ -350,26 +352,36 @@
   "chatCallDurationMinSec": "{minutes}m {seconds}s",
   "@chatCallDurationMinSec": {
     "placeholders": {
-      "minutes": {"type": "int"},
-      "seconds": {"type": "int"}
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "chatCallDurationSecOnly": "{seconds}s",
   "@chatCallDurationSecOnly": {
     "placeholders": {
-      "seconds": {"type": "int"}
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "chatCallDataUsageLabel": "≈ {usage} used",
   "@chatCallDataUsageLabel": {
     "placeholders": {
-      "usage": {"type": "String"}
+      "usage": {
+        "type": "String"
+      }
     }
   },
   "chatCallOngoingBannerLabel": "Call in progress · {duration}",
   "@chatCallOngoingBannerLabel": {
     "placeholders": {
-      "duration": {"type": "String"}
+      "duration": {
+        "type": "String"
+      }
     }
   },
   "callStatusRinging": "Calling...",
@@ -574,7 +586,7 @@
   "waitlistLeaveButton": "Leave waitlist",
   "waitlistLeaveConfirmMessage": "Are you sure you want to leave the waitlist?",
   "waitlistCalledBanner": "It's your turn! Come in 5 minutes",
-  "waitlistAlreadyWaitingErrorMessage": "This phone number is already on this venue\u2019s waitlist.",
+  "waitlistAlreadyWaitingErrorMessage": "This phone number is already on this venue’s waitlist.",
   "waitlistGenericErrorMessage": "Something went wrong. Please try again.",
   "waitlistSectionTitle": "Waitlist",
   "waitlistEnableToggleLabel": "Enable waitlist",
@@ -593,7 +605,11 @@
   "reviewsOwnerReplyLabel": "Owner's reply",
   "reviewsRatingCountLabel": "{count} reviews",
   "@reviewsRatingCountLabel": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "reviewsSheetTitle": "Write a review",
   "reviewsSheetRatingLabel": "Your rating",
@@ -699,26 +715,46 @@
   "offerBoostMostPopularBadge": "MOST POPULAR",
   "offerBoostCtaButton": "Boost ({amount} AZN)",
   "@offerBoostCtaButton": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "offerBoostComingSoonMessage": "The payment system is being set up and will be available soon.",
   "offerBoostAwaitingPaymentNotice": "You've been redirected to payment ({amount} AZN). Once confirmed, your offer will be boosted.",
   "@offerBoostAwaitingPaymentNotice": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "offerSubmitButton": "Create offer",
   "offerCreatedNotice": "Offer created",
   "offerPlacementFreeNotice": "This offer is free ({count}/5 remaining)",
   "@offerPlacementFreeNotice": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "offerPlacementFeeNotice": "Placement fee for this offer: {amount} AZN",
   "@offerPlacementFeeNotice": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "offerAwaitingPaymentNotice": "You've been redirected to payment ({amount} AZN). Once confirmed, your offer will be sent for review.",
   "@offerAwaitingPaymentNotice": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "epointCheckoutTitle": "Payment method",
   "epointCardOption": "Pay by card",
@@ -732,7 +768,11 @@
   "epointCheckoutSecurityNote": "256-bit SSL Secure Payment",
   "epointCheckoutPayButton": "Pay {amount} AZN",
   "@epointCheckoutPayButton": {
-    "placeholders": { "amount": { "type": "String" } }
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
   },
   "epointCheckoutErrorMessage": "Couldn't start payment, please try again shortly.",
   "epointResultSuccessTitle": "Payment received",
@@ -800,7 +840,11 @@
   "pinboxQuantityLabel": "QUANTITY",
   "pinboxQuantityLimitedWarning": "Only {count} left",
   "@pinboxQuantityLimitedWarning": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "pinboxDeliveryTermsLabel": "PICKUP TERMS",
   "pinboxPickupOnlyNotice": "Pickup only during the time window shown",
@@ -949,6 +993,12 @@
   "venueSaveButton": "Save",
   "venueRequiredFieldsMissing": "Please fill in all required fields.",
   "venueGenericErrorMessage": "That didn't go through. Please try again in a moment.",
+  "venueErrorRateLimited": "Too many attempts. Please try again in an hour.",
+  "venueErrorBusinessInactive": "Turn on Settings → Business activity to create a venue.",
+  "venueErrorOfferNotAccepted": "You need to accept the Business Services Public Offer.",
+  "venueErrorPhotoRejected": "The venue photo was rejected. Pick the photo again and retry.",
+  "venueErrorAccountBlocked": "Your account cannot perform this action. Please contact support.",
+  "venueErrorDuplicate": "This venue has already been submitted.",
   "venueFollowButton": "Follow",
   "venueFollowingButton": "Following",
   "venueFollowConfirmTitle": "Follow this venue",
@@ -995,7 +1045,11 @@
   },
   "venuePremiumCtaButton": "Make premium ({amount} AZN)",
   "@venuePremiumCtaButton": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "venueLiveAudienceCount": "{count} nearby",
   "@venueLiveAudienceCount": {
@@ -1038,11 +1092,19 @@
   "venueFirstPaymentBannerText": "This venue's first subscription payment is required to finish creating it.",
   "venueFirstPaymentConfirmedFoundingText": "You're one of our first 1000 companies 🎉 This month's payment is confirmed, and next month (month 2) is on us. Next payment date: {date}.",
   "@venueFirstPaymentConfirmedFoundingText": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "venueFirstPaymentConfirmedText": "Your payment is confirmed. Next payment date: {date}.",
   "@venueFirstPaymentConfirmedText": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "venueFirstPaymentConfirmedDismiss": "Dismiss",
   "venueSubscriptionOverdueBannerText": "This venue's subscription payment is overdue.",
@@ -1295,7 +1357,11 @@
   "unfollowButton": "Unfollow",
   "unfollowConfirmMessage": "Stop following {name}?",
   "@unfollowConfirmMessage": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "followListEmptyFollowers": "No followers yet",
   "followListEmptyFollowing": "Not following anyone yet",
@@ -1379,11 +1445,22 @@
   "notifVenueSubscriptionDueTitle": "Venue subscription payment due",
   "notifVenueSubscriptionDueBody": "Subscription payment ({amount} AZN) is due for \"{venueName}\".",
   "@notifVenueSubscriptionDueBody": {
-    "placeholders": { "venueName": { "type": "String" }, "amount": { "type": "int" } }
+    "placeholders": {
+      "venueName": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "notifVenueSubscriptionDueBodyGeneric": "Subscription payment ({amount} AZN) is due.",
   "@notifVenueSubscriptionDueBodyGeneric": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "notifVenueApprovedTitle": "Your venue was approved",
   "notifVenueApprovedBody": "\"{name}\" was approved and is now visible to everyone.",
@@ -1420,11 +1497,22 @@
   "notifOfferBoostedTitle": "Your offer was boosted",
   "notifOfferBoostedBody": "\"{name}\" was boosted for {hours} hours.",
   "@notifOfferBoostedBody": {
-    "placeholders": { "name": { "type": "String" }, "hours": { "type": "int" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "hours": {
+        "type": "int"
+      }
+    }
   },
   "notifOfferBoostedBodyGeneric": "Your offer was boosted for {hours} hours.",
   "@notifOfferBoostedBodyGeneric": {
-    "placeholders": { "hours": { "type": "int" } }
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
   },
   "notifVenuePaymentConfirmedTitle": "Payment confirmed",
   "notifVenuePaymentConfirmedBody": "Payment for \"{name}\" was received, it's now under review.",
@@ -1435,29 +1523,62 @@
   "notifVenuePremiumActivatedTitle": "Premium status activated",
   "notifVenuePremiumActivatedBody": "\"{name}\" is now premium ({months} months).",
   "@notifVenuePremiumActivatedBody": {
-    "placeholders": { "name": { "type": "String" }, "months": { "type": "int" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "months": {
+        "type": "int"
+      }
+    }
   },
   "notifVenuePremiumActivatedBodyGeneric": "Your venue is now premium ({months} months).",
   "@notifVenuePremiumActivatedBodyGeneric": {
-    "placeholders": { "months": { "type": "int" } }
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
   },
   "notifVenuePremiumExpiringSoonTitle": "Your premium status is ending",
   "notifVenuePremiumExpiringSoonBody": "\"{name}\"'s premium status ends in {daysLeft} days.",
   "@notifVenuePremiumExpiringSoonBody": {
-    "placeholders": { "name": { "type": "String" }, "daysLeft": { "type": "int" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "daysLeft": {
+        "type": "int"
+      }
+    }
   },
   "notifVenuePremiumExpiringSoonBodyGeneric": "Your venue's premium status ends in {daysLeft} days.",
   "@notifVenuePremiumExpiringSoonBodyGeneric": {
-    "placeholders": { "daysLeft": { "type": "int" } }
+    "placeholders": {
+      "daysLeft": {
+        "type": "int"
+      }
+    }
   },
   "notifVenueWaitlistJoinedTitle": "New waitlist join",
   "notifVenueWaitlistJoinedBody": "\"{name}\" got a new waitlist join for {partySize}.",
   "@notifVenueWaitlistJoinedBody": {
-    "placeholders": { "name": { "type": "String" }, "partySize": { "type": "int" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "partySize": {
+        "type": "int"
+      }
+    }
   },
   "notifVenueWaitlistJoinedBodyGeneric": "Your venue got a new waitlist join for {partySize}.",
   "@notifVenueWaitlistJoinedBodyGeneric": {
-    "placeholders": { "partySize": { "type": "int" } }
+    "placeholders": {
+      "partySize": {
+        "type": "int"
+      }
+    }
   },
   "notifPinboxOrderConfirmedTitle": "Order confirmed",
   "notifPinboxOrderConfirmedBody": "Your order for \"{title}\" was confirmed, your QR ticket is ready.",
@@ -1483,10 +1604,10 @@
   "notifIdentityVerificationRejectedBodyNoNote": "Your request was rejected. You can resubmit it from Settings.",
   "notifIdentityVerificationRejectedBodyWithNote": "Reason: {note}",
   "notifSecurityNewDeviceTitle": "New device sign-in",
-  "notifSecurityNewDeviceBody": "Your account was signed in from an unfamiliar device. If this wasn\u2019t you, contact support right away.",
+  "notifSecurityNewDeviceBody": "Your account was signed in from an unfamiliar device. If this wasn’t you, contact support right away.",
   "notifSecurityEmailChangedTitle": "Email address changed",
-  "notifSecurityEmailChangedBodyGeneric": "Your account\u2019s contact email was changed.",
-  "notifSecurityEmailChangedBody": "Your account\u2019s contact email was changed to {newEmail}.",
+  "notifSecurityEmailChangedBodyGeneric": "Your account’s contact email was changed.",
+  "notifSecurityEmailChangedBody": "Your account’s contact email was changed to {newEmail}.",
   "notifWarningTitle": "Official warning",
   "notifWarningBodyGeneric": "You received an official warning about your account.",
   "notifWarningBody": "Reason: {reason}",
@@ -1554,7 +1675,11 @@
   "businessOfferReacceptContinueButton": "Continue",
   "businessOfferUpdatedBannerMessage": "The Business Services Public Offer was updated (effective {date}) — please review it.",
   "@businessOfferUpdatedBannerMessage": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "businessOfferUpdatedBannerDismiss": "Dismiss",
   "aboutWhatsNewTitle": "What's new",

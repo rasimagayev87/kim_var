@@ -211,6 +211,29 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
     }
   }
 
+  /// A refusal the user can act on, instead of one message for every
+  /// cause. "Try again later" is actively misleading for most of these
+  /// — it sends someone back into the same failing flow with nothing
+  /// changed.
+  String _submitErrorMessage(AppLocalizations loc, VenueSubmitError reason) {
+    switch (reason) {
+      case VenueSubmitError.rateLimited:
+        return loc.venueErrorRateLimited;
+      case VenueSubmitError.businessInactive:
+        return loc.venueErrorBusinessInactive;
+      case VenueSubmitError.offerNotAccepted:
+        return loc.venueErrorOfferNotAccepted;
+      case VenueSubmitError.photoRejected:
+        return loc.venueErrorPhotoRejected;
+      case VenueSubmitError.accountBlocked:
+        return loc.venueErrorAccountBlocked;
+      case VenueSubmitError.duplicate:
+        return loc.venueErrorDuplicate;
+      case VenueSubmitError.unknown:
+        return loc.venueGenericErrorMessage;
+    }
+  }
+
   Future<void> _submitCreate() async {
     if (_submitting) return;
     setState(() {
@@ -249,10 +272,10 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
               SnackBar(content: Text(loc.venueRequiredFieldsMissing)),
             );
           },
-          onError: () {
+          onError: (reason) {
             if (!mounted) return;
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(loc.venueGenericErrorMessage)),
+              SnackBar(content: Text(_submitErrorMessage(loc, reason))),
             );
           },
           onUploadProgress: (p) {

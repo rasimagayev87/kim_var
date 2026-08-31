@@ -34,7 +34,9 @@
   "verifyEmailBody": "Мы отправили ссылку для подтверждения на {email}. Перейдите по ней, затем нажмите кнопку ниже.",
   "@verifyEmailBody": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "verifyEmailNotYetVerifiedNotice": "Ещё не подтверждено. Перейдите по ссылке и попробуйте снова.",
@@ -313,26 +315,36 @@
   "chatCallDurationMinSec": "{minutes} мин {seconds} сек",
   "@chatCallDurationMinSec": {
     "placeholders": {
-      "minutes": {"type": "int"},
-      "seconds": {"type": "int"}
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "chatCallDurationSecOnly": "{seconds} сек",
   "@chatCallDurationSecOnly": {
     "placeholders": {
-      "seconds": {"type": "int"}
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "chatCallDataUsageLabel": "≈ {usage} использовано",
   "@chatCallDataUsageLabel": {
     "placeholders": {
-      "usage": {"type": "String"}
+      "usage": {
+        "type": "String"
+      }
     }
   },
   "chatCallOngoingBannerLabel": "Звонок продолжается · {duration}",
   "@chatCallOngoingBannerLabel": {
     "placeholders": {
-      "duration": {"type": "String"}
+      "duration": {
+        "type": "String"
+      }
     }
   },
   "callStatusRinging": "Звоним...",
@@ -528,7 +540,11 @@
   "reviewsOwnerReplyLabel": "Ответ владельца",
   "reviewsRatingCountLabel": "{count} отзывов",
   "@reviewsRatingCountLabel": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "reviewsSheetTitle": "Оставить отзыв",
   "reviewsSheetRatingLabel": "Ваша оценка",
@@ -634,26 +650,46 @@
   "offerBoostMostPopularBadge": "САМЫЙ ПОПУЛЯРНЫЙ",
   "offerBoostCtaButton": "Продвинуть ({amount} AZN)",
   "@offerBoostCtaButton": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "offerBoostComingSoonMessage": "Платёжная система находится в разработке и скоро станет доступна.",
   "offerBoostAwaitingPaymentNotice": "Вы перенаправлены на страницу оплаты ({amount} AZN). После подтверждения оплаты предложение будет продвинуто.",
   "@offerBoostAwaitingPaymentNotice": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "offerSubmitButton": "Создать предложение",
   "offerCreatedNotice": "Предложение создано",
   "offerPlacementFreeNotice": "Это предложение бесплатно (осталось: {count}/5)",
   "@offerPlacementFreeNotice": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "offerPlacementFeeNotice": "Плата за размещение этого предложения: {amount} AZN",
   "@offerPlacementFeeNotice": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "offerAwaitingPaymentNotice": "Вы перенаправлены на страницу оплаты ({amount} AZN). После подтверждения оплаты предложение будет отправлено на модерацию.",
   "@offerAwaitingPaymentNotice": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "epointCheckoutTitle": "Способ оплаты",
   "epointCardOption": "Оплатить картой",
@@ -667,7 +703,11 @@
   "epointCheckoutSecurityNote": "256-битная SSL защита платежей",
   "epointCheckoutPayButton": "Оплатить {amount} AZN",
   "@epointCheckoutPayButton": {
-    "placeholders": { "amount": { "type": "String" } }
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
   },
   "epointCheckoutErrorMessage": "Не удалось начать оплату, попробуйте немного позже.",
   "epointResultSuccessTitle": "Платёж принят",
@@ -735,7 +775,11 @@
   "pinboxQuantityLabel": "КОЛИЧЕСТВО",
   "pinboxQuantityLimitedWarning": "Осталось только {count}",
   "@pinboxQuantityLimitedWarning": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "pinboxDeliveryTermsLabel": "УСЛОВИЯ ПОЛУЧЕНИЯ",
   "pinboxPickupOnlyNotice": "Выдача только в указанный промежуток времени",
@@ -884,6 +928,12 @@
   "venueSaveButton": "Сохранить",
   "venueRequiredFieldsMissing": "Пожалуйста, заполните все обязательные поля.",
   "venueGenericErrorMessage": "Не удалось выполнить действие. Попробуйте ещё раз чуть позже.",
+  "venueErrorRateLimited": "Слишком много попыток. Повторите через час.",
+  "venueErrorBusinessInactive": "Включите Настройки → Бизнес-активность, чтобы создать заведение.",
+  "venueErrorOfferNotAccepted": "Необходимо принять Публичную оферту бизнес-услуг.",
+  "venueErrorPhotoRejected": "Фото заведения отклонено. Выберите фото заново и повторите.",
+  "venueErrorAccountBlocked": "Ваш аккаунт не может выполнить это действие. Обратитесь в поддержку.",
+  "venueErrorDuplicate": "Это заведение уже отправлено.",
   "venueFollowButton": "Отслеживать",
   "venueFollowingButton": "Отслеживается",
   "venueFollowConfirmTitle": "Отслеживать заведение",
@@ -930,7 +980,11 @@
   },
   "venuePremiumCtaButton": "Сделать премиум ({amount} AZN)",
   "@venuePremiumCtaButton": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "venueLiveAudienceCount": "{count} человек рядом",
   "@venueLiveAudienceCount": {
@@ -973,11 +1027,19 @@
   "venueFirstPaymentBannerText": "Для создания этого заведения требуется первый платёж по подписке.",
   "venueFirstPaymentConfirmedFoundingText": "Вы среди первых 1000 компаний 🎉 Оплата за этот месяц подтверждена, а следующий месяц (2-й) — в подарок. Дата следующего платежа: {date}.",
   "@venueFirstPaymentConfirmedFoundingText": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "venueFirstPaymentConfirmedText": "Ваш платёж подтверждён. Дата следующего платежа: {date}.",
   "@venueFirstPaymentConfirmedText": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "venueFirstPaymentConfirmedDismiss": "Закрыть",
   "venueSubscriptionOverdueBannerText": "Платёж по подписке этого заведения просрочен.",
@@ -1181,7 +1243,11 @@
   "unfollowButton": "Отписаться",
   "unfollowConfirmMessage": "Отписаться от {name}?",
   "@unfollowConfirmMessage": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "followListEmptyFollowers": "Пока нет подписчиков",
   "followListEmptyFollowing": "Пока ни на кого не подписан(а)",
@@ -1265,11 +1331,22 @@
   "notifVenueSubscriptionDueTitle": "Требуется оплата подписки заведения",
   "notifVenueSubscriptionDueBody": "Требуется оплата подписки ({amount} AZN) для \"{venueName}\".",
   "@notifVenueSubscriptionDueBody": {
-    "placeholders": { "venueName": { "type": "String" }, "amount": { "type": "int" } }
+    "placeholders": {
+      "venueName": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "notifVenueSubscriptionDueBodyGeneric": "Требуется оплата подписки ({amount} AZN).",
   "@notifVenueSubscriptionDueBodyGeneric": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "notifVenueApprovedTitle": "Ваше заведение одобрено",
   "notifVenueApprovedBody": "\"{name}\" одобрено и теперь видно всем.",
@@ -1306,11 +1383,22 @@
   "notifOfferBoostedTitle": "Ваше предложение продвинуто",
   "notifOfferBoostedBody": "\"{name}\" продвинуто на {hours} ч.",
   "@notifOfferBoostedBody": {
-    "placeholders": { "name": { "type": "String" }, "hours": { "type": "int" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "hours": {
+        "type": "int"
+      }
+    }
   },
   "notifOfferBoostedBodyGeneric": "Ваше предложение продвинуто на {hours} ч.",
   "@notifOfferBoostedBodyGeneric": {
-    "placeholders": { "hours": { "type": "int" } }
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
   },
   "notifVenuePaymentConfirmedTitle": "Оплата подтверждена",
   "notifVenuePaymentConfirmedBody": "Оплата за \"{name}\" получена, сейчас на рассмотрении.",
@@ -1321,29 +1409,62 @@
   "notifVenuePremiumActivatedTitle": "Премиум-статус активирован",
   "notifVenuePremiumActivatedBody": "\"{name}\" теперь премиум ({months} мес.).",
   "@notifVenuePremiumActivatedBody": {
-    "placeholders": { "name": { "type": "String" }, "months": { "type": "int" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "months": {
+        "type": "int"
+      }
+    }
   },
   "notifVenuePremiumActivatedBodyGeneric": "Ваше заведение теперь премиум ({months} мес.).",
   "@notifVenuePremiumActivatedBodyGeneric": {
-    "placeholders": { "months": { "type": "int" } }
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
   },
   "notifVenuePremiumExpiringSoonTitle": "Ваш премиум-статус скоро истекает",
   "notifVenuePremiumExpiringSoonBody": "Премиум-статус \"{name}\" истекает через {daysLeft} дн.",
   "@notifVenuePremiumExpiringSoonBody": {
-    "placeholders": { "name": { "type": "String" }, "daysLeft": { "type": "int" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "daysLeft": {
+        "type": "int"
+      }
+    }
   },
   "notifVenuePremiumExpiringSoonBodyGeneric": "Премиум-статус вашего заведения истекает через {daysLeft} дн.",
   "@notifVenuePremiumExpiringSoonBodyGeneric": {
-    "placeholders": { "daysLeft": { "type": "int" } }
+    "placeholders": {
+      "daysLeft": {
+        "type": "int"
+      }
+    }
   },
   "notifVenueWaitlistJoinedTitle": "Новая запись в очередь",
   "notifVenueWaitlistJoinedBody": "В очередь \"{name}\" записались {partySize} чел.",
   "@notifVenueWaitlistJoinedBody": {
-    "placeholders": { "name": { "type": "String" }, "partySize": { "type": "int" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "partySize": {
+        "type": "int"
+      }
+    }
   },
   "notifVenueWaitlistJoinedBodyGeneric": "В очередь вашего заведения записались {partySize} чел.",
   "@notifVenueWaitlistJoinedBodyGeneric": {
-    "placeholders": { "partySize": { "type": "int" } }
+    "placeholders": {
+      "partySize": {
+        "type": "int"
+      }
+    }
   },
   "notifPinboxOrderConfirmedTitle": "Заказ подтверждён",
   "notifPinboxOrderConfirmedBody": "Ваш заказ \"{title}\" подтверждён, QR-билет готов.",
@@ -1440,7 +1561,11 @@
   "businessOfferReacceptContinueButton": "Продолжить",
   "businessOfferUpdatedBannerMessage": "Публичная оферта бизнес-услуг обновлена (вступает в силу {date}) — ознакомьтесь с текстом.",
   "@businessOfferUpdatedBannerMessage": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "businessOfferUpdatedBannerDismiss": "Закрыть",
   "aboutWhatsNewTitle": "Что нового",

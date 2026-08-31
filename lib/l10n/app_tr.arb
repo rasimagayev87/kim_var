@@ -34,7 +34,9 @@
   "verifyEmailBody": "{email} adresine bir doğrulama bağlantısı gönderdik. Bağlantıya tıklayın, ardından aşağıdaki düğmeye basın.",
   "@verifyEmailBody": {
     "placeholders": {
-      "email": {"type": "String"}
+      "email": {
+        "type": "String"
+      }
     }
   },
   "verifyEmailNotYetVerifiedNotice": "Henüz doğrulanmadı. Bağlantıya tıklayıp tekrar deneyin.",
@@ -313,26 +315,36 @@
   "chatCallDurationMinSec": "{minutes} dk {seconds} sn",
   "@chatCallDurationMinSec": {
     "placeholders": {
-      "minutes": {"type": "int"},
-      "seconds": {"type": "int"}
+      "minutes": {
+        "type": "int"
+      },
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "chatCallDurationSecOnly": "{seconds} sn",
   "@chatCallDurationSecOnly": {
     "placeholders": {
-      "seconds": {"type": "int"}
+      "seconds": {
+        "type": "int"
+      }
     }
   },
   "chatCallDataUsageLabel": "≈ {usage} kullanıldı",
   "@chatCallDataUsageLabel": {
     "placeholders": {
-      "usage": {"type": "String"}
+      "usage": {
+        "type": "String"
+      }
     }
   },
   "chatCallOngoingBannerLabel": "Arama devam ediyor · {duration}",
   "@chatCallOngoingBannerLabel": {
     "placeholders": {
-      "duration": {"type": "String"}
+      "duration": {
+        "type": "String"
+      }
     }
   },
   "callStatusRinging": "Aranıyor...",
@@ -528,7 +540,11 @@
   "reviewsOwnerReplyLabel": "Sahibin yanıtı",
   "reviewsRatingCountLabel": "{count} yorum",
   "@reviewsRatingCountLabel": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "reviewsSheetTitle": "Yorum yaz",
   "reviewsSheetRatingLabel": "Puanınız",
@@ -634,26 +650,46 @@
   "offerBoostMostPopularBadge": "EN POPÜLER",
   "offerBoostCtaButton": "Öne çıkar ({amount} AZN)",
   "@offerBoostCtaButton": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "offerBoostComingSoonMessage": "Ödeme sistemi hazırlanma aşamasındadır, yakında etkinleşecek.",
   "offerBoostAwaitingPaymentNotice": "Ödeme sayfasına yönlendirildiniz ({amount} AZN). Ödeme onaylanınca teklifiniz öne çıkarılacak.",
   "@offerBoostAwaitingPaymentNotice": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "offerSubmitButton": "Teklifi oluştur",
   "offerCreatedNotice": "Teklif oluşturuldu",
   "offerPlacementFreeNotice": "Bu teklif ücretsizdir (kalan: {count}/5)",
   "@offerPlacementFreeNotice": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "offerPlacementFeeNotice": "Bu teklifin yayınlama ücreti: {amount} AZN",
   "@offerPlacementFeeNotice": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "offerAwaitingPaymentNotice": "Ödeme sayfasına yönlendirildiniz ({amount} AZN). Ödeme onaylanınca teklifiniz incelemeye gönderilecek.",
   "@offerAwaitingPaymentNotice": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "epointCheckoutTitle": "Ödeme yöntemi",
   "epointCardOption": "Kartla öde",
@@ -667,7 +703,11 @@
   "epointCheckoutSecurityNote": "256-bit SSL Güvenli Ödeme Sistemi",
   "epointCheckoutPayButton": "{amount} AZN Öde",
   "@epointCheckoutPayButton": {
-    "placeholders": { "amount": { "type": "String" } }
+    "placeholders": {
+      "amount": {
+        "type": "String"
+      }
+    }
   },
   "epointCheckoutErrorMessage": "Ödeme başlatılamadı, lütfen kısa süre sonra tekrar deneyin.",
   "epointResultSuccessTitle": "Ödeme alındı",
@@ -735,7 +775,11 @@
   "pinboxQuantityLabel": "ADET",
   "pinboxQuantityLimitedWarning": "Sadece {count} adet kaldı",
   "@pinboxQuantityLimitedWarning": {
-    "placeholders": { "count": { "type": "int" } }
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
   },
   "pinboxDeliveryTermsLabel": "TESLİM ALMA ŞARTLARI",
   "pinboxPickupOnlyNotice": "Yalnızca belirtilen saat aralığında teslim edilir",
@@ -884,6 +928,12 @@
   "venueSaveButton": "Kaydet",
   "venueRequiredFieldsMissing": "Lütfen tüm zorunlu alanları doldurun.",
   "venueGenericErrorMessage": "İşlem tamamlanamadı. Lütfen birazdan tekrar deneyin.",
+  "venueErrorRateLimited": "Çok fazla deneme yaptınız. Bir saat sonra tekrar deneyin.",
+  "venueErrorBusinessInactive": "Mekan oluşturmak için Ayarlar → İşletme etkinliği bölümünden etkinleştirin.",
+  "venueErrorOfferNotAccepted": "İşletme Hizmetleri Kamuya Açık Teklifini kabul etmelisiniz.",
+  "venueErrorPhotoRejected": "Mekan fotoğrafı reddedildi. Fotoğrafı yeniden seçip tekrar deneyin.",
+  "venueErrorAccountBlocked": "Hesabınız bu işlemi yapamıyor. Lütfen destek ile iletişime geçin.",
+  "venueErrorDuplicate": "Bu mekan zaten gönderildi.",
   "venueFollowButton": "Takip et",
   "venueFollowingButton": "Takip ediliyor",
   "venueFollowConfirmTitle": "Mekanı takip et",
@@ -930,7 +980,11 @@
   },
   "venuePremiumCtaButton": "Premium yap ({amount} AZN)",
   "@venuePremiumCtaButton": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "venueLiveAudienceCount": "Etrafınızda {count} kişi",
   "@venueLiveAudienceCount": {
@@ -973,11 +1027,19 @@
   "venueFirstPaymentBannerText": "Bu mekanın oluşturulması için ilk abonelik ödemesi gerekiyor.",
   "venueFirstPaymentConfirmedFoundingText": "İlk 1000 şirketten birisiniz 🎉 Bu ayki ödemeniz onaylandı, gelecek ay (2. ay) hediyemiz. Sonraki ödeme tarihi: {date}.",
   "@venueFirstPaymentConfirmedFoundingText": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "venueFirstPaymentConfirmedText": "Ödemeniz onaylandı. Sonraki ödeme tarihi: {date}.",
   "@venueFirstPaymentConfirmedText": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "venueFirstPaymentConfirmedDismiss": "Kapat",
   "venueSubscriptionOverdueBannerText": "Bu mekanın abonelik ödemesi gecikti.",
@@ -1181,7 +1243,11 @@
   "unfollowButton": "Takibi bırak",
   "unfollowConfirmMessage": "{name} takibini bırakmak istiyor musunuz?",
   "@unfollowConfirmMessage": {
-    "placeholders": { "name": { "type": "String" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
   },
   "followListEmptyFollowers": "Henüz takipçi yok",
   "followListEmptyFollowing": "Henüz kimse takip edilmiyor",
@@ -1265,11 +1331,22 @@
   "notifVenueSubscriptionDueTitle": "Mekan abonelik ödemesi gerekiyor",
   "notifVenueSubscriptionDueBody": "\"{venueName}\" için abonelik ödemesi ({amount} AZN) gerekiyor.",
   "@notifVenueSubscriptionDueBody": {
-    "placeholders": { "venueName": { "type": "String" }, "amount": { "type": "int" } }
+    "placeholders": {
+      "venueName": {
+        "type": "String"
+      },
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "notifVenueSubscriptionDueBodyGeneric": "Abonelik ödemesi ({amount} AZN) gerekiyor.",
   "@notifVenueSubscriptionDueBodyGeneric": {
-    "placeholders": { "amount": { "type": "int" } }
+    "placeholders": {
+      "amount": {
+        "type": "int"
+      }
+    }
   },
   "notifVenueApprovedTitle": "Mekanınız onaylandı",
   "notifVenueApprovedBody": "\"{name}\" onaylandı ve artık herkes tarafından görülebilir.",
@@ -1306,11 +1383,22 @@
   "notifOfferBoostedTitle": "Teklifiniz öne çıkarıldı",
   "notifOfferBoostedBody": "\"{name}\" {hours} saat öne çıkarıldı.",
   "@notifOfferBoostedBody": {
-    "placeholders": { "name": { "type": "String" }, "hours": { "type": "int" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "hours": {
+        "type": "int"
+      }
+    }
   },
   "notifOfferBoostedBodyGeneric": "Teklifiniz {hours} saat öne çıkarıldı.",
   "@notifOfferBoostedBodyGeneric": {
-    "placeholders": { "hours": { "type": "int" } }
+    "placeholders": {
+      "hours": {
+        "type": "int"
+      }
+    }
   },
   "notifVenuePaymentConfirmedTitle": "Ödeme onaylandı",
   "notifVenuePaymentConfirmedBody": "\"{name}\" için ödeme alındı, şimdi inceleniyor.",
@@ -1321,29 +1409,62 @@
   "notifVenuePremiumActivatedTitle": "Premium durum aktifleşti",
   "notifVenuePremiumActivatedBody": "\"{name}\" artık premium durumda ({months} ay).",
   "@notifVenuePremiumActivatedBody": {
-    "placeholders": { "name": { "type": "String" }, "months": { "type": "int" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "months": {
+        "type": "int"
+      }
+    }
   },
   "notifVenuePremiumActivatedBodyGeneric": "Mekanınız artık premium durumda ({months} ay).",
   "@notifVenuePremiumActivatedBodyGeneric": {
-    "placeholders": { "months": { "type": "int" } }
+    "placeholders": {
+      "months": {
+        "type": "int"
+      }
+    }
   },
   "notifVenuePremiumExpiringSoonTitle": "Premium durumunuz bitiyor",
   "notifVenuePremiumExpiringSoonBody": "\"{name}\" premium durumu {daysLeft} gün sonra bitiyor.",
   "@notifVenuePremiumExpiringSoonBody": {
-    "placeholders": { "name": { "type": "String" }, "daysLeft": { "type": "int" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "daysLeft": {
+        "type": "int"
+      }
+    }
   },
   "notifVenuePremiumExpiringSoonBodyGeneric": "Mekanınızın premium durumu {daysLeft} gün sonra bitiyor.",
   "@notifVenuePremiumExpiringSoonBodyGeneric": {
-    "placeholders": { "daysLeft": { "type": "int" } }
+    "placeholders": {
+      "daysLeft": {
+        "type": "int"
+      }
+    }
   },
   "notifVenueWaitlistJoinedTitle": "Sıraya yeni kayıt",
   "notifVenueWaitlistJoinedBody": "\"{name}\" sırasına {partySize} kişilik yeni kayıt oldu.",
   "@notifVenueWaitlistJoinedBody": {
-    "placeholders": { "name": { "type": "String" }, "partySize": { "type": "int" } }
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "partySize": {
+        "type": "int"
+      }
+    }
   },
   "notifVenueWaitlistJoinedBodyGeneric": "Mekanınızın sırasına {partySize} kişilik yeni kayıt oldu.",
   "@notifVenueWaitlistJoinedBodyGeneric": {
-    "placeholders": { "partySize": { "type": "int" } }
+    "placeholders": {
+      "partySize": {
+        "type": "int"
+      }
+    }
   },
   "notifPinboxOrderConfirmedTitle": "Sipariş onaylandı",
   "notifPinboxOrderConfirmedBody": "\"{title}\" siparişiniz onaylandı, QR biletiniz hazır.",
@@ -1440,7 +1561,11 @@
   "businessOfferReacceptContinueButton": "Devam et",
   "businessOfferUpdatedBannerMessage": "İşletme Hizmetleri Kamu Teklifi güncellendi ({date} tarihinde yürürlüğe girer) — lütfen inceleyin.",
   "@businessOfferUpdatedBannerMessage": {
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "businessOfferUpdatedBannerDismiss": "Kapat",
   "aboutWhatsNewTitle": "Yenilikler",

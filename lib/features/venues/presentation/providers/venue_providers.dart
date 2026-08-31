@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -90,7 +91,7 @@ class VenueController {
     required String offerAcceptanceDocumentUrl,
     required String offerAcceptanceAppVersion,
     required void Function(List<VenueFieldError> missing) onValidationError,
-    required void Function() onError,
+    required void Function(VenueSubmitError reason) onError,
     ValueChanged<double>? onUploadProgress,
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
@@ -132,9 +133,16 @@ class VenueController {
     } on VenueValidationException catch (e) {
       onValidationError(e.missingFields);
       return null;
+    } on FirebaseFunctionsException catch (e, st) {
+      // Logged with the code attached — the previous version reported
+      // the exception but the UI showed one message for all of them,
+      // so neither we nor the user could tell the cases apart.
+      logError('venue_providers.createVenue[${e.code}]', e, st);
+      onError(venueSubmitErrorFromCode(e.code, e.message));
+      return null;
     } catch (e, st) {
       logError('venue_providers.createVenue', e, st);
-      onError();
+      onError(VenueSubmitError.unknown);
       return null;
     }
   }

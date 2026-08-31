@@ -127,6 +127,30 @@ function logCallableInvocation(functionName: string, request: { auth?: { uid: st
 // call this right after its `uid` guard — `completeOnboarding` (creates
 // the doc) and `deleteAccount` (self-deletion should work regardless of
 // ban status) are the deliberate exceptions.
+/**
+ * Rejects a callable request, leaving a server-side trace first.
+ *
+ * `HttpsError` thrown from an `onCall` handler is returned to the
+ * client as a structured error and is NOT logged by the runtime. That
+ * is fine for the client and terrible for us: a user-visible failure
+ * produces a Cloud Run request log with a status code and nothing
+ * else, so "venue creation is broken" cannot be answered without
+ * guessing which of several `throw` statements fired. This happened —
+ * three 400s in the logs and no way to tell which check rejected them.
+ *
+ * `reason` is a stable machine-readable slug, not prose: it is what
+ * gets grepped six months from now.
+ */
+function rejectRequest(
+  code: "invalid-argument" | "failed-precondition" | "permission-denied" | "already-exists",
+  reason: string,
+  message: string,
+  context: Record<string, unknown> = {},
+): never {
+  logger.warn(`reject reason=${reason} code=${code}`, context);
+  throw new HttpsError(code, message);
+}
+
 async function assertActiveUser(uid: string): Promise<void> {
   const [userSnap, bannedSnap] = await Promise.all([
     db.collection("users").doc(uid).get(),
@@ -5531,7 +5555,8 @@ export const submitVenue = onCall(
     // instead of silently if that were ever somehow bypassed.
     const requesterSnap = await db.collection("users").doc(uid).get();
     if ((requesterSnap.data()!.businessStatus as string | undefined) === "none") {
-      throw new HttpsError("permission-denied", "Məkan yaratmaq üçün Ayarlar → Biznes fəaliyyəti bölməsindən aktiv edin.");
+      rejectRequest("permission-denied", "submitVenue.business-inactive",
+        "Məkan yaratmaq üçün Ayarlar → Biznes fəaliyyəti bölməsindən aktiv edin.");
     }
 
     const data = request.data as Record<string, unknown>;
@@ -5544,9 +5569,22 @@ export const submitVenue = onCall(
     const address = (data.address as string | undefined)?.trim();
     const openingHours = data.openingHours as Record<string, unknown> | undefined;
     if (!clientVenueId || !name || !category || !photoUrl || lat === undefined || lng === undefined || !address || !openingHours) {
-      throw new HttpsError("invalid-argument", "Tələb olunan sahələr çatışmır.");
+      rejectRequest("invalid-argument", "submitVenue.missing-fields", "Tələb olunan sahələr çatışmır.", {
+        missing: {
+          venueId: !clientVenueId, name: !name, category: !category, photoUrl: !photoUrl,
+          lat: lat === undefined, lng: lng === undefined, address: !address, openingHours: !openingHours,
+        },
+      });
     }
-    assertOwnStorageUrl(photoUrl, "photoUrl"); // P0 / H-5
+    // P0 / H-5. Logs the URL's PREFIX only — enough to see whether it
+    // is a different bucket, a plain http URL, or something else
+    // entirely, without writing a token-bearing download URL into logs
+    // anyone with log access could then use.
+    if (!photoUrl.startsWith(OWN_STORAGE_URL_PREFIX)) {
+      rejectRequest("invalid-argument", "submitVenue.foreign-photo-url",
+        "photoUrl yalnız PeakPin Storage ünvanı ola bilər.",
+        { prefix: photoUrl.slice(0, 60) });
+    }
 
     const fee = venueSubscriptionFeeByCategory[category];
     if (fee === undefined) {
@@ -5568,7 +5606,9 @@ export const submitVenue = onCall(
     const offerAppVersion = offerAcceptanceInput?.appVersion as string | undefined;
     const offerPlatform = offerAcceptanceInput?.platform as string | undefined;
     if (!offerAppVersion || !offerPlatform) {
-      throw new HttpsError("failed-precondition", "Biznes Xidmətlərinin Publik Ofertasını qəbul etməlisiniz.");
+      rejectRequest("failed-precondition", "submitVenue.offer-not-accepted",
+        "Biznes Xidmətlərinin Publik Ofertasını qəbul etməlisiniz.",
+        { hasAppVersion: Boolean(offerAppVersion), hasPlatform: Boolean(offerPlatform) });
     }
     const { version: offerVersion, documentUrl: offerDocumentUrl } = await currentBusinessOffer();
     const offerAcceptance: PendingOfferAcceptance = {
@@ -5580,7 +5620,8 @@ export const submitVenue = onCall(
 
     const venueRef = db.collection("venues").doc(clientVenueId);
     if ((await venueRef.get()).exists) {
-      throw new HttpsError("already-exists", "Bu ID artıq istifadə olunub.");
+      rejectRequest("already-exists", "submitVenue.duplicate-id", "Bu ID artıq istifadə olunub.",
+        { venueId: clientVenueId });
     }
 
     const { ref: paymentRef, amount } = await ensurePendingSubscriptionPayment(
