@@ -429,3 +429,57 @@ tipdən istifadə etdiyini dərhal tutdu.
 
 **Test:** `tests/rules/venue-status.test.ts` — 5 test, göstəriş
 birləşməsi və yazıla bilən altçoxluq ayrıca yoxlanılır.
+
+## 23. Canlı feed poll xərci — istifadəçi sayı artanda yenidən qiymətləndirilməli
+
+**Mənbə:** «Boş yer» yenilənmə sürətinin 30 saniyəyə endirilməsi
+(2026-08-31)
+**Nə:** Canlı tab qəsdən **polling** işlədir, realtime dinləyici yox —
+əks halda istifadəçi başına beşdən çox eyni vaxtlı `.snapshots()`
+axını lazım olardı. İndi iki dövr var:
+
+| Dövr | Nə gətirir | Tezlik |
+|---|---|---|
+| `liveFeedVenueSnapshotPollInterval` | 1 `venues` geo-sorğusu → boş yer + check-in sayı | **30s** |
+| `liveFeedPollInterval` | məkanlar + tədbirlər + təkliflər + PinBox + izlənən məkanlar | 60s |
+
+**Xərc düsturu.** Açıq tab başına dəqiqədə təxminən:
+
+```
+2N  (30s-lik məkan sorğusu)  +  N + E + O + P + F  (60s-lik dövr)
+```
+
+`N` = radius daxilindəki təsdiqlənmiş məkanlar, `E`/`O`/`P` = həmin
+radiusdakı tədbir/təklif/PinBox sənədləri, `F` = izlənən məkanlar.
+
+**Miqyas ssenarisi (2026-08-31-də hesablanıb):**
+
+| Vəziyyət | N | Eyni vaxtlı baxan | Oxu / saat |
+|---|---|---|---|
+| Bu gün | 1 | 1 | ~180 |
+| Orta | 30 | 20 | ~110 min |
+| **Sıx** | **100** | **100** | **~1.8 milyon** |
+
+Sonuncu ssenaridə **yalnız Canlı tabı** aylıq onlarla milyon oxu
+deməkdir. Firestore-un oxu qiyməti ilə bu, artıq nəzərə çarpan
+məbləğdir — və bu rəqəm istifadəçi sayı ilə **xətti**, məkan sıxlığı
+ilə də **xətti** artır, yəni ikisi birlikdə **kvadratik** effekt verir.
+
+**Hədd — nə vaxt yenidən baxılmalı:**
+* **MAU 5000-i keçəndə**, VƏ YA
+* bir şəhərdə radius daxilində orta `N` 50-ni keçəndə, VƏ YA
+* Firestore aylıq oxu xərci ümumi infrastruktur xərcinin 20%-ni
+  keçəndə — hansı əvvəl gəlsə.
+
+**Baxarkən nəzərdən keçiriləcək variantlar:**
+1. **Serverdə aqreqat sənəd** — planlaşdırılmış funksiya hər 30
+   saniyədə geohash blokları üzrə `liveFeed/{geohashPrefix}` sənədi
+   yazsın; client bir sənəd oxusun. Oxu xərci istifadəçi sayından
+   asılı olmayan sabitə çevrilir.
+2. **Görünürlüyə görə dayandırma** — artıq var (`stop()`), amma
+   yalnız tab dəyişəndə; ekran sönəndə də dayandırıla bilər.
+3. **Adaptiv tezlik** — hərəkətsiz istifadəçidə interval uzansın.
+4. **30s-i geri 60s-ə qaytarmaq** — ən sadəsi, amma «boş yer»in
+   dəyərini azaldır (bax həmin sabitin öz şərhi).
+
+**Təxmini iş həcmi:** (1) ~1 gün · (2) ~2 saat · (3) ~3 saat

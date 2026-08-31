@@ -33,14 +33,38 @@ final liveFeedServiceProvider = Provider<LiveFeedService>((ref) => LiveFeedServi
 /// Təklif/Boş yer/Doğum günü) — cheap, one geo-query each.
 const liveFeedPollInterval = Duration(seconds: 60);
 
-/// "Ətrafınızda" refreshes on its OWN, slower cadence — computing it
-/// costs up to 30 extra reads (one `activeCheckins` count per nearby
-/// venue, see `LiveFeedService.fetchAudienceItems`), by far the most
-/// expensive part of a poll cycle, while also being the section where
-/// a couple of minutes' staleness matters least (how many people are
-/// somewhere right now is a much softer number than "a new offer just
-/// went up"). Explicit product decision, not a default.
-const liveFeedAudiencePollInterval = Duration(seconds: 120);
+/// "Boş yer" and "Ətrafınızda" refresh FASTER than the rest, on their
+/// own cycle.
+///
+/// Both are derived for free from one `fetchVenueSnapshots` call —
+/// `availableSeats` and `activeCheckinCount` are plain fields on the
+/// venue documents that query already returns. So refreshing them
+/// costs exactly one extra venues query per tick, not a query per
+/// venue.
+///
+/// 30s because free seats are the most time-sensitive thing on this
+/// tab: someone reads "3 boş yer var" and decides to go. A number a
+/// minute old sends them to a full venue. Events and offers do not
+/// decay that way, which is why they stay on the slower cycle.
+///
+/// (The two ARE different things and the app treats them separately:
+/// `availableSeats` is a counter the venue owner maintains, while
+/// `activeCheckinCount` counts voluntary check-ins from people who may
+/// never have joined a queue. They share this timer only because they
+/// share a query.)
+///
+/// COST: one venues query per tick — N reads, where N is the approved
+/// venues inside the viewer's radius. At 30s that is 2N reads/minute
+/// per open tab instead of N. Fine at today's density; revisit when
+/// concurrent viewers × venue density grows — see docs/BACKLOG.md.
+///
+/// This replaces a 120s "audience" interval whose stated reason —
+/// "one `activeCheckins` count per nearby venue" — stopped being true
+/// when `fetchAudienceItems` moved to reading the aggregate
+/// `activeCheckinCount` field. It was throttling a cost that no longer
+/// existed, and recomputing from a cached venue list that could
+/// already be a minute stale.
+const liveFeedVenueSnapshotPollInterval = Duration(seconds: 30);
 
 /// How far back an offer/upcoming-event still counts as "fresh" enough
 /// to show — audience/seat-availability cards aren't time-windowed
@@ -57,7 +81,7 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
 
   final Ref _ref;
   Timer? _fastTimer;
-  Timer? _audienceTimer;
+  Timer? _venueSnapshotTimer;
 
   List<LiveFeedVenueSnapshot> _lastVenues = [];
   List<LiveFeedItem> _fastItems = [];
@@ -96,11 +120,12 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
   /// minutes.
   void start() {
     _fastTimer?.cancel();
-    _audienceTimer?.cancel();
+    _venueSnapshotTimer?.cancel();
 
     unawaited(_runFastCycle(alsoRefreshAudience: true));
     _fastTimer = Timer.periodic(liveFeedPollInterval, (_) => unawaited(_runFastCycle(alsoRefreshAudience: false)));
-    _audienceTimer = Timer.periodic(liveFeedAudiencePollInterval, (_) => unawaited(_runAudienceCycle()));
+    _venueSnapshotTimer =
+        Timer.periodic(liveFeedVenueSnapshotPollInterval, (_) => unawaited(_runVenueSnapshotCycle()));
   }
 
   /// Forces an immediate fetch on the current radius/mode without
@@ -120,9 +145,9 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
   /// [start] is called again and a fresh fetch resolves.
   void stop() {
     _fastTimer?.cancel();
-    _audienceTimer?.cancel();
+    _venueSnapshotTimer?.cancel();
     _fastTimer = null;
-    _audienceTimer = null;
+    _venueSnapshotTimer = null;
   }
 
   ({double lat, double lng, double radiusKm})? _readLocationParams() {
@@ -209,6 +234,47 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
     }
   }
 
+  /// Re-fetches the nearby venues and refreshes ONLY the two sections
+  /// derived from them — "Boş yer" and "Ətrafınızda".
+  ///
+  /// Seat items live inside [_fastItems] alongside events, offers and
+  /// PinBox entries, so this replaces just the `seatAvailable` entries
+  /// and leaves the rest of that list untouched: those come from their
+  /// own queries on the slower cycle and re-running them here would be
+  /// the expensive thing this design avoids.
+  ///
+  /// Audience entries go through [_upsertAudienceItems] as before, so a
+  /// venue's count updates in place instead of jumping to the top of
+  /// the sort on every tick.
+  Future<void> _runVenueSnapshotCycle() async {
+    final params = _readLocationParams();
+    if (params == null) return;
+
+    try {
+      final service = _ref.read(liveFeedServiceProvider);
+      final venues = await service.fetchVenueSnapshots(
+        lat: params.lat,
+        lng: params.lng,
+        radiusKm: params.radiusKm,
+      );
+      _lastVenues = venues;
+
+      final seatItems = service.seatAvailableItemsFrom(venues);
+      _fastItems = [
+        ..._fastItems.where((i) => i.type != LiveFeedType.seatAvailable),
+        ...seatItems,
+      ];
+
+      _upsertAudienceItems(await service.fetchAudienceItems(venues));
+      _emit();
+    } catch (e, st) {
+      logError('live_feed_providers.runVenueSnapshotCycle', e, st);
+      // Non-fatal, same reasoning as the audience cycle it replaces:
+      // events/offers/PinBox keep working, this tick just skips
+      // refreshing seats and check-in counts.
+    }
+  }
+
   Future<void> _runAudienceCycle({List<LiveFeedVenueSnapshot>? venues}) async {
     final rows = venues ?? _lastVenues;
     if (rows.isEmpty) return;
@@ -272,7 +338,7 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
   @override
   void dispose() {
     _fastTimer?.cancel();
-    _audienceTimer?.cancel();
+    _venueSnapshotTimer?.cancel();
     super.dispose();
   }
 }
