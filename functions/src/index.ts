@@ -30,8 +30,12 @@ import {
   bucketDistanceMeters,
   clampAudienceRadiusKm,
   haversineMeters,
+  isAllowedVenueAudienceRadiusKm,
   isPlausibleMovement,
+  quantizeOriginDegrees,
   reportableAudienceCount,
+  VENUE_AUDIENCE_MIN_REPORTABLE_COUNT,
+  VENUE_AUDIENCE_RADIUS_OPTIONS_KM,
 } from "./geo";
 import { InvalidPhoneNumberError, normalizePhoneNumber } from "./phone";
 
@@ -1136,8 +1140,17 @@ export const getDiscoverCandidates = onCall({ region: "us-central1", enforceAppC
     query = query.limit(DISCOVER_WORLD_CANDIDATES_LIMIT);
   }
 
-  const viewerLat = callerPrivateSnap.data()?.lat as number | undefined;
-  const viewerLng = callerPrivateSnap.data()?.lng as number | undefined;
+  // Quantized for the same reason as `findNearbyUsers` — see
+  // [quantizeOriginDegrees] (`./geo`). This function returns no
+  // distance at all, but `isWithinTargetVisibilityRadius` below is a
+  // BOOLEAN computed from these coordinates, and a candidate blinking
+  // in and out as the caller shifts their claimed position marks that
+  // candidate's own visibility radius just as sharply as a number
+  // would. A yes/no oracle is still an oracle.
+  const rawViewerLat = callerPrivateSnap.data()?.lat as number | undefined;
+  const rawViewerLng = callerPrivateSnap.data()?.lng as number | undefined;
+  const viewerLat = typeof rawViewerLat === "number" ? quantizeOriginDegrees(rawViewerLat) : undefined;
+  const viewerLng = typeof rawViewerLng === "number" ? quantizeOriginDegrees(rawViewerLng) : undefined;
   const viewerCountry = callerSnap.data()?.country as string | undefined;
   const myBlockedUsers = (callerSnap.data()?.blockedUsers as string[] | undefined) ?? [];
 
@@ -1183,7 +1196,15 @@ function isRecentlyOnlineServer(online: unknown, lastSeen: unknown): boolean {
  * 'country'/'world' visibility (like `discoverRadiusMode`) means no cap
  * for this feed. Distinct from [isWithinTargetVisibilityRadius], which
  * additionally understands 'country' mode for `getDiscoverCandidates`. */
-function isWithinNearbyVisibility(data: FirebaseFirestore.DocumentData, distanceMeters: number): boolean {
+/** Takes the two fields it actually reads rather than
+ * `FirebaseFirestore.DocumentData`, so `computeAudienceCount`'s own
+ * [AudienceUserDoc] can be passed straight in — an interface is not
+ * assignable to an index-signature type, and widening it with a cast
+ * at the call site would defeat the point of the shared check. */
+function isWithinNearbyVisibility(
+  data: { visibilityRadiusMode?: unknown; visibilityRadiusKm?: unknown },
+  distanceMeters: number,
+): boolean {
   if (data.visibilityRadiusMode !== "distance") return true;
   const radiusKm = data.visibilityRadiusKm as number | undefined;
   if (radiusKm === undefined) return true;
@@ -1249,13 +1270,23 @@ export const findNearbyUsers = onCall({ region: "us-central1", enforceAppCheck: 
   // pass a fresh reading on every poll tick, and it keeps this
   // callable's request shape identical to `getDiscoverCandidates`
   // (which reads the caller's own position the same way).
-  const lat = callerPrivateSnap.data()?.lat as number | undefined;
-  const lng = callerPrivateSnap.data()?.lng as number | undefined;
-  if (typeof lat !== "number" || typeof lng !== "number") {
+  const rawLat = callerPrivateSnap.data()?.lat as number | undefined;
+  const rawLng = callerPrivateSnap.data()?.lng as number | undefined;
+  if (typeof rawLat !== "number" || typeof rawLng !== "number") {
     throw new HttpsError("failed-precondition", "no-position-on-file");
   }
-  // P0 / H-1 (b) — see [assertPlausibleMovement].
-  await assertPlausibleMovement(uid, lat, lng);
+  // P0 / H-1 (b) — see [assertPlausibleMovement]. Deliberately fed the
+  // RAW claimed position: it is looking for a caller who teleports, and
+  // the quantized origin below would blur exactly the evidence it needs.
+  await assertPlausibleMovement(uid, rawLat, rawLng);
+  // THE trilateration fix — see [quantizeOriginDegrees] (`./geo`) for
+  // why the bucketed `distanceMeters` below is not, and for the
+  // measurements. Everything downstream (the distance label, the
+  // visibility-radius filter, the distance sort feeding
+  // NEARBY_RESULT_CAP) reads these and never `rawLat`/`rawLng`, so all
+  // three boundaries move onto the ~100 m grid together.
+  const lat = quantizeOriginDegrees(rawLat);
+  const lng = quantizeOriginDegrees(rawLng);
   const myBlockedUsers = (callerSnap.data()?.blockedUsers as string[] | undefined) ?? [];
 
   const candidates = await withPrivateData(scanSnap.docs);
@@ -2833,6 +2864,10 @@ interface AudienceUserDoc {
   lat?: number;
   lng?: number;
   ghostModeEnabled?: boolean;
+  /** The candidate's own "Görünmə radiusu" — read by
+   * [isWithinNearbyVisibility], same as in `findNearbyUsers`. */
+  visibilityRadiusMode?: string;
+  visibilityRadiusKm?: number;
 }
 
 /**
@@ -2870,7 +2905,17 @@ function computeAudienceCount(
   for (const user of activeUsers) {
     if (user.ghostModeEnabled) continue;
     if (user.lat === undefined || user.lng === undefined) continue;
-    if (haversineMeters(lat, lng, user.lat, user.lng) <= radiusKm * 1000) count++;
+    const distanceMeters = haversineMeters(lat, lng, user.lat, user.lng);
+    if (distanceMeters > radiusKm * 1000) continue;
+    // "Görünmə radiusu" — the CANDIDATE's own choice of how far away
+    // they may be discovered. `previewVenueAudience` has always applied
+    // this to the very same question ("how many people are around this
+    // venue"); this function did not, so a user who narrowed their own
+    // visibility to 1 km still fed a 30 km venue's live audience count
+    // and its peak-hour signal. Two functions answering one question
+    // must not disagree about who is in the answer.
+    if (!isWithinNearbyVisibility(user, distanceMeters)) continue;
+    count++;
   }
   return count;
 }
@@ -2907,6 +2952,34 @@ export const computeVenueAudienceHistory = onSchedule(
     ]);
     if (venuesSnap.empty) return;
 
+    // ⚠ THE 'distance' BRANCH OF `computeAudienceCount` IS CURRENTLY
+    // INERT, AND THIS LINE IS WHY. Found during the 2026-08-31
+    // hardening pass; deliberately NOT fixed in the same change.
+    //
+    // These are PUBLIC `users` documents. Every field the distance
+    // branch needs — `lat`, `lng`, `ghostModeEnabled`,
+    // `visibilityRadiusMode/Km` — moved to `users/{uid}/private/data`
+    // in Düzəliş Prompt 4 / K-1 and is absent here, so every candidate
+    // trips the `lat === undefined` guard and the count is always 0.
+    // Consequences today: distance-mode venues never render the
+    // "Ətrafınızda" card (`currentAudienceCount` stays 0), and never
+    // fire a peak-hour push. 'country'/'world' modes are unaffected —
+    // they count documents, not positions.
+    //
+    // Not fixed here for two reasons. It is a dormant PRODUCT feature,
+    // and switching it on is a visible behaviour change that belongs to
+    // whoever owns the feature, not to a security pass. And the fix
+    // costs one `private/data` read per active user per 15-minute run
+    // (`withPrivateData`'s shape), which is a real bill on this app's
+    // largest collection and deserves its own decision.
+    //
+    // The hardening in `computeAudienceCount` and in the peak-hour
+    // condition below was still applied, precisely because this is the
+    // state to be in BEFORE the source is repaired: whoever swaps this
+    // query for a `withPrivateData` version should inherit a function
+    // that already honours ghost mode, the candidate's own visibility
+    // radius, and the k-anonymity floor — not one that starts leaking
+    // the moment it starts working.
     const activeUsers: AudienceUserDoc[] = activeUsersSnap.docs.map((d) => d.data() as AudienceUserDoc);
 
     // Lazily fetched — only venues actually configured for 'country'/
@@ -2958,7 +3031,28 @@ export const computeVenueAudienceHistory = onSchedule(
 
       if (sameHourCounts.length > 0) {
         const average = sameHourCounts.reduce((a, b) => a + b, 0) / sameHourCounts.length;
-        const isPeak = average > 0 && count >= average * AUDIENCE_PEAK_THRESHOLD_MULTIPLIER;
+        // The SAME k-anonymity floor the stored `currentAudienceCount`
+        // gets a few lines below, applied to the notification too.
+        //
+        // Without it this push was the one place a raw sub-threshold
+        // count still escaped. `average > 0 && count >= average * 1.5`
+        // is satisfiable by a SINGLE person: over a week of mostly-zero
+        // samples the same-hour average lands around 0.14, so one
+        // arrival clears 0.21 and the owner is told "Pik andır!". At a
+        // small `audienceRadiusKm` that is not an analytics signal, it
+        // is a doorway sensor telling the owner someone is standing
+        // outside, at 15-minute resolution.
+        //
+        // Flooring the count before publishing it and then deriving an
+        // alert from the unfloored one would have been the floor in
+        // name only — the alert IS a publication, just a narrower
+        // audience. `VENUE_AUDIENCE_RADIUS_OPTIONS_KM` keeps the radius
+        // itself inside what a reviewer would recognise; this keeps the
+        // signal meaningless below k regardless of the radius.
+        const isPeak =
+          count >= VENUE_AUDIENCE_MIN_REPORTABLE_COUNT &&
+          average > 0 &&
+          count >= average * AUDIENCE_PEAK_THRESHOLD_MULTIPLIER;
 
         if (isPeak) {
           const lastNotifiedAt = (venue.lastPeakNotifiedAt as Timestamp | undefined)?.toMillis() ?? 0;
@@ -4413,6 +4507,38 @@ function moderationStatusNotification(
  * "paid, awaiting review" state. No-ops for listings predating the
  * payment feature (no `paymentId`).
  */
+/**
+ * The venue's `audienceRadiusKm`, validated against the picker's own
+ * option list — or an `invalid-argument` if it is anything else.
+ *
+ * Both writers (`submitVenue`, `updateVenue`) previously took this
+ * field as `(data.audienceRadiusKm as number) ?? 1.0`: no type check,
+ * no bounds, and — because a radius-only edit is the ONE venue change
+ * deliberately exempt from re-entering moderation (see `updateVenue`'s
+ * doc comment) — no human ever saw the result either. A caller hitting
+ * the callable directly could set any number at all; the app's own
+ * picker offers six fixed chips and can't express anything else.
+ *
+ * Absent is not an error: it means "unchanged"/"use the default", and
+ * 1 km is a member of the allowlist. Present-but-not-in-the-list is an
+ * error rather than a clamp — clamping 0.001 to 0.1 would honour a
+ * request nobody could have made through the UI, and silence is how
+ * this field got here.
+ *
+ * See [VENUE_AUDIENCE_RADIUS_OPTIONS_KM] (`./geo`) for the list, why
+ * it is an allowlist rather than a range, and what has to happen if
+ * the Remote Config radius list ever changes.
+ */
+function assertAllowedAudienceRadius(value: unknown): number {
+  if (value === undefined || value === null) return 1.0;
+  if (!isAllowedVenueAudienceRadiusKm(value)) {
+    rejectRequest("invalid-argument", "venue.invalid-audience-radius",
+      "Auditoriya radiusu üçün yalnız hazır seçimlərdən biri qəbul edilir.",
+      { allowed: VENUE_AUDIENCE_RADIUS_OPTIONS_KM, received: value });
+  }
+  return value as number;
+}
+
 function revertRevisionPayment(tx: FirebaseFirestore.Transaction, paymentId: string | undefined): void {
   if (!paymentId) return;
   tx.update(db.collection("payments").doc(paymentId), {
@@ -4468,7 +4594,7 @@ export const updateVenue = onCall(
     const openingHours = data.openingHours as Record<string, unknown> | undefined;
     const socialLinks = data.socialLinks as Record<string, unknown> | undefined;
     const audienceRadiusMode = (data.audienceRadiusMode as string | undefined) ?? "distance";
-    const audienceRadiusKm = (data.audienceRadiusKm as number | undefined) ?? 1.0;
+    const audienceRadiusKm = assertAllowedAudienceRadius(data.audienceRadiusKm);
     const birthdayNotificationsEnabled = (data.birthdayNotificationsEnabled as boolean | undefined) ?? false;
 
     if (!venueId || !name || !category || lat === undefined || lng === undefined || !address || !openingHours) {
@@ -5703,7 +5829,7 @@ export const submitVenue = onCall(
       rating: 3.0,
       ...(data.socialLinks ? { socialLinks: data.socialLinks } : {}),
       audienceRadiusMode: (data.audienceRadiusMode as string | undefined) ?? "distance",
-      audienceRadiusKm: (data.audienceRadiusKm as number | undefined) ?? 1.0,
+      audienceRadiusKm: assertAllowedAudienceRadius(data.audienceRadiusKm),
       birthdayNotificationsEnabled: (data.birthdayNotificationsEnabled as boolean | undefined) ?? false,
       createdAt: FieldValue.serverTimestamp(),
     });

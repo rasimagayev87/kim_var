@@ -501,3 +501,73 @@ sahəsini `FieldValue.delete()` ilə silmək. Skript
 `migrate-checkin-counters.ts` naxışı ilə yazıla bilər.
 
 **Təxmini iş həcmi:** ~30 dəqiqə.
+
+## 25. `computeVenueAudienceHistory` yanlış sənəddən oxuyur — «Ətrafınızda» heç vaxt görünmür
+
+**Mənbə:** Audit 4 remediasiyası (2026-08-31), 7-ci bəndi yazarkən
+aşkarlandı.
+
+**Nə:** Funksiya namizədləri belə yığır:
+
+```ts
+// functions/src/index.ts — computeVenueAudienceHistory
+db.collection("users").where("lastSeen", ">", activeCutoff).get()
+...
+const activeUsers: AudienceUserDoc[] = activeUsersSnap.docs.map((d) => d.data() as AudienceUserDoc);
+```
+
+Bunlar **publik** `users` sənədləridir. `computeAudienceCount`-un
+`distance` budağının ehtiyac duyduğu HƏR sahə — `lat`, `lng`,
+`ghostModeEnabled`, `visibilityRadiusMode`/`visibilityRadiusKm` —
+Düzəliş Prompt 4 / K-1-də `users/{uid}/private/data`-ya köçüb və burada
+yoxdur. Yəni hər namizəd `lat === undefined` qapısına düşür və say
+**həmişə 0-dır**.
+
+**Nəticə (bugünkü canlı davranış):**
+
+* `venues/{id}.currentAudienceCount` distance rejimli məkanlarda daim
+  0 qalır → Canlı tabdakı «N nəfər ətrafda (son 15 dəqiqə)» kartı və
+  tiker **heç vaxt göstərilmir** (`live_feed_service.dart` `> 0`
+  süzgəci).
+* Pik-saat bildirişi (**«Pik andır! 🔥»**) distance rejimli məkanlar
+  üçün **heç vaxt göndərilmir**.
+* `venues/{id}/audienceHistory` seriyası sıfırlarla dolur.
+* `country`/`world` rejimləri **təsirlənmir** — onlar mövqe yox, sənəd
+  sayır (`onlineByCountry`/`onlineWorldwide`).
+
+**Bu, dünənki sayğac ayrımının hazırda heç nə göstərmədiyi deməkdir.**
+`VENUE_OCCUPANCY.md`-dəki üç sayğacdan ikincisi («Ətrafınızda» ←
+`currentAudienceCount`) sənəddə düzgün təsvir olunub, kod da düzgün
+yazılıb, amma qidalandığı sorğu boş gəlir. Ayrımın özü doğrudur və
+lazımdır — sadəcə onun görünən yarısı hələ işləmir. Check-in sayğacı
+(üçüncü) **işləyir**: o, `activeCheckins` sənədlərindən gəlir, publik
+`users`-dən yox.
+
+**Nə edilməli:** namizədləri `withPrivateData` naxışı ilə yığmaq —
+publik sənədi öz `private/data`-sı ilə birləşdirmək, eynilə
+`findNearbyUsers`/`getDiscoverCandidates`-in etdiyi kimi.
+
+**Xərc — bu, qərarın əsas hissəsidir:** hər 15 dəqiqədə bir, həmin
+pəncərədə aktiv olan HƏR istifadəçi üçün bir əlavə sənəd oxusu. Bugün
+əhəmiyyətsizdir; 10 000 aktiv istifadəçidə saatda 40 000, ayda ~29
+milyon əlavə oxu deməkdir. Ucuzlaşdırma variantları baxılmalıdır
+(məsələn yalnız distance rejimli məkanı olan şəhərlərdəki
+istifadəçiləri çəkmək, və ya `private/data`-ya kobud, kvantlanmış
+`geohash` güzgüsü yazıb sorğunu ona bağlamaq).
+
+**Təhlükəsizlik tərəfi ARTIQ hazırdır — düzəldəndə əlavə iş
+lazım deyil.** Audit 4 turunda `computeAudienceCount`-a
+`isWithinNearbyVisibility` süzgəci və pik şərtinə k-anonimlik
+döşəməsi (`count >= VENUE_AUDIENCE_MIN_REPORTABLE_COUNT`) əlavə edildi,
+`audienceRadiusKm` isə picker-in öz allowlist-inə bağlandı. Bu üçü
+məhz ona görə mənbə düzəldilməzdən ƏVVƏL edildi ki, funksiya işə
+düşən anda sızmağa başlamasın. Sənəd: `index.ts`-dəki ⚠ şərhi,
+`activeUsers` sətrinin üstündə.
+
+**Niyə Audit 4-də düzəldilmədi:** yatmış bir MƏHSUL funksiyasını işə
+salmaq görünən davranış dəyişikliyidir (kart birdən görünməyə başlayır,
+sahiblərə push getməyə başlayır) və yuxarıdakı xərc qərarını tələb
+edir — heç biri təhlükəsizlik keçidinin veriləcəyi qərar deyil.
+
+**Təxmini iş həcmi:** ~2 saat (sadə `withPrivateData` keçidi) · xərc
+optimizasiyası seçilərsə +1 gün.

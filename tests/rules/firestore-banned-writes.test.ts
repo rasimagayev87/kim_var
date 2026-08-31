@@ -158,3 +158,54 @@ describe("d4 — `private/data.banned` güzgüsü client-dən qorunur", () => {
     );
   });
 });
+
+/**
+ * A4 — the ban mirror cannot be cleared by delete-then-recreate.
+ *
+ * `serverOnlyFields()` protects `private/data.banned` on create and on
+ * update, so it cannot be written away. It could however be REMOVED:
+ * delete the document, then recreate it without the field, since
+ * `create` only requires that serverOnly keys be absent — and absent
+ * is exactly what a banned account wants.
+ *
+ * The mirror is not an authorization input (`bannedUsers/{uid}` is,
+ * and it is untouched by this), but `findNearbyUsers` and
+ * `getDiscoverCandidates` filter their candidate lists on it to avoid
+ * a `bannedUsers` read per candidate. Clearing it puts a banned
+ * account back into everyone's nearby and Discover results.
+ */
+describe("A4 — ban güzgüsü silmə/yenidənyaratma ilə təmizlənə bilmir", () => {
+  before(async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const fs = ctx.firestore();
+      await setDoc(doc(fs, "users", BANNED, "private", "data"), { lat: 40.4, lng: 49.8, banned: true });
+      await setDoc(doc(fs, "users", OK, "private", "data"), { lat: 40.4, lng: 49.8 });
+    });
+  });
+
+  test("BANLANMIŞ hesab öz private/data sənədini SİLƏ BİLMİR", async () => {
+    const db = testEnv.authenticatedContext(BANNED).firestore();
+    await assertFails(deleteDoc(doc(db, "users", BANNED, "private", "data")));
+  });
+
+  test("güzgünü yazı ilə söndürmək də bağlı qalır (serverOnlyFields)", async () => {
+    const db = testEnv.authenticatedContext(BANNED).firestore();
+    await assertFails(setDoc(doc(db, "users", BANNED, "private", "data"), { banned: false }, { merge: true }));
+  });
+
+  test("banlanmış hesab hələ də öz mövqeyini yaza bilir — qəsdən", async () => {
+    // Yazma qapısı deyil, görünürlük qapısı bağlanır. Mövqe yazısı
+    // `ACCEPTED_RISKS.md`-də açıq qalan siyahıdadır; onu bloklamaq
+    // güzgünü qorumur, çünki görünürlüyü saxlayan sahə başqa
+    // sənəddədir.
+    const db = testEnv.authenticatedContext(BANNED).firestore();
+    await assertSucceeds(setDoc(doc(db, "users", BANNED, "private", "data"), { lat: 41.0 }, { merge: true }));
+  });
+
+  test("REQRESSİYA — banlanmamış hesab öz sənədini hələ silə bilir", async () => {
+    // Silmə hüququ ümumiyyətlə alınmadı, yalnız ban müddətinə
+    // şərtləndi. `deleteAccount` onsuz da Admin SDK ilə işləyir.
+    const db = testEnv.authenticatedContext(OK).firestore();
+    await assertSucceeds(deleteDoc(doc(db, "users", OK, "private", "data")));
+  });
+});

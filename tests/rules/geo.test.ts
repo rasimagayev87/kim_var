@@ -10,12 +10,15 @@ import {
   bucketDistanceMeters,
   clampAudienceRadiusKm,
   haversineMeters,
+  isAllowedVenueAudienceRadiusKm,
   isPlausibleMovement,
+  quantizeOriginDegrees,
   reportableAudienceCount,
   NEARBY_MAX_PLAUSIBLE_SPEED_KMH,
   NEARBY_PROBE_WINDOW_MS,
   VENUE_AUDIENCE_MAX_RADIUS_KM,
   VENUE_AUDIENCE_MIN_REPORTABLE_COUNT,
+  VENUE_AUDIENCE_RADIUS_OPTIONS_KM,
 } from "../../functions/src/geo";
 
 describe("H-1 (a) — məsafə kvantlaşdırması", () => {
@@ -140,5 +143,108 @@ describe("haversineMeters", () => {
   test("Bakı–London məsafəsi təxminən düzgündür", () => {
     const m = haversineMeters(40.4093, 49.8671, 51.5074, -0.1278);
     assert.ok(m > 3_900_000 && m < 4_100_000, `alındı: ${Math.round(m)} m`);
+  });
+});
+
+/**
+ * The trilateration fix.
+ *
+ * The property under test is not "distances are coarse" — the old
+ * `bucketDistanceMeters` already gave that and it was not enough. It
+ * is that the response has NO CONTINUOUS BOUNDARY for an attacker to
+ * binary-search, because the attacker controls the query origin
+ * (`private/data.lat/lng` is client-written) and a boundary that moves
+ * smoothly with that origin can be located to arbitrary precision no
+ * matter how coarse the value on either side of it is.
+ *
+ * See `quantizeOriginDegrees`' own doc comment for the measurements
+ * that ruled out coarser buckets and per-pair jitter.
+ */
+describe("quantizeOriginDegrees — girişin kvantlanması", () => {
+  const step = 100 / 111320;
+
+  test("şəbəkə addımının tam qatına oturdur", () => {
+    for (const v of [40.4093, 49.8671, -0.1278, 51.5074, 0]) {
+      const q = quantizeOriginDegrees(v);
+      const k = q / step;
+      assert.ok(Math.abs(k - Math.round(k)) < 1e-6, `${v} → ${q} şəbəkə üstündə deyil`);
+    }
+  });
+
+  test("BİSEKT EDİLƏ BİLMİR — hüceyrə daxilində sürüşmə cavabı dəyişmir", () => {
+    // Bu, düzəlişin bütün mahiyyətidir. Hücumçu öz mövqeyini
+    // metrlərlə sürüşdürüb sərhədi axtarır; kvantlanmış mənbədə
+    // eyni hüceyrənin bütün nöqtələri EYNİ cavabı verir, yəni
+    // yaxınlaşdırılacaq sərhəd yoxdur.
+    const target = { lat: 40.409264, lng: 49.867092 };
+    const base = quantizeOriginDegrees(40.4060);
+    const baseLng = quantizeOriginDegrees(49.8640);
+    const answers = new Set<number>();
+    // Hüceyrənin daxilində ±40 m — kvantlamadan sonra hamısı eyni.
+    for (let dm = -40; dm <= 40; dm += 5) {
+      const lat = quantizeOriginDegrees(base + dm / 111320);
+      const lng = quantizeOriginDegrees(baseLng);
+      answers.add(bucketDistanceMeters(haversineMeters(lat, lng, target.lat, target.lng)));
+    }
+    assert.equal(answers.size, 1, `hüceyrə daxilində ${answers.size} fərqli cavab çıxdı: ${[...answers]}`);
+  });
+
+  test("geniş sahədə cavab çoxluğu kiçik qalır (annulus kəsişməsi, nöqtə deyil)", () => {
+    const target = { lat: 40.409264, lng: 49.867092 };
+    const answers = new Set<number>();
+    for (let i = -30; i <= 30; i++) {
+      for (let j = -30; j <= 30; j++) {
+        const lat = quantizeOriginDegrees(target.lat + (i * 10) / 111320);
+        const lng = quantizeOriginDegrees(target.lng + (j * 10) / 111320);
+        answers.add(bucketDistanceMeters(haversineMeters(lat, lng, target.lat, target.lng)));
+      }
+    }
+    // 600x600 m sahədə 10 m addımla 3721 zond — ovuc dolusu cavab.
+    assert.ok(answers.size <= 12, `gözlənilən ≤12, alındı ${answers.size}`);
+  });
+
+  test("legitim istifadə pozulmur — kvantlama xətası şəbəkə addımının yarısını keçmir", () => {
+    for (const v of [40.4093, 49.8671, -0.1278]) {
+      assert.ok(Math.abs(quantizeOriginDegrees(v) - v) <= step / 2 + 1e-12);
+    }
+  });
+});
+
+describe("VENUE_AUDIENCE_RADIUS_OPTIONS_KM — allowlist", () => {
+  test("client-in kRadiusOptionsKm siyahısı ilə eynidir", () => {
+    // `lib/features/location/presentation/providers/location_providers.dart`
+    // -dəki `kRadiusOptionsKm` sabitinin əl ilə saxlanan güzgüsü.
+    // Bu test onların fərqlənməsini tutmaq üçündür; siyahı orada
+    // dəyişirsə, burada da dəyişməlidir.
+    assert.deepEqual([...VENUE_AUDIENCE_RADIUS_OPTIONS_KM], [0.1, 0.5, 1, 5, 10, 30]);
+  });
+
+  test("hər seçim qəbul edilir — 100 m daxil (picker-in ilk çipi)", () => {
+    for (const km of VENUE_AUDIENCE_RADIUS_OPTIONS_KM) {
+      assert.equal(isAllowedVenueAudienceRadiusKm(km), true, `${km} rədd edildi`);
+    }
+  });
+
+  test("float dəqiqliyi 0.1-i sındırmır", () => {
+    assert.equal(isAllowedVenueAudienceRadiusKm(0.30000000000000004 - 0.2), true);
+  });
+
+  test("picker-də olmayan dəyərlər rədd edilir", () => {
+    // 0.03 km = 30 m — auditdəki qapı-sensoru ssenarisi.
+    for (const bad of [0.03, 0, -1, 0.2, 2, 50, 1000, Infinity, NaN]) {
+      assert.equal(isAllowedVenueAudienceRadiusKm(bad), false, `${bad} qəbul edildi`);
+    }
+  });
+
+  test("ədəd olmayanlar rədd edilir", () => {
+    for (const bad of ["1", null, undefined, {}, []]) {
+      assert.equal(isAllowedVenueAudienceRadiusKm(bad), false, `${JSON.stringify(bad)} qəbul edildi`);
+    }
+  });
+
+  test("hər seçim mövcud clamp həddinin altındadır", () => {
+    for (const km of VENUE_AUDIENCE_RADIUS_OPTIONS_KM) {
+      assert.ok(km <= VENUE_AUDIENCE_MAX_RADIUS_KM);
+    }
   });
 });

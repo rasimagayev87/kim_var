@@ -330,6 +330,82 @@ service cloud.firestore {
         return !('bio' in request.resource.data) || request.resource.data.bio.size() <= 200;
       }
 
+      // A handle displayed here must actually be HELD in `usernames`.
+      //
+      // `usernames/{lowercased}` is the reservation ledger — its create
+      // rule already makes a handle unique and binds it to one uid
+      // (`resource == null && request.auth.uid == request.resource.data
+      // .uid`). But nothing tied THIS document's `username` field to
+      // that ledger, and `username` was not in
+      // `touchesLockedUserFields()` either. So a modified client could
+      // simply write `username: "someone_elses_handle"` here, skipping
+      // the reservation entirely, and every surface that renders an
+      // @handle — public profile, `searchUsersByName`/
+      // `searchUsersByUsername` results (both read `users.username`,
+      // see `buildSearchProfilePayload`), the share card, chat rows —
+      // would show it. `isReservedUsername`'s blocklist ('admin',
+      // 'support', 'peakpin', …) was bypassed the same way, since it
+      // only ever guarded the ledger. Verified in the emulator: writing
+      // both an unreserved handle and one reserved by another account
+      // succeeded before this rule.
+      //
+      // Enforced HERE rather than by moving username changes into a
+      // callable, which was the other candidate. `updateUsername`
+      // (`firebase_auth_repository.dart`) is a two-step client flow —
+      // reserve, then write this field — and that flow is what the
+      // build already in the store runs. A callable would be the
+      // cleaner shape, but it would also mean no shipped install could
+      // change its username until users updated. This rule makes the
+      // EXISTING flow safe, which is the change that can go out today;
+      // the callable stays worth doing later, and this rule keeps
+      // holding when it lands (the Admin SDK bypasses rules).
+      //
+      // Costs one `get()`, and only on a write that actually changes
+      // the field — `affectedKeys()` compares values, and rules
+      // short-circuit `||`, so ordinary profile saves (which don't
+      // touch `username` at all — see `ProfileController.save`) pay
+      // nothing.
+      function usernameOwnedByCaller() {
+        return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['username']) ||
+          (
+            request.resource.data.username is string &&
+            exists(/databases/$(database)/documents/usernames/$(request.resource.data.username.lower())) &&
+            get(/databases/$(database)/documents/usernames/$(request.resource.data.username.lower())).data.uid == request.auth.uid
+          );
+      }
+
+      // `nameLower` must stay the derivative of the name actually shown.
+      //
+      // Same class as the venue `nameLower` lock two hundred lines
+      // below (P0 / C-d) — that one was closed, this one was not, so
+      // the sweep was half-finished. `searchUsersByName` orders and
+      // range-scans on `nameLower` and NEVER on `firstName`/`lastName`
+      // (functions/src/index.ts), so the two fields answer different
+      // questions: one is what a viewer reads on the profile, the other
+      // is what the account is findable by. Left unbound, an account
+      // could display one identity and be indexed under another —
+      // surfacing in searches for a specific real person while showing
+      // something else, or dropping out of search entirely.
+      //
+      // NOT a blocklist entry, and not derived in a trigger. Both would
+      // reject the write that `ProfileController.save` already sends
+      // (it sets `firstName`/`lastName`/`nameLower` in ONE batch, see
+      // profile_providers.dart), breaking profile editing for every
+      // install currently in the store; a trigger would additionally
+      // leave search stale for as long as it takes to fire. Requiring
+      // the value to EQUAL the derivation gets the same invariant, with
+      // the shipped client already computing exactly this expression
+      // ('$firstName $lastName'.trim().toLowerCase()).
+      //
+      // This does not stop someone from choosing a misleading display
+      // name — no consumer app does, users rename themselves — it stops
+      // the display name and the search key from disagreeing.
+      function nameLowerMatchesName() {
+        return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['nameLower']) ||
+          request.resource.data.nameLower ==
+            (request.resource.data.get('firstName', '') + ' ' + request.resource.data.get('lastName', '')).trim().lower();
+      }
+
       // No client `create` path exists any more — `completeOnboarding`
       // (Cloud Function, Admin SDK, bypasses these rules) is the ONLY way a
       // `users/{uid}` document comes into existence, specifically so its
@@ -398,7 +474,8 @@ service cloud.firestore {
       }
 
       allow update: if request.auth != null && (
-        (request.auth.uid == userId && !touchesLockedUserFields() && bioSizeOk() && photoUrlOk()) ||
+        (request.auth.uid == userId && !touchesLockedUserFields() && bioSizeOk() && photoUrlOk() &&
+          usernameOwnedByCaller() && nameLowerMatchesName()) ||
         (
           request.auth.uid != userId &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reportedCount']) &&
@@ -499,11 +576,34 @@ service cloud.firestore {
         allow update: if request.auth != null && request.auth.uid == userId &&
           !request.resource.data.diff(resource.data).affectedKeys().hasAny(serverOnlyFields());
 
-        // Unchanged from the previous `allow write` (which included
-        // delete) — `deleteAccount` runs on the Admin SDK and bypasses
-        // this anyway; nothing is gained by newly forbidding an owner
-        // from dropping their own document.
-        allow delete: if request.auth != null && request.auth.uid == userId;
+        // Owner-only, EXCEPT while the account is banned.
+        //
+        // `serverOnlyFields()` includes `banned` and so protects it on
+        // create and update — but delete was left open on the reasoning
+        // that `deleteAccount` bypasses these rules anyway, so nothing
+        // was gained by forbidding it. That reasoning missed that
+        // delete-then-recreate is a way to CLEAR a protected field
+        // without ever writing it: `create` only requires that
+        // serverOnly keys be ABSENT, and an absent `banned` is exactly
+        // what a banned account wants. Confirmed in the emulator —
+        // delete succeeded, then a recreate with `{lat, lng}` and no
+        // `banned` succeeded too.
+        //
+        // What that buys the attacker is visibility, not permission.
+        // `bannedUsers/{uid}` stays the source of truth and still gates
+        // every write via `isActiveUser()`. But `findNearbyUsers` and
+        // `getDiscoverCandidates` filter candidates on the CHEAP mirror
+        // (`private/data.banned`, already fetched by `withPrivateData`)
+        // rather than paying a `bannedUsers` read per candidate — see
+        // those filters' own comments. Clearing the mirror puts a
+        // banned account back into everyone's Discover and nearby
+        // results, which for a ban issued over harassment is precisely
+        // the outcome the ban existed to prevent.
+        //
+        // `deleteAccount` is unaffected: Admin SDK, bypasses rules. A
+        // banned user who wants their data gone still has that path.
+        allow delete: if request.auth != null && request.auth.uid == userId &&
+          !exists(/databases/$(database)/documents/bannedUsers/$(userId));
       }
 
       // Personal media gallery grid on the self-profile tab — read-only
@@ -1225,11 +1325,43 @@ service cloud.firestore {
       // (functions/src/index.ts) may set it, derived from real
       // `activeCheckins` docs, so an owner can't inflate their own
       // "hazırda N nəfər" counter by editing their own venue directly.
+      //
+      // `visibleCheckinCount`/`currentAudienceCount`/
+      // `audienceCountUpdatedAt` are the same rule, and their absence
+      // here was a REGRESSION rather than an omission. When the two
+      // occupancy counts were separated (docs/VENUE_OCCUPANCY.md), the
+      // numbers moved to new fields and the lock did not move with
+      // them — it kept naming `activeCheckinCount`, which by then was
+      // the DEPRECATED field nothing writes any more (BACKLOG #24
+      // keeps it only for builds still in the store). So the protected
+      // field was the dead one and the two live ones were open.
+      // Emulator-confirmed: the owner could write both.
+      //
+      // What that allowed: `currentAudienceCount` is the Canlı tab's
+      // "N nəfər ətrafda" card and ticker, `visibleCheckinCount` is the
+      // profile's "Hazırda N PeakPin istifadəçisi buradadır" — an owner
+      // could put any number in front of every user in radius.
+      // `audienceCountUpdatedAt` belongs in the lock for a second
+      // reason: the client refuses to draw a figure older than 20
+      // minutes, so an owner able to restamp it could keep a fabricated
+      // count on screen indefinitely.
+      //
+      // Only `computeVenueAudienceHistory` and `bumpActiveCheckinCount`
+      // write these, both applying the k-anonymity floor first. The
+      // pair is written in ONE transaction with the raw counter in
+      // `venues/{id}/private/counters`, which no client can read at
+      // all — this lock is what keeps the public mirror as trustworthy
+      // as the private truth.
+      //
+      // WHEN THE COUNTER FIELDS CHANGE NAME AGAIN, CHANGE THIS LIST IN
+      // THE SAME COMMIT. `tests/rules/firestore-checkin.test.ts` now
+      // asserts all three, which is the thing that would have caught
+      // this one.
       allow update: if request.auth != null &&
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl', 'offerAcceptedVersion', 'offerAcceptedAt', 'offerAcceptedFrom', 'offerDocumentUrl', 'verified', 'gallery', 'activeCheckinCount', 'nameLower']);
+          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl', 'offerAcceptedVersion', 'offerAcceptedAt', 'offerAcceptedFrom', 'offerDocumentUrl', 'verified', 'gallery', 'activeCheckinCount', 'visibleCheckinCount', 'currentAudienceCount', 'audienceCountUpdatedAt', 'nameLower']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
