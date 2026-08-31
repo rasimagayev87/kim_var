@@ -93,3 +93,44 @@ describe("check-in — yazma", () => {
     await assertFails(deleteDoc(doc(db, "venues", VENUE, "activeCheckins", VISITOR)));
   });
 });
+
+describe("sayğac ayrımı — xam say client-dən gizlidir", () => {
+  test("private/counters heç kimə açıq deyil — sahibə də", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "venues", VENUE, "private", "counters"), { activeCheckinCount: 3 });
+    });
+    for (const uid of [OWNER, VISITOR, OTHER]) {
+      const db = testEnv.authenticatedContext(uid).firestore();
+      await assertFails(getDoc(doc(db, "venues", VENUE, "private", "counters")));
+    }
+  });
+
+  test("private/counters-ə yazmaq da olmaz", async () => {
+    const db = testEnv.authenticatedContext(OWNER).firestore();
+    await assertFails(setDoc(doc(db, "venues", VENUE, "private", "counters"), { activeCheckinCount: 999 }));
+  });
+
+  test("audienceHistory bağlıdır (Audit 3 / A3-M2)", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "venues", VENUE, "audienceHistory", "h1"),
+        { count: 1, hour: 12, timestamp: new Date() });
+    });
+    for (const uid of [OWNER, VISITOR, OTHER]) {
+      const db = testEnv.authenticatedContext(uid).firestore();
+      await assertFails(getDocs(collection(db, "venues", VENUE, "audienceHistory")));
+      await assertFails(getDoc(doc(db, "venues", VENUE, "audienceHistory", "h1")));
+    }
+  });
+
+  test("məkan sənədindəki göstəriş sahələri oxunur", async () => {
+    // Client-in oxuduğu yeganə saylar bunlardır və hər ikisi
+    // serverdə həddlənib.
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "venues", VENUE),
+        { ...venueFixture(OWNER, { category: "restaurant" }), visibleCheckinCount: 0, currentAudienceCount: 7 },
+      );
+    });
+    const db = testEnv.authenticatedContext(OTHER).firestore();
+    await assertSucceeds(getDoc(doc(db, "venues", VENUE)));
+  });
+});

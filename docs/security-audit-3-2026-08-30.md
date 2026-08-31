@@ -209,7 +209,13 @@ serveri App Check təqdim edə bilmir — ona görə IP əsaslı bir scope
 öz bildirişlərini məhdud sayda IP-dən göndərir və uğursuz cəhdlərdə
 təkrar göndərir, ona görə limit səxavətli olmalıdır.
 
-## A3-M2 — `audienceHistory` H-2-də qoyulan k-anonimlik həddini keçir
+## A3-M2 — ~~`audienceHistory` H-2-də qoyulan k-anonimlik həddini keçir~~ — BAĞLANDI (2026-08-31)
+
+> Kolleksiya tamamilə bağlandı (`allow read: if false`). Canlı tab artıq
+> `venues/{id}.currentAudienceCount` oxuyur — serverdə həddlənmiş
+> aqreqat sahə. Xam seriya yalnız pik-saat detektoru üçün server
+> tərəfdə qalır. Bax `docs/VENUE_OCCUPANCY.md`.
+
 
 H-2-də `previewVenueAudience`-ə qəsdən mərtəbə qoyduq:
 

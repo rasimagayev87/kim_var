@@ -183,14 +183,22 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
 
   @override
   Stream<int> watchActiveCheckinCount(String venueId) {
-    // Raw `activeCheckins` list access is now owner/checked-in-user-only
-    // (Düzəliş Prompt 4, K-4) — every other viewer of a venue's profile
-    // reads the server-maintained `activeCheckinCount` aggregate instead
-    // (see `bumpActiveCheckinCount` in functions/src/index.ts).
+    // `visibleCheckinCount`, not `activeCheckinCount`. The raw count
+    // now lives in `venues/{id}/private/counters`, closed to every
+    // client including the venue's owner; this field is that number
+    // with the k-anonymity floor applied, so it reads 0 below the
+    // threshold. "1 nəfər burada" identifies a specific person, and
+    // suppressing it in the widget while the true number sat on a
+    // publicly-readable document would have been decoration rather
+    // than privacy. See `bumpActiveCheckinCount` (functions/src/
+    // index.ts) and docs/VENUE_OCCUPANCY.md.
+    //
+    // The raw `activeCheckins` subcollection is readable only by the
+    // person who checked in.
     return _venues
         .doc(venueId)
         .snapshots()
-        .map((snap) => (snap.data()?['activeCheckinCount'] as num?)?.toInt() ?? 0);
+        .map((snap) => (snap.data()?['visibleCheckinCount'] as num?)?.toInt() ?? 0);
   }
 
   @override

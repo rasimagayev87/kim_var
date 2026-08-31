@@ -20,6 +20,12 @@ class LiveFeedVenueSnapshot {
   final double distanceMeters;
   final int? availableSeats;
   final DateTime? seatsUpdatedAt;
+  /// Server-computed presence, already k-anonymity floored (0 below the
+  /// threshold). NOT the check-in count — see [activeCheckinCount].
+  final int currentAudienceCount;
+  /// When `computeVenueAudienceHistory` last wrote [currentAudienceCount].
+  /// Null on a venue the schedule has not reached yet.
+  final DateTime? audienceCountUpdatedAt;
   final String? photoUrl;
   final int activeCheckinCount;
 
@@ -30,6 +36,8 @@ class LiveFeedVenueSnapshot {
     required this.distanceMeters,
     required this.availableSeats,
     required this.seatsUpdatedAt,
+    required this.currentAudienceCount,
+    required this.audienceCountUpdatedAt,
     required this.photoUrl,
     required this.activeCheckinCount,
   });
@@ -91,28 +99,46 @@ class LiveFeedService {
         distanceMeters: r.distanceFromCenterInKm * 1000,
         availableSeats: data['availableSeats'] as int?,
         seatsUpdatedAt: (data['seatsUpdatedAt'] as Timestamp?)?.toDate(),
+        currentAudienceCount: (data['currentAudienceCount'] as num?)?.toInt() ?? 0,
+        audienceCountUpdatedAt: (data['audienceCountUpdatedAt'] as Timestamp?)?.toDate(),
         photoUrl: data['photoUrl'] as String?,
         activeCheckinCount: (data['activeCheckinCount'] as num?)?.toInt() ?? 0,
       );
     }).toList();
   }
 
-  /// "Ətrafınızda" — a venue with at least one active check-in, read off
-  /// [LiveFeedVenueSnapshot.activeCheckinCount] (`venues/{id}
-  /// .activeCheckinCount`, maintained by `bumpActiveCheckinCount` in
-  /// functions/src/index.ts). Düzəliş Prompt 4 (K-4) narrowed the raw
-  /// `activeCheckins` subcollection to the checked-in user and the
-  /// venue's own owner, so listing it directly — this method's previous
-  /// approach — is no longer possible for a general viewer; reading the
-  /// aggregate field already present on [venues] costs nothing extra
-  /// (no per-venue read here at all, an improvement over the old
-  /// [_audienceCheckLimit]-bounded per-venue query).
-  Future<List<LiveFeedItem>> fetchAudienceItems(List<LiveFeedVenueSnapshot> venues) async {
-    final candidates = [...venues]..sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
-
-    return candidates
+  /// "Ətrafınızda" — the SERVER-COMPUTED presence count, read off
+  /// `venues/{id}.currentAudienceCount`.
+  ///
+  /// This used to read `activeCheckinCount`, which is a different
+  /// product: voluntary check-ins, where someone taps a button
+  /// expecting to appear on that venue's profile. Showing that number
+  /// to everyone in radius broke the expectation the button sets, and
+  /// it also meant this tab counted only people who had pressed
+  /// something rather than people who were actually there.
+  /// `computeVenueAudienceHistory` computes the real thing every 15
+  /// minutes from `lastSeen`/`online` and position, excluding anyone in
+  /// Ghost Mode. See docs/VENUE_OCCUPANCY.md.
+  ///
+  /// The count arrives already floored — the server writes 0 below the
+  /// k-anonymity threshold — so `> 0` here is also the privacy filter.
+  ///
+  /// [staleAfter] guards the other direction: the value is a 15-minute
+  /// snapshot, which is fine for "how busy is it over there", but if
+  /// that schedule stops the number must disappear rather than keep
+  /// being drawn as current.
+  List<LiveFeedItem> audienceItemsFrom(
+    List<LiveFeedVenueSnapshot> venues, {
+    required Duration staleAfter,
+  }) {
+    final now = DateTime.now();
+    return venues
+        .where((v) => v.currentAudienceCount > 0)
+        .where((v) {
+          final at = v.audienceCountUpdatedAt;
+          return at != null && now.difference(at) <= staleAfter;
+        })
         .take(_audienceCheckLimit)
-        .where((venue) => venue.activeCheckinCount > 0)
         .map((venue) => LiveFeedItem(
               id: 'audience_${venue.id}',
               type: LiveFeedType.audience,
@@ -120,7 +146,7 @@ class LiveFeedService {
               targetId: venue.id,
               targetType: 'venue',
               title: venue.name,
-              subtitle: '${venue.activeCheckinCount} nəfər burada',
+              subtitle: '${venue.currentAudienceCount} nəfər ətrafda (son 15 dəqiqə)',
               distanceMeters: venue.distanceMeters,
               timestamp: DateTime.now(),
             ))

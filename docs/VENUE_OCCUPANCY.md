@@ -7,49 +7,61 @@ paylaşır**. Hansının harada göründüyü aşağıda dəqiq yazılıb.
 | | Kim yaradır | Nə göstərir | Harada görünür | Faktiki mənbə |
 |---|---|---|---|---|
 | **1. Növbə / boş yer** | Məkan sahibi | Neçə boş yer qalıb | Canlı tab **və** məkan profili | `venues/{id}.availableSeats` |
-| **2. «Ətrafınızda» (audience)** | Sistem | Yaxınlıqda neçə nəfər var | Canlı tab (kart + tiker), toxunulmaz | ⚠️ `venues/{id}.activeCheckinCount` — **aşağıya bax** |
-| **3. Könüllü check-in** | İstifadəçi özü | Məkanda neçə nəfər var | **Yalnız** məkan profili | `venues/{id}.activeCheckinCount` |
+| **2. «Ətrafınızda» (audience)** | Sistem | Yaxınlıqda neçə nəfər var | Canlı tab (kart + tiker), toxunulmaz | `venues/{id}.currentAudienceCount` |
+| **3. Könüllü check-in** | İstifadəçi özü | Məkanda neçə nəfər var | **Yalnız** məkan profili | `venues/{id}.visibleCheckinCount` (xam say `private/counters`-də) |
 
 ---
 
-## ⚠️ Bilinən qarışıqlıq: 2 və 3 eyni sahədən qidalanır
+## Qarışıqlıq bağlandı (2026-08-31)
 
-**Bu, aşkar edilmiş qüsurdur, dizayn deyil.** Qərar gözləyir; heç nə
-dəyişdirilməyib.
+Bir müddət **2 və 3 eyni sahədən qidalanırdı**: Canlı tabındakı
+«Ətrafınızda» `activeCheckinCount` oxuyurdu, yəni könüllü check-in
+sayını sistem audience-i adı altında göstərirdi. İki nəticəsi vardı —
+tab yalnız düymə basmışları sayırdı, və düyməni basan adam yalnız
+profildə görünəcəyini gözlədiyi halda radiusdakı hər kəsə görünürdü.
 
-`LiveFeedService.fetchAudienceItems` — Canlı tabındakı «Ətrafınızda»
-sətrini quran funksiya — belə oxuyur:
+**İndi ayrıdır:**
 
-```dart
-.where((venue) => venue.activeCheckinCount > 0)
-subtitle: '${venue.activeCheckinCount} nəfər burada',
+```
+«Ətrafınızda»  →  venues/{id}.currentAudienceCount
+                  ← computeVenueAudienceHistory (15 dəq, lastSeen/online + mövqe)
+
+Check-in       →  venues/{id}.visibleCheckinCount
+                  ← bumpActiveCheckinCount ← activeCheckins/{uid}
 ```
 
-`activeCheckinCount` isə **könüllü check-in sayğacıdır**:
-`activeCheckins/{uid}` sənədi yarananda/silinəndə
-`bumpActiveCheckinCount` onu ±1 dəyişir.
+Hər ikisi **serverdə k-anonimlik həddi (5) ilə** yazılır — həddən
+aşağıda sahə 0-dır. Hədd client-də tətbiq edilmir: `venues/{id}` hər
+qeydiyyatlı istifadəçiyə oxunaqlıdır, ona görə xam rəqəmi yazıb UI-da
+gizlətmək məxfilik deyil, bəzək olardı.
 
-Yəni **Canlı tabda «Ətrafınızda» adı altında göstərilən rəqəm faktiki
-olaraq check-in sayıdır** — sistemin hesabladığı audience deyil.
+**Doğruluq mənbəyi:**
 
-**Sistem audience-i mövcuddur və tamam başqa şeydir:**
-`computeVenueAudienceHistory` hər 15 dəqiqədə `users` kolleksiyasını
-`lastSeen`/`online` və mövqeyə görə sayır, nəticəni
-`venues/{id}/audienceHistory` altına yazır. Heç bir check-in iştirak
-etmir. Bu dəyər **Canlı tabda istifadə olunmur** — yalnız sahibin
-analitikası və pik-saat siqnalı üçündür.
+| Dəyər | Harada | Kim oxuya bilər |
+|---|---|---|
+| Xam check-in sayı | `venues/{id}/private/counters.activeCheckinCount` | **heç kim** — server-only |
+| Göstərilən check-in sayı | `venues/{id}.visibleCheckinCount` | hər qeydiyyatlı istifadəçi |
+| Xam audience seriyası | `venues/{id}/audienceHistory/*` | **heç kim** — server-only |
+| Göstərilən audience | `venues/{id}.currentAudienceCount` | hər qeydiyyatlı istifadəçi |
 
-**Nəticə:** iki məhsul funksiyası bir sahəni paylaşır. Praktik təsiri:
-* Canlı tab yalnız **düymə basmış** adamları sayır — məkanda olub
-  check-in etməyən heç kim görünmür
-* Check-in edən adam **yalnız məkan profilində görünəcəyini** gözləyir,
-  amma rəqəmi radiusdakı hər kəs Canlı tabda görür
+`bumpActiveCheckinCount` xam sayı və güzgünü **eyni tranzaksiyada**
+yazır — drift mümkün deyil.
 
-**Səhv şərh də düzəldildi:** `firestore.rules`-da check-in-in
-`audienceHistory`-ni qidalandırdığı yazılmışdı. Yanlışdır — həmin
-şərhin özü bu qarışıqlığın nümunəsi idi.
+**`audienceHistory` bağlanması Audit 3 / A3-M2-ni də bağladı** — həmin
+tapıntı kolleksiyanın hər qeydiyyatlı istifadəçiyə açıq olması və
+k-anonimlik həddini keçməsi idi.
 
----
+**Köhnəlik:** `currentAudienceCount` 15 dəqiqədə bir yenilənir.
+`audienceCountUpdatedAt` 20 dəqiqədən köhnədirsə kart **göstərilmir** —
+planlaşdırılmış funksiya dayanarsa rəqəm yox olur, köhnəlmir.
+
+**Ghost Mode:** sistem audience-indən **çıxarılır** (hər üç rejimdə,
+`computeAudienceCount`). Check-in-də **çıxarılmır** — istifadəçi
+könüllü düymə basıb.
+
+**Etiketlər:** Canlı tabda «N nəfər ətrafda (son 15 dəqiqə)», profildə
+«Hazırda N PeakPin istifadəçisi buradadır». Fərqli mənbə, fərqli
+ifadə.
 
 ## 1. Növbə / boş yer
 
@@ -126,7 +138,9 @@ edilməlidir.
 
 ### Məxfilik
 
-**Xam siyahını heç kim oxuya bilmir — məkan sahibi də daxil.**
+**Xam siyahını da, xam sayı da heç kim oxuya bilmir — məkan sahibi
+daxil.** Siyahı: `activeCheckins` yalnız öz sənədi. Say:
+`private/counters` tamamilə bağlı.
 2026-08-31-də bağlandı:
 
 ```
@@ -146,9 +160,10 @@ Aqreqat olduğu üçün adı görünmür, **amma məkanda bir nəfər varsa
 «1 nəfər burada» həmin adamı müəyyən edir** — və Ghost Mode-un
 mövcudluğu istifadəçidə əks gözlənti yaradır. **Qərar tələb edir.**
 
-**«1 nəfər» problemi:** aqreqat olsa da, kiçik rəqəm müəyyənedicidir.
-`previewVenueAudience`-də bu, 5-lik k-anonimlik döşəməsi ilə həll
-edilib (P0 / H-2); check-in sayğacında **belə döşəmə yoxdur**.
+**«1 nəfər» problemi — bağlandı.** Kiçik rəqəm müəyyənedicidir, ona
+görə check-in sayğacına da `previewVenueAudience`-dəki eyni 5-lik
+döşəmə tətbiq edildi. Fərq: burada döşəmə **yazma anında** tətbiq
+olunur, çünki oxunan sənəd ictimaidir.
 
 ### Xərc
 

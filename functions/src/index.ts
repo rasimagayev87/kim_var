@@ -2644,14 +2644,35 @@ export const onReviewWritten = onDocumentWritten("reviews/{reviewId}", async (ev
  * the same cadence the raw subcollection's own staleness window already
  * relied on before this field existed.
  */
+/**
+ * SOURCE OF TRUTH: `venues/{id}/private/counters.activeCheckinCount`.
+ * Server-only, closed to every client including the venue owner.
+ *
+ * The venue document carries `visibleCheckinCount` — the same number
+ * with the k-anonymity floor applied, i.e. 0 below
+ * VENUE_AUDIENCE_MIN_REPORTABLE_COUNT. That is what every screen
+ * renders, and it is the ONLY check-in number a client can read.
+ *
+ * The split exists because `venues/{id}` is readable by any signed-in
+ * user, so a raw count there is public no matter what the UI chooses
+ * to draw. "1 nəfər burada" identifies a specific person to anyone
+ * who knows who is nearby, and hiding that in the widget while leaving
+ * the number in the document would be decoration, not privacy.
+ *
+ * Both writes happen in ONE transaction so the mirror cannot drift
+ * from the truth.
+ */
 async function bumpActiveCheckinCount(venueId: string, delta: 1 | -1): Promise<void> {
-  const ref = db.collection("venues").doc(venueId);
+  const venueRef = db.collection("venues").doc(venueId);
+  const countersRef = venueRef.collection("private").doc("counters");
   try {
     await db.runTransaction(async (tx) => {
-      const snap = await tx.get(ref);
-      if (!snap.exists) return;
-      const current = (snap.data()?.activeCheckinCount as number | undefined) ?? 0;
-      tx.update(ref, { activeCheckinCount: Math.max(0, current + delta) });
+      const [venueSnap, countersSnap] = await Promise.all([tx.get(venueRef), tx.get(countersRef)]);
+      if (!venueSnap.exists) return;
+      const current = (countersSnap.data()?.activeCheckinCount as number | undefined) ?? 0;
+      const next = Math.max(0, current + delta);
+      tx.set(countersRef, { activeCheckinCount: next, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      tx.update(venueRef, { visibleCheckinCount: reportableAudienceCount(next) });
     });
   } catch {
     // Venue doc no longer exists — nothing to bump.
@@ -2967,6 +2988,29 @@ export const computeVenueAudienceHistory = onSchedule(
         count,
         hour,
         timestamp: FieldValue.serverTimestamp(),
+      });
+
+      // The Canlı tab's "Ətrafınızda" line reads this field and nothing
+      // else. It used to read `activeCheckinCount`, which is a
+      // different product entirely — voluntary check-ins — so the tab
+      // was showing "people who pressed a button" under a label
+      // promising "people around you", and showing it to everyone in
+      // radius while the person who pressed the button expected to
+      // appear on a venue profile. See docs/VENUE_OCCUPANCY.md.
+      //
+      // FLOORED HERE, on the server. `venues/{id}` is readable by any
+      // signed-in user, so writing the raw count and filtering in the
+      // client would publish the number anyway. Below the threshold
+      // this is 0 and the client draws no card at all.
+      //
+      // `audienceCountUpdatedAt` is what lets the client refuse to
+      // render a stale figure: this runs every 15 minutes, the tab
+      // polls every 30 seconds, and if this schedule stalls the number
+      // must stop being presented as current rather than quietly
+      // ageing on screen.
+      await venueDoc.ref.update({
+        currentAudienceCount: reportableAudienceCount(count),
+        audienceCountUpdatedAt: FieldValue.serverTimestamp(),
       });
       await Promise.all(staleDocs.map((d) => d.ref.delete()));
     }

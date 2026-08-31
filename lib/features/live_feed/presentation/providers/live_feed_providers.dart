@@ -66,6 +66,18 @@ const liveFeedPollInterval = Duration(seconds: 60);
 /// already be a minute stale.
 const liveFeedVenueSnapshotPollInterval = Duration(seconds: 30);
 
+/// How old `currentAudienceCount` may be before the "Ətrafınızda" card
+/// is dropped rather than drawn.
+///
+/// `computeVenueAudienceHistory` runs every 15 minutes, so a value is
+/// routinely up to that old and that is fine — it is a presence
+/// average, not a live counter, and polling faster would cost reads
+/// without buying accuracy. 20 minutes leaves margin for a late run
+/// while still catching a stalled schedule, which is the case this
+/// exists for: a stopped scheduler must make the number disappear, not
+/// leave it ageing on screen while looking current.
+const liveFeedAudienceStaleAfter = Duration(minutes: 20);
+
 /// How far back an offer/upcoming-event still counts as "fresh" enough
 /// to show — audience/seat-availability cards aren't time-windowed
 /// this way (they reflect current state, not recent creation), see
@@ -265,7 +277,7 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
         ...seatItems,
       ];
 
-      _upsertAudienceItems(await service.fetchAudienceItems(venues));
+      _upsertAudienceItems(service.audienceItemsFrom(venues, staleAfter: liveFeedAudienceStaleAfter));
       _emit();
     } catch (e, st) {
       logError('live_feed_providers.runVenueSnapshotCycle', e, st);
@@ -279,17 +291,14 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
     final rows = venues ?? _lastVenues;
     if (rows.isEmpty) return;
 
-    try {
-      final fresh = await _ref.read(liveFeedServiceProvider).fetchAudienceItems(rows);
-      _upsertAudienceItems(fresh);
-      _emit();
-    } catch (e, st) {
-      logError('live_feed_providers.runAudienceCycle', e, st);
-      // Non-fatal — the rest of the tab (events/offers/seats) still
-      // works, so this only skips updating "Ətrafınızda" this round
-      // rather than surfacing an error state for the whole screen.
-    }
+    // No fetch of its own any more: "Ətrafınızda" is now a pure
+    // derivation from the venue snapshots, exactly like "Boş yer".
+    _upsertAudienceItems(
+      _ref.read(liveFeedServiceProvider).audienceItemsFrom(rows, staleAfter: liveFeedAudienceStaleAfter),
+    );
+    _emit();
   }
+
 
   /// A venue no longer in [fresh] (checkins dropped to 0, or it fell
   /// out of the nearest-30 cutoff) is dropped rather than left stale.

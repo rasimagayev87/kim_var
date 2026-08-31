@@ -483,3 +483,21 @@ ilə də **xətti** artır, yəni ikisi birlikdə **kvadratik** effekt verir.
    dəyərini azaldır (bax həmin sabitin öz şərhi).
 
 **Təxmini iş həcmi:** (1) ~1 gün · (2) ~2 saat · (3) ~3 saat
+
+## 24. `venues/{id}.activeCheckinCount` köhnə sahəsinin silinməsi
+
+**Mənbə:** check-in sayğacının ayrılması (2026-08-31)
+**Nə:** Xam check-in sayı `venues/{id}/private/counters`-ə köçdü, məkan
+sənədində `visibleCheckinCount` (həddlənmiş) qaldı. Köhnə
+`activeCheckinCount` sahəsi **qəsdən silinmədi**: mağazadakı build hələ
+onu oxuyur, silinsə həmin istifadəçilərdə sayğac yox olardı. İndi isə
+sadəcə dayanmış rəqəm göstərir.
+
+**Nə vaxt:** yeni AAB mağazada yayıldıqdan və köhnə versiyaların payı
+əhəmiyyətsizləşdikdən sonra.
+
+**Nə edilməli:** `venues` üzərində bir keçid, `activeCheckinCount`
+sahəsini `FieldValue.delete()` ilə silmək. Skript
+`migrate-checkin-counters.ts` naxışı ilə yazıla bilər.
+
+**Təxmini iş həcmi:** ~30 dəqiqə.

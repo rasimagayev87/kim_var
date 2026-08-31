@@ -1461,7 +1461,20 @@ service cloud.firestore {
     // could read a venue's own history without a rules change, and the
     // data itself is just aggregate counts, never individual profiles.
     match /venues/{venueId}/audienceHistory/{entryId} {
-      allow read: if request.auth != null;
+      // CLOSED (Audit 3 / A3-M2). Was `if request.auth != null`, which
+      // meant any signed-in account could list every venue's raw
+      // 15-minute presence counts for the last 7 days — including the
+      // 1s and 2s that `previewVenueAudience` refuses to report,
+      // because its k-anonymity floor never applied here. The rule's
+      // own comment justified the openness with "a future owner-facing
+      // analytics view could read this without a rules change": a
+      // permission granted ahead of a feature that does not exist.
+      //
+      // Nothing needs it now. The Canlı tab reads
+      // `venues/{id}.currentAudienceCount` — already floored, written
+      // by `computeVenueAudienceHistory` — and the raw series stays
+      // server-side where the peak-hour detector uses it.
+      allow read: if false;
       allow write: if false;
     }
 
@@ -1531,6 +1544,17 @@ service cloud.firestore {
     // (both call sites — `watchActiveCheckinCount` and
     // `LiveFeedService.fetchAudienceItems` — were updated to match). No
     // other client read site for this subcollection was found.
+    // Server-only counters for a venue. Holds the RAW
+    // `activeCheckinCount`; the venue document carries only
+    // `visibleCheckinCount`, the same number with the k-anonymity
+    // floor applied. Closed to everyone, the venue's owner included —
+    // see `bumpActiveCheckinCount` (functions/src/index.ts) for why
+    // the raw figure must not live on a document any signed-in user
+    // can read.
+    match /venues/{venueId}/private/{document} {
+      allow read, write: if false;
+    }
+
     match /venues/{venueId}/activeCheckins/{userId} {
       // OWN DOCUMENT ONLY — the venue owner cannot read this either.
       //

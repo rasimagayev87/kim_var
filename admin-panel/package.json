@@ -23,7 +23,8 @@
     "count-orphan-payments": "tsx --env-file=.env.local scripts/count-orphan-payments.ts",
     "backfill-banned-mirror": "tsx --env-file=.env.local scripts/backfill-banned-mirror.ts",
     "cleanup-test-venues": "tsx --env-file=.env.local scripts/cleanup-test-venues.ts",
-    "backfill-offer-acceptance": "tsx --env-file=.env.local scripts/backfill-offer-acceptance.ts"
+    "backfill-offer-acceptance": "tsx --env-file=.env.local scripts/backfill-offer-acceptance.ts",
+    "migrate-checkin-counters": "tsx --env-file=.env.local scripts/migrate-checkin-counters.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
