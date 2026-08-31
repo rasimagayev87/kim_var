@@ -26,6 +26,9 @@ const STATUS_LABELS: Record<string, string> = {
   expired: "Vaxtı bitib",
   awaiting_payment: "Ödəniş gözlənilir",
   subscription_overdue: "Abunə gecikib",
+  // `applyPaymentOutcome` — money arrived for a listing that no longer
+  // exists. Terminal, and needs a human: only a refund closes it.
+  orphan_target: "Sahibsiz ödəniş",
 };
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -56,6 +59,7 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "des
   // Destructive, like `rejected` — a delinquent venue is invisible in
   // the app, so this must not read as a neutral state.
   subscription_overdue: "destructive",
+  orphan_target: "destructive",
 };
 
 export function StatusBadge({ status }: { status: string }) {
