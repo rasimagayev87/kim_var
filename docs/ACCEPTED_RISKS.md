@@ -161,6 +161,33 @@ faylın MƏZMUNUNA giriş əldə edə bilmir, yalnız metadata-ya.
 **Nə vaxt yenidən baxılmalı:** zərərli fayl yükləmə (məs. maskalanmış icra
 edilə bilən fayl) insidenti 1 (bir) dəfə baş verərsə — DƏRHAL.
 
+### PAY-4 — webhook valyuta yoxlaması ölüdür (məbləğ yoxlaması işləyir)
+
+**Nə:** `applyPaymentOutcome` webhook-un bildirdiyi məbləği və valyutanı
+gözlənilənlə tutuşdurur. **2026-08-31-də real ödənişlə təsdiqləndi:**
+
+* **`amount` GƏLİR** → məbləğ yoxlaması **canlıdır və işləyir**. Fərqli
+  məbləğ gəlsə entitlement verilmir və admin bildirişi yazılır.
+* **`currency` GƏLMİR** → `!webhookCurrency || …` şərti həmişə doğrudur,
+  yəni valyuta **heç vaxt yoxlanılmır**.
+
+Epoint ödəniş callback-inin faktiki açarları (loglanıb və oxunub):
+`amount, bank_response, bank_transaction, card_expiry_date, card_mask,
+card_name, code, message, operation_code, order_id, other_attr, rrn,
+status, transaction`.
+
+**Niyə qəbul edilib:** Epoint merchant hesabı yalnız AZN ilə işləyir və
+bütün `payments` sənədləri `currency: "AZN"` yazır — yəni yoxlanacaq
+fərqli valyuta praktikada mövcud deyil. Şərt koddan silinmədi: Epoint
+sahəni sonradan əlavə edə bilər və özü işə düşən yoxlama sonradan
+əlavə edilməsi unudulan yoxlamadan yaxşıdır. Kodda «CONFIRMED DEAD»
+şərhi ilə işarələnib ki, kimsə onu işlək saymasın.
+
+**Nə vaxt yenidən baxılmalı:** Epoint API sənədləşməsinin növbəti
+yoxlamasında (2027-02-28) `currency` sahəsinin əlavə olunub-olunmadığı
+yoxlanılsın; və ya PeakPin ikinci valyuta qəbul etməyə başlayanda —
+o halda bu, qəbul edilmiş risk olmaqdan çıxır.
+
 ### Epoint-in checkout-ləğv API-si yoxdur (Prompt 6-dan)
 **Nə:** açıq (ödənilməmiş) bir Epoint checkout linkini proqramla ləğv etmək
 mümkün deyil — yalnız TAMAMLANMIŞ əməliyyatı geri qaytarmaq (`/reverse`)

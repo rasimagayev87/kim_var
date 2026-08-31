@@ -5732,11 +5732,25 @@ export const retryVenueCreationPayment = onCall(
       // `ensurePendingSubscriptionPayment`'s identical comment).
       await paymentDoc.ref.update({ status: "superseded", updatedAt: FieldValue.serverTimestamp() });
       targetRef = db.collection("payments").doc();
+      // The acceptance travels with the retry. `submitVenue` attaches
+      // it to the FIRST payment, and `applyPaymentOutcome` promotes it
+      // into the venue's permanent record only when the charge
+      // succeeds — so if the first attempt fails and this creates a
+      // fresh doc without it, the venue goes live with no proof its
+      // owner ever accepted the public offer. That happened on
+      // 2026-08-31: first attempt failed, retry succeeded, and
+      // `offerAcceptances` stayed empty on a paid, approved venue.
+      // Owners who pay on the first try got a record; owners who had to
+      // retry did not, which is not a distinction the contract makes.
+      const carriedOfferAcceptance = paymentDoc.data().pendingOfferAcceptance as
+        | PendingOfferAcceptance
+        | undefined;
       await targetRef.set({
         ownerId: uid,
         listingType: "venue",
         listingId: venueId,
         type: "venue_subscription",
+        ...(carriedOfferAcceptance ? { pendingOfferAcceptance: carriedOfferAcceptance } : {}),
         description,
         amount,
         currency: (paymentDoc.data().currency as string | undefined) ?? "AZN",
@@ -7410,6 +7424,16 @@ async function applyPaymentOutcome(
       const expectedAmount = data.amount as number;
       const expectedCurrency = ((data.currency as string | undefined) ?? "AZN").toUpperCase();
       const amountOk = Math.abs(webhookAmount - expectedAmount) < 0.005;
+      // CONFIRMED DEAD as of 2026-08-31: Epoint's payment callback
+      // carries `amount` but NO `currency` (real payload logged and
+      // inspected — keys are amount, bank_response, bank_transaction,
+      // card_expiry_date, card_mask, card_name, code, message,
+      // operation_code, order_id, other_attr, rrn, status,
+      // transaction). So `webhookCurrency` is always undefined and
+      // this always evaluates true. Kept rather than deleted because
+      // Epoint could add the field, and a check that starts working on
+      // its own is better than one nobody remembers to re-add — but
+      // nobody should read this line as "currency is verified".
       const currencyOk = !webhookCurrency || webhookCurrency.toUpperCase() === expectedCurrency;
       if (!amountOk || !currencyOk) {
         payment = data;
@@ -7571,6 +7595,19 @@ async function applyPaymentOutcome(
         // acceptance fields are left untouched either way (never
         // overwritten with nothing).
         const pendingOfferAcceptance = payment.pendingOfferAcceptance as PendingOfferAcceptance | undefined;
+        // A first charge with no acceptance attached means the venue is
+        // about to go live with nothing on file — the exact gap the
+        // retry path used to open. A RENEWAL legitimately has none
+        // (nothing to re-accept when the version has not moved), so
+        // only the first payment is worth warning about. Loud on
+        // purpose: this is a contract record, and its absence is
+        // invisible in the app.
+        if (!pendingOfferAcceptance && venueSnap?.data()?.status === "awaiting_payment") {
+          logger.warn("applyPaymentOutcome: first venue payment carries no offer acceptance", {
+            paymentId: paymentRef.id,
+            venueId: payment.listingId,
+          });
+        }
         const offerAcceptanceVenueUpdate = pendingOfferAcceptance
           ? {
               offerAcceptedVersion: pendingOfferAcceptance.version,
