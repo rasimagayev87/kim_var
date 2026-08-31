@@ -1,23 +1,14 @@
 import "server-only";
 
 import { getAdminDb } from "@/lib/firebase/admin";
-import type { AdminRole } from "@/lib/auth/roles";
+import { rosterRole, type AdminRole } from "@/lib/auth/roles";
 
 export interface AdminRosterRow {
   uid: string;
   email: string;
-  /**
-   * `null` when the stored value is neither `admin` nor `moderator`
-   * (P0 follow-up / RBAC-B).
-   *
-   * This used to be `data.role === "moderator" ? "moderator" : "admin"`,
-   * which rendered ANY unrecognised value — including one that leaves the
-   * account unable to sign in at all, since `roleFromClaims` only accepts
-   * those two — as a full "admin" row. On the one screen whose job is
-   * showing who holds which privileges, the safest-looking answer was
-   * also the most wrong one. Surfacing it as unknown makes a corrupt or
-   * hand-edited roster entry visible instead of flattering it.
-   */
+  /** `null` when the stored value is not a role this build knows —
+   * see [rosterRole] for the reasoning and for why that check now
+   * derives from `ADMIN_ROLES` instead of naming roles inline. */
   role: AdminRole | null;
   addedAt: string | null;
   addedBy: string | null;
@@ -40,7 +31,7 @@ export async function listAdmins(): Promise<AdminRosterRow[]> {
     return {
       uid: doc.id,
       email: (data.email as string) ?? "",
-      role: data.role === "admin" || data.role === "moderator" ? data.role : null,
+      role: rosterRole(data.role),
       addedAt: addedAt ? addedAt.toDate().toISOString() : null,
       addedBy: (data.addedBy as string) ?? null,
     };

@@ -31,6 +31,66 @@ import type { AdminRole } from "./roles";
  * differently-named permission for the same thing. They are inert
  * today: nothing calls `hasPermission` with them.
  */
+/**
+ * ── The agreed matrix, and where each row lives in code ────────────
+ *
+ * ✅ full · 👁️ view only · ❌ no access
+ *
+ * | Area                      | admin | moderator | finance | support | analyst | permission(s) |
+ * |---------------------------|-------|-----------|---------|---------|---------|---------------|
+ * | Dashboard                 | ✅ | 👁️ | 👁️ | 👁️ | 👁️ | viewDashboard |
+ * | Users                     | ✅ | 👁️ | ❌ | 👁️ | ❌ | viewUsers / manageUsers |
+ * | User ban                  | ✅ | ✅ | ❌ | ❌ | ❌ | banUsers |
+ * | Account deletion          | ✅ | ❌ | ❌ | ❌ | ❌ | deleteUsers |
+ * | Venues                    | ✅ | ✅ | 👁️ | 👁️ | 👁️ | viewVenues / moderateVenues |
+ * | Offers                    | ✅ | ✅ | 👁️ | 👁️ | 👁️ | viewOffers / moderateOffers |
+ * | PinBox                    | ✅ | ✅ | ❌ | 👁️ | 👁️ | viewPinBoxes |
+ * | Events                    | ✅ | ✅ | ❌ | 👁️ | 👁️ | viewEvents |
+ * | Reports                   | ✅ | ✅ | ❌ | ✅ | ❌ | manageFeedback |
+ * | VIP / subscriptions       | ✅ | 👁️ | ✅ | 👁️ | 👁️ | viewSubscriptions / manageSubscriptions |
+ * | Boosts                    | ✅ | 👁️ | ✅ | 👁️ | 👁️ | viewBoosts / manageBoosts |
+ * | Payments                  | ✅ | ❌ | ✅ | 👁️ | 👁️ | viewPayments / managePayments |
+ * | Premium business payments | ✅ | ❌ | ✅ | 👁️ | 👁️ | viewPayments |
+ * | PinBox payouts            | ✅ | ❌ | ✅ | 👁️ | 👁️ | viewPayments / managePayments |
+ * | Refunds                   | ✅ | ❌ | ✅ | ❌ | ❌ | managePayments |
+ * | Financial reports         | ✅ | ❌ | ✅ | ❌ | 👁️ | viewFinancials / manageFinancials |
+ * | Epoint transactions       | ✅ | ❌ | ✅ | 👁️ | 👁️ | viewEpointTransactions |
+ * | KYC                       | ✅ | ❌ | ❌ | ❌ | ❌ | moderateIdentityVerifications |
+ * | Support messages          | ✅ | 👁️ | 👁️ | ✅ | 👁️ | viewSupportMessages / manageSupportMessages |
+ * | Broadcasts                | ✅ | 👁️ | ❌ | ✅ | ❌ | viewBroadcasts / broadcastNotifications |
+ * | Admin notification bell   | ✅ | ✅ | ✅ | ✅ | ❌ | viewAdminNotifications |
+ * | Analytics                 | ✅ | 👁️ | 👁️ | 👁️ | ✅ | viewAnalytics |
+ * | DAU/WAU/MAU               | ✅ | 👁️ | ❌ | ❌ | ✅ | viewEngagementMetrics |
+ * | Revenue analytics         | ✅ | ❌ | ✅ | ❌ | ✅ | viewRevenue |
+ * | Admins / roles            | ✅ | ❌ | ❌ | ❌ | ❌ | manageAdmins |
+ * | System settings           | ✅ | ❌ | ❌ | ❌ | ❌ | manageSystemSettings |
+ * | Audit logs                | ✅ | 👁️ | 👁️ | 👁️ | ❌ | viewAuditLogs |
+ * | Export                    | ✅ | ❌ | ✅ finance only | ❌ | ❌ | exportData / exportFinancialData |
+ *
+ * TWO ROWS THAT LOOK LIKE ONE. "Notifications" is two unrelated
+ * things and they resolve differently:
+ *
+ *   - BROADCASTS (`/notifications`) is the screen for sending push to
+ *     users. `finance` has no business there and is denied outright.
+ *   - The ADMIN NOTIFICATION BELL is rendered by the protected layout
+ *     on every page. `finance` keeps it because payment and refund
+ *     alerts are exactly what that role acts on; what it does NOT get
+ *     is the moderation half, filtered out per notification TYPE by
+ *     `notification-visibility.ts` rather than by this permission.
+ *     `analyst` is denied the bell entirely, since even a payment
+ *     alert names the venue owner.
+ *
+ * TWO SCREENS ON THE PAYMENTS AXIS, NOT THE SUBSCRIPTION ONE.
+ * "Premium business payments" and "PinBox payouts" both list money
+ * that moved, so both are gated by `viewPayments`, which excludes
+ * `moderator` — the same separation P0 / H-7 exists to enforce.
+ * `viewSubscriptions` (true for every role) describes subscription
+ * STATE a moderator legitimately needs to see on a venue, and gating
+ * a payments screen with it would have left that screen open.
+ * `/premium-payments` has no action controls at all today, so its ✅
+ * for admin/finance is view access to a read-only table;
+ * `markPinBoxPayoutPaid` is gated by `managePayments`.
+ */
 const PERMISSION_MATRIX = {
   admin: {
     // ── view ──────────────────────────────────────────────────────

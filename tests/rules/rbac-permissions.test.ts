@@ -14,7 +14,7 @@ import {
   UNIMPLEMENTED_PERMISSIONS,
   type Permission,
 } from "../../admin-panel/src/lib/auth/permissions";
-import { ADMIN_ROLES, isAdminRole, type AdminRole } from "../../admin-panel/src/lib/auth/roles";
+import { ADMIN_ROLES, isAdminRole, rosterRole, type AdminRole } from "../../admin-panel/src/lib/auth/roles";
 
 const ALL_PERMISSIONS = Object.keys(PERMISSIONS_BY_ROLE.admin) as Permission[];
 
@@ -161,5 +161,79 @@ describe("RBAC — matris bütövlüyü", () => {
     for (const p of UNIMPLEMENTED_PERMISSIONS) {
       assert.ok(ALL_PERMISSIONS.includes(p), `naməlum icazə adı: ${p}`);
     }
+  });
+});
+
+describe("RBAC — /admins roster göstərişi", () => {
+  // Bu, canlı simptomun kök səbəbi idi: roster oxuyucusu iki rollu
+  // dövrdən qalma sabit siyahı işlədirdi, ona görə finance/support/
+  // analyst "naməlum rol" görünürdü — icazələri isə tam işləyirdi,
+  // çünki авторizasiya custom claim-dən oxunur, bu sahədən yox.
+  test("beş rolun hamısı roster-də öz adı ilə görünür", () => {
+    for (const role of ADMIN_ROLES) {
+      assert.equal(rosterRole(role), role, `${role} naməlum kimi göstərildi`);
+    }
+  });
+
+  test("tanınmayan dəyər null olur — 'admin' kimi göstərilmir", () => {
+    // Sərtləşdirmənin özü doğrudur və qalır: pozuq bir sənəd sətri
+    // tam admin kimi görünsəydi, məhz kimin nəyə icazəsi olduğunu
+    // göstərən ekran ən yanlış cavabı verərdi.
+    for (const bad of ["superadmin", "ADMIN", "", "owner", null, undefined, 7, {}, ["admin"]]) {
+      assert.equal(rosterRole(bad), null, `${JSON.stringify(bad)} null olmalıdır`);
+    }
+  });
+
+  test("rosterRole ilə isAdminRole eyni siyahını qəbul edir", () => {
+    // İkisinin ayrılması məhz bu qüsuru yaratmışdı.
+    for (const v of [...ADMIN_ROLES, "superadmin", "", null, 1]) {
+      assert.equal(rosterRole(v) !== null, isAdminRole(v), `fərq: ${JSON.stringify(v)}`);
+    }
+  });
+});
+
+describe("RBAC — maliyyə səthləri moderator-a bağlıdır", () => {
+  // /premium-payments və /pinbox-payouts pul hərəkətini göstərir, ona
+  // görə `viewPayments` oxu — `viewSubscriptions` yox, o, hər rolda
+  // true-dur və ekranı moderator-a açıq qoyardı.
+  test("premium ödənişləri və PinBox öhdəlikləri: admin/finance ✅, support/analyst 👁️, moderator ❌", () => {
+    for (const role of ["admin", "finance", "support", "analyst"] as AdminRole[]) {
+      assert.equal(hasPermission(role, "viewPayments"), true, `${role} görməlidir`);
+    }
+    assert.equal(hasPermission("moderator", "viewPayments"), false);
+  });
+
+  test("əməliyyat tərəfi yalnız admin və finance-dədir", () => {
+    assert.equal(hasPermission("admin", "managePayments"), true);
+    assert.equal(hasPermission("finance", "managePayments"), true);
+    for (const role of ["moderator", "support", "analyst"] as AdminRole[]) {
+      assert.equal(hasPermission(role, "managePayments"), false, `${role} əməliyyat edə bilməz`);
+    }
+  });
+
+  test("viewSubscriptions maliyyə qapısı DEYİL — hər rolda açıqdır", () => {
+    // Bu testin özü sənəddir: kimsə bir ödəniş ekranını yenidən bu
+    // icazə ilə qorusa, nəyi açdığını burada görəcək.
+    for (const role of ADMIN_ROLES) {
+      assert.equal(hasPermission(role, "viewSubscriptions"), true, role);
+    }
+  });
+});
+
+describe("RBAC — bildiriş: iki ayrı anlayış", () => {
+  test("broadcast ekranı finance və analyst-ə bağlıdır", () => {
+    assert.equal(hasPermission("finance", "viewBroadcasts"), false);
+    assert.equal(hasPermission("analyst", "viewBroadcasts"), false);
+    assert.equal(hasPermission("support", "broadcastNotifications"), true);
+    assert.equal(hasPermission("moderator", "broadcastNotifications"), false);
+  });
+
+  test("zəng ikonu finance-də AÇIQ, analyst-də bağlı", () => {
+    // Qəsdən fərqlidir: finance ödəniş xəbərdarlığına əməl edir və
+    // `notification-visibility.ts` moderasiya yarısını tip üzrə
+    // kəsir. analyst üçün ödəniş bildirişi belə məkan sahibinin
+    // adını daşıyır.
+    assert.equal(hasPermission("finance", "viewAdminNotifications"), true);
+    assert.equal(hasPermission("analyst", "viewAdminNotifications"), false);
   });
 });

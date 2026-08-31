@@ -55,7 +55,9 @@ const EXISTING_NAV: {
     href: "/premium-payments",
     label: "Premium Biznes Ödənişləri",
     icon: Sparkles,
-    permission: "viewSubscriptions",
+    // Must match the page's own guard — see that file for why this is
+    // the payments axis and not the subscriptions one.
+    permission: "viewPayments",
     countKey: "premiumPayments",
   },
   {

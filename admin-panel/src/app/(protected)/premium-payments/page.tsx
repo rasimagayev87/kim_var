@@ -7,7 +7,14 @@ import { listPayments } from "@/lib/data/payments";
 
 export default async function PremiumPaymentsPage() {
   const admin = await getCurrentAdmin();
-  if (!admin || !hasPermission(admin.role, "viewSubscriptions")) {
+  // `viewPayments`, not `viewSubscriptions`. This screen lists money
+  // that moved — premium purchases with amounts and dates — so it
+  // belongs on the payments axis, where `moderator` is excluded (the
+  // separation P0 / H-7 exists to enforce). `viewSubscriptions`
+  // describes the VIP/subscription STATE a moderator legitimately
+  // needs to see on a venue, and it is true for every role, which
+  // would have left this screen open to moderators.
+  if (!admin || !hasPermission(admin.role, "viewPayments")) {
     redirect("/dashboard");
   }
 

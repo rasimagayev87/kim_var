@@ -38,3 +38,30 @@ export const ADMIN_ROLES: readonly AdminRole[] = ["admin", "moderator", "finance
 export function isAdminRole(value: unknown): value is AdminRole {
   return typeof value === "string" && (ADMIN_ROLES as readonly string[]).includes(value);
 }
+
+/**
+ * The role to DISPLAY for a roster entry, or `null` when the stored
+ * value is not a role this build knows.
+ *
+ * Separate from `isAdminRole` only so the roster read has one named
+ * thing to call and one thing to test. The `null` is deliberate
+ * hardening (RBAC-B): the previous roster read rendered any
+ * unrecognised value as a full "admin" row, so on the one screen whose
+ * job is showing who holds which privileges, the safest-looking answer
+ * was also the most wrong one.
+ *
+ * That hardening was right; its list of valid roles was not. It was
+ * written as `data.role === "admin" || data.role === "moderator"` and
+ * never widened when the matrix grew to five, so `finance`, `support`
+ * and `analyst` all rendered as "naməlum rol" — while working
+ * perfectly, since authorization reads the custom claim and never this
+ * field. Deriving from `ADMIN_ROLES` is what keeps the two from
+ * drifting apart again.
+ *
+ * This value is for DISPLAY. Never make an access decision from it:
+ * `admins/{uid}` is a roster index, and the custom claim is the
+ * authority.
+ */
+export function rosterRole(value: unknown): AdminRole | null {
+  return isAdminRole(value) ? value : null;
+}

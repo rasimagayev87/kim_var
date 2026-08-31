@@ -350,3 +350,37 @@ Backfill skripti yazıldı (`admin-panel/scripts/backfill-banned-mirror.ts`),
 **icra edilmədi** — `bannedUsers` hazırda **boşdur** (0 tombstone), yəni
 backfill ediləcək heç nə yoxdur. Skript gələcək üçün qalır.
 
+
+## 21. `changeAdminRole`/`removeAdmin` qorumaları testlə örtülmür
+
+**Mənbə:** 5 rollu RBAC təhvili (2026-08-30)
+**Nə:** Qorumaların özü **kodda mövcuddur** və işləyir:
+
+| Qoruma | Yer |
+|---|---|
+| Tanınmayan rol rədd edilir | `admins.ts:55` — `isAdminRole` |
+| Öz rolunu dəyişmək/özünü silmək rədd edilir | `admins.ts:142`, `:185` — `cannot-change-self` |
+| Sonuncu admin rolundan salına bilməz | `admins.ts:152` — `remainingAdminCount` |
+| Sonuncu admin silinə bilməz | `admins.ts:190` — eyni |
+
+Testlə örtülməyən **yalnız bunlardır**, çünki hər ikisi Firebase Admin
+SDK-ya bağlı Server Action-dır və `tests/rules` yalnız saf funksiyaları
+və Firestore/Storage qaydalarını işlədir. Admin SDK mock-u yeni test
+infrastrukturu deməkdir — qərar qəsdən təxirə salınıb.
+
+**Nə itiririk:** bu dörd şərtdən biri gələcək redaktədə səssizcə
+düşsə, heç nə xəbər verməz. Ən pisi «sonuncu admin» qorumasıdır —
+düşsə, paneldə admin rolu olan heç kim qalmaya bilər və bunu geri
+qaytarmağın yeganə yolu Firebase Console-dan custom claim-i əl ilə
+yazmaqdır.
+
+**İki yol:**
+- **(a)** Firebase Admin mock-u ilə Server Action testləri (~1 saat +
+  yeni infrastruktur).
+- **(b)** Qərar məntiqini saf funksiyalara çıxarmaq (`geo.ts`,
+  `phone.ts`, `chat-media.ts` naxışı) və yalnız onları test etmək —
+  `canChangeRole(actorUid, targetUid, nextRole, remainingAdmins)`
+  formasında. Ucuzdur, infrastruktur tələb etmir, dörd şərtin
+  hamısını örtür. **Tövsiyə olunan.**
+
+**Təxmini iş həcmi:** (a) ~1 saat · (b) ~40 dəqiqə.
