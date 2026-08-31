@@ -85,9 +85,16 @@ export interface SeriesPoint {
 export interface CohortActivity {
   /** yyyy-mm — the month these accounts registered. */
   month: string;
-  registered: number;
-  /** Of those, how many have a `lastSeen` inside the recent window. */
-  stillActive: number;
+  /**
+   * `null` when the true count is below
+   * [COHORT_MIN_REPORTABLE_COUNT] — the page renders "<5". See
+   * [MIN_REPORTABLE] for why a small cohort is not a statistic.
+   */
+  registered: number | null;
+  /** Same suppression as [registered]. */
+  stillActive: number | null;
+  /** True when either figure was suppressed. */
+  suppressed: boolean;
 }
 
 function startOfToday(): Date {
@@ -261,6 +268,24 @@ export async function getRevenueSeries(days = 30): Promise<SeriesPoint[]> {
 export const COHORT_ACTIVE_WINDOW_DAYS = 7;
 
 /**
+ * k-anonymity floor for the cohort table — the same value and the same
+ * reasoning as `VENUE_AUDIENCE_MIN_REPORTABLE_COUNT` in
+ * `functions/src/geo.ts` (P0 / H-2).
+ *
+ * A cohort of one is not a statistic. "1 registered in 2026-03, 1
+ * still active" describes a person, and this screen is the one built
+ * for the role defined as seeing no personal data — a role that may
+ * well know who joined that month. The floor was missing when the page
+ * was first built; it was found reviewing the page's own attack
+ * surface, which is exactly the kind of finding that gets deferred
+ * into a backlog and never returned to.
+ *
+ * Suppression is all-or-nothing per row: hiding only `stillActive`
+ * while showing `registered: 1` would leak the same fact.
+ */
+export const COHORT_MIN_REPORTABLE_COUNT = 5;
+
+/**
  * NOT retention, and the page must not call it that.
  *
  * True retention needs to know whether a person came back — first
@@ -280,7 +305,9 @@ export const COHORT_ACTIVE_WINDOW_DAYS = 7;
  *
  * Two aggregation queries per month, and the `(createdAt, lastSeen)`
  * composite index in `firestore.indexes.json` is what makes the second
- * one possible.
+ * one possible. Rows below [COHORT_MIN_REPORTABLE_COUNT] are
+ * suppressed before they leave this function — the true number never
+ * reaches the component.
  */
 export async function getCohortActivity(months = 6): Promise<CohortActivity[]> {
   const now = new Date();
@@ -304,7 +331,11 @@ export async function getCohortActivity(months = 6): Promise<CohortActivity[]> {
             .where("lastSeen", ">=", activeSince),
         ),
       ]);
-      return { month, registered, stillActive };
+      const suppressed =
+        registered > 0 && registered < COHORT_MIN_REPORTABLE_COUNT;
+      return suppressed
+        ? { month, registered: null, stillActive: null, suppressed: true }
+        : { month, registered, stillActive, suppressed: false };
     }),
   );
 }

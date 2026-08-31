@@ -7,7 +7,7 @@ import { getCurrentAdmin } from "@/lib/auth/server";
 import type { AdminSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
 import type { ModerationAction } from "@/lib/data/moderation-logs";
-import type { VenueStatus } from "@/lib/data/venues";
+import type { VenueStatus, VenueModerationStatus } from "@/lib/data/venues";
 import { logModerationAction } from "./log";
 
 export interface ActionResult {
@@ -43,7 +43,7 @@ async function requireVenueManagement(): Promise<{ admin: AdminSession } | { den
 /** `pending` is never a target status this action is called WITH (only
  * ever a starting point), so it's deliberately not a case here — the
  * fallback below covers it anyway. */
-function logActionForStatus(status: VenueStatus): ModerationAction {
+function logActionForStatus(status: VenueModerationStatus): ModerationAction {
   switch (status) {
     case "needs_revision":
       return "venue.needsRevision";
@@ -79,7 +79,15 @@ const REVISION_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
  * see the Ödənişlər page. Every other status clears `revisionDeadline`
  * and leaves the payment alone.
  */
-export async function setVenueStatus(id: string, status: VenueStatus, reviewNote?: string): Promise<ActionResult> {
+/**
+ * `VenueModerationStatus`, not `VenueStatus` — see that type. The
+ * display union gained `subscription_overdue` so `/venues` stops
+ * showing delinquent venues as active; this action must NOT gain it,
+ * because billing state belongs to `renewVenueSubscriptions` and an
+ * admin toggling it by hand would move a venue in or out of
+ * delinquency with no payment to match.
+ */
+export async function setVenueStatus(id: string, status: VenueModerationStatus, reviewNote?: string): Promise<ActionResult> {
   const check = await requireVenueModeration();
   if ("denied" in check) return check.denied;
 

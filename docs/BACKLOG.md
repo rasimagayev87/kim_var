@@ -399,29 +399,33 @@ yazmaqdır.
 
 **Təxmini iş həcmi:** (a) ~1 saat · (b) ~40 dəqiqə.
 
-## 22. `subscription_overdue` admin paneldə "approved" kimi görünür
+## 22. ~~`subscription_overdue` admin paneldə "approved" kimi görünür~~ — BAĞLANDI (2026-08-30)
 
-**Mənbə:** `/subscriptions` səhifəsinin qurulması (2026-08-30)
-**Nə:** `renewVenueSubscriptions` (`functions/src/index.ts:5403`) ödəniş
-gecikəndə məkanı `status: "subscription_overdue"` edir və belə məkan
-kəşfdə görünmür. Admin panelin `VenueStatus` birləşməsində
-(`lib/data/venues.ts:55`) bu dəyər **yoxdur**, `parseStatus` isə
-tanımadığı hər dəyəri **`"approved"`-a** çevirir.
+**Nə idi:** `parseStatus` (`lib/data/venues.ts`) tanımadığı hər dəyəri
+`"approved"`-a çevirirdi. `renewVenueSubscriptions` isə ödəniş
+gecikəndə məkanı `subscription_overdue` edir və belə məkan tətbiqdə
+görünmür — yəni borclu, dayandırılmış məkan admin paneldə **aktiv**
+görünürdü. `awaiting_payment` eyni funksiyaya elə həmin gün əlavə
+edilmişdi; bu isə unudulmuşdu.
 
-**Nəticə:** `/venues` səhifəsində abunə borcuna görə dayandırılmış
-məkan **təsdiqlənmiş** kimi görünür. Bu, admin roster-indəki
-«naməlum rol» qüsuru ilə eyni sinifdir — köhnəlmiş allowlist, üstəlik
-xoşagələn defolta yığılma — amma nəticəsi daha pisdir, çünki orada
-`null` göstərilirdi, burada isə yanlış status göstərilir.
+**Düzəliş:**
+* Status lüğəti asılılıqsız `lib/venue-status.ts` modulunda —
+  `lib/data/venues.ts` `server-only`-dir, yəni client komponentlər və
+  testlər ondan import edə bilmir (`auth/roles.ts` ilə eyni vəziyyət,
+  eyni həll).
+* `parseStatus` və `/venues` filtri artıq `isVenueStatus`-dan törəyir
+  — ikinci siyahı yoxdur ki, unudulsun.
+* «Abunə gecikib» etiketi, `destructive` variantla: belə məkan
+  tətbiqdə görünmür, ona görə neytral rəngdə olmamalıdır.
 
-**Bu turda düzəldilmədi**, çünki `VenueStatus` birləşməsini
-genişləndirmək `/venues` səhifəsinin filtrlərinə, `setVenueStatus`
-server action-una və `StatusBadge` komponentinə toxunur — üç
-səhifənin əhatəsindən kənardır. `/subscriptions` öz status
-birləşməsini ayrıca elan edir, məhz bu çevirməni miras almamaq üçün.
+**Bir addım daha — tip ikiyə ayrıldı.** `VenueStatus` məkanın saxlaya
+biləcəyi hər statusdur; `VenueModerationStatus` isə `setVenueStatus`-un
+**yaza biləcəyi** altçoxluqdur (`subscription_overdue` və
+`awaiting_payment` daxil deyil). Sadəcə birləşməyə əlavə etsəydim,
+moderasiya UI-ı həmin statusu əl ilə yaza bilərdi — yəni admin məkanı
+borclu edə, və ya real borcu ödəniş qeydi olmadan «silə» bilərdi.
+Ayrım tətbiq edilən kimi `tsc` `venue-status-actions.tsx`-in geniş
+tipdən istifadə etdiyini dərhal tutdu.
 
-**Düzəliş:** `VenueStatus`-a `"subscription_overdue"` əlavə etmək,
-`parseStatus`-un defoltunu `"approved"`-dan çıxarmaq (tanınmayan dəyər
-üçün `null` və ya açıq "naməlum"), `/venues` filtrinə əlavə etmək.
-
-**Təxmini iş həcmi:** ~1 saat + testlər.
+**Test:** `tests/rules/venue-status.test.ts` — 5 test, göstəriş
+birləşməsi və yazıla bilən altçoxluq ayrıca yoxlanılır.

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ModerationNoteDialog } from "@/components/moderation/moderation-note-dialog";
 import { setVenueStatus } from "@/lib/actions/venues";
-import type { VenueStatus } from "@/lib/data/venues";
+import type { VenueModerationStatus, VenueStatus } from "@/lib/data/venues";
 
 const ERROR_MESSAGES: Record<string, string> = {
   forbidden: "Bu əməliyyat üçün icazəniz yoxdur.",
@@ -26,7 +26,10 @@ export function VenueStatusActions({
 }) {
   const [pending, startTransition] = useTransition();
 
-  function apply(next: VenueStatus, successMessage: string, note?: string) {
+  // The current status may be any `VenueStatus` — including a billing
+  // state this UI can display but must not write. The TARGET is
+  // narrower; see `setVenueStatus`.
+  function apply(next: VenueModerationStatus, successMessage: string, note?: string) {
     startTransition(async () => {
       const result = await setVenueStatus(id, next, note);
       if (result.ok) {
@@ -37,7 +40,7 @@ export function VenueStatusActions({
     });
   }
 
-  async function applyAsync(next: VenueStatus, successMessage: string, note: string): Promise<boolean> {
+  async function applyAsync(next: VenueModerationStatus, successMessage: string, note: string): Promise<boolean> {
     const result = await setVenueStatus(id, next, note);
     if (result.ok) {
       toast.success(successMessage);

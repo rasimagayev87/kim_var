@@ -4,17 +4,12 @@ import { VenuesFilters } from "@/components/venues/venues-filters";
 import { VenuesTable } from "@/components/venues/venues-table";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentAdmin } from "@/lib/auth/server";
-import { listVenues, type VenueStatusFilter } from "@/lib/data/venues";
+import { isVenueStatus, listVenues, type VenueStatusFilter } from "@/lib/data/venues";
 
+/** Derived from `isVenueStatus` so a status added to the union becomes
+ * filterable here without a second list to forget. */
 function parseStatus(value: string | undefined): VenueStatusFilter {
-  return value === "pending" ||
-    value === "needs_revision" ||
-    value === "approved" ||
-    value === "inactive" ||
-    value === "rejected" ||
-    value === "awaiting_payment"
-    ? value
-    : "all";
+  return isVenueStatus(value) ? value : "all";
 }
 
 export default async function VenuesPage({

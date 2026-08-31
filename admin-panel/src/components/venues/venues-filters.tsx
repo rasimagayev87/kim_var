@@ -55,6 +55,7 @@ export function VenuesFilters({
           <SelectItem value="needs_revision">Düzəliş tələb olunur</SelectItem>
           <SelectItem value="approved">Aktiv</SelectItem>
           <SelectItem value="awaiting_payment">Ödəniş gözlənilir</SelectItem>
+          <SelectItem value="subscription_overdue">Abunə gecikib</SelectItem>
           <SelectItem value="inactive">Deaktiv</SelectItem>
           <SelectItem value="rejected">Rədd edilib</SelectItem>
         </SelectContent>

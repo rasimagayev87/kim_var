@@ -159,7 +159,9 @@ export function CohortPanel({ cohorts, windowDays }: { cohorts: CohortActivity[]
           <code>lastSeen</code> dəyəri son {windowDays} gün içindədir. Bu, retention əyrisi{" "}
           <strong>deyil</strong> — anlıq şəkildir: sxem hər hesab üçün yalnız bir{" "}
           <code>lastSeen</code> saxlayır, ona görə hər gün gəlib dünən dayanan istifadəçi ilə
-          yalnız dünən bir dəfə açan istifadəçi burada eyni görünür.
+          yalnız dünən bir dəfə açan istifadəçi burada eyni görünür.{" "}
+          Beş nəfərdən az olan aylar <strong>&lt;5</strong> kimi göstərilir — belə bir sətir
+          statistika deyil, konkret adamdır.
         </p>
       </div>
       <div className="overflow-x-auto rounded-lg border">
@@ -176,10 +178,16 @@ export function CohortPanel({ cohorts, windowDays }: { cohorts: CohortActivity[]
             {cohorts.map((c) => (
               <TableRow key={c.month}>
                 <TableCell className="tabular-nums">{c.month}</TableCell>
-                <TableCell className="text-right tabular-nums">{n(c.registered)}</TableCell>
-                <TableCell className="text-right tabular-nums">{n(c.stillActive)}</TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {c.registered === 0 ? "—" : `${Math.round((c.stillActive / c.registered) * 100)}%`}
+                  {c.suppressed ? <span className="text-muted-foreground">&lt;5</span> : n(c.registered ?? 0)}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {c.suppressed ? <span className="text-muted-foreground">&lt;5</span> : n(c.stillActive ?? 0)}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {c.suppressed || !c.registered
+                    ? "—"
+                    : `${Math.round(((c.stillActive ?? 0) / c.registered) * 100)}%`}
                 </TableCell>
               </TableRow>
             ))}

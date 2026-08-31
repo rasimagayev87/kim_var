@@ -25,6 +25,7 @@ const STATUS_LABELS: Record<string, string> = {
   soldOut: "Satılıb",
   expired: "Vaxtı bitib",
   awaiting_payment: "Ödəniş gözlənilir",
+  subscription_overdue: "Abunə gecikib",
 };
 
 const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
@@ -52,6 +53,9 @@ const STATUS_VARIANTS: Record<string, "default" | "secondary" | "outline" | "des
   soldOut: "secondary",
   expired: "outline",
   awaiting_payment: "outline",
+  // Destructive, like `rejected` — a delinquent venue is invisible in
+  // the app, so this must not read as a neutral state.
+  subscription_overdue: "destructive",
 };
 
 export function StatusBadge({ status }: { status: string }) {

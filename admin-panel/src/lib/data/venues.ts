@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAdminDb } from "@/lib/firebase/admin";
+import { isVenueStatus, type VenueStatus, type VenueStatusFilter } from "@/lib/venue-status";
 
 /** Mirrors `VenueCategory` in the Flutter app's venue.dart exactly —
  * same enum values, since they're the literal strings stored on the
@@ -52,8 +53,18 @@ export const VENUE_CATEGORY_LABELS: Record<string, string> = {
  * here entirely (post-launch QA finding), which meant `parseStatus`
  * below silently coerced it to `approved`, showing an unpaid venue as
  * "Aktiv" in the admin UI. */
-export type VenueStatus = "approved" | "pending" | "needs_revision" | "rejected" | "inactive" | "awaiting_payment";
-export type VenueStatusFilter = "all" | VenueStatus;
+// Status vocabulary lives in `@/lib/venue-status` — this module is
+// `server-only`, and the statuses are needed by client components and
+// by tests. Re-exported so existing importers keep working.
+export {
+  isVenueModerationStatus,
+  isVenueStatus,
+  VENUE_MODERATION_STATUSES,
+  VENUE_STATUSES,
+  type VenueModerationStatus,
+  type VenueStatus,
+  type VenueStatusFilter,
+} from "@/lib/venue-status";
 
 export interface VenueDayHours {
   open: string;
@@ -106,14 +117,19 @@ export interface AdminVenueRow {
 
 const FETCH_LIMIT = 200;
 
+/**
+ * Reads a stored status.
+ *
+ * The `"approved"` fallback is kept ONLY for documents predating the
+ * field, which genuinely were active. It is now reached solely by a
+ * missing or malformed value, not by a status this build simply has
+ * not heard of — that was the bug: `subscription_overdue` fell through
+ * to `"approved"` and a venue suspended for non-payment displayed as
+ * active. Derived from [VENUE_STATUSES] so adding a status to the
+ * union is enough.
+ */
 function parseStatus(value: unknown): VenueStatus {
-  return value === "pending" ||
-    value === "needs_revision" ||
-    value === "rejected" ||
-    value === "inactive" ||
-    value === "awaiting_payment"
-    ? value
-    : "approved";
+  return isVenueStatus(value) ? value : "approved";
 }
 
 export async function listVenues({

@@ -71,3 +71,24 @@ describe("Analytics — PII sızması yoxdur", () => {
     assert.equal(/getRetention|\bretentionRate\b/.test(source), false);
   });
 });
+
+describe("Analytics — kohort k-anonimlik döşəməsi", () => {
+  // H-2-dəki `VENUE_AUDIENCE_MIN_REPORTABLE_COUNT` ilə eyni rəqəm və
+  // eyni səbəb. Bir nəfərlik kohort statistika deyil — konkret adamdır,
+  // və bu səhifə məhz şəxsi məlumat görməməli olan rol üçün qurulub.
+  test("döşəmə 5-dir və previewVenueAudience ilə eyni rəqəmdir", () => {
+    const m = source.match(/COHORT_MIN_REPORTABLE_COUNT\s*=\s*(\d+)/);
+    assert.ok(m, "COHORT_MIN_REPORTABLE_COUNT tapılmadı");
+    assert.equal(Number(m[1]), 5);
+  });
+
+  test("hədddən aşağı sətir null qaytarır — rəqəm modulu tərk etmir", () => {
+    assert.match(source, /registered: null, stillActive: null, suppressed: true/);
+  });
+
+  test("suppression sətir üzrədir, sahə üzrə deyil", () => {
+    // Yalnız `stillActive`-i gizlədib `registered: 1` göstərmək eyni
+    // faktı sızdırardı.
+    assert.equal(/stillActive: null/.test(source) && /registered: null/.test(source), true);
+  });
+});
