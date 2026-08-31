@@ -138,6 +138,21 @@ mixin _$Venue {
   @NullableTimestampConverter()
   DateTime? get freeCampaignPeriodStart => throw _privateConstructorUsedError;
 
+  /// Events published this subscription period — same hold/refund
+  /// rules as [freeCampaignsUsed], flat limit for every tier
+  /// ([kFreeEventsPerPeriod]). Server-only.
+  int get freeEventsUsed => throw _privateConstructorUsedError;
+
+  /// The period [freeEventsUsed] is counted within. Server-only.
+  @NullableTimestampConverter()
+  DateTime? get freeEventPeriodStart => throw _privateConstructorUsedError;
+
+  /// How many events this venue has ever PUBLISHED — what earns it
+  /// out of event pre-moderation once it reaches
+  /// `EVENT_TRUST_THRESHOLD` (3). Counts published, never created, so
+  /// three rejected submissions buy no trust. Server-only.
+  int get publishedEventCount => throw _privateConstructorUsedError;
+
   /// RETIRED — the founding venues' 5-free-placements-in-30-days
   /// perk, replaced by [freeCampaignsUsed]. No server code reads or
   /// writes these any more; they survive only on documents that
@@ -336,6 +351,9 @@ abstract class $VenueCopyWith<$Res> {
     bool isFoundingVenue,
     int freeCampaignsUsed,
     @NullableTimestampConverter() DateTime? freeCampaignPeriodStart,
+    int freeEventsUsed,
+    @NullableTimestampConverter() DateTime? freeEventPeriodStart,
+    int publishedEventCount,
     int freeOffersUsed,
     @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
     bool firstPaymentAnnouncementPending,
@@ -400,6 +418,9 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? isFoundingVenue = null,
     Object? freeCampaignsUsed = null,
     Object? freeCampaignPeriodStart = freezed,
+    Object? freeEventsUsed = null,
+    Object? freeEventPeriodStart = freezed,
+    Object? publishedEventCount = null,
     Object? freeOffersUsed = null,
     Object? freeOfferWindowEnd = freezed,
     Object? firstPaymentAnnouncementPending = null,
@@ -521,6 +542,18 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
                 ? _value.freeCampaignPeriodStart
                 : freeCampaignPeriodStart // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            freeEventsUsed: null == freeEventsUsed
+                ? _value.freeEventsUsed
+                : freeEventsUsed // ignore: cast_nullable_to_non_nullable
+                      as int,
+            freeEventPeriodStart: freezed == freeEventPeriodStart
+                ? _value.freeEventPeriodStart
+                : freeEventPeriodStart // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
+            publishedEventCount: null == publishedEventCount
+                ? _value.publishedEventCount
+                : publishedEventCount // ignore: cast_nullable_to_non_nullable
+                      as int,
             freeOffersUsed: null == freeOffersUsed
                 ? _value.freeOffersUsed
                 : freeOffersUsed // ignore: cast_nullable_to_non_nullable
@@ -649,6 +682,9 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     bool isFoundingVenue,
     int freeCampaignsUsed,
     @NullableTimestampConverter() DateTime? freeCampaignPeriodStart,
+    int freeEventsUsed,
+    @NullableTimestampConverter() DateTime? freeEventPeriodStart,
+    int publishedEventCount,
     int freeOffersUsed,
     @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
     bool firstPaymentAnnouncementPending,
@@ -712,6 +748,9 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? isFoundingVenue = null,
     Object? freeCampaignsUsed = null,
     Object? freeCampaignPeriodStart = freezed,
+    Object? freeEventsUsed = null,
+    Object? freeEventPeriodStart = freezed,
+    Object? publishedEventCount = null,
     Object? freeOffersUsed = null,
     Object? freeOfferWindowEnd = freezed,
     Object? firstPaymentAnnouncementPending = null,
@@ -833,6 +872,18 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.freeCampaignPeriodStart
             : freeCampaignPeriodStart // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        freeEventsUsed: null == freeEventsUsed
+            ? _value.freeEventsUsed
+            : freeEventsUsed // ignore: cast_nullable_to_non_nullable
+                  as int,
+        freeEventPeriodStart: freezed == freeEventPeriodStart
+            ? _value.freeEventPeriodStart
+            : freeEventPeriodStart // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
+        publishedEventCount: null == publishedEventCount
+            ? _value.publishedEventCount
+            : publishedEventCount // ignore: cast_nullable_to_non_nullable
+                  as int,
         freeOffersUsed: null == freeOffersUsed
             ? _value.freeOffersUsed
             : freeOffersUsed // ignore: cast_nullable_to_non_nullable
@@ -954,6 +1005,9 @@ class _$VenueImpl extends _Venue {
     this.isFoundingVenue = false,
     this.freeCampaignsUsed = 0,
     @NullableTimestampConverter() this.freeCampaignPeriodStart,
+    this.freeEventsUsed = 0,
+    @NullableTimestampConverter() this.freeEventPeriodStart,
+    this.publishedEventCount = 0,
     this.freeOffersUsed = 0,
     @NullableTimestampConverter() this.freeOfferWindowEnd,
     this.firstPaymentAnnouncementPending = false,
@@ -1136,6 +1190,26 @@ class _$VenueImpl extends _Venue {
   @override
   @NullableTimestampConverter()
   final DateTime? freeCampaignPeriodStart;
+
+  /// Events published this subscription period — same hold/refund
+  /// rules as [freeCampaignsUsed], flat limit for every tier
+  /// ([kFreeEventsPerPeriod]). Server-only.
+  @override
+  @JsonKey()
+  final int freeEventsUsed;
+
+  /// The period [freeEventsUsed] is counted within. Server-only.
+  @override
+  @NullableTimestampConverter()
+  final DateTime? freeEventPeriodStart;
+
+  /// How many events this venue has ever PUBLISHED — what earns it
+  /// out of event pre-moderation once it reaches
+  /// `EVENT_TRUST_THRESHOLD` (3). Counts published, never created, so
+  /// three rejected submissions buy no trust. Server-only.
+  @override
+  @JsonKey()
+  final int publishedEventCount;
 
   /// RETIRED — the founding venues' 5-free-placements-in-30-days
   /// perk, replaced by [freeCampaignsUsed]. No server code reads or
@@ -1332,7 +1406,7 @@ class _$VenueImpl extends _Venue {
 
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, offerAcceptedVersion: $offerAcceptedVersion, offerAcceptedAt: $offerAcceptedAt, offerAcceptedFrom: $offerAcceptedFrom, offerDocumentUrl: $offerDocumentUrl, isFoundingVenue: $isFoundingVenue, freeCampaignsUsed: $freeCampaignsUsed, freeCampaignPeriodStart: $freeCampaignPeriodStart, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, firstPaymentAnnouncementPending: $firstPaymentAnnouncementPending, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, ratingAverage: $ratingAverage, ratingCount: $ratingCount, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, premiumExpiresAt: $premiumExpiresAt, premiumExpiryReminderSent: $premiumExpiryReminderSent, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, offerAcceptedVersion: $offerAcceptedVersion, offerAcceptedAt: $offerAcceptedAt, offerAcceptedFrom: $offerAcceptedFrom, offerDocumentUrl: $offerDocumentUrl, isFoundingVenue: $isFoundingVenue, freeCampaignsUsed: $freeCampaignsUsed, freeCampaignPeriodStart: $freeCampaignPeriodStart, freeEventsUsed: $freeEventsUsed, freeEventPeriodStart: $freeEventPeriodStart, publishedEventCount: $publishedEventCount, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, firstPaymentAnnouncementPending: $firstPaymentAnnouncementPending, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, ratingAverage: $ratingAverage, ratingCount: $ratingCount, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, premiumExpiresAt: $premiumExpiresAt, premiumExpiryReminderSent: $premiumExpiryReminderSent, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
   }
 
   @override
@@ -1382,6 +1456,12 @@ class _$VenueImpl extends _Venue {
                   freeCampaignPeriodStart,
                 ) ||
                 other.freeCampaignPeriodStart == freeCampaignPeriodStart) &&
+            (identical(other.freeEventsUsed, freeEventsUsed) ||
+                other.freeEventsUsed == freeEventsUsed) &&
+            (identical(other.freeEventPeriodStart, freeEventPeriodStart) ||
+                other.freeEventPeriodStart == freeEventPeriodStart) &&
+            (identical(other.publishedEventCount, publishedEventCount) ||
+                other.publishedEventCount == publishedEventCount) &&
             (identical(other.freeOffersUsed, freeOffersUsed) ||
                 other.freeOffersUsed == freeOffersUsed) &&
             (identical(other.freeOfferWindowEnd, freeOfferWindowEnd) ||
@@ -1466,6 +1546,9 @@ class _$VenueImpl extends _Venue {
     isFoundingVenue,
     freeCampaignsUsed,
     freeCampaignPeriodStart,
+    freeEventsUsed,
+    freeEventPeriodStart,
+    publishedEventCount,
     freeOffersUsed,
     freeOfferWindowEnd,
     firstPaymentAnnouncementPending,
@@ -1530,6 +1613,9 @@ abstract class _Venue extends Venue {
     final bool isFoundingVenue,
     final int freeCampaignsUsed,
     @NullableTimestampConverter() final DateTime? freeCampaignPeriodStart,
+    final int freeEventsUsed,
+    @NullableTimestampConverter() final DateTime? freeEventPeriodStart,
+    final int publishedEventCount,
     final int freeOffersUsed,
     @NullableTimestampConverter() final DateTime? freeOfferWindowEnd,
     final bool firstPaymentAnnouncementPending,
@@ -1697,6 +1783,24 @@ abstract class _Venue extends Venue {
   @override
   @NullableTimestampConverter()
   DateTime? get freeCampaignPeriodStart;
+
+  /// Events published this subscription period — same hold/refund
+  /// rules as [freeCampaignsUsed], flat limit for every tier
+  /// ([kFreeEventsPerPeriod]). Server-only.
+  @override
+  int get freeEventsUsed;
+
+  /// The period [freeEventsUsed] is counted within. Server-only.
+  @override
+  @NullableTimestampConverter()
+  DateTime? get freeEventPeriodStart;
+
+  /// How many events this venue has ever PUBLISHED — what earns it
+  /// out of event pre-moderation once it reaches
+  /// `EVENT_TRUST_THRESHOLD` (3). Counts published, never created, so
+  /// three rejected submissions buy no trust. Server-only.
+  @override
+  int get publishedEventCount;
 
   /// RETIRED — the founding venues' 5-free-placements-in-30-days
   /// perk, replaced by [freeCampaignsUsed]. No server code reads or

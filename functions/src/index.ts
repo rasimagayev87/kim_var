@@ -26,6 +26,7 @@ import { verifyAppleNotification, verifyAppleTransaction, verifyGoogleSubscripti
 import { CHAT_MEDIA_FOLDERS, chatMediaPathForMessage, isChatHiddenByEveryone, resizedVariantPath } from "./chat-media";
 import { isCancellableOnListingDelete, isPaymentTargetMissing } from "./payment-targets";
 import { freeCampaignQuotaForCategory, venueSubscriptionFeeByCategory } from "./venue-fees";
+import { EVENT_URGENT_WINDOW_MS } from "./event-urgency";
 import {
   bucketDistanceMeters,
   clampAudienceRadiusKm,
@@ -4995,24 +4996,252 @@ async function withPrivateData(
  * bounds the skip-through window to events shorter than a minute.
  */
 /**
- * A new event records an intent, exactly like offers and PinBoxes.
+ * How many events a venue must have PUBLISHED before its events stop
+ * going through moderation.
  *
- * Unlike those two an event has no approval step to wait for — it is
- * live the moment it is created — so this fires on create rather than
- * on a status transition.
+ * ── Why trust rather than blanket review ───────────────────────────
+ *
+ * Events were the only listing type with no review at all, and they
+ * are the one that reaches a push notification (the daily digest)
+ * without anybody paying anything. But blanket pre-moderation is the
+ * wrong repair: an event is time-bound. One created at 18:00 for
+ * 21:00 tonight has to clear review in hours, and events are the
+ * highest-frequency listing there is — a queue with no enforced SLA in
+ * front of all of them turns "tonight" into "maybe".
+ *
+ * So the first few from any venue are reviewed and the rest are not.
+ * The cost falls on new venues only, once, and it is exactly the
+ * population the review is for.
+ */
+const EVENT_TRUST_THRESHOLD = 3;
+
+/**
+ * Events published per subscription period, every tier.
+ *
+ * Flat, unlike `FREE_CAMPAIGNS_BY_SUBSCRIPTION_TIER`, because there is
+ * no paid path behind it: a campaign that exceeds its quota falls
+ * through to the placement fee, an event simply cannot be published.
+ * A tiered limit would therefore be a tiered CAP rather than a tiered
+ * allowance, which is a different (and worse) product.
+ */
+const FREE_EVENTS_PER_PERIOD = 5;
+
+/**
+ * The whole publish decision for a new event, in one transaction.
+ *
+ * ── Why the client always writes `pending` ─────────────────────────
+ *
+ * The obvious design is to let the rule decide: allow `status:
+ * 'upcoming'` when `publishedEventCount >= 3`, `pending` otherwise.
+ * That is broken, and quietly. Rules cannot run transactions, and the
+ * counter is written by this trigger, so a new venue can create ten
+ * events in the seconds before the first increment lands — all of them
+ * passing the same stale read, all published unmoderated. That is
+ * precisely the abuse the threshold exists to stop.
+ *
+ * Inverting it removes the race instead of narrowing it. The rule
+ * accepts ONLY `pending` (no counter read at all, and one fewer
+ * `get()`), and this transaction — which does serialise — decides. A
+ * trusted venue's event is `pending` for the sub-second it takes to
+ * get here, visible on the owner's own screen and nowhere else.
+ *
+ * The same transaction spends the period's event quota, for the same
+ * reason `submitOffer` holds a campaign slot inside its own: two
+ * concurrent creates must not both see the last free slot.
  */
 export const onVenueEventCreated = onDocumentCreated("venueEvents/{eventId}", async (event) => {
   const data = event.data?.data();
   if (!data) return;
   const venueId = data.venueId as string | undefined;
   if (!venueId) return;
-  const venueSnap = await db.collection("venues").doc(venueId).get();
-  const venue = venueSnap.data();
-  if (!venue) return;
-  const ownerId = venue.ownerId as string | undefined;
-  if (!ownerId) return;
-  await recordListingIntent("event", event.params.eventId, venueId, ownerId, venue);
+  const eventRef = db.collection("venueEvents").doc(event.params.eventId);
+  const venueRef = db.collection("venues").doc(venueId);
+
+  const outcome = await db.runTransaction(async (tx) => {
+    const venueSnap = await tx.get(venueRef);
+    const venue = venueSnap.data();
+    if (!venue) return { kind: "no-venue" } as const;
+    const ownerId = venue.ownerId as string | undefined;
+    if (!ownerId) return { kind: "no-venue" } as const;
+
+    const periodStart = currentSubscriptionPeriodStart(venue);
+    if (periodStart === null) {
+      // No paid period — the same freeze the campaign quota applies
+      // while a venue is `subscription_overdue`. `venueIsLive` in
+      // firestore.rules already refuses the create in that state; this
+      // is the second lock, for a venue whose renewal lapsed between
+      // the rule evaluating and this trigger running.
+      return { kind: "no-period", ownerId, venue } as const;
+    }
+
+    const storedStart = (venue.freeEventPeriodStart as Timestamp | undefined)?.toDate();
+    const stale = !storedStart || storedStart < periodStart;
+    const used = stale ? 0 : ((venue.freeEventsUsed as number | undefined) ?? 0);
+    if (used >= FREE_EVENTS_PER_PERIOD) {
+      return { kind: "quota-exhausted", ownerId, venue, renewsAt: venue.subscriptionRenewsAt } as const;
+    }
+
+    // The quota is spent by PUBLICATION, so it is held here and given
+    // back if the event is rejected or deleted before it publishes —
+    // the same rule, and the same reasoning, as the campaign quota.
+    const published = (venue.publishedEventCount as number | undefined) ?? 0;
+    const trusted = published >= EVENT_TRUST_THRESHOLD;
+
+    tx.update(venueRef, {
+      freeEventsUsed: used + 1,
+      ...(stale ? { freeEventPeriodStart: Timestamp.fromDate(periodStart) } : {}),
+    });
+    tx.update(eventRef, {
+      eventQuotaHold: true,
+      ...(trusted ? { status: "upcoming" } : {}),
+    });
+
+    return { kind: trusted ? "published" : "queued", ownerId, venue } as const;
+  });
+
+  if (outcome.kind === "no-venue") return;
+
+  if (outcome.kind === "no-period" || outcome.kind === "quota-exhausted") {
+    const renewsAt = (outcome.venue.subscriptionRenewsAt as Timestamp | undefined)?.toDate();
+    await eventRef.update({
+      status: "rejected",
+      reviewNote:
+        outcome.kind === "quota-exhausted"
+          ? `Bu dövrdə ${FREE_EVENTS_PER_PERIOD} tədbir limitiniz doldu.`
+          : "Məkan abunəliyi aktiv deyil.",
+    });
+    await notifyUser({
+      uid: outcome.ownerId,
+      category: "account",
+      type: "eventRejected",
+      title: "Tədbir yayımlanmadı",
+      body:
+        outcome.kind === "quota-exhausted"
+          ? `Bu dövrdə ${FREE_EVENTS_PER_PERIOD} tədbir limitiniz doldu. Kvota ${renewsAt ? formatBakuDate(renewsAt) : "növbəti dövrdə"} yenilənir.`
+          : "Məkan abunəliyiniz aktiv olmadığı üçün tədbir yayımlanmadı.",
+      params: { limit: FREE_EVENTS_PER_PERIOD },
+      targetId: event.params.eventId,
+      targetType: "event",
+    });
+    return;
+  }
+
+  if (outcome.kind === "published") {
+    // `onVenueEventUpdated` does not fire for a change made inside this
+    // trigger's own transaction in a way we can rely on, so the
+    // publish side-effects run here for the trusted path.
+    await publishVenueEvent(event.params.eventId, venueId, outcome.ownerId, outcome.venue);
+    return;
+  }
+
+  // Queued for review. The moderator has to learn about it somehow —
+  // `remindAdminsOfPendingEvents` covers the ones that get urgent, this
+  // covers the arrival.
+  await notifyAdmins({
+    type: "eventPendingReview",
+    message: `Yeni məkanın tədbiri təsdiq gözləyir: "${(data.title as string | undefined) ?? ""}"`,
+    targetType: "event",
+    targetId: event.params.eventId,
+  });
 });
+
+/**
+ * The moderated path's publish point: a moderator moved a `pending`
+ * event to `upcoming`.
+ *
+ * Also handles rejection, which gives the quota slot back — the same
+ * rule as a rejected campaign. The owner is told either way; a review
+ * outcome the owner cannot see is not a review, it is a disappearance.
+ */
+export const onVenueEventUpdated = onDocumentUpdated("venueEvents/{eventId}", async (event) => {
+  const before = event.data?.before.data();
+  const after = event.data?.after.data();
+  if (!before || !after) return;
+  if (before.status === after.status) return;
+
+  const venueId = after.venueId as string | undefined;
+  if (!venueId) return;
+
+  if (before.status === "pending" && after.status === "upcoming") {
+    const venueSnap = await db.collection("venues").doc(venueId).get();
+    const venue = venueSnap.data();
+    const ownerId = venue?.ownerId as string | undefined;
+    if (!venue || !ownerId) return;
+    await publishVenueEvent(event.params.eventId, venueId, ownerId, venue);
+    await notifyUser({
+      uid: ownerId,
+      category: "account",
+      type: "eventApproved",
+      title: "Tədbiriniz təsdiqləndi",
+      body: `"${(after.title as string | undefined) ?? ""}" yayımlandı.`,
+      params: {},
+      targetId: event.params.eventId,
+      targetType: "event",
+    });
+    return;
+  }
+
+  if (after.status === "rejected" && after.eventQuotaHold === true) {
+    await releaseEventQuotaHold(event.params.eventId, venueId);
+  }
+});
+
+/**
+ * Gives back the event-quota slot an unpublished event was holding.
+ *
+ * Called on rejection and on deletion-before-publication. NOT on the
+ * deletion of a published event: publication is what spends the slot,
+ * exactly as with campaigns, so create-publish-delete-repeat cannot
+ * mint an unlimited number of events.
+ *
+ * `eventQuotaHold` is cleared inside the same transaction, which makes
+ * this idempotent — Firestore delivers triggers at least once.
+ */
+async function releaseEventQuotaHold(eventId: string, venueId: string): Promise<void> {
+  const eventRef = db.collection("venueEvents").doc(eventId);
+  const venueRef = db.collection("venues").doc(venueId);
+  await db.runTransaction(async (tx) => {
+    const eventSnap = await tx.get(eventRef);
+    if (eventSnap.exists && eventSnap.data()?.eventQuotaHold !== true) return;
+    const venueSnap = await tx.get(venueRef);
+    if (!venueSnap.exists) return;
+    const used = (venueSnap.data()?.freeEventsUsed as number | undefined) ?? 0;
+    tx.update(venueRef, { freeEventsUsed: Math.max(0, used - 1) });
+    if (eventSnap.exists) tx.update(eventRef, { eventQuotaHold: FieldValue.delete() });
+  });
+}
+
+/** `dd.MM.yyyy` in Baku — owner-facing dates in push copy. */
+function formatBakuDate(date: Date): string {
+  const key = bakuDateKey(date);
+  const [y, m, d] = key.split("-");
+  return `${d}.${m}.${y}`;
+}
+
+/**
+ * What happens the moment an event becomes visible: the venue's
+ * published count goes up (which is what earns trust), the quota hold
+ * becomes a spend, and the digest hears about it.
+ *
+ * The digest intent moved here from create time. An event that is
+ * still in review has not been published, and recording its intent at
+ * creation would have put it into the 15:00 digest — announcing to
+ * every nearby user something no one can see yet.
+ */
+async function publishVenueEvent(
+  eventId: string,
+  venueId: string,
+  ownerId: string,
+  venue: FirebaseFirestore.DocumentData,
+): Promise<void> {
+  await db.collection("venues").doc(venueId).update({
+    publishedEventCount: FieldValue.increment(1),
+  });
+  // Clearing the hold is what stops a later deletion from refunding
+  // the quota — publication is what spends it.
+  await db.collection("venueEvents").doc(eventId).update({ eventQuotaHold: FieldValue.delete() });
+  await recordListingIntent("event", eventId, venueId, ownerId, venue);
+}
 
 /**
  * The daily digest — at most three notifications per user, whatever
@@ -5138,7 +5367,82 @@ export const advanceVenueEventStatuses = onSchedule(
       .where("endAt", "<=", now)
       .get();
     await Promise.all(toEndedSnap.docs.map((doc) => doc.ref.update({ status: "ended" })));
+
+    // ── An event that missed its own start while still in review ───
+    //
+    // Publishing it anyway is worse than not publishing: it enters the
+    // Canlı feed and the daily digest announcing something that has
+    // already begun or finished, and the product looks broken to
+    // everyone who taps it.
+    //
+    // Rejected instead — but the note and the notification both say
+    // plainly that the review window was missed, because this is OUR
+    // delay and not the owner's. Without the notification the event
+    // just vanishes and the owner never learns why; with it, they can
+    // re-create it if the event is still on.
+    const expiredPendingSnap = await db
+      .collection("venueEvents")
+      .where("status", "==", "pending")
+      .where("startAt", "<=", now)
+      .get();
+    for (const doc of expiredPendingSnap.docs) {
+      const data = doc.data();
+      await doc.ref.update({
+        status: "rejected",
+        reviewNote: "Baxış vaxtında tamamlanmadı — tədbir başlama vaxtını keçdi.",
+      });
+      const venueId = data.venueId as string | undefined;
+      if (venueId && data.eventQuotaHold === true) {
+        // The owner did nothing wrong, so the slot goes back.
+        await releaseEventQuotaHold(doc.id, venueId);
+      }
+      if (!venueId) continue;
+      const ownerId = (await db.collection("venues").doc(venueId).get()).data()?.ownerId as string | undefined;
+      if (!ownerId) continue;
+      await notifyUser({
+        uid: ownerId,
+        category: "account",
+        type: "eventRejected",
+        title: "Tədbir yayımlanmadı",
+        body: `"${(data.title as string | undefined) ?? ""}" baxış vaxtında tamamlanmadığı üçün başlama vaxtını keçdi. Tədbir hələ aktualdırsa yenidən yarada bilərsiniz.`,
+        params: {},
+        targetId: doc.id,
+        targetType: "event",
+      });
+    }
   }
+);
+
+/**
+ * Hourly — tells moderators about a pending event that is about to
+ * start.
+ *
+ * The badge in the queue only works on someone already looking at the
+ * page. This is the half that reaches an admin who is not, and it is
+ * the same arrangement `remindAdminsOfPendingBirthdayCampaigns` uses
+ * for the 13:00 deadline. Writes nothing when nothing is urgent.
+ */
+export const remindAdminsOfPendingEvents = onSchedule(
+  { schedule: "every 60 minutes", region: "europe-west1" },
+  async () => {
+    const now = Date.now();
+    const snap = await db
+      .collection("venueEvents")
+      .where("status", "==", "pending")
+      .where("startAt", "<=", Timestamp.fromMillis(now + EVENT_URGENT_WINDOW_MS))
+      .get();
+    // `startAt <= now` is handled by `advanceVenueEventStatuses` —
+    // already too late, and reminding about it would be noise.
+    const urgent = snap.docs.filter((d) => (d.data().startAt as Timestamp).toMillis() > now);
+    if (urgent.length === 0) return;
+
+    await notifyAdmins({
+      type: "eventsPendingReview",
+      message: `${urgent.length} tədbir təsdiq gözləyir və yaxın ${EVENT_URGENT_WINDOW_MS / 3600000} saatda başlayır.`,
+      targetType: "events",
+      targetId: bakuDateKey(new Date()),
+    });
+  },
 );
 
 /**
@@ -7000,6 +7304,16 @@ export const onVenueEventDeleted = onDocumentDeleted("venueEvents/{eventId}", as
   const venueSnap = await db.collection("venues").doc(data.venueId as string).get();
   const path = eventCoverPath(venueSnap.data()?.ownerId, event.params.eventId);
   if (path) await deleteStorageFile(path);
+
+  // An event deleted before it published gives its quota slot back;
+  // one deleted after does not. Publication is what spends the slot —
+  // the same rule as a campaign, and the same reason: the abuse works
+  // by extracting value from publication, and a withdrawn draft
+  // extracted none.
+  const venueId = event.data?.data()?.venueId as string | undefined;
+  if (venueId && event.data?.data()?.eventQuotaHold === true) {
+    await releaseEventQuotaHold(event.params.eventId, venueId);
+  }
 });
 
 export const onPostDeleted = onDocumentDeleted("posts/{postId}", async (event) => {
@@ -8865,6 +9179,8 @@ async function applyPaymentOutcome(
             // period boundary itself, so the two can never disagree.
             freeCampaignsUsed: 0,
             freeCampaignPeriodStart: FieldValue.serverTimestamp(),
+            freeEventsUsed: 0,
+            freeEventPeriodStart: FieldValue.serverTimestamp(),
             // Drives the "Ödənişiniz təsdiqləndi" card on MyVenuesScreen
             // — cleared by the owner dismissing it (see
             // `dismissFirstPaymentAnnouncement`, firebase_venue_
@@ -8899,6 +9215,8 @@ async function applyPaymentOutcome(
             // quota" from working; paying is the only reset.
             freeCampaignsUsed: 0,
             freeCampaignPeriodStart: Timestamp.fromDate(new Date(nextRenewsAt.getTime() - SUBSCRIPTION_CYCLE_MS)),
+            freeEventsUsed: 0,
+            freeEventPeriodStart: Timestamp.fromDate(new Date(nextRenewsAt.getTime() - SUBSCRIPTION_CYCLE_MS)),
             updatedAt: FieldValue.serverTimestamp(),
             ...offerAcceptanceVenueUpdate,
           });

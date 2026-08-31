@@ -40,6 +40,13 @@ mixin _$VenueEvent {
   VenueEventCategory get category => throw _privateConstructorUsedError;
   @VenueEventStatusConverter()
   VenueEventStatus get status => throw _privateConstructorUsedError;
+
+  /// Why an event was rejected — a moderator's note, or the automatic
+  /// one written when a `pending` event reached its own `startAt`
+  /// before anyone reviewed it. Shown on the owner's own card,
+  /// because that rejection is the product's delay rather than the
+  /// owner's mistake and they can only act on it if they are told.
+  String? get reviewNote => throw _privateConstructorUsedError;
   @TimestampConverter()
   DateTime get createdAt => throw _privateConstructorUsedError;
 
@@ -75,6 +82,7 @@ abstract class $VenueEventCopyWith<$Res> {
     @TimestampConverter() DateTime endAt,
     @VenueEventCategoryConverter() VenueEventCategory category,
     @VenueEventStatusConverter() VenueEventStatus status,
+    String? reviewNote,
     @TimestampConverter() DateTime createdAt,
   });
 }
@@ -108,6 +116,7 @@ class _$VenueEventCopyWithImpl<$Res, $Val extends VenueEvent>
     Object? endAt = null,
     Object? category = null,
     Object? status = null,
+    Object? reviewNote = freezed,
     Object? createdAt = null,
   }) {
     return _then(
@@ -168,6 +177,10 @@ class _$VenueEventCopyWithImpl<$Res, $Val extends VenueEvent>
                 ? _value.status
                 : status // ignore: cast_nullable_to_non_nullable
                       as VenueEventStatus,
+            reviewNote: freezed == reviewNote
+                ? _value.reviewNote
+                : reviewNote // ignore: cast_nullable_to_non_nullable
+                      as String?,
             createdAt: null == createdAt
                 ? _value.createdAt
                 : createdAt // ignore: cast_nullable_to_non_nullable
@@ -202,6 +215,7 @@ abstract class _$$VenueEventImplCopyWith<$Res>
     @TimestampConverter() DateTime endAt,
     @VenueEventCategoryConverter() VenueEventCategory category,
     @VenueEventStatusConverter() VenueEventStatus status,
+    String? reviewNote,
     @TimestampConverter() DateTime createdAt,
   });
 }
@@ -234,6 +248,7 @@ class __$$VenueEventImplCopyWithImpl<$Res>
     Object? endAt = null,
     Object? category = null,
     Object? status = null,
+    Object? reviewNote = freezed,
     Object? createdAt = null,
   }) {
     return _then(
@@ -294,6 +309,10 @@ class __$$VenueEventImplCopyWithImpl<$Res>
             ? _value.status
             : status // ignore: cast_nullable_to_non_nullable
                   as VenueEventStatus,
+        reviewNote: freezed == reviewNote
+            ? _value.reviewNote
+            : reviewNote // ignore: cast_nullable_to_non_nullable
+                  as String?,
         createdAt: null == createdAt
             ? _value.createdAt
             : createdAt // ignore: cast_nullable_to_non_nullable
@@ -320,7 +339,8 @@ class _$VenueEventImpl extends _VenueEvent {
     @TimestampConverter() required this.startAt,
     @TimestampConverter() required this.endAt,
     @VenueEventCategoryConverter() this.category = VenueEventCategory.other,
-    @VenueEventStatusConverter() this.status = VenueEventStatus.upcoming,
+    @VenueEventStatusConverter() this.status = VenueEventStatus.pending,
+    this.reviewNote,
     @TimestampConverter() required this.createdAt,
   }) : super._();
 
@@ -363,13 +383,21 @@ class _$VenueEventImpl extends _VenueEvent {
   @JsonKey()
   @VenueEventStatusConverter()
   final VenueEventStatus status;
+
+  /// Why an event was rejected — a moderator's note, or the automatic
+  /// one written when a `pending` event reached its own `startAt`
+  /// before anyone reviewed it. Shown on the owner's own card,
+  /// because that rejection is the product's delay rather than the
+  /// owner's mistake and they can only act on it if they are told.
+  @override
+  final String? reviewNote;
   @override
   @TimestampConverter()
   final DateTime createdAt;
 
   @override
   String toString() {
-    return 'VenueEvent(id: $id, venueId: $venueId, venueName: $venueName, venuePhotoUrl: $venuePhotoUrl, venueCategory: $venueCategory, lat: $lat, lng: $lng, title: $title, description: $description, coverImageUrl: $coverImageUrl, startAt: $startAt, endAt: $endAt, category: $category, status: $status, createdAt: $createdAt)';
+    return 'VenueEvent(id: $id, venueId: $venueId, venueName: $venueName, venuePhotoUrl: $venuePhotoUrl, venueCategory: $venueCategory, lat: $lat, lng: $lng, title: $title, description: $description, coverImageUrl: $coverImageUrl, startAt: $startAt, endAt: $endAt, category: $category, status: $status, reviewNote: $reviewNote, createdAt: $createdAt)';
   }
 
   @override
@@ -397,6 +425,8 @@ class _$VenueEventImpl extends _VenueEvent {
             (identical(other.category, category) ||
                 other.category == category) &&
             (identical(other.status, status) || other.status == status) &&
+            (identical(other.reviewNote, reviewNote) ||
+                other.reviewNote == reviewNote) &&
             (identical(other.createdAt, createdAt) ||
                 other.createdAt == createdAt));
   }
@@ -419,6 +449,7 @@ class _$VenueEventImpl extends _VenueEvent {
     endAt,
     category,
     status,
+    reviewNote,
     createdAt,
   );
 
@@ -452,6 +483,7 @@ abstract class _VenueEvent extends VenueEvent {
     @TimestampConverter() required final DateTime endAt,
     @VenueEventCategoryConverter() final VenueEventCategory category,
     @VenueEventStatusConverter() final VenueEventStatus status,
+    final String? reviewNote,
     @TimestampConverter() required final DateTime createdAt,
   }) = _$VenueEventImpl;
   const _VenueEvent._() : super._();
@@ -492,6 +524,14 @@ abstract class _VenueEvent extends VenueEvent {
   @override
   @VenueEventStatusConverter()
   VenueEventStatus get status;
+
+  /// Why an event was rejected — a moderator's note, or the automatic
+  /// one written when a `pending` event reached its own `startAt`
+  /// before anyone reviewed it. Shown on the owner's own card,
+  /// because that rejection is the product's delay rather than the
+  /// owner's mistake and they can only act on it if they are told.
+  @override
+  String? get reviewNote;
   @override
   @TimestampConverter()
   DateTime get createdAt;

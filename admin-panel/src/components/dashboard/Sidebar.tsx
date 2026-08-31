@@ -2,6 +2,7 @@
 
 import {
   BadgeCheck,
+  CalendarDays,
   LayoutGrid,
   Users,
   Store,
@@ -68,6 +69,7 @@ const EXISTING_NAV: {
     countKey: "pinboxPayouts",
   },
   { href: "/offers", label: "Təkliflər", icon: Tag, permission: "viewOffers", countKey: "offers" },
+  { href: "/events", label: "Tədbirlər", icon: CalendarDays, permission: "viewEvents", countKey: "events" },
   {
     href: "/subscriptions",
     label: "Abunəliklər",

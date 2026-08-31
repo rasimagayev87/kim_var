@@ -11,6 +11,7 @@ const PERMISSION_LABELS: Record<Permission, string> = {
   viewOffers: "Təkliflər",
   viewPinBoxes: "PinBox",
   viewEvents: "Tədbirlər",
+  moderateEvents: "Tədbir moderasiyası",
   viewSubscriptions: "Abunəliklər",
   viewBoosts: "Boostlar",
   viewPayments: "Ödənişlər",

@@ -143,6 +143,13 @@ export const NOTIFICATION_CATEGORY_BY_TYPE: Readonly<Record<string, string>> = {
   // under a content toggle. The other two concern the same entry the
   // user created by hand: its confirmation, and its cancellation when
   // the venue turns the queue off.
+  // An event's moderation outcome. `account` rather than
+  // `venueUpdates`: a rejected event is not venue news the owner opted
+  // into, it is the result of something they submitted — and the
+  // auto-rejection when a review misses the event's own start time is
+  // OUR delay, which they can only act on if they are told.
+  eventApproved: "account",
+  eventRejected: "account",
   venueWaitlistJoined: "account",
   waitlistCalled: "account",
   waitlistDisabled: "account",

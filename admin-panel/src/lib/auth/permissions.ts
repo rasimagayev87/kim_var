@@ -45,7 +45,7 @@ import type { AdminRole } from "./roles";
  * | Venues                    | ✅ | ✅ | 👁️ | 👁️ | 👁️ | viewVenues / moderateVenues |
  * | Offers                    | ✅ | ✅ | 👁️ | 👁️ | 👁️ | viewOffers / moderateOffers |
  * | PinBox                    | ✅ | ✅ | ❌ | 👁️ | 👁️ | viewPinBoxes |
- * | Events                    | ✅ | ✅ | ❌ | 👁️ | 👁️ | viewEvents |
+ * | Events                    | ✅ | ✅ | ❌ | 👁️ | 👁️ | viewEvents / moderateEvents |
  * | Reports                   | ✅ | ✅ | ❌ | ✅ | ❌ | manageFeedback |
  * | VIP / subscriptions       | ✅ | 👁️ | ✅ | 👁️ | 👁️ | viewSubscriptions / manageSubscriptions |
  * | Boosts                    | ✅ | 👁️ | ✅ | 👁️ | 👁️ | viewBoosts / manageBoosts |
@@ -119,6 +119,7 @@ const PERMISSION_MATRIX = {
     moderateVenues: true,
     manageVenues: true,
     moderateOffers: true,
+    moderateEvents: true,
     broadcastNotifications: true,
     manageFeedback: true,
     manageAdmins: true,
@@ -163,6 +164,7 @@ const PERMISSION_MATRIX = {
     moderateVenues: true,
     manageVenues: false,
     moderateOffers: true,
+    moderateEvents: true,
     broadcastNotifications: false,
     manageFeedback: true,
     manageAdmins: false,
@@ -206,6 +208,7 @@ const PERMISSION_MATRIX = {
     moderateVenues: false,
     manageVenues: false,
     moderateOffers: false,
+    moderateEvents: false,
     broadcastNotifications: false,
     manageFeedback: false,
     manageAdmins: false,
@@ -248,6 +251,7 @@ const PERMISSION_MATRIX = {
     moderateVenues: false,
     manageVenues: false,
     moderateOffers: false,
+    moderateEvents: false,
     broadcastNotifications: true,
     manageFeedback: true,
     manageAdmins: false,
@@ -296,6 +300,7 @@ const PERMISSION_MATRIX = {
     moderateVenues: false,
     manageVenues: false,
     moderateOffers: false,
+    moderateEvents: false,
     broadcastNotifications: false,
     manageFeedback: false,
     manageAdmins: false,
@@ -324,7 +329,6 @@ export type Permission = keyof (typeof PERMISSION_MATRIX)["admin"];
  * one with a different name for the same thing.
  */
 export const UNIMPLEMENTED_PERMISSIONS: readonly Permission[] = [
-  "viewEvents", // no events screen (only /event-reports)
   "viewBoosts", // boosts are rows inside /payments, no dedicated screen
   "viewFinancials", // no financial-reports screen
   "viewEpointTransactions", // Epoint rows live inside /payments

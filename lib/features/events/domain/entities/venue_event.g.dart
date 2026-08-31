@@ -30,10 +30,11 @@ _$VenueEventImpl _$$VenueEventImplFromJson(Map<String, dynamic> json) =>
               json['category'] as String?,
             ),
       status: json['status'] == null
-          ? VenueEventStatus.upcoming
+          ? VenueEventStatus.pending
           : const VenueEventStatusConverter().fromJson(
               json['status'] as String?,
             ),
+      reviewNote: json['reviewNote'] as String?,
       createdAt: const TimestampConverter().fromJson(json['createdAt']),
     );
 
@@ -55,5 +56,6 @@ Map<String, dynamic> _$$VenueEventImplToJson(_$VenueEventImpl instance) =>
       'endAt': const TimestampConverter().toJson(instance.endAt),
       'category': const VenueEventCategoryConverter().toJson(instance.category),
       'status': const VenueEventStatusConverter().toJson(instance.status),
+      'reviewNote': instance.reviewNote,
       'createdAt': const TimestampConverter().toJson(instance.createdAt),
     };

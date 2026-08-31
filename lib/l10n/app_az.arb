@@ -1693,5 +1693,9 @@
   "offerFreeCampaignsRemaining": "Bu dövrdə {count} pulsuz kampaniyanız qalıb ({quota} -dan)",
   "offerFreeCampaignsExhausted": "Pulsuz kvotanız bitib — bu kampaniya {amount} AZN olacaq",
   "offerFreeCampaignsRenewOn": "Kvota {date} tarixində yenilənir",
-  "venueFreeCampaignsLabel": "Pulsuz kampaniya: {count}/{quota}"
+  "venueFreeCampaignsLabel": "Pulsuz kampaniya: {count}/{quota}",
+  "eventStatusPending": "Baxışdadır",
+  "eventStatusRejected": "Yayımlanmadı",
+  "eventQuotaExhausted": "Bu dövrdə {limit} tədbir limitiniz doldu. Kvota {date} yenilənir.",
+  "eventQuotaRemaining": "Bu dövrdə {count} tədbir hüququnuz qalıb ({limit} -dan)"
 }

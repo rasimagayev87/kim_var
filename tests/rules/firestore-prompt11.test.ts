@@ -320,7 +320,10 @@ describe("Prompt 11 — qəsdən açıq qalan yollar (P0 / C-3-dən sonra: posts
     await assertSucceeds(
       setDoc(doc(db, "venueEvents", "p11-open-event"), {
         venueId,
-        status: "upcoming",
+        // `pending` — the only status a client may create since the
+        // trust-based moderation change. The point of this test is
+        // that a BANNED owner can still write the document at all.
+        status: "pending",
         title: "Test",
       }),
     );

@@ -11,6 +11,7 @@ export interface PendingCounts {
   offers: number;
   pinboxes: number;
   identityVerifications: number;
+  events: number;
   reports: number;
   eventReports: number;
   reviewReports: number;
@@ -21,6 +22,7 @@ export interface PendingCounts {
 
 export const PENDING_SECTION_META: { key: keyof PendingCounts; label: string; href: string }[] = [
   { key: "identityVerifications", label: "Kimlik doğrulama", href: "/identity-verifications" },
+  { key: "events", label: "Tədbirlər", href: "/events" },
   { key: "venues", label: "Məkanlar", href: "/venues" },
   { key: "payments", label: "Ödənişlər", href: "/payments" },
   { key: "premiumPayments", label: "Premium Biznes Ödənişləri", href: "/premium-payments" },

@@ -1807,5 +1807,9 @@
   "offerFreeCampaignsRemaining": "You have {count} free campaigns left this period (of {quota})",
   "offerFreeCampaignsExhausted": "Your free quota is used up — this campaign will cost {amount} AZN",
   "offerFreeCampaignsRenewOn": "Quota renews on {date}",
-  "venueFreeCampaignsLabel": "Free campaigns: {count}/{quota}"
+  "venueFreeCampaignsLabel": "Free campaigns: {count}/{quota}",
+  "eventStatusPending": "In review",
+  "eventStatusRejected": "Not published",
+  "eventQuotaExhausted": "You have reached your limit of {limit} events this period. Quota renews on {date}.",
+  "eventQuotaRemaining": "You have {count} events left this period (of {limit})"
 }

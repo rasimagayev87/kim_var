@@ -95,7 +95,7 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
       'startAt': Timestamp.fromDate(startAt),
       'endAt': Timestamp.fromDate(endAt),
       'category': category.name,
-      'status': VenueEventStatus.upcoming.name,
+      'status': VenueEventStatus.pending.name,
       'createdAt': FieldValue.serverTimestamp(),
     });
 

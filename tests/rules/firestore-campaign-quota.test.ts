@@ -98,7 +98,9 @@ describe("dayandırılmış məkan elan yaya bilmir — PinBox", () => {
 describe("dayandırılmış məkan elan yaya bilmir — tədbir", () => {
   function eventDoc(venueId: string) {
     return {
-      venueId, title: "Tədbir", description: "T", status: "upcoming",
+      // `pending` — firestore.rules accepts no other value from a
+      // client now, see firestore-event-moderation.test.ts.
+      venueId, title: "Tədbir", description: "T", status: "pending",
       startAt: new Date(Date.now() + 3600_000), endAt: new Date(Date.now() + 7200_000),
       category: "concert", createdAt: new Date(),
     };

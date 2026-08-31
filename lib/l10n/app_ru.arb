@@ -1693,5 +1693,9 @@
   "offerFreeCampaignsRemaining": "В этом периоде осталось {count} бесплатных кампаний (из {quota})",
   "offerFreeCampaignsExhausted": "Бесплатная квота исчерпана — эта кампания будет стоить {amount} AZN",
   "offerFreeCampaignsRenewOn": "Квота обновится {date}",
-  "venueFreeCampaignsLabel": "Бесплатные кампании: {count}/{quota}"
+  "venueFreeCampaignsLabel": "Бесплатные кампании: {count}/{quota}",
+  "eventStatusPending": "На проверке",
+  "eventStatusRejected": "Не опубликовано",
+  "eventQuotaExhausted": "Вы исчерпали лимит в {limit} мероприятий за период. Квота обновится {date}.",
+  "eventQuotaRemaining": "В этом периоде осталось {count} мероприятий (из {limit})"
 }

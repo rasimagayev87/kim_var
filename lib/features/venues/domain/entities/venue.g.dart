@@ -43,6 +43,11 @@ _$VenueImpl _$$VenueImplFromJson(Map<String, dynamic> json) => _$VenueImpl(
   freeCampaignPeriodStart: const NullableTimestampConverter().fromJson(
     json['freeCampaignPeriodStart'],
   ),
+  freeEventsUsed: (json['freeEventsUsed'] as num?)?.toInt() ?? 0,
+  freeEventPeriodStart: const NullableTimestampConverter().fromJson(
+    json['freeEventPeriodStart'],
+  ),
+  publishedEventCount: (json['publishedEventCount'] as num?)?.toInt() ?? 0,
   freeOffersUsed: (json['freeOffersUsed'] as num?)?.toInt() ?? 0,
   freeOfferWindowEnd: const NullableTimestampConverter().fromJson(
     json['freeOfferWindowEnd'],
@@ -115,6 +120,11 @@ Map<String, dynamic> _$$VenueImplToJson(
   'freeCampaignPeriodStart': const NullableTimestampConverter().toJson(
     instance.freeCampaignPeriodStart,
   ),
+  'freeEventsUsed': instance.freeEventsUsed,
+  'freeEventPeriodStart': const NullableTimestampConverter().toJson(
+    instance.freeEventPeriodStart,
+  ),
+  'publishedEventCount': instance.publishedEventCount,
   'freeOffersUsed': instance.freeOffersUsed,
   'freeOfferWindowEnd': const NullableTimestampConverter().toJson(
     instance.freeOfferWindowEnd,

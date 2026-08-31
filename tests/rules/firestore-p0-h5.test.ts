@@ -135,7 +135,9 @@ describe("P0 / H-5 — pinboxes.imageUrl və venueEvents.coverImageUrl", () => {
     await assertSucceeds(
       setDoc(doc(db, "venueEvents", "p0h5-ok-ev"), {
         venueId: VENUE,
-        status: "upcoming",
+        // Events are created as `pending` since the trust-based
+        // moderation change; this test is about the cover URL only.
+        status: "pending",
         title: "Tədbir",
         coverImageUrl: OK,
       }),

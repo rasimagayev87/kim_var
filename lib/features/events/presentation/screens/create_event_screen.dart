@@ -265,12 +265,21 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
             _FieldLabel(loc.eventEndLabel),
             _DateTimeRow(value: _endAt, onTap: () => _pickDateTime(isStart: false), formatter: _formatDateTime),
             const SizedBox(height: 28),
+            // The period's event allowance. Creating (not editing) is
+            // the only case it applies to — an edit publishes nothing
+            // new and spends nothing.
+            if (!widget._isEditing) ...[
+              _EventQuotaBanner(venue: widget.venue, loc: loc),
+              const SizedBox(height: 16),
+            ],
             if (_uploadProgress != null) ...[
               LinearProgressIndicator(value: _uploadProgress, color: AppColors.primary),
               const SizedBox(height: 12),
             ],
             ElevatedButton(
-              onPressed: (_canSubmit && !_submitting) ? _submit : null,
+              onPressed: (_canSubmit && !_submitting && (widget._isEditing || _eventQuotaLeft(widget.venue) > 0))
+                  ? _submit
+                  : null,
               child: _submitting
                   ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent))
                   : Text(widget._isEditing ? loc.venueSaveButton : loc.eventPublishButton),
@@ -326,6 +335,62 @@ class _DateTimeRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Events a venue may still publish this subscription period.
+///
+/// A PREVIEW of `FREE_EVENTS_PER_PERIOD` and the counter
+/// `onVenueEventCreated` actually spends — the server decides, in a
+/// transaction, and rejects the event with a notification if this was
+/// stale. Blocking the button here is a courtesy, not the boundary.
+///
+/// Zero while the subscription is unpaid, mirroring
+/// `currentSubscriptionPeriodStart`: no period means no allowance, and
+/// the counter freezes rather than resetting.
+int _eventQuotaLeft(Venue venue) {
+  final renewsAt = venue.subscriptionRenewsAt;
+  if (renewsAt == null || !DateTime.now().isBefore(renewsAt)) return 0;
+  return (kFreeEventsPerPeriod - venue.freeEventsUsed).clamp(0, kFreeEventsPerPeriod);
+}
+
+class _EventQuotaBanner extends StatelessWidget {
+  const _EventQuotaBanner({required this.venue, required this.loc});
+
+  final Venue venue;
+  final AppLocalizations loc;
+
+  @override
+  Widget build(BuildContext context) {
+    final left = _eventQuotaLeft(venue);
+    final renewsAt = venue.subscriptionRenewsAt;
+    final date = renewsAt == null
+        ? '—'
+        : '${renewsAt.day.toString().padLeft(2, '0')}.${renewsAt.month.toString().padLeft(2, '0')}.${renewsAt.year}';
+    final exhausted = left == 0;
+    final color = exhausted ? AppColors.error : AppColors.primary;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        children: [
+          Icon(exhausted ? Icons.block : Icons.event_available_outlined, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              // Unlike a campaign, there is no paid path to offer here —
+              // so the message says when the allowance returns instead
+              // of what it would cost.
+              exhausted
+                  ? loc.eventQuotaExhausted(kFreeEventsPerPeriod, date)
+                  : loc.eventQuotaRemaining(left, kFreeEventsPerPeriod),
+              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: color),
+            ),
+          ),
+        ],
       ),
     );
   }

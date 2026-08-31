@@ -487,6 +487,20 @@ class Venue with _$Venue {
     /// venue's first subscription payment clears.
     @NullableTimestampConverter() DateTime? freeCampaignPeriodStart,
 
+    /// Events published this subscription period — same hold/refund
+    /// rules as [freeCampaignsUsed], flat limit for every tier
+    /// ([kFreeEventsPerPeriod]). Server-only.
+    @Default(0) int freeEventsUsed,
+
+    /// The period [freeEventsUsed] is counted within. Server-only.
+    @NullableTimestampConverter() DateTime? freeEventPeriodStart,
+
+    /// How many events this venue has ever PUBLISHED — what earns it
+    /// out of event pre-moderation once it reaches
+    /// `EVENT_TRUST_THRESHOLD` (3). Counts published, never created, so
+    /// three rejected submissions buy no trust. Server-only.
+    @Default(0) int publishedEventCount,
+
     /// RETIRED — the founding venues' 5-free-placements-in-30-days
     /// perk, replaced by [freeCampaignsUsed]. No server code reads or
     /// writes these any more; they survive only on documents that

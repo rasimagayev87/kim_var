@@ -53,6 +53,7 @@ export async function getPendingCounts(): Promise<PendingCounts> {
     offersSnap,
     pinboxesSnap,
     identitySnap,
+    eventsSnap,
     reportsSnap,
     eventReportsSnap,
     reviewReportsSnap,
@@ -64,6 +65,9 @@ export async function getPendingCounts(): Promise<PendingCounts> {
     db.collection("offers").where("status", "==", "pending").count().get(),
     db.collection("pinboxes").where("status", "==", "pending").count().get(),
     db.collection("identityVerifications").where("status", "==", "pending").count().get(),
+    // Events awaiting review — a new venue's first three. Same shape as
+    // every other single-equality count above.
+    db.collection("venueEvents").where("status", "==", "pending").count().get(),
     db.collection("reports").where("status", "==", "pending").count().get(),
     db.collection("eventReports").where("status", "==", "open").count().get(),
     db.collection("reviewReports").where("status", "==", "pending").count().get(),
@@ -94,6 +98,7 @@ export async function getPendingCounts(): Promise<PendingCounts> {
     offers: offersSnap.data().count,
     pinboxes: pinboxesSnap.data().count,
     identityVerifications: identitySnap.data().count,
+    events: eventsSnap.data().count,
     reports: reportsSnap.data().count,
     eventReports: eventReportsSnap.data().count,
     reviewReports: reviewReportsSnap.data().count,

@@ -1421,7 +1421,7 @@ service cloud.firestore {
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl', 'offerAcceptedVersion', 'offerAcceptedAt', 'offerAcceptedFrom', 'offerDocumentUrl', 'verified', 'gallery', 'activeCheckinCount', 'visibleCheckinCount', 'currentAudienceCount', 'audienceCountUpdatedAt', 'nameLower', 'freeCampaignsUsed', 'freeCampaignPeriodStart', 'createdAt']);
+          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl', 'offerAcceptedVersion', 'offerAcceptedAt', 'offerAcceptedFrom', 'offerDocumentUrl', 'verified', 'gallery', 'activeCheckinCount', 'visibleCheckinCount', 'currentAudienceCount', 'audienceCountUpdatedAt', 'nameLower', 'freeCampaignsUsed', 'freeCampaignPeriodStart', 'createdAt', 'freeEventsUsed', 'freeEventPeriodStart', 'publishedEventCount']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
@@ -2102,11 +2102,32 @@ service cloud.firestore {
           isOwnStorageUrl(request.resource.data.coverImageUrl);
       }
 
+      // `pending`, ALWAYS — never `upcoming`.
+      //
+      // Whether an event publishes immediately or goes through review
+      // depends on the venue's `publishedEventCount`, and this rule
+      // deliberately does NOT read it. Rules cannot run transactions,
+      // so a rule that allowed `upcoming` above a threshold would let a
+      // brand-new venue create ten events in the seconds before the
+      // first counter increment landed — every one of them passing the
+      // same stale read. That is the abuse the threshold exists to
+      // stop, so the decision belongs somewhere that can serialise.
+      //
+      // `onVenueEventCreated` is that place: it flips a trusted venue's
+      // event to `upcoming` in a transaction, and spends the period's
+      // event quota in the same one. The rule gets simpler AND one
+      // `get()` cheaper for being wrong about none of it.
+      //
+      // Every discovery surface filters `status in ['upcoming','live']`
+      // already (live_feed_service.dart, firebase_venue_event_repository
+      // .dart, the digest metrics in index.ts), so a `pending` event is
+      // invisible everywhere except the owner's own list without a
+      // single one of them changing.
       allow create: if request.auth != null &&
         request.auth.uid == get(/databases/$(database)/documents/venues/$(request.resource.data.venueId)).data.ownerId &&
         venueIsLive(request.resource.data.venueId) &&
         isEventCategory(request.resource.data.venueId) &&
-        request.resource.data.status == 'upcoming' &&
+        request.resource.data.status == 'pending' &&
         coverImageUrlCreateOk() &&
         descriptionSizeOk();
 
@@ -2117,9 +2138,18 @@ service cloud.firestore {
       allow update: if request.auth != null &&
         request.auth.uid == get(/databases/$(database)/documents/venues/$(resource.data.venueId)).data.ownerId &&
         (
+          // Cancelling is the ONLY status the owner may set. In
+          // particular not 'upcoming' — that is the publish decision,
+          // and it belongs to `onVenueEventCreated` (trusted venues) or
+          // to a moderator via the admin panel. Without this an owner
+          // could simply approve their own event out of review.
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
             request.resource.data.status == 'cancelled') ||
-          (resource.data.status in ['upcoming', 'live'] &&
+          // `pending` joins the editable states so an owner can fix an
+          // event while it waits for review. `rejected` deliberately
+          // does not: editing a rejected event back into shape would
+          // route around the decision, and re-creating it is one tap.
+          (resource.data.status in ['upcoming', 'live', 'pending'] &&
             request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['title', 'description', 'coverImageUrl', 'startAt', 'endAt', 'category']) &&
             coverImageUrlUpdateOk() &&

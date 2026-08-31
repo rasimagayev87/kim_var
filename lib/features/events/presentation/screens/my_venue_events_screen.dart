@@ -78,11 +78,26 @@ class _MyVenueEventsScreenState extends ConsumerState<MyVenueEventsScreen> with 
           data: (events) => TabBarView(
             controller: _tabController,
             children: [
-              _EventList(venue: widget.venue, events: events.where((e) => e.status == VenueEventStatus.upcoming).toList()),
+              // `pending` sits in the "upcoming" tab rather than getting
+              // one of its own: it is the tab the owner looks in for an
+              // event they just created, and a fourth tab that is empty
+              // for every established venue is worse than a badge on
+              // the card (see `_EventCard`).
+              _EventList(
+                venue: widget.venue,
+                events: events
+                    .where((e) => e.status == VenueEventStatus.pending || e.status == VenueEventStatus.upcoming)
+                    .toList(),
+              ),
               _EventList(venue: widget.venue, events: events.where((e) => e.status == VenueEventStatus.live).toList()),
               _EventList(
                 venue: widget.venue,
-                events: events.where((e) => e.status == VenueEventStatus.ended || e.status == VenueEventStatus.cancelled).toList(),
+                events: events
+                    .where((e) =>
+                        e.status == VenueEventStatus.ended ||
+                        e.status == VenueEventStatus.cancelled ||
+                        e.status == VenueEventStatus.rejected)
+                    .toList(),
               ),
             ],
           ),
@@ -181,7 +196,11 @@ class _EventCard extends ConsumerWidget {
     final loc = AppLocalizations.of(context);
     // Editing and cancelling share the same eligibility window — an
     // ended/cancelled event is history, not something to change.
-    final canEdit = event.status == VenueEventStatus.upcoming || event.status == VenueEventStatus.live;
+    // A `pending` event stays editable — the owner can fix it while it
+    // waits for review (firestore.rules allows the same three states).
+    final canEdit = event.status == VenueEventStatus.pending ||
+        event.status == VenueEventStatus.upcoming ||
+        event.status == VenueEventStatus.live;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -205,6 +224,14 @@ class _EventCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(event.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ChatLightColors.ink)),
+                // The owner has to be able to tell a published event
+                // from one still in review — they look identical in the
+                // list otherwise, and "why isn't my event showing?" has
+                // no answer on screen.
+                if (event.status == VenueEventStatus.pending || event.status == VenueEventStatus.rejected) ...[
+                  const SizedBox(height: 4),
+                  _EventStatusChip(status: event.status, reviewNote: event.reviewNote),
+                ],
                 const SizedBox(height: 4),
                 Text(
                   '${event.startAt.day.toString().padLeft(2, '0')}.${event.startAt.month.toString().padLeft(2, '0')} · ${event.startAt.hour.toString().padLeft(2, '0')}:${event.startAt.minute.toString().padLeft(2, '0')}',
@@ -241,6 +268,47 @@ class _EventCard extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// "Baxışdadır" / "Yayımlanmadı" on the owner's own event card.
+class _EventStatusChip extends StatelessWidget {
+  const _EventStatusChip({required this.status, this.reviewNote});
+
+  final VenueEventStatus status;
+  final String? reviewNote;
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final isPending = status == VenueEventStatus.pending;
+    final color = isPending ? AppColors.primary : AppColors.error;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
+          child: Text(
+            isPending ? loc.eventStatusPending : loc.eventStatusRejected,
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+          ),
+        ),
+        // The reason matters most when the rejection was OUR doing —
+        // an event auto-rejected for missing its own start while still
+        // in review. Without the note it just disappeared.
+        if (reviewNote != null && reviewNote!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 3),
+            child: Text(
+              reviewNote!,
+              style: const TextStyle(fontSize: 11, color: ChatLightColors.inkSoft),
+            ),
+          ),
+      ],
     );
   }
 }

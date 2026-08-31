@@ -1693,5 +1693,9 @@
   "offerFreeCampaignsRemaining": "Bu dönemde {count} ücretsiz kampanyan kaldı ({quota} içinden)",
   "offerFreeCampaignsExhausted": "Ücretsiz kotan doldu — bu kampanya {amount} AZN olacak",
   "offerFreeCampaignsRenewOn": "Kota {date} tarihinde yenilenir",
-  "venueFreeCampaignsLabel": "Ücretsiz kampanya: {count}/{quota}"
+  "venueFreeCampaignsLabel": "Ücretsiz kampanya: {count}/{quota}",
+  "eventStatusPending": "İncelemede",
+  "eventStatusRejected": "Yayınlanmadı",
+  "eventQuotaExhausted": "Bu dönemde {limit} etkinlik limitine ulaştın. Kota {date} tarihinde yenilenir.",
+  "eventQuotaRemaining": "Bu dönemde {count} etkinlik hakkın kaldı ({limit} içinden)"
 }
