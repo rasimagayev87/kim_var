@@ -148,14 +148,26 @@ export const NOTIFICATION_CATEGORY_BY_TYPE: Readonly<Record<string, string>> = {
   waitlistDisabled: "account",
 
   // ── Gated: venueOffers — content pushed to CONSUMERS ─────────────
-  venueOffer: "venueOffers",
-  venueEvent: "venueOffers",
-  pinboxNearby: "venueOffers",
+  // The daily digest. One notification per content type per day, in
+  // place of the per-listing fan-out that used to send one per venue —
+  // see `./digest`. Same category as the pushes they replace, so a user
+  // who had already switched "Məkan təklifləri" off stays off.
+  dailyOffersDigest: "venueOffers",
+  dailyPinboxDigest: "venueOffers",
+  dailyEventsDigest: "venueOffers",
   birthdayOffer: "venueOffers",
-  // `notifyNearbyUsersOfNewOffer`/`Event` send this instead when the
-  // venue is in the `productionPost` category — same audience, same
-  // consent, different wording.
-  productionPost: "venueOffers",
+  //
+  // RETIRED: `venueOffer`, `venueEvent`, `pinboxNearby` and
+  // `productionPost` are gone from this table because nothing sends
+  // them any more — the three per-listing fan-outs that did were
+  // replaced by the digest above. This map describes what `notifyUser`
+  // emits today, so a type nobody emits does not belong in it.
+  //
+  // Documents already written with those types still sit in users'
+  // feeds, and `notification_localizer.dart` keeps its cases for them.
+  // Removing the client's rendering would turn old notifications into
+  // blanks; removing the server's entry only stops claiming they are
+  // still produced.
 
   // ── Gated: venueUpdates — nudges to the venue OWNER ──────────────
   // Suggestions, not obligations: post an offer now, someone had a

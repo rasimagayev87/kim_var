@@ -40,6 +40,14 @@ import {
 import { InvalidPhoneNumberError, normalizePhoneNumber } from "./phone";
 import { isGatedCategory } from "./notification-categories";
 import { bakuDateKey, isBirthdayToday } from "./birthday";
+import {
+  DIGEST_LOOKBACK_MS,
+  DigestIntent,
+  digestCountsFor,
+  digestNotifications,
+  INTENT_RETENTION_DAYS,
+  IntentType,
+} from "./digest";
 // `isEventCategory` is deliberately absent: event creation is a direct
 // client write with no callable, so `firestore.rules` is its only
 // server gate. The constant still exists for the parity test.
@@ -3716,7 +3724,9 @@ export const onOfferUpdated = onDocumentUpdated("offers/{offerId}", async (event
     if (after.offerType === "birthday") {
       await notifyBirthdayTargetUsers(event.params.offerId, after);
     } else if (after.offerType !== "happyHour" || after.happyHourActive === true) {
-      await notifyNearbyUsersOfNewOffer(event.params.offerId, after, ownerId);
+      // Records the intent; `sendDailyOpportunityDigest` decides who
+      // hears about it and when — see [recordListingIntent].
+      await recordListingIntent("offer", event.params.offerId, after.venueId as string, ownerId, after);
     }
   }
 });
@@ -4321,44 +4331,63 @@ async function notifyBirthdayTargetUsers(offerId: string, offer: FirebaseFiresto
   );
 }
 
-/** Minimum time between two "new offer" pushes for the same (user,
- * venue) pair — a venue publishing several offers in one day only
- * pings a nearby user once, not once per offer. */
-const OFFER_NOTIFY_THROTTLE_MS = 24 * 60 * 60 * 1000;
-
-/** Defensive cap on how many candidate users a single fanout reads —
- * plenty of headroom at this app's current scale; revisit with a
- * paginated/batched fanout (or a real geohash-sharded query) if the
- * user base grows into the thousands. */
-const OFFER_NOTIFY_CANDIDATE_LIMIT = 1000;
-
 /**
- * Candidate `users` docs to notify about a new offer/event from
- * [venueId] — shared by `notifyNearbyUsersOfNewOffer` and
- * `...NewEvent`. The SOURCE pool AND the geographic gate both differ
- * by category, per "Fərdi Prodakşn/Sənətçi"'s own venue-level follow
- * feature ("İzlə"): an `independentArtist` venue notifies its
- * followers (`venues/{venueId}/followers`) unconditionally — no
- * geographic gate at all, matching `LiveFeedService.
- * fetchFollowedVenueItems`, which shows a followed venue's items the
- * exact same way. Every other category draws from the app-wide
- * `users` scan and is gated by each recipient's OWN chosen Discover
- * radius (see [isWithinRecipientDiscoverRadius]).
+ * ONE INTENT PER LISTING — the replacement for three fan-out
+ * functions.
  *
- * `venue.audienceRadiusMode`/`audienceRadiusKm` is deliberately NOT
- * read by either branch — that field is scoped to the owner-only
- * "Ətrafda N istifadəçi" live counter (`computeAudienceCount`) ONLY,
- * not a reach ceiling. Reusing it as one here was the actual bug: an
- * `independentArtist` follower's notification eligibility used to
- * depend on a setting they never saw and that means something else
- * entirely, and for every other category it silently let an owner's
- * counter-radius choice exclude a recipient who'd otherwise have been
- * within their OWN chosen Discover radius.
+ * `notifyNearbyUsersOfNewOffer`, `...NewPinBox` and `...NewEvent` used
+ * to live here. Each one, at the moment a listing went live, scanned up
+ * to 1000 `users`, merged every candidate's `private/data`, and read a
+ * per-user throttle document — about 3000 reads for ONE listing — then
+ * sent one push per matching user. The offer/PinBox paths throttled per
+ * VENUE for 24 hours, so fifty venues meant fifty pushes; the event path
+ * had only a per-event dedup, so one venue posting twenty events sent
+ * twenty. At fifty thousand venues that is roughly 150 million reads a
+ * day and, for the person holding the phone, a reason to uninstall.
+ *
+ * Now the trigger writes a single document and returns. Once a day
+ * `sendDailyOpportunityDigest` reads the day's intents ONCE, reads the
+ * opted-in users ONCE, and sends at most three notifications each —
+ * "5 yeni kampaniya" and "47 yeni kampaniya" cost exactly the same one
+ * push. Cost drops from `O(listings x users)` continuously to
+ * `O(listings) + O(users)` once a day.
+ *
+ * The counting rules (radius, owner exclusion, per-type cap) live in
+ * `./digest` so they can be tested without an emulator; this function
+ * only writes the raw fact that something was published.
+ *
+ * `expiresAt` drives a native Firestore TTL policy on this collection —
+ * see [INTENT_RETENTION_DAYS] for why three days and why nothing here
+ * sweeps.
  */
-interface NotifyCandidate {
-  id: string;
-  data: FirebaseFirestore.DocumentData;
+async function recordListingIntent(
+  type: IntentType,
+  listingId: string,
+  venueId: string,
+  ownerId: string,
+  venue: FirebaseFirestore.DocumentData,
+): Promise<void> {
+  const lat = venue.lat as number | undefined;
+  const lng = venue.lng as number | undefined;
+  // A venue with no position cannot be matched against anyone's radius,
+  // so recording the intent would only create a document the digest
+  // must skip. Not an error — `submitVenue` requires coordinates, so
+  // this is a guard against legacy documents, not a live case.
+  if (typeof lat !== "number" || typeof lng !== "number") return;
+
+  await db.collection("notificationIntents").doc(`${type}_${listingId}`).set({
+    type,
+    listingId,
+    venueId,
+    ownerId,
+    lat,
+    lng,
+    ...(venue.country ? { country: venue.country } : {}),
+    createdAt: FieldValue.serverTimestamp(),
+    expiresAt: Timestamp.fromMillis(Date.now() + INTENT_RETENTION_DAYS * 24 * 60 * 60 * 1000),
+  });
 }
+
 
 /**
  * `ghostModeEnabled`/`discoverRadiusMode`/`discoverRadiusKm`/`lat`/`lng`
@@ -4367,6 +4396,14 @@ interface NotifyCandidate {
  * `isWithinRecipientDiscoverRadius` and callers' own `ghostModeEnabled`
  * check keep seeing the fields they always have.
  */
+/** A user's public document merged with their own `private/data`. Was
+ * declared alongside the fan-out functions this replaced; kept here
+ * with `withPrivateData`, its only producer. */
+interface NotifyCandidate {
+  id: string;
+  data: FirebaseFirestore.DocumentData;
+}
+
 async function withPrivateData(
   docs: FirebaseFirestore.DocumentSnapshot[],
 ): Promise<NotifyCandidate[]> {
@@ -4378,202 +4415,6 @@ async function withPrivateData(
   }));
 }
 
-async function resolveNotifyCandidates(
-  venueId: string,
-  venue: FirebaseFirestore.DocumentData,
-  limit: number,
-): Promise<NotifyCandidate[]> {
-  if (venue.category === "independentArtist") {
-    const followerSnaps = await db.collection("venues").doc(venueId).collection("followers").limit(limit).get();
-    const followerDocs = await Promise.all(followerSnaps.docs.map((d) => db.collection("users").doc(d.id).get()));
-    return withPrivateData(followerDocs);
-  }
-
-  const sourceDocs = (await db.collection("users").limit(limit).get()).docs;
-  const venueLat = venue.lat as number | undefined;
-  const venueLng = venue.lng as number | undefined;
-  const venueCountry = venue.country as string | undefined;
-  const candidates = await withPrivateData(sourceDocs);
-  return candidates.filter((c) => isWithinRecipientDiscoverRadius(c.data, venueLat, venueLng, venueCountry));
-}
-
-/**
- * Push + in-app notification when one of the venue's offers goes
- * live — see `resolveNotifyCandidates` for exactly who that reaches
- * (everyone within their OWN chosen Discover radius for most
- * categories, all followers unconditionally for `independentArtist`).
- * Deliberately does NOT filter by recent activity the way the
- * audience counter does — reaching
- * someone who isn't currently in the app is the entire point of a
- * push notification. Throttled per (user, venue) at 24h via
- * `users/{uid}/notifiedVenues/{venueId}`.
- */
-async function notifyNearbyUsersOfNewOffer(
-  offerId: string,
-  offer: FirebaseFirestore.DocumentData,
-  ownerId: string,
-): Promise<void> {
-  const venueId = offer.venueId as string | undefined;
-  if (!venueId) return;
-  const venueSnap = await db.collection("venues").doc(venueId).get();
-  const venue = venueSnap.data();
-  if (!venue) return;
-
-  const candidateDocs = await resolveNotifyCandidates(venueId, venue, OFFER_NOTIFY_CANDIDATE_LIMIT);
-  // Faza 3: "Fərdi Prodakşn/Sənətçi" followers get their own type —
-  // see resolveNotifyCandidates' doc comment for why this category's
-  // candidate pool is already radius-unrestricted followers only.
-  const isProduction = venue.category === "independentArtist";
-
-  const venueName = (venue.name as string | undefined) ?? "";
-  const offerTitle = (offer.title as string | undefined) ?? "";
-
-  await Promise.all(
-    candidateDocs.map(async (candidate) => {
-      const uid = candidate.id;
-      const userData = candidate.data;
-      if (uid === ownerId) return;
-      if (userData.ghostModeEnabled) return;
-
-      const throttleRef = db.collection("users").doc(uid).collection("notifiedVenues").doc(venueId);
-      const throttleSnap = await throttleRef.get();
-      const lastNotifiedAt = (throttleSnap.data()?.lastNotifiedAt as Timestamp | undefined)?.toMillis() ?? 0;
-      if (Date.now() - lastNotifiedAt < OFFER_NOTIFY_THROTTLE_MS) return;
-
-      await notifyUser({
-        uid,
-        category: "venueOffers",
-        type: isProduction ? "productionPost" : "venueOffer",
-        title: isProduction
-          ? (venueName ? `🎬 ${venueName} yeni paylaşım etdi` : "Yeni paylaşım")
-          : (venueName ? `☕ ${venueName} yaxınlığınızda` : "Yaxınlığınızda yeni təklif"),
-        body: offerTitle,
-        params: { venueName, offerTitle },
-        targetId: offerId,
-        targetType: "offer",
-      });
-      await throttleRef.set({ lastNotifiedAt: FieldValue.serverTimestamp() }, { merge: true });
-    }),
-  );
-}
-
-/**
- * PinBox equivalent of `notifyNearbyUsersOfNewOffer` — same candidate
- * pool/radius/throttle rules, fired from `onPinBoxUpdated` the moment a
- * box reaches `active` (PinBox's own "now visible to discovery"
- * transition, same role `status === 'approved'` plays for offers).
- * Shares the SAME per-(user, venue) throttle doc as offers — a venue
- * that publishes an offer and a PinBox on the same day still only
- * pings a given nearby user once, not once per listing type.
- */
-async function notifyNearbyUsersOfNewPinBox(
-  pinboxId: string,
-  pinbox: FirebaseFirestore.DocumentData,
-  ownerId: string,
-): Promise<void> {
-  const venueId = pinbox.venueId as string | undefined;
-  if (!venueId) return;
-  const venueSnap = await db.collection("venues").doc(venueId).get();
-  const venue = venueSnap.data();
-  if (!venue) return;
-
-  const candidateDocs = await resolveNotifyCandidates(venueId, venue, OFFER_NOTIFY_CANDIDATE_LIMIT);
-  const venueName = (venue.name as string | undefined) ?? "";
-  const pinboxTitle = (pinbox.title as string | undefined) ?? "";
-
-  await Promise.all(
-    candidateDocs.map(async (candidate) => {
-      const uid = candidate.id;
-      const userData = candidate.data;
-      if (uid === ownerId) return;
-      if (userData.ghostModeEnabled) return;
-
-      const throttleRef = db.collection("users").doc(uid).collection("notifiedVenues").doc(venueId);
-      const throttleSnap = await throttleRef.get();
-      const lastNotifiedAt = (throttleSnap.data()?.lastNotifiedAt as Timestamp | undefined)?.toMillis() ?? 0;
-      if (Date.now() - lastNotifiedAt < OFFER_NOTIFY_THROTTLE_MS) return;
-
-      await notifyUser({
-        uid,
-        category: "venueOffers",
-        type: "pinboxNearby",
-        title: venueName ? `📦 ${venueName} yaxınlığınızda` : "Yaxınlığınızda yeni PinBox",
-        body: pinboxTitle,
-        params: { venueName, pinboxTitle },
-        targetId: pinboxId,
-        targetType: "pinbox",
-      });
-      await throttleRef.set({ lastNotifiedAt: FieldValue.serverTimestamp() }, { merge: true });
-    }),
-  );
-}
-
-// ── Venue events (auto-approved, no moderation gate) ─────────────────
-
-/** Same bound as `OFFER_NOTIFY_CANDIDATE_LIMIT` — how many `users` docs
- * the radius/country/world scan considers before filtering. */
-const EVENT_NOTIFY_CANDIDATE_LIMIT = 1000;
-
-/**
- * Fires the instant a `venueEvents/{eventId}` doc is created — unlike
- * `notifyNearbyUsersOfNewOffer`, there's no `status` transition to wait
- * for, since events are auto-approved and start `upcoming` immediately
- * (see `VenueEvent`'s doc comment). Same radius/country/world dispatch
- * and Haversine filtering as the offer version — GeoFlutterFire Plus
- * itself is a Flutter/client package, so this server-side fanout uses
- * the same manual-distance-filter approach this codebase already
- * established for offers, not a literal GeoFlutterFire call.
- *
- * Dedup is permanent, not a rolling throttle like offers' 24h window —
- * an event only ever gets ONE publish moment, so
- * `users/{uid}/notifiedEvents/{eventId}` existing at all is enough to
- * skip a user, covering a retried function invocation.
- */
-export const notifyNearbyUsersOfNewEvent = onDocumentCreated("venueEvents/{eventId}", async (event) => {
-  const data = event.data?.data();
-  if (!data) return;
-
-  const venueId = data.venueId as string | undefined;
-  if (!venueId) return;
-  const venueSnap = await db.collection("venues").doc(venueId).get();
-  const venue = venueSnap.data();
-  if (!venue) return;
-
-  const ownerId = venue.ownerId as string | undefined;
-  const candidateDocs = await resolveNotifyCandidates(venueId, venue, EVENT_NOTIFY_CANDIDATE_LIMIT);
-  const isProduction = venue.category === "independentArtist";
-
-  const venueName = (venue.name as string | undefined) ?? "";
-  const eventTitle = (data.title as string | undefined) ?? "";
-  const eventId = event.params.eventId;
-
-  await Promise.all(
-    candidateDocs.map(async (candidate) => {
-      const uid = candidate.id;
-      const userData = candidate.data;
-      if (uid === ownerId) return;
-      if (userData.ghostModeEnabled) return;
-
-      const dedupRef = db.collection("users").doc(uid).collection("notifiedEvents").doc(eventId);
-      const dedupSnap = await dedupRef.get();
-      if (dedupSnap.exists) return;
-
-      await notifyUser({
-        uid,
-        category: "venueOffers",
-        type: isProduction ? "productionPost" : "venueEvent",
-        title: isProduction
-          ? (venueName ? `🎬 ${venueName} yeni paylaşım etdi` : "Yeni paylaşım")
-          : (venueName ? `🎤 ${venueName}-də bu axşam` : "🎤 Yaxınlığınızda tədbir"),
-        body: eventTitle,
-        params: { venueName, eventTitle },
-        targetId: eventId,
-        targetType: "event",
-      });
-      await dedupRef.set({ sentAt: FieldValue.serverTimestamp() });
-    })
-  );
-});
 
 /**
  * Drives `VenueEvent.status`'s fully automatic `upcoming` → `live` →
@@ -4589,6 +4430,132 @@ export const notifyNearbyUsersOfNewEvent = onDocumentCreated("venueEvents/{event
  * app's event volume is nowhere near a scale where that matters) and
  * bounds the skip-through window to events shorter than a minute.
  */
+/**
+ * A new event records an intent, exactly like offers and PinBoxes.
+ *
+ * Unlike those two an event has no approval step to wait for — it is
+ * live the moment it is created — so this fires on create rather than
+ * on a status transition.
+ */
+export const onVenueEventCreated = onDocumentCreated("venueEvents/{eventId}", async (event) => {
+  const data = event.data?.data();
+  if (!data) return;
+  const venueId = data.venueId as string | undefined;
+  if (!venueId) return;
+  const venueSnap = await db.collection("venues").doc(venueId).get();
+  const venue = venueSnap.data();
+  if (!venue) return;
+  const ownerId = venue.ownerId as string | undefined;
+  if (!ownerId) return;
+  await recordListingIntent("event", event.params.eventId, venueId, ownerId, venue);
+});
+
+/**
+ * The daily digest — at most three notifications per user, whatever
+ * the venue count.
+ *
+ * 15:00 Asia/Baku: late enough that the day's listings exist, early
+ * enough that someone can still act on "bitmədən al" tonight. Sending
+ * in the morning would attach an evening decision to a work day.
+ *
+ * Reads the day's intents once and the opted-in users once, then does
+ * the matching in memory — see `./digest` for the counting rules and
+ * for why this shape replaced three per-listing fan-outs.
+ *
+ * Deliberately does NOT skip someone who already opened the app and
+ * saw the content: "has seen it" and "does not want to be told" are
+ * different statements, and inferring the second from the first
+ * produces behaviour nobody can explain. Users who want silence have a
+ * switch — `venueOffers`, which `notifyUser` enforces.
+ */
+export const sendDailyOpportunityDigest = onSchedule(
+  { schedule: "0 15 * * *", timeZone: "Asia/Baku", region: "europe-west1" },
+  async () => {
+    const cutoff = Timestamp.fromMillis(Date.now() - DIGEST_LOOKBACK_MS);
+    const intentsSnap = await db
+      .collection("notificationIntents")
+      .where("createdAt", ">=", cutoff)
+      .get();
+    if (intentsSnap.empty) return;
+
+    const intents: DigestIntent[] = [];
+    const countryByVenueId = new Map<string, string | undefined>();
+    for (const doc of intentsSnap.docs) {
+      const d = doc.data();
+      const type = d.type as IntentType | undefined;
+      if (type !== "offer" && type !== "pinbox" && type !== "event") continue;
+      if (typeof d.lat !== "number" || typeof d.lng !== "number") continue;
+      intents.push({
+        type,
+        venueId: d.venueId as string,
+        ownerId: (d.ownerId as string | undefined) ?? "",
+        lat: d.lat as number,
+        lng: d.lng as number,
+      });
+      countryByVenueId.set(d.venueId as string, d.country as string | undefined);
+    }
+    if (intents.length === 0) return;
+
+    // ONE pass over the audience, not one per listing. This is the
+    // whole economy of the change: the read cost no longer multiplies
+    // by how many venues published today.
+    const usersSnap = await db.collection("users").get();
+    const candidates = await withPrivateData(usersSnap.docs);
+
+    for (const candidate of candidates) {
+      // `notifyUser` applies the `venueOffers` switch itself, but
+      // checking here too avoids building a digest for someone who has
+      // already said no.
+      const prefs = (candidate.data.notificationPreferences ?? {}) as Record<string, boolean>;
+      if (prefs.venueOffers === false) continue;
+      if (candidate.data.banned === true) continue;
+
+      const counts = digestCountsFor(intents, {
+        uid: candidate.id,
+        lat: candidate.data.lat as number | undefined,
+        lng: candidate.data.lng as number | undefined,
+        country: candidate.data.country as string | undefined,
+        discoverRadiusMode: candidate.data.discoverRadiusMode as string | undefined,
+        discoverRadiusKm: candidate.data.discoverRadiusKm as number | undefined,
+      }, countryByVenueId);
+
+      for (const { type, count } of digestNotifications(counts)) {
+        await notifyUser({
+          uid: candidate.id,
+          category: "venueOffers",
+          type: DIGEST_NOTIFICATION_TYPE[type],
+          title: DIGEST_TITLE[type],
+          body: DIGEST_BODY[type](count),
+          params: { count },
+          // The Canlı tab is where all three kinds of content live —
+          // one destination for all three digests, so the notification
+          // lands where the user can act on any of them.
+          targetType: "live_feed",
+        });
+      }
+    }
+  },
+);
+
+/** Notification `type` per digest kind — see `./notification-categories`. */
+const DIGEST_NOTIFICATION_TYPE: Record<IntentType, string> = {
+  offer: "dailyOffersDigest",
+  pinbox: "dailyPinboxDigest",
+  event: "dailyEventsDigest",
+};
+
+const DIGEST_TITLE: Record<IntentType, string> = {
+  offer: "Yeni kampaniyalar",
+  pinbox: "Yeni PinBox qutuları",
+  event: "Yeni tədbirlər",
+};
+
+const DIGEST_BODY: Record<IntentType, (count: number) => string> = {
+  offer: (n) => `Ətrafında ${n} yeni kampaniya səni gözləyir, seçim et və faydalan`,
+  pinbox: (n) => `Ətrafında ${n} yeni məhdud sayda PinBox qutusu var, bitmədən al`,
+  event: (n) => `Ətrafında ${n} tədbir var`,
+};
+
 export const advanceVenueEventStatuses = onSchedule(
   { schedule: "every 1 minutes", region: "europe-west1" },
   async () => {
@@ -5210,7 +5177,7 @@ export const onPinBoxUpdated = onDocumentUpdated("pinboxes/{pinboxId}", async (e
   }
 
   if (after.status === "active") {
-    await notifyNearbyUsersOfNewPinBox(event.params.pinboxId, after, ownerId);
+    await recordListingIntent("pinbox", event.params.pinboxId, after.venueId as string, ownerId, after);
   }
 });
 

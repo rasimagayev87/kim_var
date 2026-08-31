@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/home_tab_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../l10n/app_localizations.dart';
@@ -38,6 +39,16 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
   int _index = 0;
+
+  /// Consumes a tab switch requested from outside — see
+  /// [requestedHomeTabProvider]. Reset to null immediately so the
+  /// request fires once and does not pin the user to that tab.
+  void _consumeRequestedTab() {
+    final requested = ref.read(requestedHomeTabProvider);
+    if (requested == null || requested == _index) return;
+    setState(() => _index = requested);
+    ref.read(requestedHomeTabProvider.notifier).state = null;
+  }
 
   // Guards against re-pushing IncomingCallScreen for the same ringing
   // call on every unrelated snapshot re-emission (CallSession has no
@@ -98,6 +109,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     final unreadNotificationCount =
         ref.watch(notificationListControllerProvider.select((s) => s.unreadCount));
     final unreadChatCount = ref.watch(totalUnreadChatCountProvider);
+
+    // A tab switch asked for from outside — today only the daily digest
+    // notification, which lands on Canlı rather than on one document.
+    // Deferred to after this frame: `setState` during `build` throws.
+    ref.listen(requestedHomeTabProvider, (_, next) {
+      if (next == null) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _consumeRequestedTab());
+    });
 
     ref.listen(incomingCallProvider, (previous, next) {
       final session = next.valueOrNull;

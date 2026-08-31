@@ -2149,6 +2149,23 @@ service cloud.firestore {
     // itself), so an attacker could reset their own last-known probe
     // between calls and neutralize the check. Server-only in both
     // directions — no client reads or writes this.
+    // Daily-digest input: one document per listing published, holding
+    // the venue's COORDINATES so `sendDailyOpportunityDigest` can match
+    // it against each user's own radius.
+    //
+    // Closed to every client in both directions. Nothing in the app
+    // reads it — the digest is a scheduled function on the Admin SDK —
+    // and the contents are venue positions plus owner ids, which no
+    // user has any reason to enumerate. Same shape and same reasoning
+    // as `nearbyProbes` below.
+    //
+    // Cleanup is a native Firestore TTL policy on `expiresAt`
+    // (docs/CONSOLE_MANUAL_STEPS.md), not a sweep function — see
+    // `INTENT_RETENTION_DAYS` in functions/src/digest.ts.
+    match /notificationIntents/{intentId} {
+      allow read, write: if false;
+    }
+
     match /nearbyProbes/{uid} {
       allow read, write: if false;
     }

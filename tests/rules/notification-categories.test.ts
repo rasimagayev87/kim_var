@@ -132,11 +132,10 @@ describe("HƏR TRANZAKSİYA TİPİ QAPISIZDIR", () => {
 describe("HƏR MƏZMUN TİPİ QAPILIDIR", () => {
   // Əks istiqamət: toggle-lar bəzək olmamalıdır.
   const MUST_BE_GATED: Record<string, string> = {
-    venueOffer: "venueOffers",
-    venueEvent: "venueOffers",
-    pinboxNearby: "venueOffers",
+    dailyOffersDigest: "venueOffers",
+    dailyPinboxDigest: "venueOffers",
+    dailyEventsDigest: "venueOffers",
     birthdayOffer: "venueOffers",
-    productionPost: "venueOffers",
     venuePeakHour: "venueUpdates",
     birthdayMatch: "venueUpdates",
     reviewPrompt: "venueUpdates",
@@ -184,14 +183,22 @@ describe("PARİTET — xəritə index.ts-in faktiki çağırışları ilə üst-
     }
   });
 
-  test("moderasiya çağırışlarının üçü də account altındadır", () => {
-    // `...notification` spread ilə gəlirlər, yəni yuxarıdakı literal
-    // yoxlaması onları görmür — ayrıca yoxlanılır.
-    const spread = calls.filter((c) => c.types.length === 0);
-    assert.equal(spread.length, 3, `gözlənilən 3 spread çağırışı, tapıldı ${spread.length}`);
-    for (const c of spread) {
-      assert.equal(c.category, "account", `index.ts:${c.line} moderasiya nəticəsi qapılıdır`);
-    }
+  test("literal tipi olmayan çağırışların hər biri gözlənilən kateqoriyadadır", () => {
+    // İki cür çağırış literal `type:` daşımır: moderasiya nəticələri
+    // (`...notification` spread) və gündəlik digest (tipi
+    // `DIGEST_NOTIFICATION_TYPE[type]` lüğətindən gəlir). Hər ikisi
+    // burada AÇIQ sadalanır ki, yeni bir dinamik çağırış səssizcə
+    // əlavə edilə bilməsin.
+    const dynamic = calls.filter((c) => c.types.length === 0);
+    const byCategory = dynamic.reduce<Record<string, number>>((acc, c) => {
+      acc[c.category] = (acc[c.category] ?? 0) + 1;
+      return acc;
+    }, {});
+    assert.deepEqual(
+      byCategory,
+      { account: 3, venueOffers: 1 },
+      `gözlənilən 3 moderasiya (account) + 1 digest (venueOffers), tapıldı ${JSON.stringify(byCategory)}`,
+    );
   });
 
   test("məzmun kateqoriyalarında ARTIQ heç bir tranzaksiya tipi yoxdur", () => {
@@ -200,7 +207,10 @@ describe("PARİTET — xəritə index.ts-in faktiki çağırışları ilə üst-
     for (const banned of ["paymentFailed", "waitlistCalled", "vipGranted", "venueSubscriptionDue"]) {
       assert.ok(!seen.includes(banned), `${banned} yenidən məzmun kateqoriyasına düşüb`);
     }
-    assert.equal(contentCalls.length, 7, `məzmun çağırışı sayı gözlənilən 7, alındı ${contentCalls.length}`);
+    // 4 idi (venueOffer/pinboxNearby/venueEvent/birthdayOffer) + 3
+    // venueUpdates = 7. Üç fan-out silindi, yerinə bir digest çağırışı
+    // gəldi: 1 birthdayOffer + 1 digest + 3 venueUpdates = 5.
+    assert.equal(contentCalls.length, 5, `məzmun çağırışı sayı gözlənilən 5, alındı ${contentCalls.length}`);
   });
 });
 

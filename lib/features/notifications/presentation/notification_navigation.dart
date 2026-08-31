@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../home/presentation/providers/home_tab_providers.dart';
 import '../../events/presentation/screens/event_details_screen.dart';
 import '../../offers/presentation/providers/offer_providers.dart';
 import '../../offers/presentation/screens/create_offer_screen.dart';
@@ -29,6 +30,22 @@ import '../domain/entities/notification.dart';
 /// today, and a type this build doesn't recognize simply does nothing
 /// on tap rather than crashing.
 Future<void> openNotificationTarget(BuildContext context, WidgetRef ref, AppNotification notification) async {
+  // Handled BEFORE the `targetId` guard, because this is the one
+  // notification that legitimately has none.
+  //
+  // The daily digest ("Ətrafında 5 yeni kampaniya…") summarises many
+  // listings, so there is no single document to open — the destination
+  // is the Canlı tab, where all three content kinds live. Every other
+  // type names one document and falls through to the switch below.
+  if (notification.targetType == 'live_feed') {
+    ref.read(requestedHomeTabProvider.notifier).state = HomeTab.live;
+    // Pops any detail route the user opened on top of HomeScreen, so
+    // the tab switch is actually visible rather than happening behind
+    // whatever is on screen.
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    return;
+  }
+
   final targetId = notification.targetId;
   if (targetId == null) return;
 
