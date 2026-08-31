@@ -115,6 +115,19 @@ service cloud.firestore {
         in ['restaurant', 'pub', 'fastFood', 'cinema', 'nightClub', 'kidsEntertainment', 'independentArtist'];
     }
 
+    // A venue may only publish while it is actually live.
+    //
+    // `joinWaitlist` (a callable) has always checked this; the three
+    // listing paths never did. A venue still in moderation, one that
+    // was rejected, or one suspended to `subscription_overdue` for
+    // non-payment could create PinBoxes and events that went straight
+    // into discovery — events worst of all, since they have no
+    // moderation step and feed the daily digest push. `submitOffer`
+    // carries the same check in TypeScript.
+    function venueIsLive(venueId) {
+      return get(/databases/$(database)/documents/venues/$(venueId)).data.status == 'approved';
+    }
+
     function isPinBoxCategory(venueId) {
       return get(/databases/$(database)/documents/venues/$(venueId)).data.category
         in ['restaurant', 'coffeeShop', 'fastFood', 'sweetsShop', 'perfumeryCosmetics', 'supermarket'];
@@ -1408,7 +1421,7 @@ service cloud.firestore {
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl', 'offerAcceptedVersion', 'offerAcceptedAt', 'offerAcceptedFrom', 'offerDocumentUrl', 'verified', 'gallery', 'activeCheckinCount', 'visibleCheckinCount', 'currentAudienceCount', 'audienceCountUpdatedAt', 'nameLower']);
+          .hasAny(['likeCount', 'rating', 'ratingAverage', 'ratingCount', 'status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'lastPeakNotifiedAt', 'paymentId', 'revisionDeadline', 'subscriptionRenewsAt', 'isFoundingVenue', 'freeOffersUsed', 'freeOfferWindowEnd', 'isPremium', 'premiumSince', 'premiumExpiresAt', 'premiumExpiryReminderSent', 'name', 'category', 'lat', 'lng', 'position', 'address', 'country', 'openingHours', 'socialLinks', 'audienceRadiusMode', 'audienceRadiusKm', 'birthdayNotificationsEnabled', 'photoUrl', 'offerAcceptedVersion', 'offerAcceptedAt', 'offerAcceptedFrom', 'offerDocumentUrl', 'verified', 'gallery', 'activeCheckinCount', 'visibleCheckinCount', 'currentAudienceCount', 'audienceCountUpdatedAt', 'nameLower', 'freeCampaignsUsed', 'freeCampaignPeriodStart', 'createdAt']);
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
@@ -1977,6 +1990,7 @@ service cloud.firestore {
         request.auth.uid == request.resource.data.ownerId &&
         request.auth.uid == get(/databases/$(database)/documents/venues/$(request.resource.data.venueId)).data.ownerId &&
         isBusinessUser(request.auth.uid) &&
+        venueIsLive(request.resource.data.venueId) &&
         isPinBoxCategory(request.resource.data.venueId) &&
         request.resource.data.status == 'pending' &&
         request.resource.data.stockRemaining == request.resource.data.stockTotal &&
@@ -2090,6 +2104,7 @@ service cloud.firestore {
 
       allow create: if request.auth != null &&
         request.auth.uid == get(/databases/$(database)/documents/venues/$(request.resource.data.venueId)).data.ownerId &&
+        venueIsLive(request.resource.data.venueId) &&
         isEventCategory(request.resource.data.venueId) &&
         request.resource.data.status == 'upcoming' &&
         coverImageUrlCreateOk() &&

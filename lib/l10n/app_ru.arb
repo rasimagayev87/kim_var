@@ -1689,5 +1689,9 @@
   "birthdayEmpty": "На сегодня кампаний нет.",
   "privacyBirthdayOptInDialogTitle": "Уведомления ко дню рождения",
   "privacyBirthdayOptInDialogBody": "В день рождения вы получите уведомления от ближайших заведений. Дата рождения не передаётся заведениям. Если выключить, уведомления не придут, но кампании останутся во вкладке «Канлы».",
-  "privacyBirthdayOptInDialogConfirm": "Подтвердить"
+  "privacyBirthdayOptInDialogConfirm": "Подтвердить",
+  "offerFreeCampaignsRemaining": "В этом периоде осталось {count} бесплатных кампаний (из {quota})",
+  "offerFreeCampaignsExhausted": "Бесплатная квота исчерпана — эта кампания будет стоить {amount} AZN",
+  "offerFreeCampaignsRenewOn": "Квота обновится {date}",
+  "venueFreeCampaignsLabel": "Бесплатные кампании: {count}/{quota}"
 }

@@ -18,6 +18,7 @@ import '../../domain/entities/venue.dart';
 import '../../domain/venue_open_status.dart';
 import '../../domain/business_offer_acceptance.dart';
 import '../providers/venue_providers.dart';
+import '../../../offers/domain/entities/offer.dart' show freeCampaignQuotaFor;
 import '../widgets/business_offer_consent_row.dart';
 import '../widgets/business_offer_updated_banner.dart';
 import '../widgets/seat_count_editor_sheet.dart';
@@ -454,6 +455,15 @@ class _MyVenueCard extends ConsumerWidget {
                 ),
               if (isOverdue)
                 _SubscriptionOverdueBanner(venueId: venue.id, offerAcceptedVersion: venue.offerAcceptedVersion),
+              // The subscription's free-campaign allowance. Shown only
+              // while a paid period is actually running — an overdue
+              // venue has no allowance at all (its counter is frozen,
+              // see `currentSubscriptionPeriodStart` server-side), and
+              // showing "3/5 left" next to an unpaid-subscription
+              // banner would contradict it.
+              if (!isOverdue && venue.subscriptionRenewsAt != null &&
+                  DateTime.now().isBefore(venue.subscriptionRenewsAt!))
+                _FreeCampaignQuotaRow(venue: venue),
             ],
           ),
           Positioned(
@@ -934,6 +944,52 @@ class _OpenStatusBadge extends StatelessWidget {
           fontWeight: FontWeight.w700,
           color: color,
         ),
+      ),
+    );
+  }
+}
+
+/// "Pulsuz kampaniya: 2/5" plus when the allowance renews.
+///
+/// A read-only mirror of `venues/{id}.freeCampaignsUsed`, which only
+/// the server writes (firestore.rules' venue blocklist). The quota
+/// itself is derived from the venue's subscription tier — see
+/// [freeCampaignQuotaFor].
+class _FreeCampaignQuotaRow extends StatelessWidget {
+  const _FreeCampaignQuotaRow({required this.venue});
+
+  final Venue venue;
+
+  @override
+  Widget build(BuildContext context) {
+    final loc = AppLocalizations.of(context);
+    final quota = freeCampaignQuotaFor(venue.category);
+    if (quota == 0) return const SizedBox.shrink();
+    final used = venue.freeCampaignsUsed.clamp(0, quota);
+    final renewsAt = venue.subscriptionRenewsAt!;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+      child: Row(
+        children: [
+          const Icon(Icons.card_giftcard_rounded, size: 15, color: AppColors.primary),
+          const SizedBox(width: 6),
+          Text(
+            loc.venueFreeCampaignsLabel(used, quota),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              loc.offerFreeCampaignsRenewOn(
+                '${renewsAt.day.toString().padLeft(2, '0')}.${renewsAt.month.toString().padLeft(2, '0')}.${renewsAt.year}',
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: ChatLightColors.inkSoft),
+            ),
+          ),
+        ],
       ),
     );
   }

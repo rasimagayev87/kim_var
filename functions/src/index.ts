@@ -25,7 +25,7 @@ import { geohashForLocation } from "geofire-common";
 import { verifyAppleNotification, verifyAppleTransaction, verifyGoogleSubscription } from "./iap";
 import { CHAT_MEDIA_FOLDERS, chatMediaPathForMessage, isChatHiddenByEveryone, resizedVariantPath } from "./chat-media";
 import { isCancellableOnListingDelete, isPaymentTargetMissing } from "./payment-targets";
-import { venueSubscriptionFeeByCategory } from "./venue-fees";
+import { freeCampaignQuotaForCategory, venueSubscriptionFeeByCategory } from "./venue-fees";
 import {
   bucketDistanceMeters,
   clampAudienceRadiusKm,
@@ -3712,10 +3712,24 @@ export const onVenueUpdated = onDocumentUpdated("venues/{venueId}", async (event
   }
 });
 
-/** How many of the first FOUNDING_VENUE_LIMIT venues get free offer placements — see `assignFoundingVenueIfEligible`. */
+/** How many venues get founding status — see `assignFoundingVenueIfEligible`. */
 const FOUNDING_VENUE_LIMIT = 1000;
-const FOUNDING_VENUE_FREE_OFFERS = 5;
-const FOUNDING_VENUE_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
+
+// RETIRED: `FOUNDING_VENUE_FREE_OFFERS` (5) and
+// `FOUNDING_VENUE_WINDOW_MS` (30 days).
+//
+// Founding venues used to get five free campaign placements inside a
+// one-month window. That perk is replaced by the subscription's own
+// recurring allowance (`FREE_CAMPAIGNS_BY_SUBSCRIPTION_TIER`), which is
+// larger for every tier, renews every period instead of expiring after
+// one month, and applies to every paying venue rather than the first
+// thousand.
+//
+// `freeOffersUsed`/`freeOfferWindowEnd` are no longer written or read.
+// The fields are left on documents that already carry them — deleting
+// production data is not this change's business — and nothing consults
+// them. Founding status itself is untouched and still grants the
+// "1 ay ödə, 1 ay hədiyyə al" extra cycle below.
 
 /**
  * "İlk 1000 abunə olan venue" — counted at first APPROVAL, not at raw
@@ -3762,8 +3776,6 @@ async function assignFoundingVenueIfEligible(venueId: string): Promise<void> {
     tx.set(counterRef, { count: count + 1 }, { merge: true });
     tx.update(venueRef, {
       isFoundingVenue: true,
-      freeOffersUsed: 0,
-      freeOfferWindowEnd: Timestamp.fromDate(new Date(Date.now() + FOUNDING_VENUE_WINDOW_MS)),
       ...(currentRenewsAt
         ? { subscriptionRenewsAt: Timestamp.fromDate(new Date(currentRenewsAt.getTime() + SUBSCRIPTION_CYCLE_MS)) }
         : {}),
@@ -3822,7 +3834,22 @@ export const onOfferUpdated = onDocumentUpdated("offers/{offerId}", async (event
   // later opens — that would fire once a day for as long as the offer
   // runs, which is a bigger notification-strategy call than fixing
   // this mismatch calls for.
+  // A rejected campaign gives its free slot back and unclaims its
+  // birthday match. `needs_revision` deliberately does NOT — that
+  // campaign is still alive and can be fixed and approved, so its slot
+  // is still spoken for.
+  if (after.status === "rejected") {
+    await releaseFreeCampaignHold(event.params.offerId, after.venueId as string | undefined);
+    await releaseBirthdayMatchClaim(event.params.offerId, after.birthdayMatchId as string | undefined);
+  }
+
   if (after.status === "approved") {
+    // Publication is what spends the slot. Clearing the hold flag here
+    // leaves the counter as it is — the slot is now permanently used —
+    // and stops a later deletion from refunding it.
+    if (after.freeCampaignHold === true) {
+      await db.collection("offers").doc(event.params.offerId).update({ freeCampaignHold: FieldValue.delete() });
+    }
     if (after.offerType === "birthday") {
       // Approval does NOT publish. A birthday campaign approved inside
       // the 11:00–13:00 moderation window waits for
@@ -6840,8 +6867,23 @@ export const onVenueDeleted = onDocumentDeleted("venues/{venueId}", async (event
 /** Same reasoning as `onVenueDeleted`, for offer placement and boost fees. */
 export const onOfferDeleted = onDocumentDeleted("offers/{offerId}", async (event) => {
   await cancelPendingPaymentsForListing(event.params.offerId, "offer-deleted");
-  const path = offerPhotoPath(event.data?.data()?.ownerId, event.params.offerId);
+  const data = event.data?.data();
+  const path = offerPhotoPath(data?.ownerId, event.params.offerId);
   if (path) await deleteStorageFile(path);
+
+  // A campaign deleted while it was still holding a free slot gives it
+  // back; one deleted after it was approved does not — publication is
+  // what spends the slot, and create-publish-delete-repeat is exactly
+  // the loop that rule closes. `freeCampaignHold` is cleared at
+  // approval, so its presence here IS "never published".
+  if (data?.freeCampaignHold === true) {
+    await releaseFreeCampaignHold(event.params.offerId, data.venueId as string | undefined);
+  }
+  // The birthday claim is released whatever the campaign's status was.
+  // A match backs one LIVE campaign; once this one is gone the day is
+  // free again, which is what lets an owner who deleted one by mistake
+  // create another for the same day.
+  await releaseBirthdayMatchClaim(event.params.offerId, data?.birthdayMatchId as string | undefined);
 });
 
 // PinBox has no equivalent trigger, and that is deliberate rather than
@@ -8000,6 +8042,83 @@ async function cancelPinBoxPayoutForRefund(orderId: string): Promise<void> {
  */
 const OFFER_PLACEMENT_FEE_BY_SUBSCRIPTION_TIER: Record<number, number> = { 15: 2, 20: 4, 25: 5, 30: 7 };
 
+/**
+ * The start of the subscription period a venue is currently inside, or
+ * `null` when it is not inside a paid one at all.
+ *
+ * `subscriptionRenewsAt` is the NEXT boundary, not the current start,
+ * so the start is one cycle back from it. Deriving rather than storing
+ * a second field keeps one source of truth: every path that moves
+ * `subscriptionRenewsAt` (first payment, renewal, the founding free
+ * month) moves the period with it, automatically.
+ *
+ * Returns `null` when the renewal date has passed. That is the
+ * `subscription_overdue` case, and returning null is what makes the
+ * free quota FREEZE rather than reset while a venue is unpaid: no
+ * period means no allowance, and the counter is left untouched so it
+ * cannot be cleared by simply not paying and waiting.
+ */
+function currentSubscriptionPeriodStart(venue: FirebaseFirestore.DocumentData): Date | null {
+  const renewsAt = (venue.subscriptionRenewsAt as Timestamp | undefined)?.toDate();
+  if (!renewsAt) return null;
+  if (renewsAt.getTime() <= Date.now()) return null;
+  return new Date(renewsAt.getTime() - SUBSCRIPTION_CYCLE_MS);
+}
+
+/**
+ * Gives back the free-campaign slot a campaign was holding, if it still
+ * holds one.
+ *
+ * Called when a campaign is REJECTED or DELETED WHILE STILL PENDING.
+ * Not called when an approved campaign is deleted: the product rule is
+ * that publishing is what spends the slot, and the abuse this protects
+ * against — create, publish, delete, repeat — works by extracting value
+ * from publication. Deleting something that never published extracted
+ * nothing, and charging an owner a slot for a campaign they withdrew
+ * before anyone saw it would punish a typo.
+ *
+ * Clearing `freeCampaignHold` inside the same transaction makes this
+ * idempotent, which it has to be: Firestore delivers triggers at least
+ * once, and a redelivery would otherwise refund the slot twice.
+ */
+async function releaseFreeCampaignHold(offerId: string, venueId: string | undefined): Promise<void> {
+  if (!venueId) return;
+  const offerRef = db.collection("offers").doc(offerId);
+  const venueRef = db.collection("venues").doc(venueId);
+  await db.runTransaction(async (tx) => {
+    const offerSnap = await tx.get(offerRef);
+    // The offer is gone on the delete path; the caller passes what it
+    // read from the deleted snapshot, so absence is not a reason to
+    // skip — only an explicit "no hold" is.
+    if (offerSnap.exists && offerSnap.data()?.freeCampaignHold !== true) return;
+
+    const venueSnap = await tx.get(venueRef);
+    if (!venueSnap.exists) return;
+    const used = (venueSnap.data()?.freeCampaignsUsed as number | undefined) ?? 0;
+    tx.update(venueRef, { freeCampaignsUsed: Math.max(0, used - 1) });
+    if (offerSnap.exists) tx.update(offerRef, { freeCampaignHold: FieldValue.delete() });
+  });
+}
+
+/**
+ * Frees a birthday match so the owner can point another campaign at it.
+ *
+ * Claimed in `submitOffer`'s transaction, released here on rejection or
+ * deletion. Compares the stored id against this offer's own so a
+ * redelivered trigger — or a later campaign that has since claimed the
+ * same match — cannot clear someone else's claim.
+ */
+async function releaseBirthdayMatchClaim(offerId: string, matchId: string | undefined): Promise<void> {
+  if (!matchId) return;
+  const matchRef = db.collection("birthdayMatches").doc(matchId);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(matchRef);
+    if (!snap.exists) return;
+    if (snap.data()?.claimedByOfferId !== offerId) return;
+    tx.update(matchRef, { claimedByOfferId: FieldValue.delete() });
+  });
+}
+
 function offerPlacementFeeForCategory(category: string): number | undefined {
   const tier = venueSubscriptionFeeByCategory[category];
   if (tier === undefined) return undefined;
@@ -8109,6 +8228,21 @@ export const submitOffer = onCall(
     const venue = venueSnap.data();
     if (!venue) throw new HttpsError("not-found", "Məkan tapılmadı.");
     if (venue.ownerId !== uid) throw new HttpsError("permission-denied", "Bu məkanın sahibi deyilsiniz.");
+    // The venue must actually be live.
+    //
+    // This function checked ownership and NOTHING else, so a venue that
+    // was still `pending`, had been `rejected`, or had been suspended
+    // to `subscription_overdue` for non-payment could still publish
+    // campaigns. `joinWaitlist` has always checked this; the three
+    // listing paths never did (the same gap in `pinboxes` and
+    // `venueEvents` create is closed in firestore.rules).
+    //
+    // It becomes load-bearing with the free quota below: without it, a
+    // venue that stopped paying would keep drawing the allowance its
+    // subscription is what pays for.
+    if (venue.status !== "approved") {
+      throw new HttpsError("failed-precondition", "venue-not-approved");
+    }
 
     const category = venue.category as string | undefined;
     const fee = category ? offerPlacementFeeForCategory(category) : undefined;
@@ -8176,19 +8310,39 @@ export const submitOffer = onCall(
     };
 
     const venueRef = db.collection("venues").doc(venueId);
+    const quota = category ? freeCampaignQuotaForCategory(category) : undefined;
+
     const eligibility = await db.runTransaction(async (tx) => {
       const freshVenueSnap = await tx.get(venueRef);
       const freshVenue = freshVenueSnap.data() ?? {};
-      const isFoundingVenue = freshVenue.isFoundingVenue === true;
-      const freeOffersUsed = (freshVenue.freeOffersUsed as number | undefined) ?? 0;
-      const windowEnd = (freshVenue.freeOfferWindowEnd as Timestamp | undefined)?.toDate();
-      const isFree = isFoundingVenue && freeOffersUsed < FOUNDING_VENUE_FREE_OFFERS && !!windowEnd && new Date() < windowEnd;
 
-      // The targeted uid list rides in a server-only subcollection, in
-      // the SAME transaction as the offer itself — an offer that is
-      // `offerType: 'birthday'` must never exist without its targeting,
-      // or `publishBirthdayCampaigns` would silently reach nobody.
+      // ── The birthday match may back exactly ONE live campaign ─────
+      //
+      // Claimed here, inside the transaction, not in
+      // `assertBirthdayTargeting` — that function's checks are all
+      // reads, and a check that does not write cannot stop two
+      // concurrent submissions from both passing it. Without the claim
+      // an owner could point ten campaigns at one match and, since
+      // birthday campaigns are exempt from the quota below, publish ten
+      // free ones off a single day's matching.
+      //
+      // The claim is RELEASED when the campaign is rejected or deleted
+      // (see `releaseBirthdayMatchClaim`), so an owner who deletes one
+      // by mistake can create another for the same day. Holding it
+      // forever would punish a typo with the loss of that day.
       if (birthdayTargeting) {
+        const matchRef = db.collection("birthdayMatches").doc(birthdayTargeting.matchId);
+        const matchSnap = await tx.get(matchRef);
+        const claimedBy = matchSnap.data()?.claimedByOfferId as string | undefined;
+        if (claimedBy) {
+          throw new HttpsError("failed-precondition", "birthday-match-already-claimed");
+        }
+        tx.update(matchRef, { claimedByOfferId: offerRef.id });
+
+        // The targeted uid list rides in a server-only subcollection, in
+        // the SAME transaction as the offer itself — an offer that is
+        // `offerType: 'birthday'` must never exist without its targeting,
+        // or `publishBirthdayCampaigns` would silently reach nobody.
         tx.set(offerRef.collection("private").doc("targeting"), {
           userIds: birthdayTargeting.userIds,
           matchId: birthdayTargeting.matchId,
@@ -8196,14 +8350,57 @@ export const submitOffer = onCall(
         });
       }
 
-      if (isFree) {
+      // ── Birthday campaigns do not draw on the quota ───────────────
+      //
+      // The owner did not decide to make this one — the 11:00 push told
+      // them to, and it only exists because real people nearby have a
+      // birthday today. If the quota blocked it, the cost would fall on
+      // the person whose birthday it is, who did nothing and gets
+      // nothing. The claim above is what bounds this: one campaign per
+      // venue per day, and only on days the server produced a match.
+      if (birthdayTargeting) {
         tx.set(offerRef, { ...baseOfferData, status: "pending" });
-        tx.update(venueRef, { freeOffersUsed: freeOffersUsed + 1 });
-        return { isFree: true } as const;
+        return { isFree: true, usedQuota: false } as const;
+      }
+
+      // ── The subscription's own free-campaign allowance ────────────
+      //
+      // Replaces the founding-venue perk (5 placements in a 30-day
+      // window). `freeOffersUsed`/`freeOfferWindowEnd` are no longer
+      // read anywhere; see `assignFoundingVenueIfEligible`.
+      //
+      // The slot is HELD here, not counted at approval. Holding is what
+      // makes the check safe: the transaction serialises two concurrent
+      // submissions the same way `reservePinBoxOrder` serialises stock,
+      // so the second one sees the incremented counter and falls to the
+      // paid flow. Counting at approval instead would leave a window
+      // between "we decided this is free" and "we took the slot" that
+      // nothing closes.
+      //
+      // `offer.freeCampaignHold` records the hold ON THE OFFER, which
+      // is both how the slot is given back on rejection and the
+      // idempotency token for the triggers that give it back — Firestore
+      // delivers those at least once.
+      const periodStart = currentSubscriptionPeriodStart(freshVenue);
+      const storedStart = (freshVenue.freeCampaignPeriodStart as Timestamp | undefined)?.toDate();
+      // A period that rolled over without a payment writing the reset
+      // (should not happen — `applyPaymentOutcome` does it — but a
+      // stale counter must not outlive its period).
+      const staleCounter = periodStart !== null && (!storedStart || storedStart < periodStart);
+      const used = staleCounter ? 0 : ((freshVenue.freeCampaignsUsed as number | undefined) ?? 0);
+      const isFree = quota !== undefined && periodStart !== null && used < quota;
+
+      if (isFree) {
+        tx.set(offerRef, { ...baseOfferData, status: "pending", freeCampaignHold: true });
+        tx.update(venueRef, {
+          freeCampaignsUsed: used + 1,
+          ...(staleCounter && periodStart ? { freeCampaignPeriodStart: Timestamp.fromDate(periodStart) } : {}),
+        });
+        return { isFree: true, usedQuota: true } as const;
       }
 
       tx.set(offerRef, { ...baseOfferData, status: "awaiting_payment" });
-      return { isFree: false } as const;
+      return { isFree: false, usedQuota: false } as const;
     });
 
     if (eligibility.isFree) {
@@ -8663,6 +8860,11 @@ async function applyPaymentOutcome(
             status: "pending",
             paymentId: paymentRef.id,
             subscriptionRenewsAt: Timestamp.fromDate(new Date(Date.now() + SUBSCRIPTION_CYCLE_MS)),
+            // The subscription's free-campaign allowance starts with
+            // the period it belongs to. Reset here, alongside the
+            // period boundary itself, so the two can never disagree.
+            freeCampaignsUsed: 0,
+            freeCampaignPeriodStart: FieldValue.serverTimestamp(),
             // Drives the "Ödənişiniz təsdiqləndi" card on MyVenuesScreen
             // — cleared by the owner dismissing it (see
             // `dismissFirstPaymentAnnouncement`, firebase_venue_
@@ -8690,6 +8892,13 @@ async function applyPaymentOutcome(
             ...(wasSuspended ? { status: "approved" } : {}),
             paymentId: paymentRef.id,
             subscriptionRenewsAt: Timestamp.fromDate(nextRenewsAt),
+            // A new paid period, a new allowance — including for a
+            // venue coming back from `subscription_overdue`, whose
+            // counter was frozen (not cleared) while it was unpaid.
+            // Freezing is what stops "stop paying, wait, get a fresh
+            // quota" from working; paying is the only reset.
+            freeCampaignsUsed: 0,
+            freeCampaignPeriodStart: Timestamp.fromDate(new Date(nextRenewsAt.getTime() - SUBSCRIPTION_CYCLE_MS)),
             updatedAt: FieldValue.serverTimestamp(),
             ...offerAcceptanceVenueUpdate,
           });

@@ -1155,19 +1155,31 @@ class _PlacementFeeBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final windowEnd = venue.freeOfferWindowEnd;
-    final isFreeEligible =
-        venue.isFoundingVenue && venue.freeOffersUsed < 5 && windowEnd != null && DateTime.now().isBefore(windowEnd);
+    // The subscription's own allowance, replacing the founding-venue
+    // perk this banner used to read (`freeOffersUsed` / a 30-day
+    // window). A period only exists while the subscription is paid up —
+    // `subscriptionRenewsAt` in the future — which mirrors
+    // `currentSubscriptionPeriodStart` server-side: an overdue venue
+    // has no allowance, and its counter is frozen rather than reset.
+    final quota = freeCampaignQuotaFor(venue.category);
+    final renewsAt = venue.subscriptionRenewsAt;
+    final hasPaidPeriod = renewsAt != null && DateTime.now().isBefore(renewsAt);
+    final remaining = hasPaidPeriod ? (quota - venue.freeCampaignsUsed).clamp(0, quota) : 0;
 
     final String text;
     final IconData icon;
     final Color color;
-    if (isFreeEligible) {
-      text = loc.offerPlacementFreeNotice(5 - venue.freeOffersUsed);
+    if (remaining > 0) {
+      text = loc.offerFreeCampaignsRemaining(remaining, quota);
       icon = Icons.card_giftcard_rounded;
       color = AppColors.primary;
     } else {
-      text = loc.offerPlacementFeeNotice(offerPlacementFeeForCategory(venue.category).round());
+      // Says the price BEFORE the owner fills the form, not at the
+      // checkout sheet — "your free quota is spent, this one costs X"
+      // is a decision they should be able to make first.
+      text = hasPaidPeriod
+          ? loc.offerFreeCampaignsExhausted(offerPlacementFeeForCategory(venue.category).round())
+          : loc.offerPlacementFeeNotice(offerPlacementFeeForCategory(venue.category).round());
       icon = Icons.payments_outlined;
       color = ChatLightColors.inkSoft;
     }
@@ -1179,11 +1191,30 @@ class _PlacementFeeBanner extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: color),
           const SizedBox(width: 8),
-          Expanded(child: Text(text, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: color))),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(text, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: color)),
+                // When the quota renews. Without it "0 left" reads as
+                // permanent, and the owner has no way to tell whether
+                // waiting two days would have been free.
+                if (hasPaidPeriod)
+                  Text(
+                    loc.offerFreeCampaignsRenewOn(_formatQuotaDate(renewsAt)),
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: color.withValues(alpha: 0.75)),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
+
+  static String _formatQuotaDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
 }
 
 class _VenuePickerField extends StatelessWidget {

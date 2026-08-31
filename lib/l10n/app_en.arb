@@ -1803,5 +1803,9 @@
   "birthdayEmpty": "No campaigns for today.",
   "privacyBirthdayOptInDialogTitle": "Birthday notifications",
   "privacyBirthdayOptInDialogBody": "On your birthday you'll get notifications from nearby venues. Your date of birth is never shared with any venue. Turning this off stops the notifications; the campaigns still appear in the Canlı tab.",
-  "privacyBirthdayOptInDialogConfirm": "Confirm"
+  "privacyBirthdayOptInDialogConfirm": "Confirm",
+  "offerFreeCampaignsRemaining": "You have {count} free campaigns left this period (of {quota})",
+  "offerFreeCampaignsExhausted": "Your free quota is used up — this campaign will cost {amount} AZN",
+  "offerFreeCampaignsRenewOn": "Quota renews on {date}",
+  "venueFreeCampaignsLabel": "Free campaigns: {count}/{quota}"
 }

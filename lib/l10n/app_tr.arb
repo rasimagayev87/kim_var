@@ -1689,5 +1689,9 @@
   "birthdayEmpty": "Bugün için kampanya yok.",
   "privacyBirthdayOptInDialogTitle": "Doğum günü bildirimleri",
   "privacyBirthdayOptInDialogBody": "Doğum gününde yakındaki mekanlardan bildirim alacaksın. Doğum tarihin hiçbir mekanla paylaşılmaz. Kapatırsan bildirim gelmez, kampanyaları Canlı sekmesinde yine görürsün.",
-  "privacyBirthdayOptInDialogConfirm": "Onayla"
+  "privacyBirthdayOptInDialogConfirm": "Onayla",
+  "offerFreeCampaignsRemaining": "Bu dönemde {count} ücretsiz kampanyan kaldı ({quota} içinden)",
+  "offerFreeCampaignsExhausted": "Ücretsiz kotan doldu — bu kampanya {amount} AZN olacak",
+  "offerFreeCampaignsRenewOn": "Kota {date} tarihinde yenilenir",
+  "venueFreeCampaignsLabel": "Ücretsiz kampanya: {count}/{quota}"
 }

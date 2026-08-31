@@ -110,25 +110,42 @@ mixin _$Venue {
 
   /// True for one of the first 1000 venues ever approved — see
   /// `assignFoundingVenueIfEligible` (Cloud Function, functions/src/
-  /// index.ts), which sets this (with [freeOffersUsed]/
-  /// [freeOfferWindowEnd]) the moment [status] first reaches
+  /// index.ts), which sets this the moment [status] first reaches
   /// 'approved', never at raw signup. Grant-of-trust — the owner can't
-  /// self-grant this (see firestore.rules). Drives the "Bu təklif
-  /// pulsuzdur" free-quota check in `submitOffer`/the offer create
-  /// form; `false` (the default) for every venue outside the first
-  /// 1000 and for any venue created before this field existed.
+  /// self-grant this (see firestore.rules).
+  ///
+  /// Its remaining perk is the "1 ay ödə, 1 ay hədiyyə al" extra
+  /// billing cycle. The free-campaign half was replaced by
+  /// [freeCampaignsUsed]'s subscription-tier allowance.
   bool get isFoundingVenue => throw _privateConstructorUsedError;
 
-  /// How many of [isFoundingVenue]'s 5 free offer placements this
-  /// venue has used — incremented atomically inside `submitOffer`'s
-  /// own transaction each time a free placement is granted, never by
-  /// a direct client write (see firestore.rules). Meaningless when
-  /// [isFoundingVenue] is false.
+  /// How many free campaigns this venue has used in the CURRENT
+  /// subscription period — held inside `submitOffer`'s transaction
+  /// when a campaign is created for free, given back if that campaign
+  /// is rejected or deleted before it publishes, and reset to 0 by
+  /// `applyPaymentOutcome` when a new period is paid for. Never
+  /// written by a client (see firestore.rules' venue blocklist).
+  ///
+  /// The allowance itself comes from the venue's subscription tier —
+  /// `FREE_CAMPAIGNS_BY_SUBSCRIPTION_TIER` in `venue-fees.ts`, mirrored
+  /// as [freeCampaignQuotaFor] on the Dart side.
+  int get freeCampaignsUsed => throw _privateConstructorUsedError;
+
+  /// The start of the period [freeCampaignsUsed] is counted within —
+  /// one subscription cycle back from [subscriptionRenewsAt]. Drives
+  /// the "quota renews on {date}" line in the UI. Null until the
+  /// venue's first subscription payment clears.
+  @NullableTimestampConverter()
+  DateTime? get freeCampaignPeriodStart => throw _privateConstructorUsedError;
+
+  /// RETIRED — the founding venues' 5-free-placements-in-30-days
+  /// perk, replaced by [freeCampaignsUsed]. No server code reads or
+  /// writes these any more; they survive only on documents that
+  /// already carried them, because deleting production data was not
+  /// that change's business. Do not build on them.
   int get freeOffersUsed => throw _privateConstructorUsedError;
 
-  /// The 1-month window [isFoundingVenue]'s free quota is valid
-  /// within — set once, alongside [isFoundingVenue], to
-  /// "first approval + 30 days". Null for a non-founding venue.
+  /// RETIRED — see [freeOffersUsed].
   @NullableTimestampConverter()
   DateTime? get freeOfferWindowEnd => throw _privateConstructorUsedError;
 
@@ -317,6 +334,8 @@ abstract class $VenueCopyWith<$Res> {
     String? offerAcceptedFrom,
     String? offerDocumentUrl,
     bool isFoundingVenue,
+    int freeCampaignsUsed,
+    @NullableTimestampConverter() DateTime? freeCampaignPeriodStart,
     int freeOffersUsed,
     @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
     bool firstPaymentAnnouncementPending,
@@ -379,6 +398,8 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
     Object? offerAcceptedFrom = freezed,
     Object? offerDocumentUrl = freezed,
     Object? isFoundingVenue = null,
+    Object? freeCampaignsUsed = null,
+    Object? freeCampaignPeriodStart = freezed,
     Object? freeOffersUsed = null,
     Object? freeOfferWindowEnd = freezed,
     Object? firstPaymentAnnouncementPending = null,
@@ -492,6 +513,14 @@ class _$VenueCopyWithImpl<$Res, $Val extends Venue>
                 ? _value.isFoundingVenue
                 : isFoundingVenue // ignore: cast_nullable_to_non_nullable
                       as bool,
+            freeCampaignsUsed: null == freeCampaignsUsed
+                ? _value.freeCampaignsUsed
+                : freeCampaignsUsed // ignore: cast_nullable_to_non_nullable
+                      as int,
+            freeCampaignPeriodStart: freezed == freeCampaignPeriodStart
+                ? _value.freeCampaignPeriodStart
+                : freeCampaignPeriodStart // ignore: cast_nullable_to_non_nullable
+                      as DateTime?,
             freeOffersUsed: null == freeOffersUsed
                 ? _value.freeOffersUsed
                 : freeOffersUsed // ignore: cast_nullable_to_non_nullable
@@ -618,6 +647,8 @@ abstract class _$$VenueImplCopyWith<$Res> implements $VenueCopyWith<$Res> {
     String? offerAcceptedFrom,
     String? offerDocumentUrl,
     bool isFoundingVenue,
+    int freeCampaignsUsed,
+    @NullableTimestampConverter() DateTime? freeCampaignPeriodStart,
     int freeOffersUsed,
     @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
     bool firstPaymentAnnouncementPending,
@@ -679,6 +710,8 @@ class __$$VenueImplCopyWithImpl<$Res>
     Object? offerAcceptedFrom = freezed,
     Object? offerDocumentUrl = freezed,
     Object? isFoundingVenue = null,
+    Object? freeCampaignsUsed = null,
+    Object? freeCampaignPeriodStart = freezed,
     Object? freeOffersUsed = null,
     Object? freeOfferWindowEnd = freezed,
     Object? firstPaymentAnnouncementPending = null,
@@ -792,6 +825,14 @@ class __$$VenueImplCopyWithImpl<$Res>
             ? _value.isFoundingVenue
             : isFoundingVenue // ignore: cast_nullable_to_non_nullable
                   as bool,
+        freeCampaignsUsed: null == freeCampaignsUsed
+            ? _value.freeCampaignsUsed
+            : freeCampaignsUsed // ignore: cast_nullable_to_non_nullable
+                  as int,
+        freeCampaignPeriodStart: freezed == freeCampaignPeriodStart
+            ? _value.freeCampaignPeriodStart
+            : freeCampaignPeriodStart // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
         freeOffersUsed: null == freeOffersUsed
             ? _value.freeOffersUsed
             : freeOffersUsed // ignore: cast_nullable_to_non_nullable
@@ -911,6 +952,8 @@ class _$VenueImpl extends _Venue {
     this.offerAcceptedFrom,
     this.offerDocumentUrl,
     this.isFoundingVenue = false,
+    this.freeCampaignsUsed = 0,
+    @NullableTimestampConverter() this.freeCampaignPeriodStart,
     this.freeOffersUsed = 0,
     @NullableTimestampConverter() this.freeOfferWindowEnd,
     this.firstPaymentAnnouncementPending = false,
@@ -1061,29 +1104,49 @@ class _$VenueImpl extends _Venue {
 
   /// True for one of the first 1000 venues ever approved — see
   /// `assignFoundingVenueIfEligible` (Cloud Function, functions/src/
-  /// index.ts), which sets this (with [freeOffersUsed]/
-  /// [freeOfferWindowEnd]) the moment [status] first reaches
+  /// index.ts), which sets this the moment [status] first reaches
   /// 'approved', never at raw signup. Grant-of-trust — the owner can't
-  /// self-grant this (see firestore.rules). Drives the "Bu təklif
-  /// pulsuzdur" free-quota check in `submitOffer`/the offer create
-  /// form; `false` (the default) for every venue outside the first
-  /// 1000 and for any venue created before this field existed.
+  /// self-grant this (see firestore.rules).
+  ///
+  /// Its remaining perk is the "1 ay ödə, 1 ay hədiyyə al" extra
+  /// billing cycle. The free-campaign half was replaced by
+  /// [freeCampaignsUsed]'s subscription-tier allowance.
   @override
   @JsonKey()
   final bool isFoundingVenue;
 
-  /// How many of [isFoundingVenue]'s 5 free offer placements this
-  /// venue has used — incremented atomically inside `submitOffer`'s
-  /// own transaction each time a free placement is granted, never by
-  /// a direct client write (see firestore.rules). Meaningless when
-  /// [isFoundingVenue] is false.
+  /// How many free campaigns this venue has used in the CURRENT
+  /// subscription period — held inside `submitOffer`'s transaction
+  /// when a campaign is created for free, given back if that campaign
+  /// is rejected or deleted before it publishes, and reset to 0 by
+  /// `applyPaymentOutcome` when a new period is paid for. Never
+  /// written by a client (see firestore.rules' venue blocklist).
+  ///
+  /// The allowance itself comes from the venue's subscription tier —
+  /// `FREE_CAMPAIGNS_BY_SUBSCRIPTION_TIER` in `venue-fees.ts`, mirrored
+  /// as [freeCampaignQuotaFor] on the Dart side.
+  @override
+  @JsonKey()
+  final int freeCampaignsUsed;
+
+  /// The start of the period [freeCampaignsUsed] is counted within —
+  /// one subscription cycle back from [subscriptionRenewsAt]. Drives
+  /// the "quota renews on {date}" line in the UI. Null until the
+  /// venue's first subscription payment clears.
+  @override
+  @NullableTimestampConverter()
+  final DateTime? freeCampaignPeriodStart;
+
+  /// RETIRED — the founding venues' 5-free-placements-in-30-days
+  /// perk, replaced by [freeCampaignsUsed]. No server code reads or
+  /// writes these any more; they survive only on documents that
+  /// already carried them, because deleting production data was not
+  /// that change's business. Do not build on them.
   @override
   @JsonKey()
   final int freeOffersUsed;
 
-  /// The 1-month window [isFoundingVenue]'s free quota is valid
-  /// within — set once, alongside [isFoundingVenue], to
-  /// "first approval + 30 days". Null for a non-founding venue.
+  /// RETIRED — see [freeOffersUsed].
   @override
   @NullableTimestampConverter()
   final DateTime? freeOfferWindowEnd;
@@ -1269,7 +1332,7 @@ class _$VenueImpl extends _Venue {
 
   @override
   String toString() {
-    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, offerAcceptedVersion: $offerAcceptedVersion, offerAcceptedAt: $offerAcceptedAt, offerAcceptedFrom: $offerAcceptedFrom, offerDocumentUrl: $offerDocumentUrl, isFoundingVenue: $isFoundingVenue, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, firstPaymentAnnouncementPending: $firstPaymentAnnouncementPending, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, ratingAverage: $ratingAverage, ratingCount: $ratingCount, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, premiumExpiresAt: $premiumExpiresAt, premiumExpiryReminderSent: $premiumExpiryReminderSent, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
+    return 'Venue(id: $id, ownerId: $ownerId, name: $name, category: $category, photoUrl: $photoUrl, gallery: $gallery, lat: $lat, lng: $lng, address: $address, country: $country, openingHours: $openingHours, status: $status, reviewNote: $reviewNote, reviewedBy: $reviewedBy, reviewedAt: $reviewedAt, paymentId: $paymentId, subscriptionRenewsAt: $subscriptionRenewsAt, offerAcceptedVersion: $offerAcceptedVersion, offerAcceptedAt: $offerAcceptedAt, offerAcceptedFrom: $offerAcceptedFrom, offerDocumentUrl: $offerDocumentUrl, isFoundingVenue: $isFoundingVenue, freeCampaignsUsed: $freeCampaignsUsed, freeCampaignPeriodStart: $freeCampaignPeriodStart, freeOffersUsed: $freeOffersUsed, freeOfferWindowEnd: $freeOfferWindowEnd, firstPaymentAnnouncementPending: $firstPaymentAnnouncementPending, revisionDeadline: $revisionDeadline, verified: $verified, likeCount: $likeCount, rating: $rating, ratingAverage: $ratingAverage, ratingCount: $ratingCount, createdAt: $createdAt, updatedAt: $updatedAt, socialLinks: $socialLinks, audienceRadiusMode: $audienceRadiusMode, audienceRadiusKm: $audienceRadiusKm, isPremium: $isPremium, premiumSince: $premiumSince, premiumExpiresAt: $premiumExpiresAt, premiumExpiryReminderSent: $premiumExpiryReminderSent, birthdayNotificationsEnabled: $birthdayNotificationsEnabled, availableSeats: $availableSeats, seatsUpdatedAt: $seatsUpdatedAt, waitlistEnabled: $waitlistEnabled)';
   }
 
   @override
@@ -1312,6 +1375,13 @@ class _$VenueImpl extends _Venue {
                 other.offerDocumentUrl == offerDocumentUrl) &&
             (identical(other.isFoundingVenue, isFoundingVenue) ||
                 other.isFoundingVenue == isFoundingVenue) &&
+            (identical(other.freeCampaignsUsed, freeCampaignsUsed) ||
+                other.freeCampaignsUsed == freeCampaignsUsed) &&
+            (identical(
+                  other.freeCampaignPeriodStart,
+                  freeCampaignPeriodStart,
+                ) ||
+                other.freeCampaignPeriodStart == freeCampaignPeriodStart) &&
             (identical(other.freeOffersUsed, freeOffersUsed) ||
                 other.freeOffersUsed == freeOffersUsed) &&
             (identical(other.freeOfferWindowEnd, freeOfferWindowEnd) ||
@@ -1394,6 +1464,8 @@ class _$VenueImpl extends _Venue {
     offerAcceptedFrom,
     offerDocumentUrl,
     isFoundingVenue,
+    freeCampaignsUsed,
+    freeCampaignPeriodStart,
     freeOffersUsed,
     freeOfferWindowEnd,
     firstPaymentAnnouncementPending,
@@ -1456,6 +1528,8 @@ abstract class _Venue extends Venue {
     final String? offerAcceptedFrom,
     final String? offerDocumentUrl,
     final bool isFoundingVenue,
+    final int freeCampaignsUsed,
+    @NullableTimestampConverter() final DateTime? freeCampaignPeriodStart,
     final int freeOffersUsed,
     @NullableTimestampConverter() final DateTime? freeOfferWindowEnd,
     final bool firstPaymentAnnouncementPending,
@@ -1593,27 +1667,46 @@ abstract class _Venue extends Venue {
 
   /// True for one of the first 1000 venues ever approved — see
   /// `assignFoundingVenueIfEligible` (Cloud Function, functions/src/
-  /// index.ts), which sets this (with [freeOffersUsed]/
-  /// [freeOfferWindowEnd]) the moment [status] first reaches
+  /// index.ts), which sets this the moment [status] first reaches
   /// 'approved', never at raw signup. Grant-of-trust — the owner can't
-  /// self-grant this (see firestore.rules). Drives the "Bu təklif
-  /// pulsuzdur" free-quota check in `submitOffer`/the offer create
-  /// form; `false` (the default) for every venue outside the first
-  /// 1000 and for any venue created before this field existed.
+  /// self-grant this (see firestore.rules).
+  ///
+  /// Its remaining perk is the "1 ay ödə, 1 ay hədiyyə al" extra
+  /// billing cycle. The free-campaign half was replaced by
+  /// [freeCampaignsUsed]'s subscription-tier allowance.
   @override
   bool get isFoundingVenue;
 
-  /// How many of [isFoundingVenue]'s 5 free offer placements this
-  /// venue has used — incremented atomically inside `submitOffer`'s
-  /// own transaction each time a free placement is granted, never by
-  /// a direct client write (see firestore.rules). Meaningless when
-  /// [isFoundingVenue] is false.
+  /// How many free campaigns this venue has used in the CURRENT
+  /// subscription period — held inside `submitOffer`'s transaction
+  /// when a campaign is created for free, given back if that campaign
+  /// is rejected or deleted before it publishes, and reset to 0 by
+  /// `applyPaymentOutcome` when a new period is paid for. Never
+  /// written by a client (see firestore.rules' venue blocklist).
+  ///
+  /// The allowance itself comes from the venue's subscription tier —
+  /// `FREE_CAMPAIGNS_BY_SUBSCRIPTION_TIER` in `venue-fees.ts`, mirrored
+  /// as [freeCampaignQuotaFor] on the Dart side.
+  @override
+  int get freeCampaignsUsed;
+
+  /// The start of the period [freeCampaignsUsed] is counted within —
+  /// one subscription cycle back from [subscriptionRenewsAt]. Drives
+  /// the "quota renews on {date}" line in the UI. Null until the
+  /// venue's first subscription payment clears.
+  @override
+  @NullableTimestampConverter()
+  DateTime? get freeCampaignPeriodStart;
+
+  /// RETIRED — the founding venues' 5-free-placements-in-30-days
+  /// perk, replaced by [freeCampaignsUsed]. No server code reads or
+  /// writes these any more; they survive only on documents that
+  /// already carried them, because deleting production data was not
+  /// that change's business. Do not build on them.
   @override
   int get freeOffersUsed;
 
-  /// The 1-month window [isFoundingVenue]'s free quota is valid
-  /// within — set once, alongside [isFoundingVenue], to
-  /// "first approval + 30 days". Null for a non-founding venue.
+  /// RETIRED — see [freeOffersUsed].
   @override
   @NullableTimestampConverter()
   DateTime? get freeOfferWindowEnd;

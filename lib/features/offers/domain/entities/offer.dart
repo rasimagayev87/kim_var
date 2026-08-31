@@ -279,3 +279,29 @@ double offerPlacementFeeForCategory(VenueCategory category) {
     VenueCategory.other => 5.0,
   };
 }
+
+/// How many campaigns this venue may publish for free per subscription
+/// period — the client-side mirror of
+/// `FREE_CAMPAIGNS_BY_SUBSCRIPTION_TIER` (functions/src/venue-fees.ts).
+///
+/// Derived from [offerPlacementFeeForCategory] rather than from a
+/// fourth 39-entry category table. The placement fee and the
+/// subscription tier are already 1:1 (2/4/5/7 AZN ↔ 15/20/25/30 AZN),
+/// so mapping through the fee gives the same answer with one line per
+/// tier instead of one per category — and a category added to the fee
+/// switch above automatically gets the right quota instead of silently
+/// getting none.
+///
+/// PREVIEW ONLY. The real decision is made server-side inside
+/// `submitOffer`'s transaction; this drives the banner on the create
+/// form, which can drift by at most the gap between opening the form
+/// and pressing submit.
+int freeCampaignQuotaFor(VenueCategory category) {
+  return switch (offerPlacementFeeForCategory(category).round()) {
+    2 => 3,
+    4 => 5,
+    5 => 8,
+    7 => 10,
+    _ => 0,
+  };
+}

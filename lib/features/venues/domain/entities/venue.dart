@@ -460,25 +460,41 @@ class Venue with _$Venue {
 
     /// True for one of the first 1000 venues ever approved — see
     /// `assignFoundingVenueIfEligible` (Cloud Function, functions/src/
-    /// index.ts), which sets this (with [freeOffersUsed]/
-    /// [freeOfferWindowEnd]) the moment [status] first reaches
+    /// index.ts), which sets this the moment [status] first reaches
     /// 'approved', never at raw signup. Grant-of-trust — the owner can't
-    /// self-grant this (see firestore.rules). Drives the "Bu təklif
-    /// pulsuzdur" free-quota check in `submitOffer`/the offer create
-    /// form; `false` (the default) for every venue outside the first
-    /// 1000 and for any venue created before this field existed.
+    /// self-grant this (see firestore.rules).
+    ///
+    /// Its remaining perk is the "1 ay ödə, 1 ay hədiyyə al" extra
+    /// billing cycle. The free-campaign half was replaced by
+    /// [freeCampaignsUsed]'s subscription-tier allowance.
     @Default(false) bool isFoundingVenue,
 
-    /// How many of [isFoundingVenue]'s 5 free offer placements this
-    /// venue has used — incremented atomically inside `submitOffer`'s
-    /// own transaction each time a free placement is granted, never by
-    /// a direct client write (see firestore.rules). Meaningless when
-    /// [isFoundingVenue] is false.
+    /// How many free campaigns this venue has used in the CURRENT
+    /// subscription period — held inside `submitOffer`'s transaction
+    /// when a campaign is created for free, given back if that campaign
+    /// is rejected or deleted before it publishes, and reset to 0 by
+    /// `applyPaymentOutcome` when a new period is paid for. Never
+    /// written by a client (see firestore.rules' venue blocklist).
+    ///
+    /// The allowance itself comes from the venue's subscription tier —
+    /// `FREE_CAMPAIGNS_BY_SUBSCRIPTION_TIER` in `venue-fees.ts`, mirrored
+    /// as [freeCampaignQuotaFor] on the Dart side.
+    @Default(0) int freeCampaignsUsed,
+
+    /// The start of the period [freeCampaignsUsed] is counted within —
+    /// one subscription cycle back from [subscriptionRenewsAt]. Drives
+    /// the "quota renews on {date}" line in the UI. Null until the
+    /// venue's first subscription payment clears.
+    @NullableTimestampConverter() DateTime? freeCampaignPeriodStart,
+
+    /// RETIRED — the founding venues' 5-free-placements-in-30-days
+    /// perk, replaced by [freeCampaignsUsed]. No server code reads or
+    /// writes these any more; they survive only on documents that
+    /// already carried them, because deleting production data was not
+    /// that change's business. Do not build on them.
     @Default(0) int freeOffersUsed,
 
-    /// The 1-month window [isFoundingVenue]'s free quota is valid
-    /// within — set once, alongside [isFoundingVenue], to
-    /// "first approval + 30 days". Null for a non-founding venue.
+    /// RETIRED — see [freeOffersUsed].
     @NullableTimestampConverter() DateTime? freeOfferWindowEnd,
 
     /// True from the moment this venue's FIRST subscription payment

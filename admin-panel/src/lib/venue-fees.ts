@@ -48,3 +48,40 @@ export function categoriesAtFee(fee: number): string[] {
     .filter(([, amount]) => amount === fee)
     .map(([category]) => category);
 }
+
+/**
+ * How many campaigns a venue may publish for free each subscription
+ * period, by its monthly tier.
+ *
+ * ── The change this encodes ────────────────────────────────────────
+ *
+ * Every campaign used to cost a placement fee on top of the monthly
+ * subscription (`OFFER_PLACEMENT_FEE_BY_SUBSCRIPTION_TIER` in
+ * index.ts). Paying twice for the same thing made the subscription
+ * look like it bought nothing, and the fee sat between an owner and
+ * the one action the whole product depends on them taking. The tier
+ * now includes a quota; the placement fee remains, but only once that
+ * quota is spent.
+ *
+ * Keyed off the SUBSCRIPTION TIER, never off the category, exactly like
+ * the placement fee it sits beside — so a category's quota is always a
+ * function of what it pays, and a new category picks up the right quota
+ * by picking up the right price. The alternative, a second 39-entry
+ * category table, is a second thing to forget.
+ *
+ * `tests/rules/venue-fees.test.ts` asserts these keys are EXACTLY
+ * `SUBSCRIPTION_FEE_TIERS`. A fifth price added to the table above
+ * without a quota here would otherwise mean `undefined` — which reads
+ * as "no free campaigns" and would quietly start charging a whole tier
+ * of venues for something they were promised.
+ */
+export const FREE_CAMPAIGNS_BY_SUBSCRIPTION_TIER: Record<number, number> = { 15: 3, 20: 5, 25: 8, 30: 10 };
+
+/** The period's free-campaign allowance for [category], or `undefined`
+ * if the category has no subscription tier at all (a bug — see
+ * `venueSubscriptionFeeByCategory`'s own doc comment). */
+export function freeCampaignQuotaForCategory(category: string): number | undefined {
+  const tier = venueSubscriptionFeeByCategory[category];
+  if (tier === undefined) return undefined;
+  return FREE_CAMPAIGNS_BY_SUBSCRIPTION_TIER[tier];
+}

@@ -1689,5 +1689,9 @@
   "birthdayEmpty": "Bu gün üçün kampaniya yoxdur.",
   "privacyBirthdayOptInDialogTitle": "Ad günü bildirişləri",
   "privacyBirthdayOptInDialogBody": "Ad günündə yaxın məkanlardan bildiriş alacaqsan. Doğum tarixin heç bir məkanla paylaşılmır. Söndürsən bildiriş getmir, kampaniyaları Canlı tabda yenə görürsən.",
-  "privacyBirthdayOptInDialogConfirm": "Təsdiqlə"
+  "privacyBirthdayOptInDialogConfirm": "Təsdiqlə",
+  "offerFreeCampaignsRemaining": "Bu dövrdə {count} pulsuz kampaniyanız qalıb ({quota} -dan)",
+  "offerFreeCampaignsExhausted": "Pulsuz kvotanız bitib — bu kampaniya {amount} AZN olacaq",
+  "offerFreeCampaignsRenewOn": "Kvota {date} tarixində yenilənir",
+  "venueFreeCampaignsLabel": "Pulsuz kampaniya: {count}/{quota}"
 }
