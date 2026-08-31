@@ -1,4 +1,4 @@
-# 2 AZN boost — real ödəniş test təlimatı
+# Real ödəniş testi — məkan abunəliyi + boost
 
 **Əvəz edir:** `docs/prompt6-real-payment-test-guide.md` (2026-08-29). O
 sənəd hələ deploy edilməmiş koda görə yazılmışdı; o vaxtdan `payments`
@@ -7,19 +7,89 @@ sxemi, webhook, admin panel və rollar dəyişdi.
 **Niyə bu test:** Epoint əməliyyat logunda **bir dənə də uğurlu ödəniş
 yoxdur** — hamısı ya «linkin müddəti bitib», ya «vəsait yoxdur». Yəni
 `webhook → completed → entitlement` yolu production-da heç vaxt
-işləməyib. 2 AZN ən ucuz yoldur.
+işləməyib.
 
-**Vəziyyət:** kod deploy edilib (`646a033`). Ödənişi siz edirsiniz.
+**Vəziyyət:** kod deploy edilib. Ödənişi siz edirsiniz.
+
+---
+
+## Nə qədər pula başa gəlir — düzəliş
+
+Bu sənədin ilk variantı «2 AZN-lik boost ən ucuz testdir» deyirdi.
+**Səhv idi:** boost mövcud təklifə tətbiq olunur, təklif isə məkansız
+yaradıla bilmir. Faktiki zəncir:
+
+| Addım | Qiymət | Qeyd |
+|---|---|---|
+| 1. Məkan yaratmaq | **15 AZN** | Ən ucuz tarif: `teaHouse` və ya `tailor`. Digərləri 20/25/30 |
+| 2. Admin təsdiqi | — | Siz özünüz admin paneldən |
+| 3. Təklif yaratmaq | **0 AZN** | Aşağıya bax |
+| 4. Boost (6 saat) | **2 AZN** | |
+| | **cəmi ≈ 17 AZN** | |
+
+**Təklif niyə pulsuzdur:** `venues` kolleksiyası hazırda **boşdur**,
+`FOUNDING_VENUE_LIMIT` isə 1000-dir — yəni yaradacağınız məkan ilk
+təsdiqdə `isFoundingVenue` alacaq və `FOUNDING_VENUE_FREE_OFFERS = 5`
+təklifi 30 gün ərzində pulsuz yerləşdirə biləcək. (Pulsuz olmasaydı 15
+AZN tarifi üçün yerləşdirmə haqqı 2 AZN olardı.)
+
+## Və əsl vacib test boost deyil
+
+15 AZN-lik **abunə ödənişi** boost-dan qat-qat çox şey yoxlayır:
+
+| | abunə ödənişi | boost |
+|---|---|---|
+| webhook + imza | ✓ | ✓ |
+| `decoded` payload (PAY-4) | ✓ | ✓ |
+| `payments → completed` | ✓ | ✓ |
+| oferta qəbulunun daimi qeydə köçürülməsi (`offerAcceptances`) | ✓ | — |
+| `venue: awaiting_payment → pending` (moderasiyaya düşmə) | ✓ | — |
+| `subscriptionRenewsAt` hesablanması | ✓ | — |
+| «Ödənişiniz təsdiqləndi» kartı | ✓ | — |
+| `assignFoundingVenueIfEligible` | ✓ | — |
+| `boostedUntil` | — | ✓ |
+
+Yəni **15 AZN-i onsuz da ödəyəcəksinizsə, əsas testi orada alırsınız**;
+boost yalnız ikinci, daha sadə budağı əlavə edir.
+
+## PAY-4 sualını pulsuz cavablandırmaq mümkün ola bilər
+
+`startCardRegistration` (Ayarlar → Kartlar → kart əlavə et) **məbləğsiz**
+Epoint axınıdır və **eyni `epointWebhook`-a** düşür, eyni
+`epointWebhook: decoded payload` sətrini yazır.
+
+Yəni 6-cı bölmədəki sualı (`decoded`-də `amount`/`currency` varmı) bir
+kart qeydiyyatı ilə **heç nə ödəmədən** yoxlaya bilərsiniz.
+
+⚠️ **Amma qəti cavab deyil:** Epoint kart qeydiyyatı callback-i ilə
+ödəniş callback-inin payload-ı fərqli ola bilər. `amount` orada
+görünmürsə, bu, ödəniş callback-ində də görünmədiyi demək DEYİL. Əksi
+isə güclü işarədir: görünürsə, çox güman ödənişdə də var.
+
+Ona görə: pulsuz yoxlama **ilk addım** kimi faydalıdır, son söz real
+ödənişdədir.
+
+---
+
+## Sıra
+
+1. Kart qeydiyyatı (pulsuz) → PAY-4 üçün ilkin siqnal
+2. Məkan yarat + **15 AZN** ödə → 1-7 bölmələri
+3. Admin paneldən təsdiqlə
+4. Təklif yarat (pulsuz)
+5. Boost **2 AZN** → 1-7 bölmələri, `boost_fee` üçün
+
+Aşağıdakı bölmələr **hər iki ödəniş** üçün eynidir; fərqli olan
+sahələr cədvəllərdə ayrıca göstərilib.
 
 ---
 
 ## 0. Ön şərtlər
 
-- [ ] Təsdiqlənmiş (`status: approved`) bir təklifiniz olmalıdır — boost
-      yalnız mövcud təklifə tətbiq olunur. Yoxdursa əvvəlcə təklif
-      yaradın və admin paneldən təsdiqləyin.
+- [ ] Boost testi üçün: təsdiqlənmiş məkan → təsdiqlənmiş təklif
+      (yuxarıdakı sıraya bax). Abunə testi üçün ön şərt yoxdur.
 - [ ] Cihazda **1.0.1 (12)** build.
-- [ ] Kartda ən azı 2 AZN. Əvvəlki testlər «kifayət qədər vəsait yoxdur»
+- [ ] Kartda ən azı **17 AZN** (15 abunə + 2 boost). Əvvəlki testlər «kifayət qədər vəsait yoxdur»
       ilə dayanıb — bu dəfə əsas uğursuzluq səbəbi olmasın.
 - [ ] Admin panelə `admin` və ya `finance` rolu ilə girişiniz açıq olsun
       (`/payments` `viewPayments` tələb edir; moderator **görmür**).
@@ -34,17 +104,19 @@ firebase functions:log --only epointWebhook -n 40
 
 ## 1. Checkout-un yaradılması
 
-Tətbiqdə: **Təkliflərim → təklif → «Önə çək» → 6 saat (2 AZN) → ödə.**
+**Abunə (15 AZN):** Məkanlarım → «Məkan əlavə et» → formu doldur → ödə.
+**Boost (2 AZN):** Təkliflərim → təklif → «Önə çək» → 6 saat → ödə.
 
 **Dərhal yoxlayın — Firestore `payments`** (yeni sənəd yaranmalıdır):
 
-| Sahə | Gözlənilən |
-|---|---|
-| `type` | `boost_fee` |
-| `listingType` | `offer` |
-| `listingId` | təklifin id-si |
-| `boostHours` | `6` |
-| `amount` | `2` |
+| Sahə | Boost | Abunə |
+|---|---|---|
+| `type` | `boost_fee` | `venue_subscription` |
+| `listingType` | `offer` | `venue` |
+| `listingId` | təklifin id-si | məkanın id-si |
+| `boostHours` | `6` | — |
+| `pendingOfferAcceptance` | — | **dolu olmalıdır** (`version`, `documentUrl`, `appVersion`, `platform`) |
+| `amount` | `2` | `15` |
 | `currency` | `AZN` |
 | `status` | **`pending`** |
 | `description` | `Təklifi önə çək — 6 saat` |
@@ -54,8 +126,9 @@ Tətbiqdə: **Təkliflərim → təklif → «Önə çək» → 6 saat (2 AZN) �
 **Sənədin id-si = Epoint-in `order_id`-idir.** Yazın — bütün sonrakı
 addımlarda ona baxacağıq.
 
-⚠️ `checkoutStartedAt` bu mərhələdə **olmaya bilər** — o, yalnız
-abunə axınında (`ensurePendingSubscriptionPayment`) yazılır.
+⚠️ `checkoutStartedAt` yalnız **abunə** axınında yazılır
+(`ensurePendingSubscriptionPayment`); boost-da olmur. Bu, fərq deyil,
+qüsur da deyil.
 
 ---
 
@@ -110,12 +183,35 @@ narahat olmayın; (a) sətri + 4-cü bölmə kifayətdir.
 | `updatedAt` | webhook vaxtı | `createdAt`-dan sonra |
 | `failureCode` / `failureMessage` | **olmamalıdır** | |
 
-### `offers/{offerId}`
+### Boost üçün — `offers/{offerId}`
 
 | Sahə | Gözlənilən |
 |---|---|
 | `boostedUntil` | **webhook vaxtı + 6 saat** |
 | `updatedAt` | webhook vaxtı |
+
+### Abunə üçün — `venues/{venueId}`
+
+| Sahə | Gözlənilən |
+|---|---|
+| `status` | `awaiting_payment` → **`pending`** (moderasiyaya düşdü) |
+| `paymentId` | ödəniş sənədinin id-si |
+| `subscriptionRenewsAt` | **indi + 30 gün** |
+| `firstPaymentAnnouncementPending` | `true` — tətbiqdə «Ödənişiniz təsdiqləndi» kartı |
+| `offerAcceptedVersion` | `1.0` |
+| `offerAcceptedFrom` | `1.0.1 / ios` |
+| `offerDocumentUrl` | `https://peakpin.app/business-offer.html` |
+
+**Və alt-kolleksiya:** `venues/{venueId}/offerAcceptances/{autoId}` —
+bir sənəd yaranmalıdır (`version`, `documentUrl`, `appVersion`,
+`platform`, `acceptedAt`, `paymentId`). Oferta qəbulu **yalnız ödəniş
+təsdiqləndikdən sonra** daimi qeydə keçir — bu, müqavilənin öz 3.2
+bəndinin tələbidir və ayrıca yoxlanmağa dəyər.
+
+**Təsdiqdən sonra:** admin paneldə məkanı `approved` edin →
+`assignFoundingVenueIfEligible` işə düşməlidir → `isFoundingVenue: true`
+və `freeOfferWindowEnd` (indi + 30 gün) yazılmalıdır. Bu, təklifin
+pulsuz olmasının şərtidir.
 
 **Hesablamanı yoxlayın:** `boostedUntil` = `applyPaymentOutcome`-un
 işlədiyi an + `boostHours × 60 × 60 × 1000` ms. Yəni ödəniş
