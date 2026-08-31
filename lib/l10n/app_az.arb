@@ -932,6 +932,7 @@
   "venueErrorBusinessInactive": "Məkan yaratmaq üçün Ayarlar → Biznes fəaliyyəti bölməsindən aktivləşdirin.",
   "venueErrorOfferNotAccepted": "Biznes Xidmətlərinin Publik Ofertasını qəbul etməlisiniz.",
   "venueErrorPhotoRejected": "Məkan şəkli qəbul edilmədi. Şəkli yenidən seçib cəhd edin.",
+  "venueErrorMissingFields": "Məkanın ünvanı təyin olunmayıb. Xəritədə yeri yenidən seçin.",
   "venueErrorAccountBlocked": "Hesabınız bu əməliyyatı edə bilmir. Dəstəyə yazın.",
   "venueErrorDuplicate": "Bu məkan artıq göndərilib.",
   "venueFollowButton": "İzlə",

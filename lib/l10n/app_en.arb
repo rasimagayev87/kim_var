@@ -997,6 +997,7 @@
   "venueErrorBusinessInactive": "Turn on Settings → Business activity to create a venue.",
   "venueErrorOfferNotAccepted": "You need to accept the Business Services Public Offer.",
   "venueErrorPhotoRejected": "The venue photo was rejected. Pick the photo again and retry.",
+  "venueErrorMissingFields": "The venue address is missing. Pick the location on the map again.",
   "venueErrorAccountBlocked": "Your account cannot perform this action. Please contact support.",
   "venueErrorDuplicate": "This venue has already been submitted.",
   "venueFollowButton": "Follow",

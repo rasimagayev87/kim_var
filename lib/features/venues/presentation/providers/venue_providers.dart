@@ -138,7 +138,7 @@ class VenueController {
       // the exception but the UI showed one message for all of them,
       // so neither we nor the user could tell the cases apart.
       logError('venue_providers.createVenue[${e.code}]', e, st);
-      onError(venueSubmitErrorFromCode(e.code, e.message));
+      onError(venueSubmitErrorFromException(e.code, e.message, e.details));
       return null;
     } catch (e, st) {
       logError('venue_providers.createVenue', e, st);

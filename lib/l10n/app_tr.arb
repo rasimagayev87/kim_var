@@ -932,6 +932,7 @@
   "venueErrorBusinessInactive": "Mekan oluşturmak için Ayarlar → İşletme etkinliği bölümünden etkinleştirin.",
   "venueErrorOfferNotAccepted": "İşletme Hizmetleri Kamuya Açık Teklifini kabul etmelisiniz.",
   "venueErrorPhotoRejected": "Mekan fotoğrafı reddedildi. Fotoğrafı yeniden seçip tekrar deneyin.",
+  "venueErrorMissingFields": "Mekan adresi belirlenmedi. Konumu haritada yeniden seçin.",
   "venueErrorAccountBlocked": "Hesabınız bu işlemi yapamıyor. Lütfen destek ile iletişime geçin.",
   "venueErrorDuplicate": "Bu mekan zaten gönderildi.",
   "venueFollowButton": "Takip et",

@@ -225,6 +225,8 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
         return loc.venueErrorOfferNotAccepted;
       case VenueSubmitError.photoRejected:
         return loc.venueErrorPhotoRejected;
+      case VenueSubmitError.missingFields:
+        return loc.venueErrorMissingFields;
       case VenueSubmitError.accountBlocked:
         return loc.venueErrorAccountBlocked;
       case VenueSubmitError.duplicate:

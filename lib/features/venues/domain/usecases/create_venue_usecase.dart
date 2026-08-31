@@ -39,13 +39,22 @@ List<VenueFieldError> _missingFields({
   required VenueCategory? category,
   required double? lat,
   required double? lng,
+  required String address,
   required OpeningHours openingHours,
 }) {
   final missing = <VenueFieldError>[];
   if (photo == null && !hasExistingPhoto) missing.add(VenueFieldError.photo);
   if (name.trim().isEmpty) missing.add(VenueFieldError.name);
   if (category == null) missing.add(VenueFieldError.category);
-  if (lat == null || lng == null) missing.add(VenueFieldError.location);
+  // `address` is part of "location", not a field of its own: the user
+  // picks a point and the address comes back with it. Checked here
+  // because `submitVenue` requires it server-side, and until this line
+  // existed a blank address (geocoder returned nothing) passed
+  // validation and was refused by the server with a message the user
+  // could do nothing about.
+  if (lat == null || lng == null || address.trim().isEmpty) {
+    missing.add(VenueFieldError.location);
+  }
   if (!openingHours.hasAnyOpenDay) missing.add(VenueFieldError.hours);
   return missing;
 }
@@ -69,6 +78,7 @@ ValidatedVenueFields validateVenueFields({
     category: category,
     lat: lat,
     lng: lng,
+    address: address,
     openingHours: openingHours,
   );
 

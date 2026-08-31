@@ -932,6 +932,7 @@
   "venueErrorBusinessInactive": "Включите Настройки → Бизнес-активность, чтобы создать заведение.",
   "venueErrorOfferNotAccepted": "Необходимо принять Публичную оферту бизнес-услуг.",
   "venueErrorPhotoRejected": "Фото заведения отклонено. Выберите фото заново и повторите.",
+  "venueErrorMissingFields": "Адрес заведения не определён. Выберите место на карте заново.",
   "venueErrorAccountBlocked": "Ваш аккаунт не может выполнить это действие. Обратитесь в поддержку.",
   "venueErrorDuplicate": "Это заведение уже отправлено.",
   "venueFollowButton": "Отслеживать",

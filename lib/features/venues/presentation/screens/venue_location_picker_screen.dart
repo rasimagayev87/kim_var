@@ -44,6 +44,16 @@ class _VenueLocationPickerScreenState
     if (_picked != null) _resolveAddress(_picked!);
   }
 
+  /// The resolved address, or the picked coordinates when the geocoder
+  /// gave us nothing. See the confirm button for why this must never
+  /// return an empty string.
+  String _addressOrFallback() {
+    final resolved = _address?.trim() ?? '';
+    if (resolved.isNotEmpty) return resolved;
+    final p = _picked!;
+    return '${p.latitude.toStringAsFixed(5)}, ${p.longitude.toStringAsFixed(5)}';
+  }
+
   /// Debounced by [_geocodeRequestId] — a fast drag can fire several
   /// pin moves before the first lookup returns; only the response
   /// matching the LATEST request is ever applied, so the address never
@@ -267,7 +277,21 @@ class _VenueLocationPickerScreenState
                       onPressed: canConfirm
                           ? () => Navigator.pop(context, (
                               _picked!,
-                              _address ?? '',
+                              // NEVER an empty string. Reverse
+                              // geocoding fails routinely — iOS's
+                              // CLGeocoder is rate-limited and returns
+                              // nothing often enough that this is a
+                              // normal path, not an edge case — and an
+                              // empty address here used to sail past
+                              // the form's validation (which only
+                              // checks lat/lng) and get rejected by
+                              // `submitVenue`, which requires it. The
+                              // pin is exact either way; the string is
+                              // a label, so falling back to the
+                              // coordinates keeps the flow working
+                              // instead of dead-ending the user on a
+                              // field they cannot even see.
+                              _addressOrFallback(),
                               _country,
                             ))
                           : null,

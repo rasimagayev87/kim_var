@@ -31,10 +31,15 @@ enum VenueSubmitError {
   /// `failed-precondition` — the public offer was not accepted.
   offerNotAccepted,
 
-  /// `invalid-argument` — the photo URL was refused. In practice this
-  /// means the upload did not finish, or produced a URL outside our
-  /// own Storage bucket.
+  /// The photo URL was refused — the upload did not finish, or
+  /// produced a URL outside our own Storage bucket.
   photoRejected,
+
+  /// A required field arrived empty. In practice this is the address:
+  /// reverse geocoding can return nothing, and the form does not show
+  /// the address as its own field, so there is nothing obviously blank
+  /// to notice.
+  missingFields,
 
   /// `permission-denied` from `assertActiveUser` — deleted or banned.
   accountBlocked,
@@ -46,22 +51,51 @@ enum VenueSubmitError {
   unknown,
 }
 
-/// Maps a `FirebaseFunctionsException.code` (plus its message, where
-/// one code covers two cases) onto [VenueSubmitError].
-VenueSubmitError venueSubmitErrorFromCode(String? code, String? message) {
+/// Maps a `FirebaseFunctionsException` onto [VenueSubmitError].
+///
+/// Prefers `details.reason` — the exact slug `submitVenue` logs — over
+/// the error code. Codes are too coarse to map safely on their own:
+/// `invalid-argument` covers both "a required field is empty" and
+/// "that photo URL is not ours", and an earlier version of this
+/// function assumed the second. It was the first, so the app told
+/// someone their photo was rejected while the actual problem was an
+/// address the geocoder never filled in — sending them to change the
+/// one thing that was fine.
+///
+/// The code path below stays as a fallback for a client talking to a
+/// server that predates `details`.
+VenueSubmitError venueSubmitErrorFromException(
+  String? code,
+  String? message,
+  Object? details,
+) {
+  final reason = (details is Map) ? details['reason'] as String? : null;
+  switch (reason) {
+    case 'submitVenue.missing-fields':
+      return VenueSubmitError.missingFields;
+    case 'submitVenue.foreign-photo-url':
+      return VenueSubmitError.photoRejected;
+    case 'submitVenue.offer-not-accepted':
+      return VenueSubmitError.offerNotAccepted;
+    case 'submitVenue.business-inactive':
+      return VenueSubmitError.businessInactive;
+    case 'submitVenue.duplicate-id':
+      return VenueSubmitError.duplicate;
+  }
+
   switch (code) {
     case 'resource-exhausted':
       return VenueSubmitError.rateLimited;
     case 'already-exists':
       return VenueSubmitError.duplicate;
     case 'invalid-argument':
-      return VenueSubmitError.photoRejected;
+      // Deliberately NOT `photoRejected` — see above. Without a
+      // `reason` there is no way to tell which field is at fault, and
+      // naming the wrong one is worse than admitting we do not know.
+      return VenueSubmitError.missingFields;
     case 'failed-precondition':
       return VenueSubmitError.offerNotAccepted;
     case 'permission-denied':
-      // `assertActiveUser` sends `account-deleted`/`account-banned` as
-      // the message; the business-activity refusal is the other user
-      // of this code and is the far more common one.
       final m = message ?? '';
       return m.contains('account-deleted') || m.contains('account-banned')
           ? VenueSubmitError.accountBlocked

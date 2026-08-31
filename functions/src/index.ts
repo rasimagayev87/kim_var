@@ -148,7 +148,14 @@ function rejectRequest(
   context: Record<string, unknown> = {},
 ): never {
   logger.warn(`reject reason=${reason} code=${code}`, context);
-  throw new HttpsError(code, message);
+  // The slug travels to the client as `details` too. Callable error
+  // CODES are a fixed, coarse set — `invalid-argument` covers both "a
+  // required field is empty" and "that photo URL is not ours" — so a
+  // client mapping codes to messages has to guess which one it is.
+  // Mine guessed "photo" and was wrong, sending someone to re-pick a
+  // photo when the real problem was a blank address. `details` is the
+  // channel that removes the guess.
+  throw new HttpsError(code, message, { reason });
 }
 
 async function assertActiveUser(uid: string): Promise<void> {
