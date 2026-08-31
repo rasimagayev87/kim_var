@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
 import '../../../../core/utils/exif_stripper.dart';
+import '../../../../core/utils/storage_deletion.dart';
 import 'offer_remote_datasource.dart';
 
 /// Same field name/shape as `kVenueGeoField` in the venues feature —
@@ -120,7 +121,7 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
   @override
   Future<void> deleteOfferPhoto(String ownerId, String offerId) async {
     try {
-      await _storage.ref('offer_photos/$ownerId/$offerId.jpg').delete();
+      await deleteWithResizedVariant(_storage.ref('offer_photos/$ownerId/$offerId.jpg'));
     } on FirebaseException catch (e) {
       if (e.code != 'object-not-found') rethrow;
     }

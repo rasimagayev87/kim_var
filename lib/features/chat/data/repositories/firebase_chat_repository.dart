@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../../../core/utils/exif_stripper.dart';
+import '../../../../core/utils/storage_deletion.dart';
 import '../../../safety/data/firebase_safety_repository.dart';
 import '../../../safety/domain/safety_repository.dart';
 import '../../domain/chat_failure.dart';
@@ -255,7 +256,7 @@ class FirebaseChatRepository implements ChatRepository {
       // pointing at it is harmless clutter, not worth failing the
       // (already-applied) delete over.
       try {
-        await _storage.refFromURL(mediaUrl).delete();
+        await deleteWithResizedVariant(_storage.refFromURL(mediaUrl));
       } catch (_) {}
     }
   }

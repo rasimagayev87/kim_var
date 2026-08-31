@@ -21,7 +21,8 @@
     "migrate-storage-owner-paths": "tsx --env-file=.env.local scripts/migrate-storage-owner-paths.ts",
     "migrate-users-private-data": "tsx --env-file=.env.local scripts/migrate-users-private-data.ts",
     "count-orphan-payments": "tsx --env-file=.env.local scripts/count-orphan-payments.ts",
-    "backfill-banned-mirror": "tsx --env-file=.env.local scripts/backfill-banned-mirror.ts"
+    "backfill-banned-mirror": "tsx --env-file=.env.local scripts/backfill-banned-mirror.ts",
+    "cleanup-test-venues": "tsx --env-file=.env.local scripts/cleanup-test-venues.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

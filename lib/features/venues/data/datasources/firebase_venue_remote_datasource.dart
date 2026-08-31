@@ -7,6 +7,7 @@ import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
 import '../../../../core/utils/exif_stripper.dart';
 import '../../../../core/utils/private_data_ref.dart';
+import '../../../../core/utils/storage_deletion.dart';
 import 'venue_remote_datasource.dart';
 
 /// Field under which GeoFlutterFire Plus stores `{geopoint, geohash}`
@@ -146,7 +147,7 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
   @override
   Future<void> deleteVenuePhoto(String ownerId, String venueId) async {
     try {
-      await _storage.ref('venue_photos/$ownerId/$venueId.jpg').delete();
+      await deleteWithResizedVariant(_storage.ref('venue_photos/$ownerId/$venueId.jpg'));
     } on FirebaseException catch (e) {
       if (e.code != 'object-not-found') rethrow;
     }

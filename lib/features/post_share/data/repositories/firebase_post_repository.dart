@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../../../core/utils/exif_stripper.dart';
+import '../../../../core/utils/storage_deletion.dart';
 import '../../domain/entities/post.dart';
 import '../../domain/entities/post_comment.dart';
 import '../../domain/repositories/post_repository.dart';
@@ -170,14 +171,14 @@ class FirebasePostRepository implements PostRepository {
   }) async {
     await _posts.doc(postId).delete();
     try {
-      await _storage.refFromURL(mediaUrl).delete();
+      await deleteWithResizedVariant(_storage.refFromURL(mediaUrl));
     } catch (_) {
       // Best-effort — the Firestore doc is already gone either way, and
       // an orphaned Storage object isn't worth failing the delete over.
     }
     if (thumbnailUrl != null) {
       try {
-        await _storage.refFromURL(thumbnailUrl).delete();
+        await deleteWithResizedVariant(_storage.refFromURL(thumbnailUrl));
       } catch (_) {
         // Same best-effort reasoning as the mediaUrl delete above.
       }

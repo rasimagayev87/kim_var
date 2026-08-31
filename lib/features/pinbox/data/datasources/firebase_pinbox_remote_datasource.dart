@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:geoflutterfire_plus/geoflutterfire_plus.dart';
 
 import '../../../../core/utils/exif_stripper.dart';
+import '../../../../core/utils/storage_deletion.dart';
 import 'pinbox_remote_datasource.dart';
 
 /// Same GeoFlutterFire field name/shape as `kOfferGeoField` — written
@@ -72,7 +73,7 @@ class FirebasePinBoxRemoteDatasource implements PinBoxRemoteDatasource {
   @override
   Future<void> deletePinBoxPhoto(String ownerId, String pinboxId) async {
     try {
-      await _storage.ref('pinbox_photos/$ownerId/$pinboxId.jpg').delete();
+      await deleteWithResizedVariant(_storage.ref('pinbox_photos/$ownerId/$pinboxId.jpg'));
     } on FirebaseException catch (e) {
       if (e.code != 'object-not-found') rethrow;
     }

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../../../../core/utils/exif_stripper.dart';
+import '../../../../core/utils/storage_deletion.dart';
 import '../../domain/repositories/storage_repository.dart';
 import '../../domain/storage_failure.dart';
 
@@ -70,7 +71,7 @@ class FirebaseStorageRepository implements StorageRepository {
   @override
   Future<void> deleteProfilePhoto({required String userId}) async {
     try {
-      await _storage.ref(_pathFor(userId)).delete();
+      await deleteWithResizedVariant(_storage.ref(_pathFor(userId)));
     } on FirebaseException catch (e) {
       if (e.code == 'object-not-found') return;
       throw _mapException(e, fallback: StorageFailure.deleteFailed);
