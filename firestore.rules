@@ -743,6 +743,21 @@ service cloud.firestore {
         allow write: if false;
       }
 
+      // The 13:00 birthday publication, per user per day — written by
+      // `publishBirthdayOffers` (Admin SDK) and read by the "Ad günü
+      // fürsətləri" section in the Canlı tab.
+      //
+      // THIS DOCUMENT IS THE SERVER-SIDE FILTER. The section is not
+      // hidden by a client-side "is it my birthday" check — a user who
+      // does not have a birthday today simply has no document here, and
+      // `write: if false` means they cannot create one. The birth date
+      // itself never leaves `users/{uid}/private/data`, and nobody can
+      // read anyone else's feed to learn whose birthday it is.
+      match /birthdayFeed/{dateKey} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if false;
+      }
+
       match /profileViews/{viewerId} {
         allow read: if request.auth != null && request.auth.uid == userId;
         allow create, update: if request.auth != null &&

@@ -89,6 +89,43 @@ Mərhələ 2 deploy olunan kimi işləməyə başlayır.
 Aktivləşənə qədər sənədlər silinmir — bu, məlumat itkisi riski deyil,
 sadəcə gecikmədir.
 
+### 4. Ad günü axını üçün iki TTL siyasəti — ⏳ DEPLOY-DAN SONRA
+
+Ad günü axınının yenidən qurulması (2026-09-01) iki yeni `expiresAt`
+sahəsi gətirir. Hər ikisi eyni əsaslandırma ilə: yığıla bilməyən
+struktur, təmizləyən funksiya yox.
+
+```bash
+# birthdayMatches — docs/BACKLOG.md #26. Gündə uyğun məkan başına bir
+# sənəd yazılırdı və heç vaxt silinmirdi.
+gcloud firestore fields ttls update expiresAt \
+  --collection-group=birthdayMatches \
+  --project=kim-var-73ce9 --enable-ttl
+
+# birthdayFeed — 13:00 nəşrinin nəticəsi, istifadəçi başına gündə bir
+# sənəd. ALT KOLLEKSİYADIR (`users/{uid}/birthdayFeed/{dateKey}`), amma
+# TTL onsuz da kolleksiya QRUPU üzrə işləyir, yəni əmr eynidir.
+gcloud firestore fields ttls update expiresAt \
+  --collection-group=birthdayFeed \
+  --project=kim-var-73ce9 --enable-ttl
+```
+
+Yoxlama — hər ikisi `ACTIVE` olmalıdır:
+```bash
+gcloud firestore fields ttls list --project=kim-var-73ce9
+```
+
+**Nə üçün üç gün:** hər ikisi eyni gün istifadə olunur və ertəsi gün
+mənasızdır — `assertBirthdayTargeting` artıq yalnız bugünkü eşleşməni
+qəbul edir. Üç gün uğursuz icranın sonradan araşdırılması üçün ehtiyat
+pəncərədir, `INTENT_RETENTION_DAYS` ilə eyni.
+
+**TTL yeganə təmizləyici deyil.** Story təcrübəsindən çıxan dərs
+saxlanılıb: `cleanupExpiredStories` yazılmasının səbəbi TTL→trigger
+zəncirini yoxlaya bilməməyimiz idi. Burada isə TTL-dən heç bir trigger
+asılı deyil — sənədlərin özündən başqa silinəsi şey yoxdur (nə Storage
+obyekti, nə alt kolleksiya), yəni zəncir sadəcə mövcud deyil.
+
 ---
 
 ## Bu, TTL-i toplayıcının öz silməsindən niyə üstün edir

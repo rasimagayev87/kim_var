@@ -155,7 +155,17 @@ export const NOTIFICATION_CATEGORY_BY_TYPE: Readonly<Record<string, string>> = {
   dailyOffersDigest: "venueOffers",
   dailyPinboxDigest: "venueOffers",
   dailyEventsDigest: "venueOffers",
-  birthdayOffer: "venueOffers",
+  // The 13:00 birthday publication — one push naming up to three
+  // venues, replacing the per-offer `birthdayOffer` push that fired at
+  // each approval. See `publishBirthdayOffers`.
+  birthdayVenues: "venueOffers",
+  //
+  // RETIRED: `birthdayOffer`. Nothing emits it any more — approval no
+  // longer publishes, `publishBirthdayCampaigns` does, and it sends
+  // `birthdayVenues` instead. Kept out of this map for the same reason
+  // `venueOffer`/`pinboxNearby` are: the map describes what is sent
+  // today. `notification_localizer.dart` still renders the old type so
+  // notifications already in users' feeds do not turn blank.
   //
   // RETIRED: `venueOffer`, `venueEvent`, `pinboxNearby` and
   // `productionPost` are gone from this table because nothing sends

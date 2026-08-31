@@ -135,7 +135,10 @@ describe("HƏR MƏZMUN TİPİ QAPILIDIR", () => {
     dailyOffersDigest: "venueOffers",
     dailyPinboxDigest: "venueOffers",
     dailyEventsDigest: "venueOffers",
-    birthdayOffer: "venueOffers",
+    // The 13:00 birthday publication. Replaced `birthdayOffer`, which
+    // fired once per approved campaign at approval time — see
+    // `publishBirthdayOffers`.
+    birthdayVenues: "venueOffers",
     venuePeakHour: "venueUpdates",
     birthdayMatch: "venueUpdates",
     reviewPrompt: "venueUpdates",

@@ -587,28 +587,40 @@ eyni formasıdır və hər ikisi eyni sessiyada edilməlidir.
 keçəndə, VƏ YA Firestore aylıq oxu xərci ümumi infrastruktur xərcinin
 20%-ni keçəndə.
 
-## 26. `birthdayMatches` təmizlənmir, `offerCreated` ölü sahədir
+## 26. ~~`birthdayMatches` təmizlənmir, `offerCreated` ölü sahədir~~ — BAĞLANDI
 
 **Mənbə:** ad günü axınının auditi (2026-08-31)
+**Bağlandı:** ad günü axınının yenidən qurulması (2026-09-01)
 
-**Nə:** `computeBirthdayMatches` hər gün uyğun məkan başına bir
-`birthdayMatches/{YYYY-MM-DD}_{venueId}` sənədi yazır. Bu sənədlər
-**heç vaxt silinmir** — nə planlaşdırılmış təmizləmə, nə TTL var.
-Gündəlik artım = həmin gün radiusunda ad günü olan uyğun məkanların
-sayı. Bugün əhəmiyyətsizdir; 1000 uyğun məkanda ildə ~365 000 sənəd.
+**Nə idi:** `computeBirthdayMatches` hər gün uyğun məkan başına bir
+`birthdayMatches/{YYYY-MM-DD}_{venueId}` sənədi yazırdı və bu sənədlər
+heç vaxt silinmirdi — nə planlaşdırılmış təmizləmə, nə TTL. 1000 uyğun
+məkanda ildə ~365 000 sənəd. Ayrıca `offerCreated: false` sahəsi heç
+vaxt `true` edilmirdi.
 
-Sənəddəki `offerCreated: false` sahəsi **heç vaxt `true` edilmir** —
-kodda onu yeniləyən sətir yoxdur. Yəni «sahib bu eşleşmədən təklif
-yaratdımı» sualına cavab verməli olan sahə həmişə yalan deyir.
+**Nə edildi:**
 
-**Nə edilməli:** (a) `expireLapsedPremium` naxışı ilə gündəlik
-təmizləmə — N gündən köhnə sənədləri sil (7 gün kifayətdir, çünki
-`submitOffer` yalnız həmin günün eşleşməsini qəbul edir); (b) ya
-`offerCreated`-i `submitOffer`-in `assertBirthdayTargeting` yolunda
-`true` etmək, ya da sahəni tamamilə silmək. İkincisi seçilirsə,
-sənəddə niyə silindiyi yazılmalıdır.
+(a) **Təmizləmə.** Sənədə `expiresAt` əlavə edildi
+(`BIRTHDAY_MATCH_RETENTION_DAYS = 3`) və kolleksiyaya native TTL
+siyasəti quruldu. Planlaşdırılmış təmizləmə yazılmadı — `expireLapsedPremium`
+naxışı gündə bir oxuma + bir silmə xərcləyir və unudula bilən daha bir
+iş deməkdir. `notificationIntents` ilə eyni quruluş: yığıla bilməyən
+struktur, təmizləyən funksiya yox.
 
-**Təxmini iş həcmi:** ~1 saat.
+Üç gün kifayətdir, çünki `assertBirthdayTargeting` artıq **yalnız
+bugünkü** eşleşməni qəbul edir (bu da həmin yenidənqurmada əlavə edilən
+ayrıca düzəlişdir — onsuz sahib dünənki `birthdayMatchId` ilə ad günü
+çoxdan keçmiş adamlara push göndərə bilirdi).
+
+(b) **`offerCreated` silindi**, bağlanmadı. Sahəni `submitOffer`-də
+`true` etmək cazibədar idi, amma bu, düzgün cavab olmazdı: kampaniya
+göndərilib sonra rədd edilə bilər, yəni «sahib bu nudge-dan istifadə
+etdimi» sualına yalnız təklifin son statusuna baxaraq cavab vermək olar.
+Heç nə bu sahəni oxumurdu. Həmişə `false` deyən sahə heç bir sahədən
+pisdir — çünki cavab kimi görünür.
+
+**Fayllar:** `functions/src/index.ts` (`computeBirthdayMatches`,
+`assertBirthdayTargeting`), `docs/CONSOLE_MANUAL_STEPS.md` (TTL).
 
 ## 27. Ödəniş təsviri serverdə yaranır — çoxdilli deyil
 

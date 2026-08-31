@@ -295,11 +295,54 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: str('pinboxTitle'),
       );
 
+    // Retired server-side (nothing sends this any more), kept so the
+    // ones already in users' feeds keep rendering — see the enum.
     case NotificationType.birthdayOffer:
       final venueName = str('venueName');
       return LocalizedNotificationText(
         title: loc.notifBirthdayOfferTitle,
         body: venueName.isEmpty ? loc.notifBirthdayOfferBodyGeneric : loc.notifBirthdayOfferBody(venueName),
+      );
+
+    case NotificationType.birthdayVenues:
+      // `venueNames` is a list of up to three venue names; the server
+      // already picked one per category. Joined here rather than
+      // server-side so the conjunction ("və" / "and" / "и") follows the
+      // reader's language instead of the sender's.
+      final names = (notification.metadata?['venueNames'] as List<dynamic>? ?? const [])
+          .map((n) => n.toString())
+          .where((n) => n.isNotEmpty)
+          .toList();
+      return LocalizedNotificationText(
+        title: loc.notifBirthdayVenuesTitle,
+        body: names.isEmpty
+            ? loc.notifBirthdayVenuesBodyGeneric
+            : loc.notifBirthdayVenuesBody(_joinWithAnd(names, loc.wordAnd)),
+      );
+
+    // The three daily digests. These had NO case here at all until the
+    // birthday rebuild, which meant every digest since the change
+    // rendered as a BLANK card in the feed: the server does not persist
+    // `title`/`body` (only the FCM payload carries them, see
+    // `notifyUser`), so an unrecognised type falls through to
+    // `NotificationType.other` → null → empty strings. The push looked
+    // right and the feed entry was empty.
+    case NotificationType.dailyOffersDigest:
+      return LocalizedNotificationText(
+        title: loc.notifDailyOffersDigestTitle,
+        body: loc.notifDailyOffersDigestBody(_count(notification)),
+      );
+
+    case NotificationType.dailyPinboxDigest:
+      return LocalizedNotificationText(
+        title: loc.notifDailyPinboxDigestTitle,
+        body: loc.notifDailyPinboxDigestBody(_count(notification)),
+      );
+
+    case NotificationType.dailyEventsDigest:
+      return LocalizedNotificationText(
+        title: loc.notifDailyEventsDigestTitle,
+        body: loc.notifDailyEventsDigestBody(_count(notification)),
       );
 
     case NotificationType.waitlistCalled:
@@ -390,4 +433,20 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
     case NotificationType.other:
       return null;
   }
+}
+
+/// "A, B və C" — the conjunction comes from the reader's locale, so the
+/// server sends the names and this decides how to join them.
+String _joinWithAnd(List<String> names, String and) {
+  if (names.length == 1) return names.first;
+  return '${names.sublist(0, names.length - 1).join(', ')} $and ${names.last}';
+}
+
+/// The digest `count` param, defensively — a malformed or missing value
+/// renders "0 new" rather than throwing inside a list builder.
+int _count(AppNotification notification) {
+  final raw = notification.metadata?['count'];
+  if (raw is int) return raw;
+  if (raw is num) return raw.toInt();
+  return 0;
 }

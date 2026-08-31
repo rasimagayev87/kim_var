@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { BirthdayDeadlineBadge } from "@/components/offers/birthday-deadline-badge";
 import { StatusBadge } from "@/components/moderation/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { AdminOfferRow } from "@/lib/data/offers";
@@ -34,9 +35,15 @@ export function OffersTable({ offers }: { offers: AdminOfferRow[] }) {
           {offers.map((offer) => (
             <TableRow key={offer.id}>
               <TableCell>
-                <Link href={`/offers/${offer.id}`} className="font-medium hover:underline">
-                  {offer.title}
-                </Link>
+                <div className="flex flex-col">
+                  <Link href={`/offers/${offer.id}`} className="font-medium hover:underline">
+                    {offer.title}
+                  </Link>
+                  {/* Only ever renders for today's birthday campaigns —
+                      see `birthday-deadline.ts` for why the queue needs
+                      to show a deadline at all. */}
+                  <BirthdayDeadlineBadge matchId={offer.birthdayMatchId} />
+                </div>
               </TableCell>
               <TableCell>
                 <Link href={`/venues/${offer.venueId}`} className="flex items-center gap-2 text-sm hover:underline">

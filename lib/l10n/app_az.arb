@@ -1595,7 +1595,11 @@
   "vipCurrentPackageExpiresLabel": "{date} tarixinədək aktiv",
   "@vipCurrentPackageExpiresLabel": {
     "description": "Abunəliyin bitmə tarixi",
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "vipManageButton": "İdarə et",
   "vipFeatureGhostTitle": "Ghost Mode",
@@ -1668,5 +1672,22 @@
   "softUpdateLaterButton": "Sonra",
   "softUpdateNowButton": "Yenilə",
   "readOnlyModeDefaultMessage": "Sistem hazırda yalnız oxuma rejimindədir. Bir azdan yenidən cəhd edin.",
-  "announcementDismissLabel": "Bağla"
+  "announcementDismissLabel": "Bağla",
+  "wordAnd": "və",
+  "notifBirthdayVenuesTitle": "🎂 Ad günün mübarək!",
+  "notifBirthdayVenuesBody": "{venueNames} bu gün sənə xüsusi kampaniya təklif edir!",
+  "notifBirthdayVenuesBodyGeneric": "Yaxınlığındakı məkanlar bu gün sənə xüsusi kampaniya hazırlayıb!",
+  "notifDailyOffersDigestTitle": "Yeni kampaniyalar",
+  "notifDailyOffersDigestBody": "Ətrafında {count} yeni kampaniya var.",
+  "notifDailyPinboxDigestTitle": "Yeni PinBox qutuları",
+  "notifDailyPinboxDigestBody": "Ətrafında {count} yeni qutu var.",
+  "notifDailyEventsDigestTitle": "Yeni tədbirlər",
+  "notifDailyEventsDigestBody": "Ətrafında {count} yeni tədbir var.",
+  "birthdaySectionTitle": "Ad günü fürsətləri",
+  "birthdaySectionSubtitle": "Bu gün sənin üçün",
+  "birthdayScreenTitle": "Ad günü fürsətləri",
+  "birthdayEmpty": "Bu gün üçün kampaniya yoxdur.",
+  "privacyBirthdayOptInDialogTitle": "Ad günü bildirişləri",
+  "privacyBirthdayOptInDialogBody": "Ad günündə yaxın məkanlardan bildiriş alacaqsan. Doğum tarixin heç bir məkanla paylaşılmır. Söndürsən bildiriş getmir, kampaniyaları Canlı tabda yenə görürsən.",
+  "privacyBirthdayOptInDialogConfirm": "Təsdiqlə"
 }

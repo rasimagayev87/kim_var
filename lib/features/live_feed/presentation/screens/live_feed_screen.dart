@@ -12,6 +12,8 @@ import '../../../premium/presentation/providers/premium_providers.dart';
 import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../../domain/entities/live_feed_item.dart';
 import '../providers/live_feed_providers.dart';
+import '../providers/birthday_feed_providers.dart';
+import '../widgets/live_feed_birthday_section.dart';
 import '../widgets/live_feed_events_section.dart';
 import '../widgets/live_feed_hero_section.dart';
 import '../widgets/live_feed_offers_section.dart';
@@ -137,7 +139,14 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final itemsAsync = ref.watch(liveFeedControllerProvider);
-    final isEmpty = itemsAsync.valueOrNull?.isEmpty ?? false;
+    // The birthday feed counts as content. Without this a user whose
+    // birthday it is, but whose radius happens to hold nothing else,
+    // would get the "nothing nearby, widen your radius" empty state on
+    // the one day the server DID publish something specifically for
+    // them — the campaigns are there, the screen just never gets to the
+    // section that shows them.
+    final hasBirthdayFeed = ref.watch(myBirthdayFeedProvider).valueOrNull?.isEmpty == false;
+    final isEmpty = (itemsAsync.valueOrNull?.isEmpty ?? false) && !hasBirthdayFeed;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -174,6 +183,11 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
                           SizedBox(height: 16),
                           LiveFeedHeroSection(),
                           SizedBox(height: 24),
+                          // Directly under the hero and above every
+                          // other section: it appears one day a year,
+                          // for one person, and renders nothing at all
+                          // the rest of the time.
+                          LiveFeedBirthdaySection(),
                           LiveFeedOffersSection(),
                           SizedBox(height: 24),
                           LiveFeedSeatsSection(),

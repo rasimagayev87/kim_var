@@ -14,7 +14,7 @@
 import { strict as assert } from "node:assert";
 import { describe, test } from "node:test";
 
-import { APP_TIME_ZONE, bakuDateKey, bakuMonthDay, isBirthdayToday } from "../../functions/src/birthday";
+import { APP_TIME_ZONE, bakuDateKey, bakuHour, bakuMonthDay, isBirthdayToday } from "../../functions/src/birthday";
 
 describe("bakuMonthDay — tarixi qurşaq qaydaları", () => {
   test("1987 yay vaxtı (UTC+5) — əsl hal, Console-dan təsdiqlənib", () => {
@@ -124,5 +124,31 @@ describe("isBirthdayToday", () => {
     assert.equal(isBirthdayToday(bornFeb29, new Date("2000-02-28T20:30:00Z")), true, "2000 → 29 fevral");
     assert.equal(isBirthdayToday(bornFeb29, new Date("2100-02-27T20:30:00Z")), true, "2100 → 28 fevral");
     assert.equal(isBirthdayToday(bornFeb29, new Date("2100-02-28T20:30:00Z")), false, "2100-də 29 fevral yoxdur");
+  });
+});
+
+describe("bakuHour — 13:00 kəsimi Bakı vaxtı ilə oxunur", () => {
+  // `publishLateBirthdayOfferIfNeeded` bu funksiya ilə "13:00 keçibmi"
+  // sualını verir. Cloud Functions icra saatı UTC-dir, `onSchedule`-ın
+  // `timeZone`-u yalnız işə salma vaxtını idarə edir — `getHours()`
+  // istifadə etsəydik kəsim yerli 09:00-a düşərdi və günün bütün
+  // kampaniyaları bir-bir yayımlanardı.
+  test("UTC 09:00 → Bakıda 13:00", () => {
+    assert.equal(bakuHour(new Date("2026-08-31T09:00:00Z")), 13);
+  });
+
+  test("UTC 08:59 → Bakıda 12:59, yəni hələ kəsimdən əvvəl", () => {
+    assert.equal(bakuHour(new Date("2026-08-31T08:59:00Z")), 12);
+  });
+
+  test("gecə yarısı 24 yox, 0 qaytarır", () => {
+    // `hour12: false` bəzi ICU versiyalarında 24 verir; `hourCycle:
+    // "h23"` olmasa bu test sınardı.
+    assert.equal(bakuHour(new Date("2026-08-30T20:00:00Z")), 0);
+  });
+
+  test("gün ərzində monoton artır", () => {
+    const hours = [0, 4, 9, 15, 19].map((h) => bakuHour(new Date(Date.UTC(2026, 7, 31, h))));
+    assert.deepEqual(hours, [4, 8, 13, 19, 23]);
   });
 });

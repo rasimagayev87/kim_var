@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge } from "@/components/moderation/status-badge";
+import { BirthdayDeadlineBadge } from "@/components/offers/birthday-deadline-badge";
 import { OfferStatusActions } from "@/components/offers/offer-status-actions";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentAdmin } from "@/lib/auth/server";
@@ -82,6 +83,9 @@ export default async function OfferDetailPage({ params }: { params: Promise<{ id
                   {OFFER_TYPE_LABELS[offer.offerType]}
                   {discountLabel ? ` · ${discountLabel}` : ""}
                 </span>
+                {/* The deadline belongs here more than in the list —
+                    this is the page with the Approve button on it. */}
+                <BirthdayDeadlineBadge matchId={offer.birthdayMatchId} />
               </div>
             </div>
           </div>

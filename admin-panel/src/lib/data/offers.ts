@@ -1,6 +1,7 @@
 import "server-only";
 
 import { getAdminDb } from "@/lib/firebase/admin";
+import { birthdayDeadlineState } from "@/lib/birthday-deadline";
 
 export type OfferStatus = "approved" | "pending" | "needs_revision" | "rejected";
 export type OfferStatusFilter = "all" | OfferStatus;
@@ -56,6 +57,10 @@ export interface AdminOfferRow {
    * in the Flutter app. Null for offers created before that field
    * existed. */
   paymentId: string | null;
+  /** `{YYYY-MM-DD}_{venueId}` for a birthday campaign, null otherwise.
+   * Read here purely so the queue can show its 13:00 deadline — see
+   * `birthday-deadline.ts`. */
+  birthdayMatchId: string | null;
 }
 
 const FETCH_LIMIT = 200;
@@ -95,6 +100,24 @@ export async function listOffers({
 
   const snap = await query.orderBy("createdAt", "desc").limit(FETCH_LIMIT).get();
   let rows = await attachOwners(snap.docs);
+
+  // Today's birthday campaigns float to the top of the pending queue.
+  //
+  // Everything else here can wait until tomorrow; a birthday campaign
+  // cannot. It has to be approved before 13:00 or it misses the
+  // publication its owner was told to aim for, and `createdAt desc`
+  // gives it no more prominence than an offer with a week of slack.
+  // Sorting is the half of the fix that works whatever the moderator
+  // is looking at; the badge in `offers-table.tsx` is the half that
+  // explains why.
+  if (status === "pending") {
+    const now = new Date();
+    rows = [...rows].sort((a, b) => {
+      const aUrgent = birthdayDeadlineState(a.birthdayMatchId, now).kind === "pending" ? 0 : 1;
+      const bUrgent = birthdayDeadlineState(b.birthdayMatchId, now).kind === "pending" ? 0 : 1;
+      return aUrgent - bUrgent;
+    });
+  }
 
   const key = search.trim().toLowerCase();
   if (key) {
@@ -149,6 +172,7 @@ async function attachOwners(docs: FirebaseFirestore.QueryDocumentSnapshot[]): Pr
       createdAt: toIso(data.createdAt),
       revisionDeadline: toIso(data.revisionDeadline),
       paymentId: (data.paymentId as string) || null,
+      birthdayMatchId: (data.birthdayMatchId as string) || null,
     };
   });
 }

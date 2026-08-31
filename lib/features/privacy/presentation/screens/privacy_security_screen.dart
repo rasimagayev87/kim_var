@@ -139,6 +139,25 @@ class PrivacySecurityScreen extends ConsumerWidget {
                   subtitle: loc.privacyBirthdayOffersDescription,
                   value: settings.birthdayOffersOptIn,
                   onChanged: (v) async {
+                    // Confirmed on the way IN only. Switching this on
+                    // is the one setting here that causes something to
+                    // be sent to the user later, on a date they are not
+                    // thinking about right now — so it says plainly
+                    // what will happen, and that the birth date itself
+                    // stays private.
+                    //
+                    // Switching it OFF asks nothing: an opt-out that
+                    // argues with the person is not an opt-out. The
+                    // server honours it at publish time rather than
+                    // trusting the 11:00 snapshot, so turning it off at
+                    // noon still silences the 13:00 push.
+                    //
+                    // It silences the PUSH, not the content: the
+                    // campaigns still appear under "Ad günü fürsətləri"
+                    // in Canlı for anyone who opens the app and looks,
+                    // exactly as `pushEnabled` behaves. See
+                    // `publishBirthdayOffers`.
+                    if (v && !await _confirmBirthdayOptIn(context, loc)) return;
                     final ok = await controller.updateBirthdayOffersOptIn(v);
                     if (!ok && context.mounted) showError();
                   },
@@ -789,4 +808,30 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
       ),
     );
   }
+}
+
+/// "Ad günündə yaxın məkanlardan bildiriş alacaqsan" + confirm.
+Future<bool> _confirmBirthdayOptIn(BuildContext context, AppLocalizations loc) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      backgroundColor: Colors.white,
+      title: Text(
+        loc.privacyBirthdayOptInDialogTitle,
+        style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800),
+      ),
+      content: Text(
+        loc.privacyBirthdayOptInDialogBody,
+        style: const TextStyle(fontSize: 14.5),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: Text(loc.privacyBirthdayOptInDialogConfirm),
+        ),
+      ],
+    ),
+  );
+  return confirmed == true;
 }

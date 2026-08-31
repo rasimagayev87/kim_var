@@ -1595,7 +1595,11 @@
   "vipCurrentPackageExpiresLabel": "{date} tarihine kadar aktif",
   "@vipCurrentPackageExpiresLabel": {
     "description": "Abonelik bitiş tarihi",
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "vipManageButton": "Yönet",
   "vipFeatureGhostTitle": "Ghost Mode",
@@ -1668,5 +1672,22 @@
   "softUpdateLaterButton": "Sonra",
   "softUpdateNowButton": "Güncelle",
   "readOnlyModeDefaultMessage": "Sistem şu anda salt okunur modda. Lütfen birazdan tekrar deneyin.",
-  "announcementDismissLabel": "Kapat"
+  "announcementDismissLabel": "Kapat",
+  "wordAnd": "ve",
+  "notifBirthdayVenuesTitle": "🎂 Doğum günün kutlu olsun!",
+  "notifBirthdayVenuesBody": "{venueNames} bugün sana özel bir kampanya sunuyor!",
+  "notifBirthdayVenuesBodyGeneric": "Yakınındaki mekanlar bugün sana özel bir kampanya hazırladı!",
+  "notifDailyOffersDigestTitle": "Yeni kampanyalar",
+  "notifDailyOffersDigestBody": "Çevrende {count} yeni kampanya var.",
+  "notifDailyPinboxDigestTitle": "Yeni PinBox kutuları",
+  "notifDailyPinboxDigestBody": "Çevrende {count} yeni kutu var.",
+  "notifDailyEventsDigestTitle": "Yeni etkinlikler",
+  "notifDailyEventsDigestBody": "Çevrende {count} yeni etkinlik var.",
+  "birthdaySectionTitle": "Doğum günü fırsatları",
+  "birthdaySectionSubtitle": "Bugün senin için",
+  "birthdayScreenTitle": "Doğum günü fırsatları",
+  "birthdayEmpty": "Bugün için kampanya yok.",
+  "privacyBirthdayOptInDialogTitle": "Doğum günü bildirimleri",
+  "privacyBirthdayOptInDialogBody": "Doğum gününde yakındaki mekanlardan bildirim alacaksın. Doğum tarihin hiçbir mekanla paylaşılmaz. Kapatırsan bildirim gelmez, kampanyaları Canlı sekmesinde yine görürsün.",
+  "privacyBirthdayOptInDialogConfirm": "Onayla"
 }

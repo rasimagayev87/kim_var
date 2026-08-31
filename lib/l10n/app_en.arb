@@ -1709,7 +1709,11 @@
   "vipCurrentPackageExpiresLabel": "Active until {date}",
   "@vipCurrentPackageExpiresLabel": {
     "description": "Subscription end date",
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "vipManageButton": "Manage",
   "vipFeatureGhostTitle": "Ghost Mode",
@@ -1782,5 +1786,22 @@
   "softUpdateLaterButton": "Later",
   "softUpdateNowButton": "Update",
   "readOnlyModeDefaultMessage": "The system is currently in read-only mode. Please try again shortly.",
-  "announcementDismissLabel": "Dismiss"
+  "announcementDismissLabel": "Dismiss",
+  "wordAnd": "and",
+  "notifBirthdayVenuesTitle": "🎂 Happy birthday!",
+  "notifBirthdayVenuesBody": "{venueNames} have a special campaign for you today!",
+  "notifBirthdayVenuesBodyGeneric": "Venues near you have prepared a special campaign for your birthday!",
+  "notifDailyOffersDigestTitle": "New campaigns",
+  "notifDailyOffersDigestBody": "There are {count} new campaigns near you.",
+  "notifDailyPinboxDigestTitle": "New PinBox boxes",
+  "notifDailyPinboxDigestBody": "There are {count} new boxes near you.",
+  "notifDailyEventsDigestTitle": "New events",
+  "notifDailyEventsDigestBody": "There are {count} new events near you.",
+  "birthdaySectionTitle": "Birthday offers",
+  "birthdaySectionSubtitle": "For you today",
+  "birthdayScreenTitle": "Birthday offers",
+  "birthdayEmpty": "No campaigns for today.",
+  "privacyBirthdayOptInDialogTitle": "Birthday notifications",
+  "privacyBirthdayOptInDialogBody": "On your birthday you'll get notifications from nearby venues. Your date of birth is never shared with any venue. Turning this off stops the notifications; the campaigns still appear in the Canlı tab.",
+  "privacyBirthdayOptInDialogConfirm": "Confirm"
 }

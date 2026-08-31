@@ -114,22 +114,47 @@ enum NotificationType {
   /// pre-filled with the venue (`targetType: 'venue_create_offer'`).
   venuePeakHour,
 
-  /// A `birthdayMatches/{date}_{venueId}` doc was just created for this
-  /// venue — see `computeBirthdayMatches` (scheduled Cloud Function).
-  /// Owner-only. Deep-link navigation (opening Create Offer pre-filled
-  /// with the matched users) lands with the birthday create-offer flow
-  /// itself — until then this renders in the feed but does nothing on
-  /// tap, same graceful "unrecognized targetType" fallback every other
-  /// notification type gets from `notification_navigation.dart`.
+  /// The 11:00 nudge: people nearby have a birthday today, and the
+  /// owner has until 13:00 to publish a campaign for them — see
+  /// `computeBirthdayMatches` (scheduled Cloud Function). Owner-only,
+  /// and one per owner rather than one per venue.
+  ///
+  /// With a single matched venue `targetType: 'birthday_match'` opens
+  /// Create Offer pre-filled with that match; with several there is no
+  /// one match to pre-fill from, so it is `'my_venues'` and the owner
+  /// picks. Both are handled in `notification_navigation.dart`.
   birthdayMatch,
 
-  /// A `birthday` offer just got approved — sent to every uid in its
-  /// `targetUserIds` (see `notifyBirthdayTargetUsers`, the approval
-  /// branch of `onOfferUpdated`). `targetType: 'offer'`, same as any
-  /// other approved-offer notification, so it opens
-  /// `OfferDetailsScreen` with no extra navigation case needed — this
-  /// type only exists to give it its own icon/copy in the feed.
+  /// RETIRED as of the birthday-flow rebuild. A `birthday` offer used
+  /// to push at the moment it was approved; approval now publishes
+  /// nothing and `publishBirthdayCampaigns` sends [birthdayVenues]
+  /// instead, once, at 13:00.
+  ///
+  /// Kept in this enum — and in `notification_localizer.dart` — because
+  /// notifications already written with this type are still sitting in
+  /// users' feeds, and removing the case would render them blank.
   birthdayOffer,
+
+  /// The day's birthday campaigns, published together at 13:00 — see
+  /// `publishBirthdayCampaigns` (Cloud Function). Names up to three
+  /// venues, each from a different category.
+  ///
+  /// `targetType: 'birthday_feed'`, `targetId` = the Baku date key, so
+  /// tapping opens the "Ad günü fürsətləri" list rather than any one
+  /// venue: the whole point of the 13:00 moment is that several
+  /// campaigns arrive at once.
+  birthdayVenues,
+
+  /// The daily opportunity digest — one per content kind, at most three
+  /// a day, sent by `sendDailyOpportunityDigest` at 15:00 in place of
+  /// the per-listing fan-out that used to send one push per venue.
+  ///
+  /// `targetType: 'live_feed'` with no `targetId`: a digest summarises
+  /// many listings, so there is no single document to open and the
+  /// destination is the Canlı tab.
+  dailyOffersDigest,
+  dailyPinboxDigest,
+  dailyEventsDigest,
 
   /// Owner just called this user forward in a venue's waitlist — see
   /// `callWaitlistEntry` (Cloud Function). `targetType: 'venue'`, same

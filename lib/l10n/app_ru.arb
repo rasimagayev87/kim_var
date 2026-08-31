@@ -1595,7 +1595,11 @@
   "vipCurrentPackageExpiresLabel": "Активно до {date}",
   "@vipCurrentPackageExpiresLabel": {
     "description": "Дата окончания подписки",
-    "placeholders": { "date": { "type": "String" } }
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
   },
   "vipManageButton": "Управлять",
   "vipFeatureGhostTitle": "Ghost Mode",
@@ -1668,5 +1672,22 @@
   "softUpdateLaterButton": "Позже",
   "softUpdateNowButton": "Обновить",
   "readOnlyModeDefaultMessage": "Система сейчас в режиме только для чтения. Попробуйте снова чуть позже.",
-  "announcementDismissLabel": "Закрыть"
+  "announcementDismissLabel": "Закрыть",
+  "wordAnd": "и",
+  "notifBirthdayVenuesTitle": "🎂 С днём рождения!",
+  "notifBirthdayVenuesBody": "{venueNames} сегодня предлагают вам специальную кампанию!",
+  "notifBirthdayVenuesBodyGeneric": "Заведения рядом подготовили для вас специальную кампанию!",
+  "notifDailyOffersDigestTitle": "Новые кампании",
+  "notifDailyOffersDigestBody": "Рядом с вами {count} новых кампаний.",
+  "notifDailyPinboxDigestTitle": "Новые коробки PinBox",
+  "notifDailyPinboxDigestBody": "Рядом с вами {count} новых коробок.",
+  "notifDailyEventsDigestTitle": "Новые мероприятия",
+  "notifDailyEventsDigestBody": "Рядом с вами {count} новых мероприятий.",
+  "birthdaySectionTitle": "Предложения ко дню рождения",
+  "birthdaySectionSubtitle": "Сегодня для вас",
+  "birthdayScreenTitle": "Предложения ко дню рождения",
+  "birthdayEmpty": "На сегодня кампаний нет.",
+  "privacyBirthdayOptInDialogTitle": "Уведомления ко дню рождения",
+  "privacyBirthdayOptInDialogBody": "В день рождения вы получите уведомления от ближайших заведений. Дата рождения не передаётся заведениям. Если выключить, уведомления не придут, но кампании останутся во вкладке «Канлы».",
+  "privacyBirthdayOptInDialogConfirm": "Подтвердить"
 }

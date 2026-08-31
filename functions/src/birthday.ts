@@ -66,6 +66,30 @@ export function bakuDateKey(date: Date): string {
   return `${year}-${bakuMonthDay(date)}`;
 }
 
+/**
+ * The hour (0–23) a moment falls in, read in Baku.
+ *
+ * Cloud Functions' runtime clock is UTC — `onSchedule`'s `timeZone`
+ * decides when Scheduler fires a function, not what `Date.getHours()`
+ * answers once it is running. Any code asking "is it past 13:00 for
+ * the user?" therefore has to format against the zone, exactly like
+ * [bakuMonthDay] does for the day. Getting this wrong shifts the
+ * answer by four hours, which is the difference between publishing a
+ * late birthday campaign and publishing every campaign one at a time.
+ */
+export function bakuHour(date: Date): number {
+  const parts = HOUR_FORMAT.formatToParts(date);
+  return Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+}
+
+/** `hourCycle: "h23"` so midnight is 0 and not 24 — `hour12: false`
+ * alone still reports 24 in some ICU versions. */
+const HOUR_FORMAT = new Intl.DateTimeFormat("en-GB", {
+  timeZone: APP_TIME_ZONE,
+  hour: "2-digit",
+  hourCycle: "h23",
+});
+
 /** The `YYYY` a moment falls in, read in Baku. */
 function bakuYear(date: Date): number {
   return Number(bakuDateKey(date).slice(0, 4));

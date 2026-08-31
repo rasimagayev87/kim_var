@@ -47,7 +47,14 @@ import {
   venuePhotoPath,
 } from "./media-paths";
 import { confinedStoragePath } from "./storage-path";
-import { bakuDateKey, isBirthdayToday } from "./birthday";
+import { bakuDateKey, bakuHour, isBirthdayToday } from "./birthday";
+import {
+  BIRTHDAY_FEED_MAX,
+  BIRTHDAY_HIGHLIGHT_COUNT,
+  BirthdayVenueCandidate,
+  pickDistinctCategoryVenues,
+  rankCandidates,
+} from "./birthday-ranking";
 import {
   DIGEST_LOOKBACK_MS,
   DigestIntent,
@@ -3219,6 +3226,33 @@ export const computeVenueAudienceHistory = onSchedule(
 /** Defensive cap on how many opted-in birthday users one run considers — see this function's own doc comment on the geohash follow-up. */
 const BIRTHDAY_CANDIDATE_LIMIT = 1000;
 
+/**
+ * How long a `birthdayMatches` document survives — docs/BACKLOG.md #26.
+ *
+ * A match is written at 11:00 and consumed the same day: by
+ * `assertBirthdayTargeting` when the owner submits, and by
+ * `publishBirthdayCampaigns` at 13:00. Nothing needs it tomorrow —
+ * `assertBirthdayTargeting` rejects a match that is not today's — so
+ * three days is pure slack for a run that failed and had to be looked
+ * at, matching `INTENT_RETENTION_DAYS`.
+ *
+ * Removed by a native TTL policy on `expiresAt`, not by a sweep. The
+ * collection previously had neither and grew by one document per
+ * eligible venue per day, forever.
+ */
+const BIRTHDAY_MATCH_RETENTION_DAYS = 3;
+
+/**
+ * The hour, in Baku, when the day's approved birthday campaigns go
+ * live — see `publishBirthdayCampaigns`.
+ *
+ * Named rather than inlined because four things depend on this one
+ * number: the scheduled publish, the "is this late?" branch in
+ * `onOfferUpdated`, the admin reminder half an hour before it, and the
+ * deadline the 11:00 push quotes to owners.
+ */
+const BIRTHDAY_PUBLISH_HOUR = 13;
+
 interface BirthdayUserDoc {
   uid: string;
   lat?: number;
@@ -3229,7 +3263,7 @@ interface BirthdayUserDoc {
 }
 
 /**
- * Daily at 00:05 Azerbaijan time (`Asia/Baku` — see `timeZone` below,
+ * Daily at 11:00 Azerbaijan time (`Asia/Baku` — see `timeZone` below,
  * which controls when Cloud Scheduler fires this, not what a plain
  * `Date` reports once it's running: Cloud Functions' own runtime clock
  * reads UTC, so "today" is derived from an Asia/Baku-formatted string,
@@ -3246,11 +3280,34 @@ interface BirthdayUserDoc {
  * the venue's `audienceRadiusMode`/`audienceRadiusKm`, which is scoped
  * to the owner-only "Ətrafda N istifadəçi" live counter
  * (`computeAudienceCount`) only, unrelated to reach. One
- * `birthdayMatches/{date}_{venueId}` doc per
- * venue that matched at least one user, plus a push nudging the owner
- * to create a birthday offer (`targetType: 'birthday_match'` — the
- * pre-filled Create Offer deep link itself lands with that flow, see
- * `NotificationType.birthdayMatch`'s doc comment client-side).
+ * `birthdayMatches/{date}_{venueId}` doc per venue that matched at
+ * least one user, plus ONE push per OWNER nudging them to create a
+ * birthday campaign.
+ *
+ * ── 11:00, and why that exact hour ─────────────────────────────────
+ *
+ * This used to run at 00:05. It now runs at 11:00 because the two
+ * hours between this function and `publishBirthdayCampaigns` (13:00)
+ * are the MODERATION WINDOW, and that window is the whole design:
+ *
+ *   11:00  the owner is told "N people nearby have a birthday today"
+ *   11:05  the owner creates a campaign
+ *   ~12:xx a moderator approves it
+ *   13:00  every approved campaign publishes at once, and the birthday
+ *          users get exactly one notification
+ *
+ * Computing at midnight bought nothing and cost accuracy: a user's
+ * `lat`/`lng` at 00:05 is eleven hours staler than at 11:00, and
+ * nothing could act on the result until the morning anyway.
+ *
+ * ── One push per owner, not one per venue ──────────────────────────
+ *
+ * An owner with three eligible venues used to get three separate
+ * pushes in the same minute. They now get one. With a single matched
+ * venue the deep link is unchanged (`targetType: 'birthday_match'` →
+ * the pre-filled Create Offer flow, see `NotificationType.birthdayMatch`'s
+ * doc comment client-side); with several there is no single match to
+ * open, so it points at the owner's venue list instead.
  *
  * Full collection scans for now (bounded by the `birthdayOffersOptIn`/
  * `birthdayNotificationsEnabled` filters already, plus
@@ -3260,7 +3317,7 @@ interface BirthdayUserDoc {
  * full scan isn't a problem this build needs to solve yet.
  */
 export const computeBirthdayMatches = onSchedule(
-  { schedule: "5 0 * * *", timeZone: "Asia/Baku", region: "europe-west1" },
+  { schedule: "0 11 * * *", timeZone: "Asia/Baku", region: "europe-west1" },
   async () => {
     const now = new Date();
     // Both sides of the birthday comparison are now read in Asia/Baku —
@@ -3304,6 +3361,10 @@ export const computeBirthdayMatches = onSchedule(
     });
     if (birthdayUsers.length === 0) return;
 
+    // Collected across every venue, then sent as ONE push per owner
+    // below — see this function's doc comment.
+    const newMatchesByOwner = new Map<string, { matchId: string; userCount: number }[]>();
+
     for (const venueDoc of eligibleVenuesSnap.docs) {
       const venue = venueDoc.data();
       // Category allowlist — `birthdayNotificationsEnabled` alone was
@@ -3339,24 +3400,57 @@ export const computeBirthdayMatches = onSchedule(
         matchedUserIds,
         count: matchedUserIds.length,
         notified: false,
-        offerCreated: false,
+        // `offerCreated: false` was written here and NEVER set to true —
+        // no line of code updated it (docs/BACKLOG.md #26). Removed
+        // rather than wired up: nothing reads it, and the honest
+        // version is not cheap. "Did the owner act on this nudge?"
+        // cannot be answered by a flag set at submit time, because a
+        // campaign can be submitted and then rejected; answering it
+        // properly means reading the offer's final status. A field that
+        // always says `false` is worse than no field, because it looks
+        // like an answer.
         createdAt: FieldValue.serverTimestamp(),
+        // docs/BACKLOG.md #26 — this collection grew without bound
+        // because nothing ever removed a day's matches. A native TTL
+        // on `expiresAt` does it with no scheduled sweep to forget,
+        // the same arrangement as `notificationIntents`.
+        expiresAt: Timestamp.fromMillis(Date.now() + BIRTHDAY_MATCH_RETENTION_DAYS * 24 * 60 * 60 * 1000),
       });
 
       const ownerId = venue.ownerId as string | undefined;
       if (!ownerId) continue;
+
+      const owned = newMatchesByOwner.get(ownerId) ?? [];
+      owned.push({ matchId: matchRef.id, userCount: matchedUserIds.length });
+      newMatchesByOwner.set(ownerId, owned);
+    }
+
+    for (const [ownerId, matches] of newMatchesByOwner) {
+      const totalUsers = matches.reduce((sum, m) => sum + m.userCount, 0);
+      const single = matches.length === 1;
 
       await notifyUser({
         uid: ownerId,
         category: "venueUpdates",
         type: "birthdayMatch",
         title: "🎂 Ad günü fürsəti",
-        body: `Bugün yaxınlığınızda ${matchedUserIds.length} PeakPin istifadəçisinin doğum günüdür. Onlara xüsusi təklif yarat!`,
-        params: { count: matchedUserIds.length },
-        targetId: matchRef.id,
-        targetType: "birthday_match",
+        // The 13:00 deadline is stated in the push itself. An owner
+        // cannot use a moderation window nothing tells them about:
+        // "yarat" alone gave no reason to act now rather than tonight,
+        // by which time the day is over.
+        body: single
+          ? `Bugün yaxınlığınızda ${totalUsers} PeakPin istifadəçisinin doğum günüdür. Kampaniyanı saat ${BIRTHDAY_PUBLISH_HOUR}:00-a qədər yaradın!`
+          : `${matches.length} məkanınızın yaxınlığında bu gün ${totalUsers} PeakPin istifadəçisinin doğum günüdür. Kampaniyaları saat ${BIRTHDAY_PUBLISH_HOUR}:00-a qədər yaradın!`,
+        params: { count: totalUsers, venueCount: matches.length },
+        // With one match the existing pre-filled Create Offer deep link
+        // still works. With several there is no single match to open.
+        targetId: single ? matches[0].matchId : todayKey,
+        targetType: single ? "birthday_match" : "my_venues",
       });
-      await matchRef.update({ notified: true });
+
+      await Promise.all(
+        matches.map((m) => db.collection("birthdayMatches").doc(m.matchId).update({ notified: true })),
+      );
     }
   },
 );
@@ -3730,7 +3824,16 @@ export const onOfferUpdated = onDocumentUpdated("offers/{offerId}", async (event
   // this mismatch calls for.
   if (after.status === "approved") {
     if (after.offerType === "birthday") {
-      await notifyBirthdayTargetUsers(event.params.offerId, after);
+      // Approval does NOT publish. A birthday campaign approved inside
+      // the 11:00–13:00 moderation window waits for
+      // `publishBirthdayCampaigns`, so the whole day's campaigns appear
+      // together instead of trickling out one venue at a time ahead of
+      // the notification that announces them.
+      //
+      // Past 13:00 that run has already happened, so a late approval
+      // publishes itself — visible immediately, silent unless nobody
+      // was notified today. See `publishBirthdayOffers`.
+      await publishLateBirthdayOfferIfNeeded(event.params.offerId, after);
     } else if (after.offerType !== "happyHour" || after.happyHourActive === true) {
       // Records the intent; `sendDailyOpportunityDigest` decides who
       // hears about it and when — see [recordListingIntent].
@@ -4222,16 +4325,6 @@ export const decrementSeatsOnWaitlistSeated = onDocumentUpdated(
 );
 
 /**
- * A `birthday` offer's approval fanout — every uid in
- * `Offer.targetUserIds` (the matched birthday users from
- * `computeBirthdayMatches`) gets its own push, NOT the radius-based
- * `notifyNearbyUsersOfNewOffer` fanout every other approved offer
- * gets. A birthday offer is only ever meant for these specific users
- * (see `nearbyOffersProvider`'s client-side filter, which hides it
- * from everyone else) — notifying by proximity instead would both
- * miss the point and leak it to people it was never meant for.
- */
-/**
  * Validates a birthday offer's targeting against the server's own
  * record of who actually has a birthday — or throws.
  *
@@ -4276,6 +4369,21 @@ async function assertBirthdayTargeting(
   }
   const match = matchSnap.data()!;
 
+  // The match must be TODAY's.
+  //
+  // `computeBirthdayMatches` stamps each match with the Baku date it
+  // was computed for, and `birthdayMatches` documents linger for
+  // [BIRTHDAY_MATCH_RETENTION_DAYS]. Without this check an owner could
+  // submit last week's `birthdayMatchId` on any later day and reach
+  // that day's birthday users — people whose birthday is long past —
+  // which is the same targeted-push primitive `assertBirthdayTargeting`
+  // exists to close, just displaced in time rather than in identity.
+  const todayKey = bakuDateKey(new Date());
+  if (match.date !== todayKey) {
+    rejectRequest("failed-precondition", "offer.birthday-match-expired",
+      "Bu ad günü eşleşməsi bugünkü deyil.", { matchId, matchDate: match.date, todayKey });
+  }
+
   // The match belongs to ONE venue. Without this an owner could quote
   // another venue's match id and inherit its recipient list.
   if (match.venueId !== venueId) {
@@ -4295,49 +4403,470 @@ async function assertBirthdayTargeting(
   return { matchId, userIds: [...new Set(requested)] };
 }
 
-async function notifyBirthdayTargetUsers(offerId: string, offer: FirebaseFirestore.DocumentData): Promise<void> {
-  // Read from the server-only subcollection, never from the offer
-  // document — the uid list is deliberately not on a doc every signed
-  // -in user can read (see `assertBirthdayTargeting` and the
-  // `offers/{id}/private/{document}` rule).
-  const targetingSnap = await db.collection("offers").doc(offerId).collection("private").doc("targeting").get();
-  const targetUserIds = (targetingSnap.data()?.userIds as string[] | undefined) ?? [];
-  if (targetUserIds.length === 0) return;
-  const venueName = (offer.venueName as string | undefined) ?? "";
-
-  await Promise.all(
-    targetUserIds.map(async (uid) => {
-      // The recipient's own marker — this is what replaces the public
-      // `offers.targetUserIds` array as the client's visibility check.
-      // Each user can read only their own subcollection, so nobody
-      // learns whose birthday it is; the offer document itself carries
-      // `offerType: 'birthday'` and nothing about whom it is for.
-      //
-      // Written BEFORE the push so the offer is already visible when
-      // the notification lands — the reverse order would deep-link into
-      // a feed that has not caught up yet.
-      await db
-        .collection("users")
-        .doc(uid)
-        .collection("birthdayOffers")
-        .doc(offerId)
-        .set({ offerId, venueName, createdAt: FieldValue.serverTimestamp() });
-
-      await notifyUser({
-        uid,
-        category: "venueOffers",
-        type: "birthdayOffer",
-        title: "🎉 Sənə xüsusi ad günü təklifi!",
-        body: venueName
-          ? `${venueName} sənin ad günün üçün xüsusi təklif hazırladı!`
-          : "Sənin ad günün üçün xüsusi təklif hazırlandı!",
-        params: { venueName },
-        targetId: offerId,
-        targetType: "offer",
-      });
-    }),
-  );
+/**
+ * ── PUBLISHING A DAY'S BIRTHDAY CAMPAIGNS ─────────────────────────
+ *
+ * `notifyBirthdayTargetUsers` used to live here. It ran the moment a
+ * birthday offer was APPROVED and did two things: wrote each
+ * recipient's `users/{uid}/birthdayOffers/{offerId}` marker — which is
+ * what every client-side filter reads to decide whether the offer is
+ * visible at all — and sent that recipient a push.
+ *
+ * Both were wrong for this flow, and the marker more so than the push.
+ * Publication is a single moment:
+ *
+ *   11:00  computeBirthdayMatches tells owners
+ *   11:00–13:00  the MODERATION WINDOW: the owner writes a campaign,
+ *                a moderator approves it. Approval publishes NOTHING.
+ *   13:00  publishBirthdayCampaigns — every campaign approved in that
+ *          window appears at once, in the Canlı tab and the ticker,
+ *          and each birthday user gets exactly ONE push.
+ *
+ * Writing the marker at approval time meant a campaign approved at
+ * 12:10 became visible at 12:10 — the publication leaking out ahead of
+ * the notification announcing it, in dribs and drabs, one venue at a
+ * time. Dropping only the push would not have fixed that.
+ *
+ * So approval no longer publishes; this does. It is shared by the
+ * 13:00 schedule and by the late path in `onOfferUpdated`, because
+ * "publish these campaigns to these people" is one operation whether
+ * it is forty campaigns or one.
+ */
+interface BirthdayPublishOffer {
+  offerId: string;
+  venueId: string;
+  venueName: string;
+  category: string;
+  /** The validated recipients, from `offers/{id}/private/targeting`. */
+  userIds: string[];
 }
+
+/** What the ranking needs to know about one venue, measured once per
+ * run rather than once per recipient. */
+interface BirthdayVenueMetrics {
+  category: string;
+  lat?: number;
+  lng?: number;
+  country?: string;
+  liveContentTypes: number;
+  activeCampaigns: number;
+  boosted: boolean;
+}
+
+/**
+ * The four ranking inputs for every venue publishing today.
+ *
+ * Measured PER VENUE, not per recipient: the venue's content is the
+ * same whoever is looking at it, and only the distance term varies by
+ * user. Doing it the other way round would multiply these queries by
+ * the number of birthday users for no additional information.
+ *
+ * `activeCampaigns` counts ALL the venue's live approved offers, not
+ * its birthday ones — see `scoreVenue`'s doc comment for why counting
+ * birthday campaigns would make that 20% weight a constant.
+ */
+async function loadBirthdayVenueMetrics(venueIds: string[]): Promise<Map<string, BirthdayVenueMetrics>> {
+  const metrics = new Map<string, BirthdayVenueMetrics>();
+  if (venueIds.length === 0) return metrics;
+
+  const now = Timestamp.now();
+
+  for (let i = 0; i < venueIds.length; i += 30) {
+    const chunk = venueIds.slice(i, i + 30);
+    // `where in` caps at 30 values — same chunking as
+    // `anonymizeUserVenueEvents`.
+    const [venuesSnap, offersSnap, eventsSnap, pinboxesSnap] = await Promise.all([
+      db.collection("venues").where(FieldPath.documentId(), "in", chunk).get(),
+      db.collection("offers").where("venueId", "in", chunk).where("status", "==", "approved").get(),
+      db.collection("venueEvents").where("venueId", "in", chunk).get(),
+      db.collection("pinboxes").where("venueId", "in", chunk).where("status", "==", "active").get(),
+    ]);
+
+    for (const venueDoc of venuesSnap.docs) {
+      const v = venueDoc.data();
+      metrics.set(venueDoc.id, {
+        category: (v.category as string | undefined) ?? "",
+        lat: v.lat as number | undefined,
+        lng: v.lng as number | undefined,
+        country: v.country as string | undefined,
+        liveContentTypes: 0,
+        activeCampaigns: 0,
+        boosted: false,
+      });
+    }
+
+    for (const offerDoc of offersSnap.docs) {
+      const o = offerDoc.data();
+      const m = metrics.get(o.venueId as string);
+      if (!m) continue;
+      // `status: approved` alone is not "live" — an offer whose window
+      // has closed keeps that status forever.
+      const endDate = o.endDate as Timestamp | undefined;
+      if (endDate && endDate.toMillis() < now.toMillis()) continue;
+      m.activeCampaigns += 1;
+      const boostedUntil = o.boostedUntil as Timestamp | undefined;
+      if (boostedUntil && boostedUntil.toMillis() > now.toMillis()) m.boosted = true;
+    }
+
+    const venuesWithEvent = new Set<string>();
+    for (const eventDoc of eventsSnap.docs) {
+      const e = eventDoc.data();
+      // `ended`/`cancelled` are not something anyone can go to tonight.
+      if (e.status !== "upcoming" && e.status !== "live") continue;
+      venuesWithEvent.add(e.venueId as string);
+    }
+    const venuesWithPinbox = new Set(pinboxesSnap.docs.map((d) => d.data().venueId as string));
+
+    // Distinct content KINDS, so each of the three contributes at most
+    // once however many documents it has — this is the VARIETY signal,
+    // deliberately separate from `activeCampaigns`' volume. See
+    // `scoreVenue`.
+    for (const venueId of chunk) {
+      const m = metrics.get(venueId);
+      if (!m) continue;
+      m.liveContentTypes =
+        (m.activeCampaigns > 0 ? 1 : 0) +
+        (venuesWithEvent.has(venueId) ? 1 : 0) +
+        (venuesWithPinbox.has(venueId) ? 1 : 0);
+    }
+  }
+
+  return metrics;
+}
+
+/**
+ * Publishes [offers] to their recipients and notifies each recipient
+ * ONCE.
+ *
+ * ── One birthday push per user per day ─────────────────────────────
+ *
+ * `users/{uid}/birthdayFeed/{dateKey}.notifiedAt` is the record that
+ * a push already went out today. The 13:00 run sets it; the late path
+ * checks it.
+ *
+ * That is what makes a late campaign safe to publish immediately. A
+ * campaign approved at 16:00 still matters — the birthday is today and
+ * the person can still go out this evening — and its placement fee was
+ * already paid, so dropping it would charge an owner for a moderator's
+ * delay. But a second push per straggling venue is precisely the
+ * per-listing spam the digest work removed. So a late campaign becomes
+ * VISIBLE at once and stays SILENT, unless nothing was published at
+ * 13:00 at all, in which case it sends the push that never went.
+ *
+ * ── The opt-in is re-checked here, and stops the PUSH only ─────────
+ *
+ * `computeBirthdayMatches` filters on `birthdayOffersOptIn` at 11:00,
+ * and that is a snapshot. Someone who switches the setting off at
+ * 12:00 is still sitting in `matchedUserIds` and would otherwise be
+ * pushed to at 13:00 — an opt-out that visibly fails on the one day it
+ * is about. The flag is read again, per recipient, at publish time.
+ *
+ * What it does NOT do is hide the campaigns. The marker and the
+ * `birthdayFeed` document are written either way, so someone who opens
+ * the app themselves still finds "Ad günü fürsətləri" waiting.
+ * Switching the setting off says "do not interrupt me", not "keep this
+ * from me" — the same reading `pushEnabled` already gets, where the
+ * push stops and the in-app content stays. Suppressing the content too
+ * would mean a user who went looking found nothing, with no way to
+ * tell that their own setting was the reason.
+ *
+ * `notifiedAt` is therefore only stamped when a push actually goes
+ * out, and it means exactly that. An opted-out user's feed carries no
+ * `notifiedAt`, which is correct: nothing was sent.
+ */
+async function publishBirthdayOffers(offers: BirthdayPublishOffer[], todayKey: string): Promise<void> {
+  if (offers.length === 0) return;
+
+  const offersByUser = new Map<string, BirthdayPublishOffer[]>();
+  for (const offer of offers) {
+    for (const uid of offer.userIds) {
+      const list = offersByUser.get(uid) ?? [];
+      list.push(offer);
+      offersByUser.set(uid, list);
+    }
+  }
+  if (offersByUser.size === 0) return;
+
+  const metrics = await loadBirthdayVenueMetrics([...new Set(offers.map((o) => o.venueId))]);
+
+  for (const [uid, userOffers] of offersByUser) {
+    const [userSnap, privateSnap, feedSnap] = await Promise.all([
+      db.collection("users").doc(uid).get(),
+      privateDataRef(uid).get(),
+      db.collection("users").doc(uid).collection("birthdayFeed").doc(todayKey).get(),
+    ]);
+    if (!userSnap.exists) continue;
+
+    const user = userSnap.data() ?? {};
+    if (user.banned === true) continue;
+    // Re-read, not trusted from 11:00 — and it gates the push alone,
+    // not the content. See this function's doc comment.
+    const optedIn = user.birthdayOffersOptIn === true;
+
+    const priv = privateSnap.data() ?? {};
+    const recipient = {
+      lat: priv.lat as number | undefined,
+      lng: priv.lng as number | undefined,
+      country: user.country as string | undefined,
+      discoverRadiusMode: priv.discoverRadiusMode as string | undefined,
+      discoverRadiusKm: priv.discoverRadiusKm as number | undefined,
+    };
+
+    // The marker each client filter reads — written BEFORE the push so
+    // the campaign is already visible when the notification lands.
+    await Promise.all(
+      userOffers.map((offer) =>
+        db
+          .collection("users")
+          .doc(uid)
+          .collection("birthdayOffers")
+          .doc(offer.offerId)
+          .set({ offerId: offer.offerId, venueName: offer.venueName, createdAt: FieldValue.serverTimestamp() }),
+      ),
+    );
+
+    const candidates: BirthdayVenueCandidate[] = [];
+    const nameByVenueId = new Map<string, string>();
+    for (const offer of userOffers) {
+      const m = metrics.get(offer.venueId);
+      if (!m) continue;
+      nameByVenueId.set(offer.venueId, offer.venueName);
+      candidates.push({
+        venueId: offer.venueId,
+        category: m.category || offer.category,
+        distanceMeters:
+          typeof recipient.lat === "number" && typeof recipient.lng === "number" &&
+          typeof m.lat === "number" && typeof m.lng === "number"
+            ? haversineMeters(recipient.lat, recipient.lng, m.lat, m.lng)
+            : 0,
+        reachMeters:
+          recipient.discoverRadiusMode === "distance" && typeof recipient.discoverRadiusKm === "number"
+            ? recipient.discoverRadiusKm * 1000
+            : undefined,
+        liveContentTypes: m.liveContentTypes,
+        activeCampaigns: m.activeCampaigns,
+        boosted: m.boosted,
+      });
+    }
+    if (candidates.length === 0) continue;
+
+    // A late publish merges into whatever 13:00 already wrote, rather
+    // than replacing it — the earlier venues do not disappear from the
+    // list because a straggler arrived.
+    const existing = feedSnap.data();
+    const alreadyListed = (existing?.venueIds as string[] | undefined) ?? [];
+    const ranked = rankCandidates(candidates);
+    const rankedIds = ranked.map((r) => r.venueId);
+    const venueIds = [...new Set([...alreadyListed, ...rankedIds])].slice(0, BIRTHDAY_FEED_MAX);
+
+    const highlights = pickDistinctCategoryVenues(ranked, BIRTHDAY_HIGHLIGHT_COUNT);
+    const alreadyNotified = existing?.notifiedAt !== undefined && existing?.notifiedAt !== null;
+    const shouldNotify = optedIn && !alreadyNotified;
+
+    await db
+      .collection("users")
+      .doc(uid)
+      .collection("birthdayFeed")
+      .doc(todayKey)
+      .set(
+        {
+          date: todayKey,
+          // Written whatever the opt-in says — this is the content, and
+          // the content is not what the setting turns off.
+          venueIds,
+          // `highlightVenueIds` is the record of which venues the push
+          // NAMED, so it is written only when a push is actually sent.
+          ...(shouldNotify
+            ? { highlightVenueIds: highlights.map((h) => h.venueId), notifiedAt: FieldValue.serverTimestamp() }
+            : {}),
+          updatedAt: FieldValue.serverTimestamp(),
+          // Same TTL reasoning as `birthdayMatches` — a day's feed is
+          // meaningless tomorrow, and nothing should have to sweep it.
+          expiresAt: Timestamp.fromMillis(Date.now() + BIRTHDAY_MATCH_RETENTION_DAYS * 24 * 60 * 60 * 1000),
+        },
+        { merge: true },
+      );
+
+    if (!shouldNotify) continue;
+
+    const names = highlights.map((h) => nameByVenueId.get(h.venueId) ?? "").filter((n) => n !== "");
+    await notifyUser({
+      uid,
+      category: "venueOffers",
+      type: "birthdayVenues",
+      title: "🎂 Ad günün mübarək!",
+      body: birthdayDigestBody(names),
+      params: { count: venueIds.length, venueNames: names },
+      // The list, not one venue — the whole point of the 13:00 moment
+      // is that several campaigns arrive together.
+      targetId: todayKey,
+      targetType: "birthday_feed",
+    });
+  }
+}
+
+/** "A, B və C bu gün sənə xüsusi kampaniya təklif edir." — degrades to
+ * one or two names, and to a countless phrasing when a venue somehow
+ * has no name at all. */
+function birthdayDigestBody(names: string[]): string {
+  if (names.length === 0) return "Yaxınlığındakı məkanlar bu gün sənə xüsusi kampaniya hazırlayıb!";
+  if (names.length === 1) return `${names[0]} bu gün sənə xüsusi kampaniya təklif edir!`;
+  const last = names[names.length - 1];
+  return `${names.slice(0, -1).join(", ")} və ${last} bu gün sənə xüsusi kampaniya təklif edir!`;
+}
+
+/**
+ * Reads today's approved birthday campaigns, from the day's matches.
+ *
+ * Goes through `birthdayMatches` rather than querying `offers` by date:
+ * `birthdayMatchId` is what ties a campaign to a specific day AND to a
+ * specific venue, it is validated on submit (`assertBirthdayTargeting`)
+ * and locked against update in `firestore.rules`. A `createdAt`-based
+ * query would also catch a campaign built against a stale match.
+ */
+async function loadTodaysApprovedBirthdayOffers(todayKey: string): Promise<BirthdayPublishOffer[]> {
+  const matchesSnap = await db.collection("birthdayMatches").where("date", "==", todayKey).get();
+  if (matchesSnap.empty) return [];
+  const matchIds = matchesSnap.docs.map((d) => d.id);
+
+  const offers: BirthdayPublishOffer[] = [];
+  for (let i = 0; i < matchIds.length; i += 30) {
+    const chunk = matchIds.slice(i, i + 30);
+    const snap = await db
+      .collection("offers")
+      .where("birthdayMatchId", "in", chunk)
+      .where("status", "==", "approved")
+      .get();
+    for (const doc of snap.docs) {
+      const offer = await toBirthdayPublishOffer(doc.id, doc.data());
+      if (offer) offers.push(offer);
+    }
+  }
+  return offers;
+}
+
+/** The recipients ride in `offers/{id}/private/targeting`, never on the
+ * offer document — see `assertBirthdayTargeting`. An offer whose
+ * targeting is missing publishes to nobody rather than to everybody. */
+async function toBirthdayPublishOffer(
+  offerId: string,
+  data: FirebaseFirestore.DocumentData,
+): Promise<BirthdayPublishOffer | null> {
+  const targetingSnap = await db.collection("offers").doc(offerId).collection("private").doc("targeting").get();
+  const userIds = (targetingSnap.data()?.userIds as string[] | undefined) ?? [];
+  if (userIds.length === 0) return null;
+  return {
+    offerId,
+    venueId: data.venueId as string,
+    venueName: (data.venueName as string | undefined) ?? "",
+    category: (data.category as string | undefined) ?? "",
+    userIds,
+  };
+}
+
+/**
+ * 13:00 Asia/Baku — the day's single publication moment.
+ *
+ * Everything approved during the 11:00–13:00 moderation window goes
+ * live here, together: the campaigns become visible in the Canlı tab
+ * and the ticker, and each birthday user gets one notification naming
+ * up to three of them.
+ *
+ * Sends NOTHING when no owner acted. Zero campaigns means no push, no
+ * `birthdayFeed` document, and therefore no empty "Ad günü fürsətləri"
+ * section in the client — a birthday greeting attached to nothing at
+ * all is worse than silence.
+ */
+export const publishBirthdayCampaigns = onSchedule(
+  { schedule: `0 ${BIRTHDAY_PUBLISH_HOUR} * * *`, timeZone: "Asia/Baku", region: "europe-west1" },
+  async () => {
+    const todayKey = bakuDateKey(new Date());
+    const offers = await loadTodaysApprovedBirthdayOffers(todayKey);
+    if (offers.length === 0) return;
+    await publishBirthdayOffers(offers, todayKey);
+    logger.info("publishBirthdayCampaigns", { todayKey, offerCount: offers.length });
+  },
+);
+
+/**
+ * A birthday campaign approved AFTER the 13:00 publication.
+ *
+ * Publishes it on its own, or does nothing if the scheduled run has
+ * not happened yet — in which case `publishBirthdayCampaigns` will
+ * pick it up with everything else in a few minutes' time, which is the
+ * outcome the whole design wants.
+ *
+ * "Is it past 13:00" is asked in Baku, not in the runtime's UTC:
+ * `onSchedule`'s `timeZone` controls when Cloud Scheduler fires, not
+ * what `new Date()` reports inside a running function. Comparing
+ * `getHours()` here would put the cutoff at 09:00 local, four hours
+ * early, and silently publish the day's campaigns one by one — the
+ * exact failure this branch exists to avoid. Same reasoning as
+ * `computeBirthdayMatches`' `todayKey`; see `./birthday`.
+ */
+async function publishLateBirthdayOfferIfNeeded(
+  offerId: string,
+  data: FirebaseFirestore.DocumentData,
+): Promise<void> {
+  const now = new Date();
+  const todayKey = bakuDateKey(now);
+
+  // The match's own date, not today's — an approval that somehow lands
+  // the next morning belongs to a birthday that is over, and must not
+  // reach yesterday's recipients.
+  const matchId = data.birthdayMatchId as string | undefined;
+  if (!matchId || !matchId.startsWith(`${todayKey}_`)) return;
+
+  if (bakuHour(now) < BIRTHDAY_PUBLISH_HOUR) return;
+
+  const offer = await toBirthdayPublishOffer(offerId, data);
+  if (!offer) return;
+  await publishBirthdayOffers([offer], todayKey);
+  logger.info("publishLateBirthdayOffer", { offerId, todayKey });
+}
+
+/**
+ * 12:30 Asia/Baku — the moderators' half-hour warning.
+ *
+ * The whole flow hangs on a birthday campaign being approved before
+ * 13:00, and until this existed nothing actively said so: the offers
+ * queue is sorted by `createdAt` and a birthday campaign looked like
+ * any other pending row. The admin panel now marks them (see
+ * `listOffers`/`offers-table.tsx`), but a badge only works on someone
+ * already looking at the page. This is the part that reaches an admin
+ * who is not.
+ *
+ * Writes nothing when the queue is clear.
+ */
+export const remindAdminsOfPendingBirthdayCampaigns = onSchedule(
+  { schedule: `30 ${BIRTHDAY_PUBLISH_HOUR - 1} * * *`, timeZone: "Asia/Baku", region: "europe-west1" },
+  async () => {
+    const todayKey = bakuDateKey(new Date());
+    const matchesSnap = await db.collection("birthdayMatches").where("date", "==", todayKey).get();
+    if (matchesSnap.empty) return;
+    const matchIds = matchesSnap.docs.map((d) => d.id);
+
+    let pending = 0;
+    for (let i = 0; i < matchIds.length; i += 30) {
+      const chunk = matchIds.slice(i, i + 30);
+      const snap = await db
+        .collection("offers")
+        .where("birthdayMatchId", "in", chunk)
+        .where("status", "==", "pending")
+        .count()
+        .get();
+      pending += snap.data().count;
+    }
+    if (pending === 0) return;
+
+    await notifyAdmins({
+      type: "birthdayCampaignsPending",
+      message: `${pending} ad günü kampaniyası təsdiq gözləyir — ${BIRTHDAY_PUBLISH_HOUR}:00-a 30 dəqiqə qalıb.`,
+      targetType: "offers",
+      targetId: todayKey,
+    });
+  },
+);
 
 /**
  * ONE INTENT PER LISTING — the replacement for three fan-out
@@ -7658,7 +8187,7 @@ export const submitOffer = onCall(
       // The targeted uid list rides in a server-only subcollection, in
       // the SAME transaction as the offer itself — an offer that is
       // `offerType: 'birthday'` must never exist without its targeting,
-      // or `notifyBirthdayTargetUsers` would silently reach nobody.
+      // or `publishBirthdayCampaigns` would silently reach nobody.
       if (birthdayTargeting) {
         tx.set(offerRef.collection("private").doc("targeting"), {
           userIds: birthdayTargeting.userIds,

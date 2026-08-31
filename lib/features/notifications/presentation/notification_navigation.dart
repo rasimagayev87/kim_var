@@ -13,6 +13,7 @@ import '../../post_share/presentation/screens/post_detail_screen.dart';
 import '../../profile/presentation/providers/profile_providers.dart';
 import '../../profile/presentation/screens/user_profile_screen.dart';
 import '../../venues/presentation/providers/venue_providers.dart';
+import '../../live_feed/presentation/screens/birthday_opportunities_screen.dart';
 import '../../venues/presentation/screens/my_venues_screen.dart';
 import '../../venues/presentation/screens/venue_profile_screen.dart';
 import '../../waitlist/presentation/screens/venue_waitlist_screen.dart';
@@ -112,6 +113,18 @@ Future<void> openNotificationTarget(BuildContext context, WidgetRef ref, AppNoti
     // venue(s) are actually overdue, no need to single one out here.
     case 'venue_subscription_due':
       Navigator.push(context, MaterialPageRoute(builder: (_) => const MyVenuesScreen()));
+    // The 11:00 birthday nudge when the owner has SEVERAL matched
+    // venues — there is no single `birthdayMatches` doc to pre-fill
+    // Create Offer with, so this lands on the venue list and the owner
+    // picks. With one venue it takes the `birthday_match` branch above
+    // and goes straight into the pre-filled flow instead.
+    case 'my_venues':
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const MyVenuesScreen()));
+    // The 13:00 birthday publication. Names up to three venues but
+    // opens the full list — several campaigns arrive at the same
+    // moment, which is the whole point of publishing them together.
+    case 'birthday_feed':
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const BirthdayOpportunitiesScreen()));
     // A confirmed PinBox order — buyer's own ticket, same destination
     // `_OrderCard` itself navigates to from "Aldıqlarım".
     case 'pinbox_order':
