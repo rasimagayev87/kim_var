@@ -24,6 +24,7 @@ import {
 import { geohashForLocation } from "geofire-common";
 import { verifyAppleNotification, verifyAppleTransaction, verifyGoogleSubscription } from "./iap";
 import { CHAT_MEDIA_FOLDERS, chatMediaPathForMessage, isChatHiddenByEveryone, resizedVariantPath } from "./chat-media";
+import { isCancellableOnListingDelete, isPaymentTargetMissing } from "./payment-targets";
 import { OFFER_ONLY_VENUE_CATEGORIES, venueSubscriptionFeeByCategory } from "./venue-fees";
 import {
   bucketDistanceMeters,
@@ -5901,6 +5902,72 @@ export const createVenuePremiumCheckout = onCall(
  * like/comment doc's own rule only lets its own author delete it, not
  * the post owner). Admin SDK bypasses that, same as deleteAccount.
  */
+/**
+ * Cancels the payments still waiting on a listing that has just been
+ * deleted.
+ *
+ * As a TRIGGER rather than a step inside each delete path, on purpose.
+ * A venue can be deleted from at least four places — the app's own
+ * `deleteVenue`, the admin panel's account deletion, `deleteAccount`'s
+ * `deleteUserVenues`, and by hand in the console — and the app cannot
+ * write to `payments` at all (server-only by rules). Patching the
+ * paths that CAN would have covered some of them, which is the shape
+ * of bug this codebase keeps producing. A delete trigger covers every
+ * path there is, including the ones added later.
+ *
+ * Only `pending` moves. A `completed` payment is a historical fact
+ * about money that changed hands and must survive the thing it paid
+ * for; `failed` and `orphan_target` are already terminal.
+ *
+ * Queried by `listingId` alone — one equality filter on an
+ * automatically-indexed field, then filtered in memory. A listing has
+ * a handful of payments at most, and this avoids requiring a new
+ * composite index for a path that runs on deletion.
+ */
+async function cancelPendingPaymentsForListing(listingId: string, reason: string): Promise<void> {
+  const snap = await db.collection("payments").where("listingId", "==", listingId).get();
+  const pending = snap.docs.filter((d) => isCancellableOnListingDelete(d.get("status")));
+  if (pending.length === 0) return;
+
+  await Promise.all(
+    pending.map((d) =>
+      d.ref.update({
+        status: "cancelled",
+        cancelledReason: reason,
+        cancelledAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      }),
+    ),
+  );
+  logger.info("cancelPendingPaymentsForListing: cancelled pending payments", {
+    listingId,
+    reason,
+    count: pending.length,
+  });
+}
+
+/**
+ * A deleted venue must not leave an open checkout behind it. Without
+ * this, the Epoint page stays payable and the webhook lands on a venue
+ * that is gone — see `applyPaymentOutcome`'s orphan guard, which is
+ * the second half of the same problem and the one that catches
+ * whatever slips past this.
+ */
+export const onVenueDeleted = onDocumentDeleted("venues/{venueId}", async (event) => {
+  await cancelPendingPaymentsForListing(event.params.venueId, "venue-deleted");
+});
+
+/** Same reasoning as `onVenueDeleted`, for offer placement and boost fees. */
+export const onOfferDeleted = onDocumentDeleted("offers/{offerId}", async (event) => {
+  await cancelPendingPaymentsForListing(event.params.offerId, "offer-deleted");
+});
+
+// PinBox has no equivalent trigger, and that is deliberate rather than
+// an omission: a `pinbox_order` payment's `listingId` is the ORDER's
+// id, not the box's, and `anonymizeUserPinBoxes` keeps orders intact
+// when a box goes away. So deleting a box does not orphan a payment —
+// deleting an order would, and nothing deletes orders.
+
 export const onPostDeleted = onDocumentDeleted("posts/{postId}", async (event) => {
   const postRef = event.data?.ref;
   if (!postRef) return;
@@ -7298,6 +7365,25 @@ async function applyPaymentOutcome(
   let payment: FirebaseFirestore.DocumentData | undefined;
   let processed = false;
   let wasSuperseded = false;
+  /** Set when the paid-for listing no longer exists — see the guard
+   * inside the transaction. Reported to admins AFTER the transaction
+   * resolves, never from inside the callback: `notifyAdmins` performs
+   * its own writes, and the Admin SDK may re-run this callback on
+   * contention, which would duplicate the notification. */
+  // Declared WITHOUT an initializer on purpose: `= null` would let
+  // TypeScript narrow the type to `null` here and never widen it back,
+  // since the only assignment happens inside the transaction callback.
+  let orphanReport:
+    | {
+        paymentId: string;
+        type: string;
+        listingType: string;
+        listingId: string;
+        amount: number;
+        currency: string;
+        epointTransaction: string | null;
+      }
+    | undefined;
   let amountMismatch = false;
 
   await db.runTransaction(async (tx) => {
@@ -7387,6 +7473,62 @@ async function applyPaymentOutcome(
         : null;
     const pinboxOrderVenueSnap = pinboxOrderVenueRef ? await tx.get(pinboxOrderVenueRef) : null;
 
+    // Offers were the one target never read before being written. The
+    // read has to happen up here: a Firestore transaction refuses any
+    // read issued after its first write.
+    const offerRef =
+      succeeded &&
+      (payment.type === "offer_placement_fee" || payment.type === "boost_fee") &&
+      payment.listingType === "offer"
+        ? db.collection("offers").doc(payment.listingId as string)
+        : null;
+    const offerSnap = offerRef ? await tx.get(offerRef) : null;
+
+    // ── The thing this payment was FOR may be gone ──────────────────
+    //
+    // A venue can be deleted between opening the Epoint checkout and
+    // the webhook landing — it happened in testing on 2026-08-31 and
+    // it is not exotic: the checkout page stays open, the owner
+    // changes their mind, the venue goes, the payment does not.
+    //
+    // The old comment here called a missing venue "defensive, not a
+    // live gap" and said it would "fall through to a no-op branch".
+    // Both were wrong. `tx.update()` on a document that does not exist
+    // throws NOT_FOUND, and because that happens inside the
+    // transaction it rolls back EVERYTHING — including this payment's
+    // own status write. So the charge went through, the payment stayed
+    // `pending`, and Epoint retried into the same failure forever.
+    //
+    // Refusing loudly is the only honest outcome: nothing was
+    // delivered, so nothing may be marked `completed`, and a human has
+    // to decide about the money. `orphan_target` is a terminal status
+    // an admin resolves by refunding — the notification below carries
+    // everything `/reverse` needs.
+    const targetMissing = isPaymentTargetMissing(succeeded, [
+      { applies: venueRef !== null, exists: venueSnap?.exists ?? false },
+      { applies: offerRef !== null, exists: offerSnap?.exists ?? false },
+      { applies: pinboxOrderRef !== null, exists: pinboxOrderSnap?.exists ?? false },
+    ]);
+
+    if (targetMissing) {
+      tx.update(paymentRef, {
+        status: "orphan_target",
+        ...(epointTransaction ? { epointTransaction } : {}),
+        orphanedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+      orphanReport = {
+        paymentId: paymentRef.id,
+        type: String(payment.type),
+        listingType: String(payment.listingType),
+        listingId: String(payment.listingId),
+        amount: Number(payment.amount ?? 0),
+        currency: String(payment.currency ?? "AZN"),
+        epointTransaction: epointTransaction ?? null,
+      };
+      return;
+    }
+
     tx.update(paymentRef, {
       status: succeeded ? "completed" : "failed",
       // Epoint's OWN transaction id (distinct from this doc's own id,
@@ -7406,8 +7548,7 @@ async function applyPaymentOutcome(
     });
 
     if (payment.type === "offer_placement_fee" && payment.listingType === "offer") {
-      const offerRef = db.collection("offers").doc(payment.listingId as string);
-      if (succeeded) {
+      if (succeeded && offerRef) {
         tx.update(offerRef, {
           status: "pending",
           paymentId: paymentRef.id,
@@ -7417,7 +7558,7 @@ async function applyPaymentOutcome(
       // On failure the offer just stays `awaiting_payment` —
       // `retryOfferPayment` is the owner's way back in; nothing to
       // undo here since the offer was never made visible.
-    } else if (payment.type === "venue_subscription" && payment.listingType === "venue" && venueRef) {
+    } else if (payment.type === "venue_subscription" && payment.listingType === "venue" && venueRef && venueSnap?.exists) {
       if (succeeded) {
         // Promotes the draft acceptance `submitVenue`/
         // `retryVenueSubscriptionPayment` attached to THIS payment doc
@@ -7505,12 +7646,12 @@ async function applyPaymentOutcome(
     } else if (payment.type === "boost_fee" && payment.listingType === "offer") {
       if (succeeded) {
         const hours = payment.boostHours as number;
-        tx.update(db.collection("offers").doc(payment.listingId as string), {
+        if (offerRef) tx.update(offerRef, {
           boostedUntil: Timestamp.fromDate(new Date(Date.now() + hours * 60 * 60 * 1000)),
           updatedAt: FieldValue.serverTimestamp(),
         });
       }
-    } else if (payment.type === "venue_premium" && payment.listingType === "venue" && venueRef) {
+    } else if (payment.type === "venue_premium" && payment.listingType === "venue" && venueRef && venueSnap?.exists) {
       if (succeeded) {
         const months = payment.premiumMonths as number;
         const currentExpiresAt = (venueSnap?.data()?.premiumExpiresAt as Timestamp | undefined)?.toDate();
@@ -7620,6 +7761,29 @@ async function applyPaymentOutcome(
       }
     }
   });
+
+  if (orphanReport) {
+    // Money was taken for something that no longer exists. Nobody can
+    // be granted anything, so this needs a person: the notification
+    // carries the Epoint transaction id, which is the only identifier
+    // `/reverse` accepts for a refund.
+    logger.error("applyPaymentOutcome: paid-for listing is gone", orphanReport);
+    await notifyAdmins({
+      type: "payment.orphan_target",
+      message:
+        `Ödəniş alındı, amma aid olduğu ${orphanReport.listingType} artıq mövcud deyil — ` +
+        `${orphanReport.amount} ${orphanReport.currency}, ${orphanReport.type}, ` +
+        `listingId: ${orphanReport.listingId}, ödəniş: ${orphanReport.paymentId}` +
+        (orphanReport.epointTransaction
+          ? `, Epoint tranzaksiyası: ${orphanReport.epointTransaction} (geri qaytarma üçün lazımdır)`
+          : ", Epoint tranzaksiya ID-si yoxdur"),
+      targetType: "payment",
+      targetId: orphanReport.paymentId,
+    });
+    // Deliberately `false`: nothing was delivered, so this must not
+    // read as a processed payment anywhere upstream.
+    return false;
+  }
 
   if (!processed) {
     if (!payment) logger.error("applyPaymentOutcome: unknown payment", { orderId });
