@@ -1532,13 +1532,36 @@ service cloud.firestore {
     // `LiveFeedService.fetchAudienceItems` — were updated to match). No
     // other client read site for this subcollection was found.
     match /venues/{venueId}/activeCheckins/{userId} {
-      allow read: if request.auth != null &&
-        (request.auth.uid == userId ||
-         request.auth.uid == get(/databases/$(database)/documents/venues/$(venueId)).data.ownerId);
-      // `isActiveUser()` on create (self-verification / d4). A check-in
-      // feeds `audienceHistory` and the peak-hour notifications sent to
-      // venue owners, so a banned account writing them is data
-      // poisoning rather than noise. Affordable here because checking
+      // OWN DOCUMENT ONLY — the venue owner cannot read this either.
+      //
+      // The raw list is a list of PEOPLE currently at a place. A count
+      // is a statistic; the list is surveillance, and it is not
+      // something a user consents to by tapping "buradayam" for a
+      // counter. The owner has no business case for the names that the
+      // aggregate does not already serve: `activeCheckinCount` on the
+      // venue doc is what every screen actually renders, including the
+      // owner's own.
+      //
+      // Nothing read the list anyway — checked before closing it.
+      // `watchActiveCheckinCount` reads the aggregate off the venue
+      // doc, `watchIsCheckedInHere` reads only the caller's own
+      // document, and the admin panel never touches this
+      // subcollection. Previously owner-readable (Düzəliş Prompt 4 /
+      // K-4 narrowed it from "any signed-in user" to "owner + the
+      // checked-in user"); this finishes that narrowing.
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // `isActiveUser()` on create (self-verification / d4).
+      //
+      // NOTE, corrected 2026-08-31: an earlier version of this comment
+      // said a check-in "feeds `audienceHistory` and the peak-hour
+      // notifications". It does not. `audienceHistory` and the
+      // peak-hour signal come from `computeVenueAudienceHistory`,
+      // which counts nearby USERS by `lastSeen`/`online` and position —
+      // no check-in involved. The two are separate mechanisms and that
+      // comment was itself an instance of the confusion. What a banned
+      // account writing here actually poisons is
+      // `venues/{id}.activeCheckinCount`, and through it the
+      // "Ətrafınızda" line on the Canlı tab. Affordable because checking
       // in is a deliberate, occasional act — the client writes once on
       // arrival and deletes on departure, with no heartbeat in between
       // (`FirebaseVenueRemoteDatasource.checkIn`/`checkOut`), so the

@@ -118,9 +118,17 @@ describe("Prompt 4 — K-4: activeCheckins xam alt-kolleksiyası daraldılıb", 
     await assertSucceeds(getDoc(doc(db, "venues", venueId, "activeCheckins", checkedInUser)));
   });
 
-  test("məkanın sahibi hər hansı check-in sənədini oxuya bilir", async () => {
+  test("məkanın sahibi ARTIQ check-in sənədini oxuya BİLMİR", async () => {
+    // 2026-08-31-də tərsinə çevrildi. Prompt 4 / K-4 bu qaydanı «hər
+    // qeydiyyatlı istifadəçi»dən «sahib + check-in edən»ə daraltmışdı
+    // və bu test həmin aralıq vəziyyəti qeydə alırdı. İndi yalnız
+    // check-in edənin özü qalır: xam siyahı konkret anda konkret
+    // yerdə olan insanların siyahısıdır, sahibin isə ondan alacağı
+    // heç nə yoxdur ki, `activeCheckinCount` aqreqatı onsuz da
+    // verməsin. Tam əsaslandırma `firestore.rules`-dadır,
+    // əhatəli testlər `firestore-checkin.test.ts`-də.
     const db = testEnv.authenticatedContext(venueOwner).firestore();
-    await assertSucceeds(getDoc(doc(db, "venues", venueId, "activeCheckins", checkedInUser)));
+    await assertFails(getDoc(doc(db, "venues", venueId, "activeCheckins", checkedInUser)));
   });
 
   test("kənar istifadəçi başqasının check-in sənədini oxuya bilmir", async () => {
