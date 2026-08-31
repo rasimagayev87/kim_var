@@ -2096,7 +2096,23 @@ service cloud.firestore {
             descriptionSizeOk())
         );
 
-      allow delete: if false;
+      // Parity with `offers` and `pinboxes`: an owner may delete their
+      // own listing. Events were the one product type with no delete at
+      // all — only a `cancelled` status — so a venue could not remove
+      // something posted by mistake, in any state.
+      //
+      // ANY status, including `live`. The owner owns the content; a
+      // running event is theirs to pull. The client asks for
+      // confirmation on a live one ("Bu tədbir hazırda davam edir")
+      // rather than refusing, so the guard is against a mis-tap, not
+      // against the intent.
+      //
+      // `onVenueEventDeleted` (functions/src/index.ts) removes the
+      // `event_covers` object and its `_200x200` derivative — the
+      // document going away is what triggers that, so this rule and
+      // that trigger are one mechanism.
+      allow delete: if request.auth != null &&
+        request.auth.uid == get(/databases/$(database)/documents/venues/$(resource.data.venueId)).data.ownerId;
     }
 
     // Same write-only-from-clients shape as `reports` above, for

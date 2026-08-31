@@ -11,6 +11,7 @@
     "revoke-admin-sessions": "tsx --env-file=.env.local scripts/revoke-admin-sessions.ts",
     "list-external-media-urls": "tsx --env-file=.env.local scripts/list-external-media-urls.ts",
     "audit-phone-numbers": "tsx --env-file=.env.local scripts/audit-phone-numbers.ts",
+    "audit-orphan-media": "tsx --env-file=.env.local scripts/audit-orphan-media.ts",
     "check-birthday-utc-shift": "tsx --env-file=.env.local scripts/check-birthday-utc-shift.ts",
     "set-legal-version": "tsx --env-file=.env.local scripts/set-legal-version.ts",
     "set-event-categories": "tsx --env-file=.env.local scripts/set-event-categories.ts",

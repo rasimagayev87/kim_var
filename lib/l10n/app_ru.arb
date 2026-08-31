@@ -461,6 +461,8 @@
   "eventEmptyListMessage": "Пока нет мероприятий",
   "eventCancelButton": "Отменить",
   "eventCancelConfirmMessage": "Вы уверены, что хотите отменить это мероприятие?",
+  "eventDeleteConfirmMessage": "Удалить это мероприятие? Действие необратимо.",
+  "eventDeleteLiveConfirmMessage": "Это мероприятие сейчас идёт. Всё равно удалить? Действие необратимо.",
   "eventEditButton": "Изменить",
   "eventEditTitle": "Редактировать мероприятие",
   "eventTodayBannerLabel": "Сегодня вечером: {title}",

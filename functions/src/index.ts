@@ -39,6 +39,14 @@ import {
 } from "./geo";
 import { InvalidPhoneNumberError, normalizePhoneNumber } from "./phone";
 import { isGatedCategory } from "./notification-categories";
+import {
+  eventCoverPath,
+  offerPhotoPath,
+  pinboxPhotoPath,
+  storyMediaPath,
+  venuePhotoPath,
+} from "./media-paths";
+import { confinedStoragePath } from "./storage-path";
 import { bakuDateKey, isBirthdayToday } from "./birthday";
 import {
   DIGEST_LOOKBACK_MS,
@@ -6296,11 +6304,15 @@ async function cancelPendingPaymentsForListing(listingId: string, reason: string
  */
 export const onVenueDeleted = onDocumentDeleted("venues/{venueId}", async (event) => {
   await cancelPendingPaymentsForListing(event.params.venueId, "venue-deleted");
+  const path = venuePhotoPath(event.data?.data()?.ownerId, event.params.venueId);
+  if (path) await deleteStorageFile(path);
 });
 
 /** Same reasoning as `onVenueDeleted`, for offer placement and boost fees. */
 export const onOfferDeleted = onDocumentDeleted("offers/{offerId}", async (event) => {
   await cancelPendingPaymentsForListing(event.params.offerId, "offer-deleted");
+  const path = offerPhotoPath(event.data?.data()?.ownerId, event.params.offerId);
+  if (path) await deleteStorageFile(path);
 });
 
 // PinBox has no equivalent trigger, and that is deliberate rather than
@@ -6308,6 +6320,116 @@ export const onOfferDeleted = onDocumentDeleted("offers/{offerId}", async (event
 // id, not the box's, and `anonymizeUserPinBoxes` keeps orders intact
 // when a box goes away. So deleting a box does not orphan a payment —
 // deleting an order would, and nothing deletes orders.
+
+/**
+ * Story cleanup — an EXPLICIT scheduled sweep, not a TTL policy.
+ *
+ * `stories/{id}` carries `expiresAt` (24 hours) and Firestore has a
+ * native TTL feature that would delete on it for free. That was the
+ * first design and it was rejected, because a story is three things,
+ * not one: the document, its `views` subcollection, and a Storage
+ * object plus the Resize extension's `_200x200` derivative. TTL removes
+ * only the document. Subcollections and Storage would survive it.
+ *
+ * The tempting repair was to let TTL fire `onDocumentDeleted` and clean
+ * up from there. That chain is NOT something this project can verify:
+ * the Firestore emulator does not implement TTL at all, so it cannot be
+ * tested locally, and a live test means deploying a probe and waiting —
+ * TTL publishes no deletion-latency guarantee. Building every story's
+ * cleanup on an unverified assumption would mean discovering it was
+ * wrong from a storage bill months later, which is exactly how the
+ * `birthdayMatches` and `stories` accumulation happened in the first
+ * place.
+ *
+ * So the sweep is explicit and does all three itself. A TTL policy on
+ * `expiresAt` can still be enabled as a harmless backstop — if the
+ * chain does work, it removes documents this sweep already handled; if
+ * it does not, nothing is lost.
+ *
+ * Hourly rather than daily: a story is only alive for 24 hours, so a
+ * daily sweep would leave one up to a full extra day. The query is
+ * bounded by one hour's expirations, which is proportional to real
+ * usage rather than to the collection's size.
+ */
+export const cleanupExpiredStories = onSchedule(
+  { schedule: "every 60 minutes", region: "europe-west1" },
+  async () => {
+    const expired = await db
+      .collection("stories")
+      .where("expiresAt", "<", Timestamp.now())
+      .limit(500)
+      .get();
+    if (expired.empty) return;
+
+    for (const storyDoc of expired.docs) {
+      // Deleting the document fires `onStoryDeleted`, which owns the
+      // `views` + Storage cleanup — one cleanup path for both the
+      // scheduled expiry and a user's own "Sil". Duplicating it here
+      // would be a second place to forget.
+      await storyDoc.ref.delete();
+    }
+    logger.info("cleanupExpiredStories: removed expired stories", { count: expired.size });
+  },
+);
+
+/**
+ * Everything a story owns, removed together — whichever way the story
+ * itself went (the hourly expiry sweep, the creator's own delete, or
+ * an account deletion).
+ *
+ * Before this, `FirebaseStoryRepository.deleteStory` was a bare
+ * `_stories.doc(id).delete()`: the Storage object, its `_200x200`
+ * derivative and every `views` document stayed behind forever. Only
+ * account deletion cleaned up properly, via a prefix delete.
+ *
+ * The Storage path is DERIVED from `creatorId` + the document id +
+ * `mediaType` (see `./media-paths`), never parsed out of the stored
+ * `mediaUrl` — same rule as `chatMediaPathForMessage`, and the reason
+ * is P0 / C-1.
+ */
+export const onStoryDeleted = onDocumentDeleted("stories/{storyId}", async (event) => {
+  const data = event.data?.data();
+  if (!data) return;
+
+  const viewsSnap = await event.data!.ref.collection("views").get();
+  await Promise.all(viewsSnap.docs.map((d) => d.ref.delete()));
+
+  const path = storyMediaPath(data.creatorId, event.params.storyId, data.mediaType);
+  if (path) await deleteStorageFile(path);
+});
+
+/**
+ * A deleted listing takes its photo with it.
+ *
+ * `onVenueDeleted`/`onOfferDeleted` existed already but only cancelled
+ * pending payments; PinBox and events had no delete trigger at all. The
+ * client repositories DO delete these objects on the owner's own
+ * "Sil" — with the same derived paths — but that call is best-effort
+ * (its failure is swallowed), and it is not the only way a listing can
+ * disappear. These triggers are the backstop that makes the cleanup
+ * true regardless of which path removed the document.
+ *
+ * `deleteStorageFile` takes the `_200x200` derivative with it, which
+ * matters more than the original: the derivative reuses the original's
+ * download token, so a surviving copy stays publicly readable by
+ * anyone who kept the URL.
+ */
+export const onPinBoxDeleted = onDocumentDeleted("pinboxes/{pinboxId}", async (event) => {
+  const data = event.data?.data();
+  if (!data) return;
+  const path = pinboxPhotoPath(data.ownerId, event.params.pinboxId);
+  if (path) await deleteStorageFile(path);
+});
+
+export const onVenueEventDeleted = onDocumentDeleted("venueEvents/{eventId}", async (event) => {
+  const data = event.data?.data();
+  if (!data) return;
+  // Events store no `ownerId` of their own — the venue holds it, and
+  // the cover was uploaded under that uid.
+  const venueSnap = await db.collection("venues").doc(data.venueId as string).get();
+  const path = eventCoverPath(venueSnap.data()?.ownerId, event.params.eventId);
+  if (path) await deleteStorageFile(path);
+});
 
 export const onPostDeleted = onDocumentDeleted("posts/{postId}", async (event) => {
   const postRef = event.data?.ref;
@@ -6319,6 +6441,29 @@ export const onPostDeleted = onDocumentDeleted("posts/{postId}", async (event) =
   ]);
 
   await Promise.all([...likesSnap.docs, ...commentsSnap.docs].map((doc) => doc.ref.delete()));
+
+  // Post media is the one case that cannot be DERIVED: the file name is
+  // the upload's microsecond timestamp, allocated before the document
+  // exists (`firebase_post_repository.dart:36`), so nothing server-side
+  // can reconstruct it. It is CONFINED instead — the stored URL is
+  // only honoured when it resolves under this post's own author folder,
+  // which `firestore.rules` pinned to the author's uid at create time.
+  // Same reasoning, and the same helper shape, as the admin panel's
+  // `confinedStoragePath`; see admin-panel/src/lib/storage-path.ts for
+  // the arbitrary-deletion vector both of them close.
+  //
+  // Until now this trigger cleaned only the subcollections. Whether the
+  // image survived depended on WHICH path deleted the post: the client
+  // removed it best-effort, the admin panel did not (until the
+  // 2026-08-31 audit), and nothing else did at all.
+  const data = event.data?.data();
+  const ownerUid = data?.userId;
+  if (typeof ownerUid !== "string") return;
+  const prefix = `posts/${ownerUid}/`;
+  for (const url of [data?.mediaUrl, data?.thumbnailUrl]) {
+    const path = confinedStoragePath(url, prefix);
+    if (path) await deleteStorageFile(path);
+  }
 });
 
 /**

@@ -526,6 +526,8 @@
   "eventEmptyListMessage": "No events yet",
   "eventCancelButton": "Cancel",
   "eventCancelConfirmMessage": "Are you sure you want to cancel this event?",
+  "eventDeleteConfirmMessage": "Delete this event? This cannot be undone.",
+  "eventDeleteLiveConfirmMessage": "This event is happening right now. Delete it anyway? This cannot be undone.",
   "eventEditButton": "Edit",
   "eventEditTitle": "Edit event",
   "eventTodayBannerLabel": "Tonight: {title}",

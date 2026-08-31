@@ -161,6 +161,19 @@ class VenueEventController {
     }
   }
 
+  /// Removes the event entirely — see
+  /// [VenueEventRepository.deleteEvent] for how this differs from
+  /// [cancelEvent], which keeps the document.
+  Future<bool> deleteEvent(String eventId) async {
+    try {
+      await _ref.read(venueEventRepositoryProvider).deleteEvent(eventId);
+      return true;
+    } catch (e, st) {
+      logError('venue_event_providers.deleteEvent', e, st);
+      return false;
+    }
+  }
+
   Future<bool> cancelEvent(String eventId) async {
     try {
       await _ref.read(venueEventRepositoryProvider).cancelEvent(eventId);

@@ -461,6 +461,8 @@
   "eventEmptyListMessage": "Henüz etkinlik yok",
   "eventCancelButton": "İptal et",
   "eventCancelConfirmMessage": "Bu etkinliği iptal etmek istediğinizden emin misiniz?",
+  "eventDeleteConfirmMessage": "Bu etkinliği silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
+  "eventDeleteLiveConfirmMessage": "Bu etkinlik şu anda devam ediyor. Yine de silinsin mi? Bu işlem geri alınamaz.",
   "eventEditButton": "Düzenle",
   "eventEditTitle": "Etkinliği düzenle",
   "eventTodayBannerLabel": "Bu akşam: {title}",

@@ -140,6 +140,38 @@ class _EventCard extends ConsumerWidget {
     await ref.read(venueEventControllerProvider).cancelEvent(event.id);
   }
 
+  /// Removes the event outright, unlike [_confirmCancel] which leaves a
+  /// `cancelled` record behind.
+  ///
+  /// A LIVE event gets a different question rather than a refusal. The
+  /// owner is allowed to pull a running event — it is their content —
+  /// but "this is happening right now" is worth saying out loud, since
+  /// the tap that reaches here is one row away from the edit button.
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final loc = AppLocalizations.of(context);
+    final isLive = event.status == VenueEventStatus.live;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        content: Text(
+          isLive ? loc.eventDeleteLiveConfirmMessage : loc.eventDeleteConfirmMessage,
+          style: const TextStyle(color: ChatLightColors.ink, fontSize: 14.5),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: Text(loc.actionDelete),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    await ref.read(venueEventControllerProvider).deleteEvent(event.id);
+  }
+
   void _openEdit(BuildContext context) {
     Navigator.push(context, MaterialPageRoute(builder: (_) => CreateEventScreen(venue: venue, existingEvent: event)));
   }
@@ -178,10 +210,15 @@ class _EventCard extends ConsumerWidget {
                   '${event.startAt.day.toString().padLeft(2, '0')}.${event.startAt.month.toString().padLeft(2, '0')} · ${event.startAt.hour.toString().padLeft(2, '0')}:${event.startAt.minute.toString().padLeft(2, '0')}',
                   style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
                 ),
-                if (canEdit) ...[
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
+                const SizedBox(height: 6),
+                // Edit and Cancel stay bound to `canEdit` — neither
+                // means anything on a finished event. Delete does not:
+                // the owner may remove any event of theirs, in any
+                // state, which is the parity offers and PinBoxes have
+                // always had.
+                Row(
+                  children: [
+                    if (canEdit) ...[
                       GestureDetector(
                         onTap: () => _openEdit(context),
                         child: Text(loc.eventEditButton, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.primary)),
@@ -191,9 +228,14 @@ class _EventCard extends ConsumerWidget {
                         onTap: () => _confirmCancel(context, ref),
                         child: Text(loc.eventCancelButton, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.error)),
                       ),
+                      const SizedBox(width: 16),
                     ],
-                  ),
-                ],
+                    GestureDetector(
+                      onTap: () => _confirmDelete(context, ref),
+                      child: Text(loc.actionDelete, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.error)),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

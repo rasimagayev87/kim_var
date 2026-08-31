@@ -461,6 +461,8 @@
   "eventEmptyListMessage": "Hələ tədbir yoxdur",
   "eventCancelButton": "Ləğv et",
   "eventCancelConfirmMessage": "Tədbiri ləğv etmək istədiyinizə əminsiniz?",
+  "eventDeleteConfirmMessage": "Bu tədbiri silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.",
+  "eventDeleteLiveConfirmMessage": "Bu tədbir hazırda davam edir. Silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.",
   "eventEditButton": "Düzəliş et",
   "eventEditTitle": "Tədbiri redaktə et",
   "eventTodayBannerLabel": "Bu axşam: {title}",

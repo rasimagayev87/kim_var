@@ -108,6 +108,14 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
   }
 
   @override
+  Future<void> deleteEvent(String eventId) {
+    // Document only — `onVenueEventDeleted` owns the Storage cleanup,
+    // so every route that removes an event (owner, admin, account
+    // deletion) cleans up identically.
+    return _events.doc(eventId).delete();
+  }
+
+  @override
   Future<void> updateEvent({
     required String eventId,
     required String title,

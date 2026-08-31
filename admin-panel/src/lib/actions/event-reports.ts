@@ -5,8 +5,21 @@ import { revalidatePath } from "next/cache";
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentAdmin } from "@/lib/auth/server";
 import type { AdminSession } from "@/lib/auth/session";
-import { getAdminDb } from "@/lib/firebase/admin";
+import { getAdminDb, getAdminStorage } from "@/lib/firebase/admin";
+import { resizedVariantPath } from "@/lib/chat-media-path";
+import { eventCoverPath } from "@/lib/media-paths";
 import { logModerationAction } from "./log";
+
+/** Best-effort on a missing object (a video has no `_200x200`, a re-run
+ * deletes nothing) — but logged, never swallowed. Same shape as
+ * `deleteStorageObject` in lib/user-account-deletion.ts. */
+async function tryDeleteStorageObject(path: string): Promise<void> {
+  try {
+    await getAdminStorage().bucket().file(path).delete();
+  } catch (e) {
+    console.warn("tryDeleteStorageObject: delete failed (path may not exist)", { path, error: String(e) });
+  }
+}
 
 export interface ActionResult {
   ok: boolean;
@@ -33,7 +46,37 @@ export async function resolveEventReport(reportId: string, eventId: string): Pro
 
   try {
     const db = getAdminDb();
-    await db.collection("venueEvents").doc(eventId).update({ status: "cancelled" });
+    const eventSnap = await db.collection("venueEvents").doc(eventId).get();
+
+    // The document stays as `cancelled` — it is the moderation record,
+    // and deleting it would erase what the report was about. The COVER
+    // IMAGE does not stay: a reported event is often reported FOR its
+    // image, and a Storage object outlives the document's status
+    // completely. Its download token never expires, so "cancelled" left
+    // the picture readable by anyone who had the URL.
+    //
+    // Path derived from the venue owner + event id, never parsed out of
+    // the stored `coverImageUrl` — see lib/media-paths.ts and, for why
+    // parsing would be unsafe, lib/storage-path.ts.
+    const venueId = eventSnap.data()?.venueId as string | undefined;
+    if (venueId) {
+      const venueSnap = await db.collection("venues").doc(venueId).get();
+      const path = eventCoverPath(venueSnap.data()?.ownerId, eventId);
+      if (path) {
+        // `_200x200` first: it shares the original's download token, so
+        // leaving it behind would leave the image reachable.
+        const derivative = resizedVariantPath(path);
+        if (derivative) await tryDeleteStorageObject(derivative);
+        await tryDeleteStorageObject(path);
+      }
+    }
+
+    await db.collection("venueEvents").doc(eventId).update({
+      status: "cancelled",
+      // The bytes are gone; leaving the URL would render a broken image
+      // in the owner's own history.
+      coverImageUrl: null,
+    });
     await db.collection("eventReports").doc(reportId).update({ status: "resolved" });
 
     await logModerationAction({

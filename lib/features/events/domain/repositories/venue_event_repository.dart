@@ -40,6 +40,20 @@ abstract class VenueEventRepository {
   /// cover", never "clear it" — there's no way to remove a cover once
   /// set, matching the create form's own "cover is optional but
   /// sticky" behavior.
+  /// Removes the event outright — document, cover image and its
+  /// `_200x200` derivative.
+  ///
+  /// Distinct from [cancelEvent], which keeps the document as a
+  /// `cancelled` record. Parity with offers and PinBoxes, which have
+  /// had owner delete from the start; events only had cancel, so a
+  /// venue could not remove something posted by mistake.
+  ///
+  /// Storage cleanup is NOT done here: deleting the document fires
+  /// `onVenueEventDeleted` (functions/src/index.ts), which derives the
+  /// path from server-known values. A client-side delete would be
+  /// best-effort and would miss every other deletion route.
+  Future<void> deleteEvent(String eventId);
+
   Future<void> updateEvent({
     required String eventId,
     required String title,
