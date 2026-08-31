@@ -110,18 +110,27 @@ class _ProfileLoadingScaffold extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Stack(
-        children: [
-          Align(
-            alignment: Alignment.topLeft,
-            child: IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+    // Post-launch QA — every `Text` on this screen used to fall back to
+    // `MaterialApp`'s no-Material error style (yellow double underline,
+    // see `material/app.dart`'s `_errorTextStyle`) because this subtree
+    // had no `Scaffold`/`Material` ancestor — invisible in debug (an
+    // `InkWell` descendant's `debugCheckHasMaterial` assert threw first)
+    // but fully visible in release, where asserts are stripped.
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Align(
+              alignment: Alignment.topLeft,
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+              ),
             ),
-          ),
-          const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-        ],
+            const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          ],
+        ),
       ),
     );
   }
@@ -137,34 +146,39 @@ class _ProfileNotFoundScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    return SafeArea(
-      child: Stack(
-        children: [
-          Align(
-            alignment: Alignment.topLeft,
-            child: IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
-            ),
-          ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 36),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.person_off_outlined, color: ChatLightColors.inkFaint, size: 40),
-                  const SizedBox(height: 16),
-                  Text(
-                    loc.profileNotFoundTitle,
-                    style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+    // Post-launch QA — see `_ProfileLoadingScaffold`'s identical doc
+    // comment for why this needs a `Scaffold` ancestor.
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Align(
+              alignment: Alignment.topLeft,
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
               ),
             ),
-          ),
-        ],
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 36),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.person_off_outlined, color: ChatLightColors.inkFaint, size: 40),
+                    const SizedBox(height: 16),
+                    Text(
+                      loc.profileNotFoundTitle,
+                      style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -198,7 +212,14 @@ class _OtherProfileBody extends ConsumerWidget {
     final followersCount = ref.watch(followersCountProvider(uid)).valueOrNull ?? 0;
     final likesCount = ref.watch(userTotalPostLikesProvider(uid));
 
-    return Stack(
+    // Post-launch QA — see `_ProfileLoadingScaffold`'s doc comment: this
+    // subtree used to have no `Scaffold`/`Material` ancestor, so every
+    // `Text` below (name, @username, stats, empty-state) silently picked
+    // up `MaterialApp`'s no-Material fallback style — normal color/size,
+    // but stuck with a yellow double underline.
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Stack(
           children: [
             SafeArea(
               child: Center(
@@ -309,7 +330,8 @@ class _OtherProfileBody extends ConsumerWidget {
         )
         .animate()
         .fadeIn(duration: 240.ms, curve: Curves.easeOut)
-        .slideY(begin: 0.04, end: 0, duration: 240.ms, curve: Curves.easeOut);
+        .slideY(begin: 0.04, end: 0, duration: 240.ms, curve: Curves.easeOut),
+    );
   }
 }
 
@@ -324,20 +346,28 @@ class _OwnProfileRoute extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        const ProfileTab(),
-        Positioned(
-          top: 0,
-          left: 0,
-          child: SafeArea(
-            child: IconButton(
-              onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+    // Post-launch QA — see `_ProfileLoadingScaffold`'s doc comment.
+    // `ProfileTab` normally relies on `HomeScreen`'s own `Scaffold` when
+    // it's the bottom-nav tab; pushed here directly via `MaterialPageRoute`
+    // it had no Material ancestor of its own, so its text fell back to
+    // the same yellow-underline error style.
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      body: Stack(
+        children: [
+          const ProfileTab(),
+          Positioned(
+            top: 0,
+            left: 0,
+            child: SafeArea(
+              child: IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
