@@ -109,15 +109,28 @@ export async function listSubscriptions({
 
   if (!includeMoney || rows.length === 0) return rows;
 
-  // One query for the whole page rather than one per venue. Reuses the
+  // One query for the whole page rather than one per venue. Uses the
   // existing `payments (status, type, createdAt)` index.
-  const paymentsSnap = await db
-    .collection("payments")
-    .where("status", "==", "completed")
-    .where("type", "==", "venue_subscription")
-    .orderBy("createdAt", "desc")
-    .limit(FETCH_LIMIT)
-    .get();
+  //
+  // Caught rather than awaited bare: this is a SECONDARY column on a
+  // page whose primary content is already loaded. If the index is
+  // missing or rebuilding, the right outcome is a dash in the
+  // "last paid" cell, not a 500 that hides the subscription list too.
+  // `/analytics` learned this the hard way, and `pending-counts.ts`
+  // before it.
+  let paymentsSnap: FirebaseFirestore.QuerySnapshot | null = null;
+  try {
+    paymentsSnap = await db
+      .collection("payments")
+      .where("status", "==", "completed")
+      .where("type", "==", "venue_subscription")
+      .orderBy("createdAt", "desc")
+      .limit(FETCH_LIMIT)
+      .get();
+  } catch (error) {
+    console.error("listSubscriptions: last-payment lookup failed (missing/building index?)", error);
+    return rows; // `lastPaidAt` stays null; every other column is intact.
+  }
 
   const latestByVenue = new Map<string, string>();
   for (const doc of paymentsSnap.docs) {

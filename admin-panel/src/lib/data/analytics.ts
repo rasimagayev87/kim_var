@@ -168,9 +168,16 @@ async function sumCompletedSince(since: Date): Promise<number> {
  *
  * `sum()` aggregation rather than fetching amounts and adding them up:
  * one read each instead of one per payment, and the figure stays cheap
- * as volume grows. Reuses the existing `payments (status, createdAt)`
- * index — the `orderBy` matches `listPayments`' direction so no second
- * index is needed.
+ * as volume grows.
+ *
+ * NEEDS ITS OWN INDEX: `payments (status, createdAt, amount)`. A sum
+ * aggregation requires the SUMMED field in the index, not just the
+ * filtered ones — so the existing `(status, createdAt)` index that
+ * `listPayments` and the dashboard use is not enough. This was
+ * originally written believing it was, which took `/analytics` down
+ * with a FAILED_PRECONDITION on first load. `.select("amount")` has no
+ * such requirement, which is why the dashboard's own revenue query and
+ * [getRevenueSeries] below kept working.
  */
 export async function getRevenueTotals(): Promise<RevenueTotals> {
   const [today, last7Days, last30Days] = await Promise.all([
@@ -338,4 +345,29 @@ export async function getCohortActivity(months = 6): Promise<CohortActivity[]> {
         : { month, registered, stillActive, suppressed: false };
     }),
   );
+}
+
+/**
+ * Runs one panel's query, turning a failure into `null` instead of a
+ * rejected promise.
+ *
+ * The page fans out ~30 queries. Under `Promise.all` a single
+ * rejection takes the whole page down with a 500 — which is exactly
+ * what a missing index did here, and exactly what `pending-counts.ts`
+ * already had to learn once ("this ran production down once already
+ * before this try/catch existed"). A page made of independent
+ * aggregates should degrade panel by panel: a missing index, a
+ * still-building one, or a Firestore hiccup should cost one card, not
+ * the screen.
+ *
+ * Errors are logged, never swallowed silently — a panel that quietly
+ * renders nothing is its own kind of bug.
+ */
+export async function safeAnalyticsQuery<T>(label: string, run: () => Promise<T>): Promise<T | null> {
+  try {
+    return await run();
+  } catch (error) {
+    console.error(`analytics: "${label}" query failed — panel degraded`, error);
+    return null;
+  }
 }

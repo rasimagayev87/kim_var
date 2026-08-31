@@ -92,3 +92,25 @@ describe("Analytics — kohort k-anonimlik döşəməsi", () => {
     assert.equal(/stillActive: null/.test(source) && /registered: null/.test(source), true);
   });
 });
+
+describe("Analytics — bir sorğunun sınması səhifəni öldürməməlidir", () => {
+  // `/analytics` ilk yüklənişində 500 verdi: `sum()` aqreqatı
+  // `payments(status, createdAt, amount)` indeksini tələb edir, mövcud
+  // `(status, createdAt)` indeksi kifayət etmir — və o bir rədd
+  // `Promise.all` vasitəsilə bütün səhifəni apardı. İndeks əlavə
+  // edildi, amma əsl qüsur ikinci hissə idi.
+  test("modul degradasiya köməkçisini ixrac edir", () => {
+    assert.match(source, /export async function safeAnalyticsQuery/);
+  });
+
+  test("köməkçi xətanı udmur — loglayır", () => {
+    const body = source.slice(source.indexOf("safeAnalyticsQuery"));
+    assert.match(body, /console\.error/);
+  });
+
+  test("sum() sorğusunun öz indeksi tələb etdiyi sənədləşdirilib", () => {
+    // Bu şərh olmasa, növbəti adam eyni fərziyyəni edəcək.
+    assert.match(source, /NEEDS ITS OWN INDEX/);
+    assert.match(source, /payments \(status, createdAt, amount\)/);
+  });
+});

@@ -10,6 +10,7 @@ import { TopVenuesPanel, SubscriptionsPanel } from "@/components/dashboard/ListP
 import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentAdmin } from "@/lib/auth/server";
 import { getDashboardStats, getOnlineUsersCount, getRegistrationsLast7Days, getTodayRevenue } from "@/lib/data/dashboard";
+import { safeAnalyticsQuery } from "@/lib/data/analytics";
 import type { KpiDatum, AnalyticsSeries } from "@/lib/types";
 
 const WEEKDAY_LABELS = ["Baz", "B.e", "Ç.a", "Çər", "C.a", "Cüm", "Şən"];
@@ -65,12 +66,38 @@ export default async function DashboardPage() {
   // payment action; `support` sees payments but not revenue totals.
   const canSeeRevenue = hasPermission(admin.role, "viewRevenue");
 
-  const [stats, registrations, onlineUsers, todayRevenue] = await Promise.all([
-    getDashboardStats(),
-    getRegistrationsLast7Days(),
-    getOnlineUsersCount(),
-    canSeeRevenue ? getTodayRevenue() : Promise.resolve(null),
+  // Each fetch is independently caught (see `safeAnalyticsQuery`'s own
+  // comment). This page currently works, but it has the same shape
+  // that took `/analytics` down: several composite-index queries
+  // behind one `Promise.all`, on the screen every role lands on
+  // first. A rebuilt index should cost one card here, not the
+  // dashboard.
+  const q = safeAnalyticsQuery;
+  const [rawStats, rawRegistrations, rawOnlineUsers, todayRevenue] = await Promise.all([
+    q("dashboard.stats", getDashboardStats),
+    q("dashboard.registrations", getRegistrationsLast7Days),
+    q("dashboard.onlineUsers", getOnlineUsersCount),
+    canSeeRevenue ? q("dashboard.todayRevenue", getTodayRevenue) : null,
   ]);
+
+  // Zeros so the rest of the page still renders — paired with the
+  // banner below, which is what keeps them from reading as real
+  // numbers. An unlabelled zero here would be worse than an error
+  // page: it says "no pending moderation" when the truth is "we could
+  // not ask".
+  const stats = rawStats ?? {
+    totalUsers: 0, activeVenues: 0, activeOffers: 0, activeEvents: 0,
+    activePinBoxes: 0, pendingModeration: 0, pendingReports: 0,
+  };
+  const registrations = rawRegistrations ?? [];
+  const onlineUsers = rawOnlineUsers ?? 0;
+
+  const degraded = [
+    !rawStats ? "sayğaclar" : null,
+    !rawRegistrations ? "qeydiyyat qrafiki" : null,
+    !rawOnlineUsers && rawOnlineUsers !== 0 ? "onlayn istifadəçilər" : null,
+    canSeeRevenue && todayRevenue === null ? "bugünkü gəlir" : null,
+  ].filter((x): x is string => x !== null);
 
   const todayNewUsers = registrations.at(-1)?.count ?? 0;
 
@@ -129,6 +156,16 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-4">
+      {degraded.length > 0 ? (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+          <p className="font-medium">Bəzi göstəricilər yüklənmədi</p>
+          <p className="mt-1 text-muted-foreground">
+            {degraded.join(", ")} — aşağıdakı uyğun rəqəmlər <strong>sıfır göstərilir, amma
+            həqiqi dəyər deyil</strong>. Səbəb server loglarındadır.
+          </p>
+        </div>
+      ) : null}
+
       {/* KPI row — 10 cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-3">
         {kpiData.map((kpi) => (
