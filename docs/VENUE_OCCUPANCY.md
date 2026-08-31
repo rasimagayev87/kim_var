@@ -59,6 +59,15 @@ planlaşdırılmış funksiya dayanarsa rəqəm yox olur, köhnəlmir.
 `computeAudienceCount`). Check-in-də **çıxarılmır** — istifadəçi
 könüllü düymə basıb.
 
+> **2026-08-31 düzəlişi — bu cümlə 2026-08-31-ə qədər DOĞRU DEYİLDİ.**
+> `ghostModeEnabled` Düzəliş Prompt 4 / K-1-də `private/data`-ya
+> köçmüşdü, `computeVenueAudienceHistory` isə onu hələ də publik
+> `users` sənədindən oxuyurdu — yəni süzgəc üç rejimin **heç birində**
+> işləmirdi. `distance` rejimində bunun əhəmiyyəti yox idi (say onsuz
+> da 0 idi, aşağı bax), `country`/`world`-də isə Ghost Mode
+> istifadəçiləri saya daxil olurdu və say düzgün GÖRÜNDÜYÜ üçün bu,
+> nəzərə çarpmırdı. BACKLOG #25 ilə bağlandı.
+
 **Etiketlər:** Canlı tabda «N nəfər ətrafda (son 15 dəqiqə)», profildə
 «Hazırda N PeakPin istifadəçisi buradadır». Fərqli mənbə, fərqli
 ifadə.
@@ -76,14 +85,38 @@ Yenilənmə: `liveFeedVenueSnapshotPollInterval` = **30 saniyə**.
 
 ## 2. «Ətrafınızda» (audience)
 
-**Nəzərdə tutulan:** sistemin hesabladığı, istifadəçinin heç bir
-hərəkəti olmadan alınan say.
-
-**Faktiki:** check-in sayğacı (yuxarıdakı qarışıqlıq).
+**Nə göstərir:** sistemin hesabladığı, istifadəçinin heç bir hərəkəti
+olmadan alınan say. Mənbə `venues/{id}.currentAudienceCount`,
+onu yazan `computeVenueAudienceHistory` (15 dəqiqədə bir).
 
 **Harada:** Canlı tab — kart (`live_feed_card.dart`,
 `Icons.groups_rounded`) və yuxarı tiker (`live_feed_ticker.dart`).
 **Toxunula bilmir** — informativdir, məkana keçid vermir.
+
+> **KART 2026-08-31-Ə QƏDƏR HEÇ VAXT GÖSTƏRİLMƏYİB.** Bu sənədin
+> əvvəlki versiyaları onu mövcud funksiya kimi təsvir edirdi; belə
+> deyildi.
+>
+> `computeVenueAudienceHistory` namizədləri publik `users`
+> sənədlərindən oxuyurdu, `lat`/`lng` isə Düzəliş Prompt 4 / K-1-də
+> `private/data`-ya köçmüşdü. Nəticədə `distance` rejimində — həm
+> picker-in, həm `submitVenue`-nin defolt rejimi — hər namizəd
+> `lat === undefined` qapısına düşürdü və say **daim 0** idi. Client
+> `currentAudienceCount > 0` süzgəci tətbiq etdiyi üçün kart sadəcə
+> çəkilmirdi; pik-saat push-u da heç vaxt getmirdi.
+>
+> `country`/`world` rejimləri işləyirdi (onlar mövqe yox, sənəd sayır)
+> — amma Ghost Mode süzgəci onlarda da no-op idi, yuxarı bax.
+>
+> BACKLOG #25 ilə bağlandı: namizədlər indi `private/data` ilə
+> birləşdirilir. Eyni turda `audienceHistory` sorğusu da daraldıldı
+> (məkan başına tick-də 672 → ~8 oxu) — funksiya həm işlək, həm
+> əvvəlkindən ucuz oldu.
+>
+> **Buradakı ilk üç sətir yalnız düzəliş yayımlandıqdan sonra
+> doğrudur.** Növbəti oxuyan üçün: bu sənəd davranışı təsvir edir,
+> niyyəti yox — bir iddia kodla təsdiqlənə bilmirsə, silinməli və ya
+> belə işarələnməlidir.
 
 ### İstifadəçilərə gedən gündəlik bildiriş — MÖVCUD DEYİL
 

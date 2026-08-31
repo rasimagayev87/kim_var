@@ -456,6 +456,14 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "endAt", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "audienceHistory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "hour", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": [

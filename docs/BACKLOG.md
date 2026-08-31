@@ -502,72 +502,87 @@ sahəsini `FieldValue.delete()` ilə silmək. Skript
 
 **Təxmini iş həcmi:** ~30 dəqiqə.
 
-## 25. `computeVenueAudienceHistory` yanlış sənəddən oxuyur — «Ətrafınızda» heç vaxt görünmür
+## 25. ~~`computeVenueAudienceHistory` yanlış sənəddən oxuyur~~ — BAĞLANDI (2026-08-31)
 
-**Mənbə:** Audit 4 remediasiyası (2026-08-31), 7-ci bəndi yazarkən
-aşkarlandı.
+**Mənbə:** Audit 4 remediasiyası, 7-ci bəndi yazarkən aşkarlandı.
 
-**Nə:** Funksiya namizədləri belə yığır:
+**Nə idi.** Funksiya namizədləri **publik** `users` sənədlərindən
+yığırdı, halbuki `computeAudienceCount`-un istifadə etdiyi HƏR sahə —
+`lat`, `lng`, `ghostModeEnabled`, `visibilityRadiusMode`/`Km` —
+Düzəliş Prompt 4 / K-1-də `users/{uid}/private/data`-ya köçmüşdü. Dördü
+də `undefined` oxunurdu.
 
-```ts
-// functions/src/index.ts — computeVenueAudienceHistory
-db.collection("users").where("lastSeen", ">", activeCutoff).get()
-...
-const activeUsers: AudienceUserDoc[] = activeUsersSnap.docs.map((d) => d.data() as AudienceUserDoc);
+İki ayrı nəticə, biri görünən, biri görünməyən:
+
+* **`distance` rejimi (hər üç rejimdən defolt olanı) daim 0 sayırdı.**
+  «Ətrafınızda» kartı **heç vaxt göstərilməyib**, pik-saat push-u
+  **heç vaxt getməyib**. Yəni sayğac ayrımının (`VENUE_OCCUPANCY.md`)
+  görünən yarısı ilk gündən işləmirdi.
+* **`country`/`world` rejimləri işləyirdi, amma Ghost Mode süzgəci
+  no-op idi** — o da publik sənəddəki `ghostModeEnabled`-i oxuyurdu.
+  Say düzgün GÖRÜNDÜYÜ üçün bu yarısı nəzərə çarpmırdı. Sənəd Ghost
+  Mode-un «hər üç rejimdə» çıxarıldığını yazırdı; faktiki olaraq heç
+  birində çıxarılmırdı.
+
+**Sinif:** P0 / H-9 ilə eyni (sahə köçdü, oxuyucu qalmadı), **əks
+işarəli**. H-9 fail-open idi — `withPrivateData` iki sənədi
+birləşdirdiyi üçün publikdəki köhnə `birthDate` canlı fallback olurdu.
+Bu isə fail-closed idi: mövqe yoxdursa say 0-dır, yəni verilə biləcək
+ən təhlükəsiz cavab. Ona görə bu, sızma yox, **işə düşməmiş funksiya**
+idi və launch-ı bloklamırdı.
+
+### Xərc — əvvəlki qeyddəki çərçivə səhv idi
+
+Bu maddənin ilk versiyası düzəlişin xərcini («10 000 aktivdə ayda ~29
+milyon oxu») əhəmiyyətli kimi təqdim edirdi. Arifmetika düzdür,
+çərçivə səhvdir, iki səbəbdən: `N` *eyni vaxtlı aktiv* istifadəçidir
+(MAU deyil), və 29 mln oxu ~$17/aydır — o həddə çatmış tətbiq üçün
+əhəmiyyətsiz məbləğ. Bugünkü qiymət: **192 oxu/gün.**
+
+Əsl xərc tamamilə başqa yerdə idi. Funksiya hər tick-də hər məkanın
+`audienceHistory` alt-kolleksiyasını **bütöv** oxuyurdu:
+
+```
+retensiya 7 gün × 96 tick/gün ≈ 672 sənəd
+96 tick/gün × 672 = məkan başına gündə 64 512 oxu
 ```
 
-Bunlar **publik** `users` sənədləridir. `computeAudienceCount`-un
-`distance` budağının ehtiyac duyduğu HƏR sahə — `lat`, `lng`,
-`ghostModeEnabled`, `visibilityRadiusMode`/`visibilityRadiusKm` —
-Düzəliş Prompt 4 / K-1-də `users/{uid}/private/data`-ya köçüb və burada
-yoxdur. Yəni hər namizəd `lat === undefined` qapısına düşür və say
-**həmişə 0-dır**.
+~7 nümunəlik ortalama hesablamaq və vaxtı keçmiş ~1 sənədi tapmaq
+üçün. **Bu, TƏK məkanla belə Firestore-un 50 000 oxu/gün pulsuz həddini
+keçirdi** — və nəticə daim sıfır idi. Məkan sayı ilə xətti böyüyürdü.
 
-**Nəticə (bugünkü canlı davranış):**
+Nisbət: düzəlişin əlavə etdiyi 192 oxu/gün, funksiyanın onsuz da
+yandırdığının **0.3%-i** idi.
 
-* `venues/{id}.currentAudienceCount` distance rejimli məkanlarda daim
-  0 qalır → Canlı tabdakı «N nəfər ətrafda (son 15 dəqiqə)» kartı və
-  tiker **heç vaxt göstərilmir** (`live_feed_service.dart` `> 0`
-  süzgəci).
-* Pik-saat bildirişi (**«Pik andır! 🔥»**) distance rejimli məkanlar
-  üçün **heç vaxt göndərilmir**.
-* `venues/{id}/audienceHistory` seriyası sıfırlarla dolur.
-* `country`/`world` rejimləri **təsirlənmir** — onlar mövqe yox, sənəd
-  sayır (`onlineByCountry`/`onlineWorldwide`).
+### Nə edildi
 
-**Bu, dünənki sayğac ayrımının hazırda heç nə göstərmədiyi deməkdir.**
-`VENUE_OCCUPANCY.md`-dəki üç sayğacdan ikincisi («Ətrafınızda» ←
-`currentAudienceCount`) sənəddə düzgün təsvir olunub, kod da düzgün
-yazılıb, amma qidalandığı sorğu boş gəlir. Ayrımın özü doğrudur və
-lazımdır — sadəcə onun görünən yarısı hələ işləmir. Check-in sayğacı
-(üçüncü) **işləyir**: o, `activeCheckins` sənədlərindən gəlir, publik
-`users`-dən yox.
+| Dəyişiklik | Təsir |
+|---|---|
+| Namizədlər `private/data` ilə birləşdirilir (run daxilində uid üzrə keşlənən, təkrarsız oxu) | `distance` rejimi işləyir; Ghost Mode hər üç rejimdə tətbiq olunur |
+| `audienceHistory.get()` → iki dar sorğu: `where(hour ==) + where(timestamp >=)` və `where(timestamp <).limit(200)` | Məkan başına tick-də **672 → ~8 oxu** (~98% azalma) |
+| Kompozit indeks `audienceHistory(hour ASC, timestamp ASC)` | Yuxarıdakı sorğunun ön şərti — **indeks funksiyalardan ƏVVƏL deploy edilməlidir** |
+| Təsdiqlənmiş məkanların heç biri `distance` rejimində deyilsə, `users` skanı və `private/data` oxuları tamamilə atlanır | Kiçik/qarışıq məkan bazasında hər tick-də tam qənaət |
 
-**Nə edilməli:** namizədləri `withPrivateData` naxışı ilə yığmaq —
-publik sənədi öz `private/data`-sı ilə birləşdirmək, eynilə
-`findNearbyUsers`/`getDiscoverCandidates`-in etdiyi kimi.
+Nəticədə funksiya həm **işlək**, həm indikindən **ucuz** oldu.
 
-**Xərc — bu, qərarın əsas hissəsidir:** hər 15 dəqiqədə bir, həmin
-pəncərədə aktiv olan HƏR istifadəçi üçün bir əlavə sənəd oxusu. Bugün
-əhəmiyyətsizdir; 10 000 aktiv istifadəçidə saatda 40 000, ayda ~29
-milyon əlavə oxu deməkdir. Ucuzlaşdırma variantları baxılmalıdır
-(məsələn yalnız distance rejimli məkanı olan şəhərlərdəki
-istifadəçiləri çəkmək, və ya `private/data`-ya kobud, kvantlanmış
-`geohash` güzgüsü yazıb sorğunu ona bağlamaq).
+**Təhlükəsizlik tərəfi əvvəlcədən hazır idi.** Audit 4 turunda
+`computeAudienceCount`-a `isWithinNearbyVisibility`, pik şərtinə
+k-anonimlik döşəməsi (`count >= VENUE_AUDIENCE_MIN_REPORTABLE_COUNT`)
+əlavə edilmiş, `audienceRadiusKm` isə picker-in allowlist-inə
+bağlanmışdı — məhz ona görə ki, mənbə düzəldilən anda funksiya
+sızmağa başlamasın.
 
-**Təhlükəsizlik tərəfi ARTIQ hazırdır — düzəldəndə əlavə iş
-lazım deyil.** Audit 4 turunda `computeAudienceCount`-a
-`isWithinNearbyVisibility` süzgəci və pik şərtinə k-anonimlik
-döşəməsi (`count >= VENUE_AUDIENCE_MIN_REPORTABLE_COUNT`) əlavə edildi,
-`audienceRadiusKm` isə picker-in öz allowlist-inə bağlandı. Bu üçü
-məhz ona görə mənbə düzəldilməzdən ƏVVƏL edildi ki, funksiya işə
-düşən anda sızmağa başlamasın. Sənəd: `index.ts`-dəki ⚠ şərhi,
-`activeUsers` sətrinin üstündə.
+### Qalan bilinən məhdudiyyət
 
-**Niyə Audit 4-də düzəldilmədi:** yatmış bir MƏHSUL funksiyasını işə
-salmaq görünən davranış dəyişikliyidir (kart birdən görünməyə başlayır,
-sahiblərə push getməyə başlayır) və yuxarıdakı xərc qərarını tələb
-edir — heç biri təhlükəsizlik keçidinin veriləcəyi qərar deyil.
+`users where lastSeen > cutoff` sorğusunda `limit` yoxdur, yəni oxu
+sayı eyni vaxtlı aktiv istifadəçi sayı ilə xətti artır. Bugün
+əhəmiyyətsizdir. Miqyas problemə çevrilsə, düzgün həll `withPrivateData`-nı
+daha da ucuzlaşdırmaq deyil, **server-only iştirak indeksi**dir:
+`private/data` yazısına trigger, Ghost Mode və görünmə radiusu **yazma
+anında** tətbiq olunur, funksiya isə bir neçə hücrə sənədi oxuyur —
+xərc `O(hücrə)` olur, `O(istifadəçi)` yox. Bu, #23-ün 1-ci variantının
+eyni formasıdır və hər ikisi eyni sessiyada edilməlidir.
 
-**Təxmini iş həcmi:** ~2 saat (sadə `withPrivateData` keçidi) · xərc
-optimizasiyası seçilərsə +1 gün.
+**Yenidən baxılma şərti:** eyni vaxtlı aktiv istifadəçi sayı 1000-i
+keçəndə, VƏ YA Firestore aylıq oxu xərci ümumi infrastruktur xərcinin
+20%-ni keçəndə.

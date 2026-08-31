@@ -49,10 +49,22 @@ import { InvalidPhoneNumberError, normalizePhoneNumber } from "./phone";
 // EVERY onCall function for real iOS users — e.g. a venue owner fixing
 // a `needs_revision` listing and resubmitting had no visible error, the
 // screen just popped as if it worked, and the venue stayed stuck.
-// Re-enable only after DeviceCheck registration is confirmed actually
-// working end-to-end (Firebase Console → App Check → this iOS app must
-// show real, un-rejected tokens flowing in) — not just re-flipped back
-// to `true` on faith.
+// CURRENT STATE, and the condition for changing it: enforcement is
+// deliberately `false` on every onCall in this file, waiting on iOS
+// DeviceCheck registration. Turn it on only once Firebase Console →
+// App Check shows a STEADY HIGH verification rate on BOTH platforms —
+// not just Android looking healthy, and not re-flipped to `true` on
+// faith. A partial rollout is the worst of the three states: it fails
+// closed and silently, so the users it breaks see a screen that
+// behaves as if the write succeeded.
+//
+// The per-function comments below used to say "KOD YAZILIB, DEPLOY
+// EDİLMƏYİB" — written when the flag was `true` in source but not yet
+// deployed. That has not been the situation since the revert above:
+// `false` is what is in source AND what is deployed. They were
+// rewritten to state the current condition instead, because a comment
+// describing a state the code left months ago is worse than no comment
+// — the next reader trusts it.
 initializeApp();
 
 const db = getFirestore();
@@ -2946,41 +2958,63 @@ export const computeVenueAudienceHistory = onSchedule(
     const historyCutoffMs = now.getTime() - AUDIENCE_HISTORY_RETENTION_MS;
     const hour = now.getHours();
 
-    const [venuesSnap, activeUsersSnap] = await Promise.all([
-      db.collection("venues").where("status", "==", "approved").get(),
-      db.collection("users").where("lastSeen", ">", activeCutoff).get(),
-    ]);
+    const venuesSnap = await db.collection("venues").where("status", "==", "approved").get();
     if (venuesSnap.empty) return;
 
-    // ⚠ THE 'distance' BRANCH OF `computeAudienceCount` IS CURRENTLY
-    // INERT, AND THIS LINE IS WHY. Found during the 2026-08-31
-    // hardening pass; deliberately NOT fixed in the same change.
+    // BACKLOG #25 — this function used to read the PUBLIC `users`
+    // document and cast it straight to [AudienceUserDoc]. Every field
+    // that type names — `lat`, `lng`, `ghostModeEnabled`,
+    // `visibilityRadiusMode/Km` — had moved to
+    // `users/{uid}/private/data` in Düzəliş Prompt 4 / K-1, so all four
+    // read `undefined`, every candidate tripped the `lat === undefined`
+    // guard, and the distance branch counted ZERO. Always. The
+    // "Ətrafınızda" card has therefore never rendered and no peak-hour
+    // push has ever fired for a distance-mode venue — which is every
+    // venue, since 'distance' is the default in both the picker and
+    // `submitVenue`.
     //
-    // These are PUBLIC `users` documents. Every field the distance
-    // branch needs — `lat`, `lng`, `ghostModeEnabled`,
-    // `visibilityRadiusMode/Km` — moved to `users/{uid}/private/data`
-    // in Düzəliş Prompt 4 / K-1 and is absent here, so every candidate
-    // trips the `lat === undefined` guard and the count is always 0.
-    // Consequences today: distance-mode venues never render the
-    // "Ətrafınızda" card (`currentAudienceCount` stays 0), and never
-    // fire a peak-hour push. 'country'/'world' modes are unaffected —
-    // they count documents, not positions.
+    // Same defect class as P0 / H-9 (a field moved, a reader did not),
+    // but the opposite sign: H-9 failed OPEN, because `withPrivateData`
+    // merges the two documents and the stale public copy became a live
+    // fallback. This failed CLOSED — an absent position produces 0,
+    // which is the safest answer available. That is why it was a
+    // dormant feature rather than a leak, and why the fix could wait
+    // for the hardening below to land first.
     //
-    // Not fixed here for two reasons. It is a dormant PRODUCT feature,
-    // and switching it on is a visible behaviour change that belongs to
-    // whoever owns the feature, not to a security pass. And the fix
-    // costs one `private/data` read per active user per 15-minute run
-    // (`withPrivateData`'s shape), which is a real bill on this app's
-    // largest collection and deserves its own decision.
-    //
-    // The hardening in `computeAudienceCount` and in the peak-hour
-    // condition below was still applied, precisely because this is the
-    // state to be in BEFORE the source is repaired: whoever swaps this
-    // query for a `withPrivateData` version should inherit a function
-    // that already honours ghost mode, the candidate's own visibility
-    // radius, and the k-anonymity floor — not one that starts leaking
-    // the moment it starts working.
-    const activeUsers: AudienceUserDoc[] = activeUsersSnap.docs.map((d) => d.data() as AudienceUserDoc);
+    // The reads are deliberately lazy and deduplicated — see
+    // [loadAudienceUsers].
+    const privateByUid = new Map<string, FirebaseFirestore.DocumentData>();
+
+    /**
+     * Public docs merged with their own `private/data`, one read per
+     * uid per RUN no matter how many venues ask for it.
+     *
+     * `withPrivateData` is the same merge, but it re-reads on every
+     * call; here the country/world branches below can ask for a user
+     * the `lastSeen` scan already covered, and a venue base sharing one
+     * country would otherwise pay for that user once per venue.
+     */
+    const loadAudienceUsers = async (
+      docs: FirebaseFirestore.QueryDocumentSnapshot[],
+    ): Promise<AudienceUserDoc[]> => {
+      const missing = docs.filter((d) => !privateByUid.has(d.id));
+      const fetched = await Promise.all(missing.map((d) => privateDataRef(d.id).get()));
+      missing.forEach((d, i) => privateByUid.set(d.id, fetched[i].data() ?? {}));
+      return docs.map((d) => ({ ...d.data(), ...privateByUid.get(d.id) }) as AudienceUserDoc);
+    };
+
+    // Skip the position scan entirely when no approved venue is in
+    // 'distance' mode — [computeAudienceCount]'s other two branches
+    // never look at `activeUsers`, so the `users` query AND its private
+    // reads would both be pure waste. Cheap because the venue set is
+    // already in hand; worth having because a small venue base can
+    // easily be all-country/all-world.
+    const anyDistanceVenue = venuesSnap.docs.some(
+      (d) => ((d.data().audienceRadiusMode as string | undefined) ?? "distance") === "distance",
+    );
+    const activeUsers: AudienceUserDoc[] = anyDistanceVenue
+      ? await loadAudienceUsers((await db.collection("users").where("lastSeen", ">", activeCutoff).get()).docs)
+      : [];
 
     // Lazily fetched — only venues actually configured for 'country'/
     // 'world' mode ever touch these (the uncommon case; most venues
@@ -2993,41 +3027,75 @@ export const computeVenueAudienceHistory = onSchedule(
       const venue = venueDoc.data();
       const mode = (venue.audienceRadiusMode as string | undefined) ?? "distance";
 
+      // These two branches had the SAME moved-field bug as the distance
+      // one, just without the visible symptom: `d.data().ghostModeEnabled`
+      // reads the PUBLIC document, where that flag has not lived since
+      // Düzəliş Prompt 4 / K-1 (it is written by
+      // `FirebasePrivacySettingsRepository` to `private/data`). So the
+      // filter was a no-op and Ghost Mode users were counted — the
+      // count still LOOKED right, which is why this half went unnoticed
+      // while the distance half was obviously stuck at 0.
+      //
+      // docs/VENUE_OCCUPANCY.md states Ghost Mode is excluded "hər üç
+      // rejimdə". Until this line it was excluded in none of them.
       if (mode === "country" && venue.country && !onlineByCountry.has(venue.country as string)) {
         const snap = await db
           .collection("users")
           .where("country", "==", venue.country)
           .where("online", "==", true)
           .get();
-        onlineByCountry.set(
-          venue.country as string,
-          snap.docs.filter((d) => !d.data().ghostModeEnabled).length,
-        );
+        const users = await loadAudienceUsers(snap.docs);
+        onlineByCountry.set(venue.country as string, users.filter((u) => !u.ghostModeEnabled).length);
       }
       if (mode === "world" && onlineWorldwide === -1) {
         const snap = await db.collection("users").where("online", "==", true).get();
-        onlineWorldwide = snap.docs.filter((d) => !d.data().ghostModeEnabled).length;
+        const users = await loadAudienceUsers(snap.docs);
+        onlineWorldwide = users.filter((u) => !u.ghostModeEnabled).length;
       }
 
       const count = computeAudienceCount(venue, activeUsers, onlineByCountry, onlineWorldwide === -1 ? 0 : onlineWorldwide);
 
-      // One read of the whole subcollection (capped at ~7 days x 96
-      // ticks/day ≈ 672 docs) instead of two separate range queries —
-      // splits into "same hour, still in-window" (this venue's usual
-      // baseline) vs "past the 7-day window" (swept below) in memory.
-      const historySnap = await venueDoc.ref.collection("audienceHistory").get();
-      const sameHourCounts: number[] = [];
-      const staleDocs: FirebaseFirestore.QueryDocumentSnapshot[] = [];
-      for (const doc of historySnap.docs) {
-        const data = doc.data();
-        const ts = data.timestamp as Timestamp | undefined;
-        if (!ts) continue;
-        if (ts.toMillis() < historyCutoffMs) {
-          staleDocs.push(doc);
-          continue;
-        }
-        if (data.hour === hour) sameHourCounts.push(data.count as number);
-      }
+      // TWO NARROW QUERIES, not one full-subcollection read.
+      //
+      // This used to be a bare `.get()` on the whole subcollection, with
+      // a comment calling that cheaper than "two separate range
+      // queries". It was the opposite. Retention is 7 days at 96 ticks
+      // a day, so the collection sits at ~672 documents and EVERY ONE
+      // was read on EVERY tick, for every approved venue — 96 x 672 =
+      // 64,512 reads per venue per day, growing linearly with the venue
+      // count, to compute an average over ~7 samples and find the ~1
+      // document that just expired. That alone put this function past
+      // Firestore's 50k/day free read tier with a single venue, while
+      // it was still returning zeros.
+      //
+      // Firestore bills documents RETURNED, not scanned, so narrowing
+      // the queries is the whole fix: ~7 + ~1 documents instead of 672.
+      // The equality-plus-range pair needs the composite index declared
+      // in firestore.indexes.json (`hour` ASC, `timestamp` ASC) — WITHOUT
+      // IT THIS THROWS FAILED_PRECONDITION, so deploy indexes before
+      // functions.
+      const historyCutoffTs = Timestamp.fromMillis(historyCutoffMs);
+      const [sameHourSnap, staleSnap] = await Promise.all([
+        // This venue's usual level for this hour-of-day: one sample per
+        // day inside the window, so ~7 documents.
+        venueDoc.ref
+          .collection("audienceHistory")
+          .where("hour", "==", hour)
+          .where("timestamp", ">=", historyCutoffTs)
+          .get(),
+        // The retention sweep. One document falls out of the window per
+        // tick in steady state; the limit is headroom for a run that was
+        // skipped or a function that was paused, and anything beyond it
+        // is simply swept by the next tick. Range-only, so the automatic
+        // single-field index covers it — no composite needed.
+        venueDoc.ref
+          .collection("audienceHistory")
+          .where("timestamp", "<", historyCutoffTs)
+          .limit(200)
+          .get(),
+      ]);
+      const sameHourCounts = sameHourSnap.docs.map((d) => d.data().count as number);
+      const staleDocs = staleSnap.docs;
 
       if (sameHourCounts.length > 0) {
         const average = sameHourCounts.reduce((a, b) => a + b, 0) / sameHourCounts.length;
@@ -5620,12 +5688,10 @@ export const renewVenueSubscriptions = onSchedule(
  * this can't be used to prepay/skip ahead of the real due date.
  */
 export const retryVenueSubscriptionPayment = onCall(
-  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — KOD YAZILIB, DEPLOY EDİLMƏYİB.
-  // `true`-nun deploy edilməsi ARALIQ mərhələ olmadan dərhal production
-  // enforcement-dir (bax: bu funksiyanın da daxil olduğu top-of-file
-  // şərh, sətir ~27-40 — eyni səbəbdən bütün funksiyalarda bir dəfə
-  // `false`-a qaytarılıb). Deploy ETMƏZDƏN ƏVVƏL Firebase Console → App
-  // Check-də platform-üzrə (xüsusən iOS) təsdiqlənmə faizi yoxlanmalıdır.
+  // App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+  // qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+  // şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+  // platformada təsdiqlənmə faizi sabit yüksək olduqda.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
@@ -5849,9 +5915,10 @@ export const submitVenue = onCall(
  * `awaiting_payment` venue has none yet). Mirrors `retryOfferPayment`.
  */
 export const retryVenueCreationPayment = onCall(
-  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
-  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
-  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
+  // App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+  // qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+  // şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+  // platformada təsdiqlənmə faizi sabit yüksək olduqda.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
@@ -5981,9 +6048,10 @@ const BOOST_FEE_BY_HOURS: Record<number, number> = { 6: 2, 12: 4, 18: 6 };
  * `epointWebhook` on a confirmed charge, never here.
  */
 export const createBoostCheckout = onCall(
-  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
-  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
-  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
+  // App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+  // qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+  // şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+  // platformada təsdiqlənmə faizi sabit yüksək olduqda.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
@@ -6036,9 +6104,10 @@ const VENUE_PREMIUM_FEE_BY_MONTHS: Record<number, number> = { 1: 22, 6: 99, 12: 
  * firestore.rules' venues update rule).
  */
 export const createVenuePremiumCheckout = onCall(
-  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
-  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
-  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
+  // App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+  // qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+  // şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+  // platformada təsdiqlənmə faizi sabit yüksək olduqda.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
@@ -6811,9 +6880,10 @@ export const notifyOnNewDeviceSignIn = beforeUserSignedIn({ region: "us-central1
  * moment this function returns.
  */
 export const reservePinBoxOrder = onCall(
-  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
-  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
-  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
+  // App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+  // qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+  // şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+  // platformada təsdiqlənmə faizi sabit yüksək olduqda.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
@@ -6970,9 +7040,10 @@ export const reservePinBoxOrder = onCall(
  */
 const _qrTokenTtlMs = 40_000;
 
-// Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
-// eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
-// təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
+// App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+// qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+// şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+// platformada təsdiqlənmə faizi sabit yüksək olduqda.
 export const generatePinBoxQrToken = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -7026,9 +7097,10 @@ export const generatePinBoxQrToken = onCall({ region: "us-central1", enforceAppC
  * distinguish "wrong code" from "right code, too late" from the error
  * alone.
  */
-// Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
-// eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
-// təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
+// App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+// qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+// şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+// platformada təsdiqlənmə faizi sabit yüksək olduqda.
 export const redeemPinBoxOrder = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -7387,9 +7459,10 @@ export const submitOffer = onCall(
  * never needed payment in the first place.
  */
 export const retryOfferPayment = onCall(
-  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
-  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
-  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
+  // App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+  // qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+  // şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+  // platformada təsdiqlənmə faizi sabit yüksək olduqda.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
@@ -8426,9 +8499,10 @@ async function loadOwnedPendingPayment(uid: string, paymentId: string): Promise<
  * replaced.)
  */
 export const createEpointWidgetCheckout = onCall(
-  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
-  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
-  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
+  // App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+  // qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+  // şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+  // platformada təsdiqlənmə faizi sabit yüksək olduqda.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
@@ -8464,9 +8538,10 @@ export const createEpointWidgetCheckout = onCall(
 // ---------------------------------------------------------------------------
 
 export const startCardRegistration = onCall(
-  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
-  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
-  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
+  // App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+  // qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+  // şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+  // platformada təsdiqlənmə faizi sabit yüksək olduqda.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
@@ -8509,9 +8584,10 @@ async function loadOwnedActiveCard(uid: string, cardId: string): Promise<Firebas
  * order_id (see `startEpointCheckoutForPayment`'s own doc comment).
  */
 export const payWithSavedCard = onCall(
-  // Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
-  // eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
-  // təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
+  // App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+  // qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+  // şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+  // platformada təsdiqlənmə faizi sabit yüksək olduqda.
   { region: "us-central1", secrets: [epointPublicKey, epointPrivateKey, epointEnv], enforceAppCheck: false },
   async (request) => {
     const uid = request.auth?.uid;
@@ -8571,9 +8647,10 @@ export const payWithSavedCard = onCall(
   },
 );
 
-// Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
-// eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
-// təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
+// App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+// qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+// şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+// platformada təsdiqlənmə faizi sabit yüksək olduqda.
 export const deleteSavedCard = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
@@ -8607,9 +8684,10 @@ export const deleteSavedCard = onCall({ region: "us-central1", enforceAppCheck: 
   return { deleted: true };
 });
 
-// Düzəliş Prompt 8 / K-7, Qrup 1 (ödəniş) — bax `retryVenueSubscriptionPayment`-in
-// eyni şərhi: KOD YAZILIB, DEPLOY EDİLMƏYİB, Console-da iOS
-// təsdiqlənmə faizi yoxlanmadan deploy edilməməlidir.
+// App Check enforcement qəsdən `false`-dur — iOS DeviceCheck
+// qeydiyyatı gözlənilir (səbəb və simptom: bu faylın başındakı
+// şərh). Açılma şərti: Firebase Console → App Check-də HƏR İKİ
+// platformada təsdiqlənmə faizi sabit yüksək olduqda.
 export const setDefaultSavedCard = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün daxil olmalısınız.");
