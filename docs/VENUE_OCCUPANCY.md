@@ -185,3 +185,63 @@ sənədə** tranzaksiyalı yazısıdır — Firestore-un tək sənəd üçün
 təxminən **1 yazı/saniyə** həddi var. 200 nəfər eyni anda check-in
 etsə (konsert, açılış) tranzaksiyalar bir-birini gözləyəcək və bəziləri
 uğursuz ola bilər. Bu, real hədddir və sənədləşdirilməyə dəyər.
+
+---
+
+## Növbə girişindəki telefon nömrəsi — kim oxuyur
+
+Növbəyə yazılan istifadəçi telefon nömrəsini verir; məkan sahibi onu
+çağıra bilsin deyə. Giriş sənədi:
+`venues/{venueId}/waitlist/{entryId}` — `userId`, `phoneNumber`,
+`partySize`, `note`, `status`, `joinedAt`, `queuePosition`.
+
+**Oxu qaydası:**
+
+```
+allow read: if request.auth != null &&
+  (resource.data.userId == request.auth.uid || isVenueOwner());
+```
+
+**Emulator testi ilə təsdiqlənib** (`firestore-waitlist-privacy.test.ts`):
+
+| Kim | Öz girişi | Başqasının girişi | Bütün siyahı |
+|---|---|---|---|
+| Növbədəki istifadəçi | ✅ | **❌** | **❌** |
+| Məkan sahibi | ✅ | ✅ | ✅ |
+| Kənar istifadəçi | — | ❌ | ❌ |
+
+**Yəni növbədə duran biri digərinin nömrəsini görə bilmir** — nə
+birbaşa sənədi oxumaqla, nə siyahılamaqla, nə də başqasının uid-i ilə
+süzülmüş sorğu ilə. Firestore `list` sorğusunu sənəd-sənəd yox, bütöv
+sorğu üzrə qiymətləndirir: `isVenueOwner()` `resource`-a bağlı
+olmadığı üçün sahib üçün bütün sorğuya şamil olunur, digərləri isə
+yalnız `where('userId', '==', öz uid)` ilə məhdudlaşdırılmış sorğu işlədə
+bilər.
+
+Client tərəfi də buna uyğundur: istifadəçi öz növbə yerini
+`watchMyEntry` (`queuePosition` öz sənədində) ilə görür, tam siyahını
+oxuyan yeganə ekran `VenueWaitlistScreen`-dir və o, sahibə aiddir
+(`venueWaitingListProvider` — «Owner-only "Növbə" list»).
+
+**Client birbaşa yaza da bilmir** — `allow create: if false`, giriş
+yalnız `joinWaitlist` callable-ından keçir (telefon normalizasiyası,
+təkrar-giriş yoxlaması və rate limit orada tətbiq olunur).
+
+**Qalan məlumat axını:** nömrə **məkan sahibinə** çatır. Bu, funksiyanın
+öz tələbidir — sahib müştərini çağırmalıdır — amma istifadəçiyə açıq
+deyilməlidir. Növbəyə yazılma ekranında bunun bildirilməsi məhsul
+qərarıdır; kod səviyyəsində əlavə qoruma tələb olunmur.
+
+---
+
+## PinBox `stockTotal` — qəsdən ictimai
+
+`pinboxes/{id}` hər qeydiyyatlı istifadəçiyə oxunaqlıdır və həm
+`stockRemaining`, həm `stockTotal` orada saxlanılır, yəni satılan sayı
+(`stockTotal − stockRemaining`) hesablana bilir.
+
+**Qərar (2026-08-31): belə qalır.** İstifadəçi «neçə qutu qalıb»
+görməlidir — bu, alış qərarının bir hissəsidir. Rəqib də görür, amma
+həmin məlumat onsuz da tətbiqə girməklə əlçatandır. Məxfilik məsələsi
+deyil: fərdi alıcılar (`pinboxOrders` — yalnız alıcı) və sahibin gəlir
+qeydləri (`venuePayouts` — server-only) ayrıca qorunur.
