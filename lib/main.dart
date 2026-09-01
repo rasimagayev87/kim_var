@@ -36,6 +36,13 @@ void main() async {
   // Fail-open like every other startup block here: if this throws, calls
   // fall back to the foreground-only Firestore listener, which is what
   // the app did before. It must not be the reason the app cannot open.
+  //
+  // ⚠️ A `try/catch` here protects against a THROW, not against a HANG.
+  // Anything awaited before `runApp()` that never completes freezes the
+  // app on its launch screen with no error and no crash report — see
+  // `CallPushService.initialize`'s own doc comment for the instance of
+  // that this already caused. Both calls below are non-blocking by
+  // construction; keep them that way.
   try {
     await CallPushService.initialize();
     await listenToCallkitEvents();

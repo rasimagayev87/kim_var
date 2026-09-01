@@ -44,13 +44,46 @@ class CallPushService {
   static const String _cancelled = 'call_cancelled';
 
   /// Wired once at startup, before `runApp`.
+  ///
+  /// ── NOTHING HERE MAY BLOCK ─────────────────────────────────────
+  ///
+  /// This runs before `runApp()`, so anything awaited here that does
+  /// not complete freezes the app on its launch screen with no error
+  /// and no crash report. A `try/catch` around the call site does NOT
+  /// protect against that — it catches throws, not hangs.
+  ///
+  /// That is exactly what happened: this method used to
+  /// `await FirebaseMessaging.instance.getInitialMessage()`. On iOS
+  /// that call waits for APNs registration, and on a build whose
+  /// provisioning profile carries no push entitlement (a personal-team
+  /// signature, which is every local device build until the Apple
+  /// Developer membership is active) registration never completes. The
+  /// app opened to a blank screen and stayed there.
+  ///
+  /// So: the two registrations below are synchronous and must stay
+  /// ahead of `runApp`, and the terminated-launch lookup is
+  /// deliberately NOT awaited.
   static Future<void> initialize() async {
     FirebaseMessaging.onBackgroundMessage(callPushBackgroundHandler);
     FirebaseMessaging.onMessage.listen(_handleMessage);
+
     // A call push that arrived while the app was terminated and was
-    // tapped to open it.
-    final initial = await FirebaseMessaging.instance.getInitialMessage();
-    if (initial != null) await _handleMessage(initial);
+    // tapped to open it. Fire-and-forget WITH a timeout: the app must
+    // reach `runApp` whether or not this ever answers, and a call from
+    // before the app was even running is not worth a second of launch.
+    unawaited(
+      FirebaseMessaging.instance
+          .getInitialMessage()
+          .timeout(const Duration(seconds: 5))
+          .then((initial) {
+            if (initial != null) return _handleMessage(initial);
+            return null;
+          })
+          .catchError((Object e, StackTrace st) {
+            logError('call_push_service.getInitialMessage', e, st);
+            return null;
+          }),
+    );
   }
 
   static Future<void> _handleMessage(RemoteMessage message) => handleCallPush(message.data);
