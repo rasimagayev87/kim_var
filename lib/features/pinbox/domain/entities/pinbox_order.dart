@@ -21,7 +21,13 @@ part 'pinbox_order.g.dart';
 /// back. Neither is server-default-reachable by name (see the
 /// converter below), so a legacy/malformed doc without those two
 /// statuses still falls back to [reserved] exactly as before.
-enum PinBoxOrderStatus { awaitingPayment, reserved, paymentFailed, completed, expired }
+/// `noShow` — paid for, never collected, pickup window closed.
+///
+/// Written by `expirePinBoxOrders` (Cloud Function, hourly). Named for
+/// what happened rather than for a timer: `expired` reads as a system
+/// fault, and the money is deliberately NOT refunded (Public Offer §5),
+/// so the record must not suggest the platform lost the order.
+enum PinBoxOrderStatus { awaitingPayment, reserved, paymentFailed, completed, noShow }
 
 class PinBoxOrderStatusConverter implements JsonConverter<PinBoxOrderStatus, String?> {
   const PinBoxOrderStatusConverter();
@@ -35,8 +41,14 @@ class PinBoxOrderStatusConverter implements JsonConverter<PinBoxOrderStatus, Str
         return PinBoxOrderStatus.paymentFailed;
       case 'completed':
         return PinBoxOrderStatus.completed;
+      case 'no_show':
+        return PinBoxOrderStatus.noShow;
+      // Documents written before the rename. Nothing produced this in
+      // production (the sweep that writes the terminal state did not
+      // exist), but reading it costs one line and guessing wrong would
+      // show a collected order as still waiting.
       case 'expired':
-        return PinBoxOrderStatus.expired;
+        return PinBoxOrderStatus.noShow;
       case 'reserved':
       default:
         return PinBoxOrderStatus.reserved;
@@ -54,8 +66,8 @@ class PinBoxOrderStatusConverter implements JsonConverter<PinBoxOrderStatus, Str
         return 'reserved';
       case PinBoxOrderStatus.completed:
         return 'completed';
-      case PinBoxOrderStatus.expired:
-        return 'expired';
+      case PinBoxOrderStatus.noShow:
+        return 'no_show';
     }
   }
 }

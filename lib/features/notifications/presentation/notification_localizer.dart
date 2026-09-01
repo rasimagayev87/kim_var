@@ -304,6 +304,13 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: venueName.isEmpty ? loc.notifBirthdayOfferBodyGeneric : loc.notifBirthdayOfferBody(venueName),
       );
 
+    case NotificationType.pinboxNoShow:
+      final boxTitle = str('title');
+      return LocalizedNotificationText(
+        title: loc.notifPinboxNoShowTitle,
+        body: boxTitle.isEmpty ? loc.notifPinboxNoShowBodyGeneric : loc.notifPinboxNoShowBody(boxTitle),
+      );
+
     case NotificationType.eventApproved:
       return LocalizedNotificationText(
         title: loc.notifEventApprovedTitle,

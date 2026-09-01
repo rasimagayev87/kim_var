@@ -1703,5 +1703,12 @@
   "notifEventApprovedTitle": "Etkinliğin onaylandı",
   "notifEventApprovedBody": "«{title}» yayınlandı.",
   "notifEventRejectedTitle": "Etkinlik yayınlanmadı",
-  "notifEventRejectedBodyGeneric": "Etkinliğin yayınlanmadı."
+  "notifEventRejectedBodyGeneric": "Etkinliğin yayınlanmadı.",
+  "pinboxOrderStatusNoShow": "Teslim alınmadı",
+  "pinboxNoShowTicketTitle": "Bu sipariş teslim alınmadı",
+  "pinboxNoShowTicketBody": "Teslim aralığı {window} sona erdi ve kutu teslim alınmadı. Şartlara göre tutar iade edilmez.",
+  "pinboxPickupWindowWarning": "Teslim aralığı: {window}\\nBu aralıkta gelmezsen tutar iade edilmez.",
+  "notifPinboxNoShowTitle": "Kutu teslim alınmadı",
+  "notifPinboxNoShowBody": "«{title}» için müşteri teslim aralığında gelmedi. Ürünü yeniden satışa çıkarabilirsin.",
+  "notifPinboxNoShowBodyGeneric": "Müşteri teslim aralığında gelmedi. Ürünü yeniden satışa çıkarabilirsin."
 }

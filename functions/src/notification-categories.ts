@@ -148,6 +148,10 @@ export const NOTIFICATION_CATEGORY_BY_TYPE: Readonly<Record<string, string>> = {
   // into, it is the result of something they submitted — and the
   // auto-rejection when a review misses the event's own start time is
   // OUR delay, which they can only act on if they are told.
+  // The customer did not collect a paid PinBox order. `account`
+  // because the venue keeps the money and is left holding goods — both
+  // money facts about a completed sale, not opt-in venue news.
+  pinboxNoShow: "account",
   eventApproved: "account",
   eventRejected: "account",
   venueWaitlistJoined: "account",

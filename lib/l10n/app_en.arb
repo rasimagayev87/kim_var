@@ -1817,5 +1817,12 @@
   "notifEventApprovedTitle": "Your event is approved",
   "notifEventApprovedBody": "“{title}” is now published.",
   "notifEventRejectedTitle": "Event not published",
-  "notifEventRejectedBodyGeneric": "Your event was not published."
+  "notifEventRejectedBodyGeneric": "Your event was not published.",
+  "pinboxOrderStatusNoShow": "Not collected",
+  "pinboxNoShowTicketTitle": "This order was not collected",
+  "pinboxNoShowTicketBody": "The pickup window {window} has closed and the box was not collected. Under the terms, the amount is not refunded.",
+  "pinboxPickupWindowWarning": "Pickup window: {window}\\nIf you do not come within this window, the amount is not refunded.",
+  "notifPinboxNoShowTitle": "Box not collected",
+  "notifPinboxNoShowBody": "The customer did not come for “{title}” within the pickup window. You can put the goods back on sale.",
+  "notifPinboxNoShowBodyGeneric": "The customer did not come within the pickup window. You can put the goods back on sale."
 }

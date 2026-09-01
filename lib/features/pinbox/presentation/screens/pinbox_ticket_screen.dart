@@ -309,11 +309,54 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                                       width: 196,
                                       height: 196,
                                       child: Center(
-                                        child: Text(
-                                          loc.pinboxTicketQrUnavailableMessage,
-                                          textAlign: TextAlign.center,
-                                          style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
-                                        ),
+                                        // The server refuses a token
+                                        // outside the pickup window
+                                        // ("outside-pickup-window" from
+                                        // `generatePinBoxQrToken`), which
+                                        // is correct — but the screen
+                                        // used to render that as a bare
+                                        // "unavailable", so the reason
+                                        // never reached the person
+                                        // holding the ticket. Say what
+                                        // happened, and what it means
+                                        // for their money.
+                                        child: pinbox.pickupWindowEnd.isBefore(DateTime.now())
+                                            ? Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  const Icon(Icons.event_busy,
+                                                      size: 34, color: ChatLightColors.inkFaint),
+                                                  const SizedBox(height: 10),
+                                                  Text(
+                                                    loc.pinboxNoShowTicketTitle,
+                                                    textAlign: TextAlign.center,
+                                                    style: const TextStyle(
+                                                        fontSize: 13.5,
+                                                        fontWeight: FontWeight.w700,
+                                                        color: ChatLightColors.ink),
+                                                  ),
+                                                  const SizedBox(height: 6),
+                                                  Padding(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                    child: Text(
+                                                      loc.pinboxNoShowTicketBody(
+                                                        '${pickupFormat.format(pinbox.pickupWindowStart)}–${pickupFormat.format(pinbox.pickupWindowEnd)}',
+                                                      ),
+                                                      textAlign: TextAlign.center,
+                                                      style: const TextStyle(
+                                                          fontSize: 11.5,
+                                                          height: 1.35,
+                                                          color: ChatLightColors.inkSoft),
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            : Text(
+                                                loc.pinboxTicketQrUnavailableMessage,
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(
+                                                    fontSize: 12.5, color: ChatLightColors.inkSoft),
+                                              ),
                                       ),
                                     )
                                   else
@@ -438,7 +481,7 @@ class _StatusPill extends StatelessWidget {
       PinBoxOrderStatus.reserved => (loc.pinboxOrderStatusReserved, AppColors.primary),
       PinBoxOrderStatus.paymentFailed => (loc.pinboxOrderStatusPaymentFailed, AppColors.error),
       PinBoxOrderStatus.completed => (loc.pinboxOrderStatusCompleted, AppColors.gold),
-      PinBoxOrderStatus.expired => (loc.pinboxOrderStatusExpired, AppColors.error),
+      PinBoxOrderStatus.noShow => (loc.pinboxOrderStatusNoShow, ChatLightColors.inkFaint),
     };
 
     return Container(

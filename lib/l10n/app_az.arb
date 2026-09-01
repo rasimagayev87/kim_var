@@ -1703,5 +1703,12 @@
   "notifEventApprovedTitle": "Tədbiriniz təsdiqləndi",
   "notifEventApprovedBody": "«{title}» yayımlandı.",
   "notifEventRejectedTitle": "Tədbir yayımlanmadı",
-  "notifEventRejectedBodyGeneric": "Tədbiriniz yayımlanmadı."
+  "notifEventRejectedBodyGeneric": "Tədbiriniz yayımlanmadı.",
+  "pinboxOrderStatusNoShow": "Təhvil alınmadı",
+  "pinboxNoShowTicketTitle": "Bu sifariş təhvil alınmadı",
+  "pinboxNoShowTicketBody": "Təhvil pəncərəsi {window} bitdi və qutu təhvil alınmadı. Şərtlərə uyğun olaraq məbləğ geri qaytarılmır.",
+  "pinboxPickupWindowWarning": "Təhvil pəncərəsi: {window}\\nBu aralıqda gəlməsəniz məbləğ geri qaytarılmır.",
+  "notifPinboxNoShowTitle": "Qutu təhvil alınmadı",
+  "notifPinboxNoShowBody": "«{title}» üçün müştəri təhvil pəncərəsində gəlmədi. Məhsulu yenidən satışa çıxara bilərsiniz.",
+  "notifPinboxNoShowBodyGeneric": "Müştəri təhvil pəncərəsində gəlmədi. Məhsulu yenidən satışa çıxara bilərsiniz."
 }

@@ -157,6 +157,12 @@ enum NotificationType {
   /// event reaches its own `startAt` before anyone reviewed it. That
   /// one is the product's delay rather than the owner's mistake, which
   /// is why the note travels with it and is rendered in the feed.
+  /// A paid PinBox order whose pickup window closed uncollected —
+  /// see `expirePinBoxOrders` (Cloud Function). Owner-only. The venue
+  /// keeps the money and is left holding the goods, so the copy points
+  /// at the one action left: put them back on sale.
+  pinboxNoShow,
+
   eventApproved,
   eventRejected,
 

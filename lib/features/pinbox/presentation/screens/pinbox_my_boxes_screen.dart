@@ -134,12 +134,35 @@ class _OrderCard extends ConsumerWidget {
           PinBoxOrderStatus.reserved => (loc.pinboxOrderStatusReserved, AppColors.primary),
           PinBoxOrderStatus.paymentFailed => (loc.pinboxOrderStatusPaymentFailed, AppColors.error),
           PinBoxOrderStatus.completed => (loc.pinboxOrderStatusCompleted, AppColors.gold),
-          PinBoxOrderStatus.expired => (loc.pinboxOrderStatusExpired, AppColors.error),
+          PinBoxOrderStatus.noShow => (loc.pinboxOrderStatusNoShow, ChatLightColors.inkFaint),
         };
+
+        // The status is written by an HOURLY sweep (`expirePinBoxOrders`),
+        // so for up to an hour after the window closes the stored value
+        // still says `reserved`. Deriving the real-time answer here as
+        // well means the card never tells someone to go and collect a
+        // box they can no longer collect.
+        //
+        // `_ListingCard` below has always done this for the seller's own
+        // listings; the BUYER's card read the raw status only, which is
+        // why "Ready for pickup" stayed on screen after the window
+        // ended.
+        final windowClosed = pinbox.pickupWindowEnd.isBefore(DateTime.now());
+        final isNotCollected = order.status == PinBoxOrderStatus.noShow ||
+            (order.status == PinBoxOrderStatus.reserved && windowClosed);
+        final (effectiveLabel, effectiveColor) = isNotCollected
+            ? (loc.pinboxOrderStatusNoShow, ChatLightColors.inkFaint)
+            : (statusLabel, statusColor);
 
         return GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PinBoxTicketScreen(orderId: order.id))),
-          child: Container(
+          // Dimmed as a whole, so an uncollected order is distinct in
+          // the LIST and not only once its chip is read. A finished
+          // order should not compete visually with one still waiting to
+          // be picked up.
+          child: Opacity(
+            opacity: isNotCollected ? 0.55 : 1,
+            child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
             child: Row(
@@ -177,12 +200,12 @@ class _OrderCard extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: statusColor.withValues(alpha: 0.12),
+                          color: effectiveColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(999),
                         ),
                         child: Text(
-                          statusLabel,
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: statusColor),
+                          effectiveLabel,
+                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: effectiveColor),
                         ),
                       ),
                     ],
@@ -193,6 +216,7 @@ class _OrderCard extends ConsumerWidget {
                   style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
                 ),
               ],
+            ),
             ),
           ),
         );

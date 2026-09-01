@@ -1,5 +1,7 @@
 import "server-only";
 
+import { FieldPath } from "firebase-admin/firestore";
+
 import { getAdminDb } from "@/lib/firebase/admin";
 
 /**
@@ -30,6 +32,15 @@ export interface AdminPinBoxPayoutRow {
   payoutAmount: number;
   currency: string;
   status: PinBoxPayoutStatus;
+  /** Whether the buyer never collected this order — read from the
+   * `pinboxOrders` document, not from the payout.
+   *
+   * The payout obligation is written when PAYMENT clears, not when the
+   * box is handed over, so an uncollected order looks identical to a
+   * collected one on this screen. The venue is still paid (Public Offer
+   * §5), but "the customer did not come" is a fact the person
+   * reconciling payouts should be able to see. */
+  notCollected: boolean;
   createdAt: string | null;
 }
 
@@ -61,6 +72,24 @@ export async function listPinBoxPayouts({ status }: { status: PinBoxPayoutStatus
 
   const snap = await query.orderBy("createdAt", "desc").limit(FETCH_LIMIT).get();
 
+  // Which of these orders the buyer never collected. One extra query
+  // for the page, not one per row: `expirePinBoxOrders` marks them
+  // `no_show`, and the payout document itself carries no such field
+  // because it is written at payment time, before anyone knows.
+  const notCollectedOrderIds = new Set<string>();
+  if (snap.size > 0) {
+    const orderIds = snap.docs.map((d) => (d.data().orderId as string) ?? d.id);
+    for (let i = 0; i < orderIds.length; i += 30) {
+      const chunk = orderIds.slice(i, i + 30);
+      const orders = await db
+        .collection("pinboxOrders")
+        .where(FieldPath.documentId(), "in", chunk)
+        .where("status", "==", "no_show")
+        .get();
+      for (const o of orders.docs) notCollectedOrderIds.add(o.id);
+    }
+  }
+
   const ownerIds = [...new Set(snap.docs.map((doc) => doc.data().ownerId as string | undefined).filter(Boolean))] as string[];
   const ownerDocs = await Promise.all(ownerIds.map((uid) => db.collection("users").doc(uid).get()));
   const ownerByUid = new Map(ownerDocs.map((doc) => [doc.id, doc.data()]));
@@ -87,6 +116,7 @@ export async function listPinBoxPayouts({ status }: { status: PinBoxPayoutStatus
       payoutAmount: (data.payoutAmount as number) ?? 0,
       currency: (data.currency as string) ?? "AZN",
       status: parseStatus(data.status),
+      notCollected: notCollectedOrderIds.has((data.orderId as string) ?? doc.id),
       createdAt: createdAt ? createdAt.toDate().toISOString() : null,
     };
   });

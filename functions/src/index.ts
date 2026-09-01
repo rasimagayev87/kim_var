@@ -3651,6 +3651,93 @@ export const onSupportMessageCreated = onDocumentCreated(
   },
 );
 
+/**
+ * Marks paid PinBox orders nobody collected.
+ *
+ * ── The gap this closes ────────────────────────────────────────────
+ *
+ * `PinBoxOrderStatus` has always listed a terminal "not collected"
+ * state, and NOTHING EVER WROTE IT. An order went `awaiting_payment` →
+ * `reserved` on payment and stayed `reserved` for ever: the buyer's
+ * ticket kept saying "Ready for pickup" days after the window closed,
+ * the QR code refused to generate with an error the UI showed as
+ * "unavailable", and the venue was never told the customer had not
+ * come.
+ *
+ * The client already worked around half of this — `_ListingCard` in
+ * `pinbox_my_boxes_screen.dart` derives "past pickup window" in real
+ * time and its comment names this exact missing sweep. That fixes one
+ * screen. The status has to be written on the SERVER, because the
+ * owner's app, the admin panel and every future report all read the
+ * same field.
+ *
+ * ── `no_show`, not `expired` ───────────────────────────────────────
+ *
+ * Product decision, and the wording is the point: `expired` reads like
+ * a system fault ("something timed out"), while `no_show` states what
+ * actually happened. The money is not refunded (see the Public Offer
+ * §5), so the record should not imply the platform lost the order.
+ */
+export const expirePinBoxOrders = onSchedule(
+  { schedule: "every 60 minutes", region: "europe-west1" },
+  async () => {
+    // Paid orders only. `awaiting_payment` never became a sale and is
+    // cleaned up by the payment path, not here.
+    const snap = await db.collection("pinboxOrders").where("status", "==", "reserved").get();
+    if (snap.empty) return;
+
+    const now = Date.now();
+    let marked = 0;
+
+    for (const doc of snap.docs) {
+      try {
+        const order = doc.data();
+        // The window lives on the BOX, not the order — one box, one
+        // window, however many orders.
+        const pinboxSnap = await db.collection("pinboxes").doc(order.pinboxId as string).get();
+        const end = (pinboxSnap.data()?.pickupWindowEnd as Timestamp | undefined)?.toMillis();
+        if (end === undefined || end > now) continue;
+
+        await doc.ref.update({ status: "no_show", noShowAt: FieldValue.serverTimestamp() });
+        marked++;
+
+        // ── Tell the venue ─────────────────────────────────────────
+        //
+        // `account`, not `venueUpdates`: the venue keeps the money for
+        // an order nobody collected, and it prepared goods that are
+        // now unsold. Both are money facts about a completed sale, not
+        // venue news somebody opted into.
+        const venueSnap = await db.collection("venues").doc(order.venueId as string).get();
+        const ownerId = venueSnap.data()?.ownerId as string | undefined;
+        if (!ownerId) continue;
+
+        const title = (pinboxSnap.data()?.title as string | undefined) ?? "";
+        await notifyUser({
+          uid: ownerId,
+          category: "account",
+          type: "pinboxNoShow",
+          title: "Qutu təhvil alınmadı",
+          // Says what to DO, not only what happened: the goods are
+          // still there and the window is over, so re-listing them is
+          // the one action available.
+          body: title
+            ? `"${title}" üçün müştəri təhvil pəncərəsində gəlmədi. Məhsulu yenidən satışa çıxara bilərsiniz.`
+            : "Müştəri təhvil pəncərəsində gəlmədi. Məhsulu yenidən satışa çıxara bilərsiniz.",
+          params: { title, quantity: (order.quantity as number | undefined) ?? 1 },
+          targetId: order.pinboxId as string,
+          targetType: "pinbox",
+        });
+      } catch (e) {
+        // One order's failure must not end the sweep — the rest of the
+        // hour's orders would stay `reserved` until the next run.
+        logger.error("expirePinBoxOrders: order failed", { orderId: doc.id, error: e });
+      }
+    }
+
+    if (marked > 0) logger.info("expirePinBoxOrders", { marked });
+  },
+);
+
 // ── Incoming calls ────────────────────────────────────────────────────
 //
 // ⚠️ THIS PATH DELIBERATELY DOES NOT GO THROUGH `notifyUser`.

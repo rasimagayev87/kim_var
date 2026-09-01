@@ -290,9 +290,39 @@ class _PinBoxCheckoutScreenState extends ConsumerState<PinBoxCheckoutScreen> {
                   const Icon(Icons.info_outline, size: 18, color: AppColors.gold),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: Text(
-                      loc.pinboxNonRefundableNotice,
-                      style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft, height: 1.4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // The pickup window and its consequence, stated
+                        // BEFORE payment and in the same weight as the
+                        // rest of the screen — not as fine print.
+                        //
+                        // The money is not refunded if the buyer does
+                        // not collect (Public Offer §5), and until now
+                        // that was written nowhere the buyer could see:
+                        // the notice above it only said the order could
+                        // not be CANCELLED, which is a different fact.
+                        // Someone who misses the window loses the
+                        // amount, so they have to be told the window
+                        // and the consequence together, while they can
+                        // still decide not to buy.
+                        Text(
+                          loc.pinboxPickupWindowWarning(
+                            '${pickupFormat.format(pinbox.pickupWindowStart)}–${pickupFormat.format(pinbox.pickupWindowEnd)}',
+                          ),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            height: 1.4,
+                            fontWeight: FontWeight.w600,
+                            color: ChatLightColors.ink,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          loc.pinboxNonRefundableNotice,
+                          style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft, height: 1.4),
+                        ),
+                      ],
                     ),
                   ),
                 ],

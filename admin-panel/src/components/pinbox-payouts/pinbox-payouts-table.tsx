@@ -83,6 +83,16 @@ export function PinBoxPayoutsTable({
               </TableCell>
               <TableCell className="text-sm">
                 {payout.pinboxTitle}
+                {/* The payout row is written at PAYMENT time, so a
+                    collected and an uncollected order look identical
+                    here. The venue is paid either way (Public Offer
+                    §5) — but whoever reconciles payouts should be able
+                    to see that the customer never came. */}
+                {payout.notCollected && (
+                  <span className="mt-1 block w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-medium text-amber-800">
+                    Təhvil alınmadı
+                  </span>
+                )}
                 {payout.quantity > 1 ? <span className="text-muted-foreground"> × {payout.quantity}</span> : null}
               </TableCell>
               <TableCell className="text-sm">
