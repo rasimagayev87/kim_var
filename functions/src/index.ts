@@ -3549,6 +3549,28 @@ async function writeVenueDailyStats(
   }
 }
 
+/** Support emails one user may trigger per hour. Generous for a real
+ * person with a real problem, a hard stop for a script. */
+const SUPPORT_EMAIL_LIMIT = 5;
+const SUPPORT_EMAIL_WINDOW_MS = 60 * 60 * 1000;
+
+/** Books one support email against the sender's hourly budget. Same
+ * non-throwing shape as `consumeCallRateBudget`, for the same reason —
+ * a trigger cannot reject the write that started it. */
+async function consumeSupportEmailBudget(uid: string): Promise<boolean> {
+  const ref = db.collection("rateLimits").doc(`support-email:${uid}`);
+  const now = Date.now();
+  return db.runTransaction(async (tx) => {
+    const data = (await tx.get(ref)).data();
+    const windowStart = (data?.windowStart as number | undefined) ?? 0;
+    const count = (data?.count as number | undefined) ?? 0;
+    const fresh = now - windowStart > SUPPORT_EMAIL_WINDOW_MS;
+    if (!fresh && count >= SUPPORT_EMAIL_LIMIT) return false;
+    tx.set(ref, { windowStart: fresh ? now : windowStart, count: fresh ? 1 : count + 1 }, { merge: true });
+    return true;
+  });
+}
+
 /**
  * A support message reaches a human.
  *
@@ -3578,6 +3600,23 @@ export const onSupportMessageCreated = onDocumentCreated(
     const uid = data.uid as string | undefined;
     if (!uid) return;
 
+    // ── Frequency ──────────────────────────────────────────────────
+    //
+    // Rules cannot express "five per hour", and this trigger turns a
+    // document into an EMAIL — so an unthrottled writer fills
+    // support@peakpin.app rather than merely a collection. The client
+    // guards only against a double tap (`_sending`).
+    //
+    // Non-throwing, like the call limiter: the document already exists
+    // by the time a trigger runs. Over the limit the message is still
+    // STORED (support can find it once a screen exists — BACKLOG #30)
+    // but no mail goes out.
+    if (!(await consumeSupportEmailBudget(uid))) {
+      logger.warn("onSupportMessageCreated: rate limited", { uid, messageId: event.params.messageId });
+      await event.data!.ref.update({ status: "rate_limited" });
+      return;
+    }
+
     // The sender's own contact details — a support message you cannot
     // reply to is only marginally better than one nobody reads.
     // Written by this trigger rather than by the client so the address
@@ -3597,19 +3636,16 @@ export const onSupportMessageCreated = onDocumentCreated(
       status: "open",
     });
 
-    const escape = (v: unknown) =>
-      String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
     await sendPrivacyNotificationEmail(
-      `PeakPin dəstək — ${escape(data.type)} (@${escape(username)})`,
+      `PeakPin dəstək — ${escapeHtml(String(data.type ?? ""))} (@${escapeHtml(String(username ?? ""))})`,
       `<h3>Yeni dəstək mesajı</h3>
-       <p><strong>İstifadəçi:</strong> ${escape(name)} (@${escape(username)})<br>
+       <p><strong>İstifadəçi:</strong> ${escapeHtml(String(name ?? ""))} (@${escapeHtml(String(username ?? ""))})<br>
        <strong>Cavab ünvanı:</strong> ${escape(email) || "— (hesabda e-poçt yoxdur)"}<br>
-       <strong>uid:</strong> ${escape(uid)}<br>
-       <strong>Növ:</strong> ${escape(data.type)}<br>
-       <strong>Tətbiq:</strong> ${escape(data.appVersion)} · ${escape(data.platform)}</p>
+       <strong>uid:</strong> ${escapeHtml(String(uid ?? ""))}<br>
+       <strong>Növ:</strong> ${escapeHtml(String(data.type ?? ""))}<br>
+       <strong>Tətbiq:</strong> ${escapeHtml(String(data.appVersion ?? ""))} · ${escapeHtml(String(data.platform ?? ""))}</p>
        <hr>
-       <p style="white-space:pre-wrap">${escape(data.message)}</p>`,
+       <p style="white-space:pre-wrap">${escapeHtml(String(data.message ?? ""))}</p>`,
       "support@peakpin.app",
     );
   },

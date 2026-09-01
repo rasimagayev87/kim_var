@@ -103,6 +103,10 @@ export async function sendUserWarning(uid: string, reason: string): Promise<Acti
 
   const trimmedReason = reason.trim();
   if (!trimmedReason) return { ok: false, error: "invalid-input" };
+  // Admin SDK writes bypass `firestore.rules`, so every other cap in
+  // this product does not apply here — same reasoning as
+  // `BROADCAST_BODY_MAX`.
+  if (trimmedReason.length > 500) return { ok: false, error: "too-long" };
 
   try {
     await getAdminDb().collection("users").doc(uid).collection("notifications").add({

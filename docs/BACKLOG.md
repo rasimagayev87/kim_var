@@ -718,3 +718,37 @@ yeni icazə əlavə edilməməlidir, mövcudları bağlanmalıdır.
 biləndən çox olanda, VƏ YA cavab müddəti ölçülməli olanda.
 
 **Təxmini iş həcmi:** ~4-6 saat (`/offers` naxışı ilə).
+
+## 31. `offers` update qaydası blocklist-dir — allowlist olmalıdır
+
+**Mənbə:** A5 hədəflənmiş auditi (2026-09-01), A5-C1-in kök səbəbi
+
+**Nə:** `offers` üçün `allow update` **blocklist**-dir: siyahıda
+olmayan sahə **yazıla bilir**. Hər yeni server-only sahə əl ilə əlavə
+edilməlidir.
+
+`freeCampaignHold` bunun nəyə gətirdiyini göstərdi — o, `venues`
+sənədindəki `freeCampaignsUsed` ilə eyni gün, eyni funksiyanın hissəsi
+kimi əlavə edildi, amma TƏKLİF sənədində olduğu üçün yalnız `venues`
+siyahısı yenidən oxundu. Nəticə: sahib bayrağı təsdiqlənmiş kampaniyaya
+geri yazıb silə və kvota slotunu qaytara bilirdi — limitsiz pulsuz
+kampaniya. Emulyatorda sübut edildi.
+
+`venueEvents` eyni funksiyaya sahibdir və bu səhv orada baş vermədi,
+çünki onun qaydası `hasOnly` ilə **allowlist**-dir.
+
+**Nə üçün asandır:** klient `offers` sənədinə **ümumiyyətlə birbaşa
+yazmır**. `FirebaseOfferRemoteDatasource.setOffer` mövcuddur, amma heç
+yerdən çağırılmır (ölü metod); yaratma, yeniləmə və silmə `submitOffer`
+/ `updateOffer` / `deleteOffer` callable-larından keçir. Bloklanmayan
+sahələr faktiki olaraq yalnız `createdAt`, `updatedAt` və `ownerId`-dir
+(sonuncu ayrıca bərabərlik yoxlaması ilə qorunur).
+
+**Nə edilməli:** qayda `allow update: if false` edilə bilər, ya da çox
+dar `hasOnly([...])` ilə. Bu, təhlükəsizlik yamağı ilə eyni keçiddə
+edilmədi, çünki tapılmayan bir yazı yolu varsa təkliflər redaktə
+edilməz hala düşər — dəyişiklik ayrıca, öz test dəsti ilə getməlidir:
+`submitOffer`, `updateOffer`, `retryOfferPayment`, `createBoostCheckout`
+və admin panelin `setOfferStatus`-u dəyişiklikdən sonra işləməlidir.
+
+**Təxmini iş həcmi:** ~2 saat (dəyişiklik bir sətir, testlər qalanı).

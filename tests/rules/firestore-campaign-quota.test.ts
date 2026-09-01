@@ -121,3 +121,54 @@ describe("dayandırılmış məkan elan yaya bilmir — tədbir", () => {
     });
   }
 });
+
+describe("A5-C1 — kvota hold bayrağı server-only-dir", () => {
+  // Bu, blocklist boşluğu idi: `freeCampaignHold` siyahıda yox idi,
+  // yəni yazıla bilirdi. İstismar dövrü — pulsuz kampaniya yarat,
+  // təsdiqlən (bayraq silinir, slot həmişəlik tutulur), bayrağı GERİ
+  // YAZ, sil (trigger bayrağı görüb slotu qaytarır), təkrarla.
+  // Nəticə: limitsiz pulsuz kampaniya.
+  before(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "offers", "cq-offer"), {
+        ownerId: OWNER, venueId: APPROVED, status: "approved", title: "T", description: "D",
+        offerType: "discount", startDate: new Date(), endDate: new Date(Date.now() + 86400000),
+        category: "restaurant", lat: 40, lng: 49, address: "A", createdAt: new Date(),
+      });
+    });
+  });
+
+  test("sahib təsdiqlənmiş təklifə freeCampaignHold GERİ YAZA bilmir", async () => {
+    const db = env.authenticatedContext(OWNER).firestore();
+    await assertFails(updateDoc(doc(db, "offers", "cq-offer"), { freeCampaignHold: true }));
+  });
+
+  test("sahib freeCampaignHold-u silə də bilmir", async () => {
+    const db = env.authenticatedContext(OWNER).firestore();
+    await assertFails(updateDoc(doc(db, "offers", "cq-offer"), { freeCampaignHold: false }));
+  });
+});
+
+describe("A5-M2 — başlıq ölçü həddi", () => {
+  test("hədsiz uzun tədbir başlığı rədd edilir", async () => {
+    const db = env.authenticatedContext(OWNER).firestore();
+    await assertFails(
+      setDoc(doc(db, "venueEvents", "cq-longtitle"), {
+        venueId: APPROVED, title: "a".repeat(200), description: "T", status: "pending",
+        startAt: new Date(Date.now() + 3600_000), endAt: new Date(Date.now() + 7200_000),
+        category: "concert", createdAt: new Date(),
+      }),
+    );
+  });
+
+  test("normal başlıq keçir", async () => {
+    const db = env.authenticatedContext(OWNER).firestore();
+    await assertSucceeds(
+      setDoc(doc(db, "venueEvents", "cq-oktitle"), {
+        venueId: APPROVED, title: "Normal başlıq", description: "T", status: "pending",
+        startAt: new Date(Date.now() + 3600_000), endAt: new Date(Date.now() + 7200_000),
+        category: "concert", createdAt: new Date(),
+      }),
+    );
+  });
+});

@@ -13,6 +13,27 @@ export interface ActionResult {
 }
 
 export type BroadcastSegment = "all" | "vip" | "verified";
+
+/** Matches the notification copy limits every other path already has —
+ * chat text is capped at 2000 in `firestore.rules`, a listing title at
+ * 120. A broadcast writes one document per recipient, so an unbounded
+ * body is multiplied by the audience. */
+export const BROADCAST_TITLE_MAX = 120;
+export const BROADCAST_BODY_MAX = 500;
+
+/**
+ * A single broadcast may not exceed this many recipients.
+ *
+ * A send cannot be undone: the documents are written and the pushes are
+ * delivered. "All users" is exactly the shape of mistake that has no
+ * recovery, and the number will only grow. Past this, the send is
+ * refused rather than truncated — silently reaching some of the
+ * audience is worse than reaching none, because nobody can tell which.
+ *
+ * Raising it is a deliberate decision, and it should come with a
+ * second confirmation in the UI rather than a bigger constant.
+ */
+export const BROADCAST_AUDIENCE_MAX = 5000;
 export type BroadcastType = "announcement" | "promotion" | "system";
 
 /** Mirrors `notifyUser`'s own `prefs[category] === false` gate in
@@ -107,6 +128,14 @@ export async function sendBroadcast({
   if (!trimmedTitle || !trimmedBody) {
     return { ok: false, error: "invalid-input" };
   }
+  // Length caps. Every other user-authored field in this product is
+  // capped in `firestore.rules`; a broadcast is written with the Admin
+  // SDK, which bypasses rules entirely, so the cap has to be here or
+  // nowhere. Unbounded text would be copied into one document per
+  // recipient.
+  if (trimmedTitle.length > BROADCAST_TITLE_MAX || trimmedBody.length > BROADCAST_BODY_MAX) {
+    return { ok: false, error: "too-long" };
+  }
 
   try {
     const db = getAdminDb();
@@ -148,6 +177,12 @@ export async function sendBroadcast({
     });
     if (targetDocs.length === 0) {
       return { ok: false, error: "empty-audience" };
+    }
+    // Refused, not truncated — see BROADCAST_AUDIENCE_MAX. A send that
+    // reached an arbitrary 5000 of 8000 people cannot be completed or
+    // undone, and nobody can say which half got it.
+    if (targetDocs.length > BROADCAST_AUDIENCE_MAX) {
+      return { ok: false, error: "audience-too-large" };
     }
 
     const writer = db.bulkWriter();

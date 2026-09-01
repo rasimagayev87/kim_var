@@ -1961,6 +1961,23 @@ service cloud.firestore {
         request.auth.uid == resource.data.ownerId &&
         request.resource.data.ownerId == resource.data.ownerId &&
         !request.resource.data.diff(resource.data).affectedKeys()
+          // ⚠️ BLOKLİSTDİR — siyahıda OLMAYAN sahə YAZILA BİLİR.
+          //
+          // Hər yeni server-only sahə bura əl ilə əlavə edilməlidir, və
+          // `freeCampaignHold` bunun nəyə gətirdiyini göstərdi: o,
+          // `freeCampaignsUsed` ilə eyni gün, eyni funksiyanın bir
+          // hissəsi kimi əlavə edildi, amma sayğaclar `venues`
+          // sənədində, hold isə TƏKLİF sənədindədir — ona görə yalnız
+          // `venues` siyahısı yenidən oxundu. Sahib bayrağı təsdiqlənmiş
+          // kampaniyaya geri yazıb onu silə və kvota slotunu qaytara
+          // bilirdi; təkrarlayaraq limitsiz pulsuz kampaniya.
+          //
+          // `venueEvents` eyni funksiyaya sahibdir və bu səhv orada BAŞ
+          // VERMƏDİ, çünki onun update qaydası ALLOWLIST-dir (`hasOnly`)
+          // — sadalanmayan sahə qəbul edilmir, icazə verilmir.
+          //
+          // Bu qaydanın da allowlist-ə keçirilməsi docs/BACKLOG.md-dədir.
+          //
           // `venueId`/`venueName`/`venuePhotoUrl`/`lat`/`lng`/`position`/
           // `address`/`country`/`targetUserIds`/`personalMessage`/
           // `birthdayMatchId` joined the lock (P0, class-search finding
@@ -1976,7 +1993,7 @@ service cloud.firestore {
           // because `updateOffer`'s content diff never looks at these.
           // `submitOffer` derives all of them from the venue document
           // itself, so no legitimate flow writes them again.
-          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'paymentId', 'revisionDeadline', 'happyHourActive', 'boostedUntil', 'title', 'description', 'offerType', 'discountValue', 'startDate', 'endDate', 'terms', 'activeHours', 'activeDays', 'imageUrl', 'category', 'venueId', 'venueName', 'venuePhotoUrl', 'lat', 'lng', 'position', 'address', 'country', 'targetUserIds', 'personalMessage', 'birthdayMatchId']) &&
+          .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'paymentId', 'revisionDeadline', 'happyHourActive', 'boostedUntil', 'title', 'description', 'offerType', 'discountValue', 'startDate', 'endDate', 'terms', 'activeHours', 'activeDays', 'imageUrl', 'category', 'venueId', 'venueName', 'venuePhotoUrl', 'lat', 'lng', 'position', 'address', 'country', 'targetUserIds', 'personalMessage', 'birthdayMatchId', 'freeCampaignHold']) &&
         (!('description' in request.resource.data) || request.resource.data.description.size() <= 200) &&
         (!('terms' in request.resource.data) || request.resource.data.terms.size() <= 200);
 
@@ -2035,6 +2052,14 @@ service cloud.firestore {
         return !('description' in request.resource.data) || request.resource.data.description.size() <= 200;
       }
 
+      // `description` hədlənmişdi, `title` yox — bir formanın iki
+      // sahəsində eyni boşluq. Hədsiz başlıq injection deyil (Flutter
+      // onu mətn kimi göstərir), amma bildiriş metadata-sına və elan
+      // kartlarına düşür.
+      function titleSizeOk() {
+        return !('title' in request.resource.data) || request.resource.data.title.size() <= 120;
+      }
+
       // `get()`-based venue-ownership check (Düzəliş Prompt 2 / K-9) —
       // mirrors `venueEvents/{eventId}`'s own create rule below, the
       // proven pattern for the same problem. Without it, `ownerId ==
@@ -2061,7 +2086,7 @@ service cloud.firestore {
         !('reviewNote' in request.resource.data) &&
         !('reviewedBy' in request.resource.data) &&
         !('reviewedAt' in request.resource.data) &&
-        descriptionSizeOk();
+        descriptionSizeOk() && titleSizeOk();
 
       // `venueId` joins the update blocklist (Düzəliş Prompt 2 / K-9) —
       // no "move this listing to another venue" feature exists (confirmed
@@ -2095,7 +2120,7 @@ service cloud.firestore {
           // locked and stay so (that is what keeps
           // `reservePinBoxOrder`'s charge honest).
           .hasAny(['status', 'reviewNote', 'reviewedBy', 'reviewedAt', 'stockRemaining', 'stockTotal', 'venueId', 'venueName', 'venuePhotoUrl', 'title', 'description', 'originalPrice', 'pinboxPrice', 'pickupWindowStart', 'pickupWindowEnd', 'imageUrl', 'category', 'lat', 'lng', 'position', 'address', 'country']) &&
-        descriptionSizeOk();
+        descriptionSizeOk() && titleSizeOk();
 
       allow delete: if request.auth != null && request.auth.uid == resource.data.ownerId;
     }
@@ -2138,6 +2163,12 @@ service cloud.firestore {
       // create_event_screen.dart) exactly.
       function descriptionSizeOk() {
         return !('description' in request.resource.data) || request.resource.data.description.size() <= 300;
+      }
+
+      // `pinboxes`-dəki eyni helper — `title` hədsiz idi. Tədbir başlığı
+      // artıq `eventApproved` bildirişinin metadata-sına düşür.
+      function titleSizeOk() {
+        return !('title' in request.resource.data) || request.resource.data.title.size() <= 120;
       }
 
       // P0 / H-5 — see `isOwnStorageUrl`. Events are `allow read: if
@@ -2186,7 +2217,7 @@ service cloud.firestore {
         isEventCategory(request.resource.data.venueId) &&
         request.resource.data.status == 'pending' &&
         coverImageUrlCreateOk() &&
-        descriptionSizeOk();
+        descriptionSizeOk() && titleSizeOk();
 
       // Two disjoint shapes: cancelling (status only, -> 'cancelled'),
       // or editing content (title/description/cover/time/category)
@@ -2210,7 +2241,7 @@ service cloud.firestore {
             request.resource.data.diff(resource.data).affectedKeys()
               .hasOnly(['title', 'description', 'coverImageUrl', 'startAt', 'endAt', 'category']) &&
             coverImageUrlUpdateOk() &&
-            descriptionSizeOk())
+            descriptionSizeOk() && titleSizeOk())
         );
 
       // Parity with `offers` and `pinboxes`: an owner may delete their
