@@ -18,7 +18,8 @@ import '../../../calls/domain/entities/call_session.dart';
 import '../../../calls/presentation/providers/call_providers.dart';
 import '../../../calls/presentation/screens/call_screen.dart';
 import '../../../calls/presentation/screens/incoming_call_screen.dart';
-import '../../../chat/presentation/providers/chat_providers.dart' show totalUnreadChatCountProvider;
+import '../../../chat/presentation/providers/chat_providers.dart'
+    show totalUnreadChatCountProvider;
 import '../../../legal/presentation/widgets/consent_dialog.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../../location/presentation/providers/presence_provider.dart';
@@ -26,7 +27,8 @@ import '../../../privacy/presentation/providers/privacy_providers.dart';
 import '../../../privacy/presentation/widgets/session_guard.dart';
 import '../../../settings/map_location/presentation/providers/map_location_providers.dart';
 import '../../../settings/notifications/presentation/providers/notification_providers.dart';
-import '../../../notifications/presentation/providers/notification_providers.dart' show notificationListControllerProvider;
+import '../../../notifications/presentation/providers/notification_providers.dart'
+    show notificationListControllerProvider;
 import '../../../notifications/presentation/screens/notifications_feed_screen.dart';
 import '../../../live_feed/presentation/screens/live_feed_screen.dart';
 import '../tabs/chats_tab.dart';
@@ -45,7 +47,8 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with WidgetsBindingObserver {
   int _index = 0;
 
   /// Consumes a tab switch requested from outside — see
@@ -133,7 +136,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     try {
       final settings = await ref.read(mapLocationSettingsProvider.future);
       if (!mounted) return;
-      ref.read(locationControllerProvider.notifier).applyAccuracy(toLocationAccuracy(settings.gpsAccuracy));
+      ref
+          .read(locationControllerProvider.notifier)
+          .applyAccuracy(toLocationAccuracy(settings.gpsAccuracy));
     } catch (_) {
       // Non-fatal — LocationController's high-accuracy default stands.
     }
@@ -152,7 +157,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     if (state == AppLifecycleState.resumed) {
       presence.setOnline();
       ref.read(deviceSessionControllerProvider).touchCurrentSession();
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
       // Grace period, not an immediate offline write — see
       // PresenceController.scheduleOffline's doc comment.
       presence.scheduleOffline();
@@ -162,8 +168,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final unreadNotificationCount =
-        ref.watch(notificationListControllerProvider.select((s) => s.unreadCount));
+    final unreadNotificationCount = ref.watch(
+      notificationListControllerProvider.select((s) => s.unreadCount),
+    );
     final unreadChatCount = ref.watch(totalUnreadChatCountProvider);
 
     // A tab switch asked for from outside — today only the daily digest
@@ -171,7 +178,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     // Deferred to after this frame: `setState` during `build` throws.
     ref.listen(requestedHomeTabProvider, (_, next) {
       if (next == null) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _consumeRequestedTab());
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _consumeRequestedTab(),
+      );
     });
 
     // Hiding the call BUTTONS is not enough. A document written by an
@@ -234,82 +243,112 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
       // `IncomingCallScreen` here would ask them to accept a call they
       // just accepted, so go straight to the call and do the setup that
       // the OS button could not.
-      logTrace('incomingCall.surfaced', '${session.id} status=${session.status.name}');
+      logTrace(
+        'incomingCall.surfaced',
+        '${session.id} status=${session.status.name}',
+      );
       if (session.status == CallStatus.accepted) {
         _resumeAcceptedCall(session);
         return;
       }
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => IncomingCallScreen(session: session)));
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => IncomingCallScreen(session: session)),
+      );
     });
 
     return SessionGuard(
       child: Scaffold(
-      backgroundColor: Colors.transparent,
-      body: IndexedStack(
-        index: _index,
-        children: [
-          const DiscoverTab(),
-          const ChatsTab(),
-          LiveFeedScreen(active: _index == 2),
-          const NotificationsFeedScreen(),
-          const ProfileTab(),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: AppColors.backgroundDark,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.18),
-              blurRadius: 16,
-              offset: const Offset(0, -4),
-            ),
+        backgroundColor: Colors.transparent,
+        body: IndexedStack(
+          index: _index,
+          children: [
+            const DiscoverTab(),
+            const ChatsTab(),
+            LiveFeedScreen(active: _index == 2),
+            const NotificationsFeedScreen(),
+            const ProfileTab(),
           ],
         ),
-        // SafeArea wraps the whole reserved bar height at the outermost
-        // level, so its bottom inset is *added on top* of a natural size
-        // instead of being squeezed into a hardcoded total.
+        // The bar's colour lives on a `Material`, not on the `Container`.
         //
-        // The center "+" used to be a Positioned overlay floating above the
-        // row, which visually sat higher than the other tab icons. It's now
-        // a regular Row item like the rest: every item shares the exact
-        // same [icon/button] -> 4px gap -> label-height-spacer structure, so
-        // whatever each item's icon size is, its optical center lands the
-        // same distance from the row's vertical center for all five items
-        // — alignment falls out of the shared layout instead of a hand
-        // -tuned pixel offset.
-        child: SafeArea(
-          top: false,
-          child: SizedBox(
-            height: _kNavBarHeight,
-            child: _LiquidBottomNav(
-              selectedIndex: _index,
-              onSelect: (i) {
-                setState(() => _index = i);
-                // Clears the badge the moment the tab is opened, not
-                // waiting on each individual notification to be tapped
-                // (that path — `_onTapNotification` in
-                // `notifications_feed_screen.dart` — still marks its own
-                // one read too, this is just the faster common case).
-                if (i == 3) {
-                  ref.read(notificationListControllerProvider.notifier).markAllRead();
-                }
-              },
-              items: [
-                _NavItemData(icon: Icons.explore_outlined, label: loc.navDiscoverLabel),
-                _NavItemData(icon: Icons.chat_bubble_outline, label: loc.navChatsLabel, badgeCount: unreadChatCount),
-                _NavItemData(icon: Icons.bolt_outlined, label: loc.navLiveLabel),
-                _NavItemData(
-                  icon: Icons.notifications_outlined,
-                  label: loc.navNotificationsLabel,
-                  badgeCount: unreadNotificationCount,
+        // The tabs already used `InkWell`, yet no ripple was ever visible.
+        // An ink splash paints onto the nearest `Material` SURFACE; with
+        // the background colour on a `Container` sitting above that
+        // surface, every splash was drawn underneath an opaque fill. The
+        // Container stays, but only for the shadow — `Material.elevation`
+        // draws a different shape than this hand-tuned one.
+        bottomNavigationBar: Container(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.18),
+                blurRadius: 16,
+                offset: const Offset(0, -4),
+              ),
+            ],
+          ),
+          // SafeArea wraps the whole reserved bar height at the outermost
+          // level, so its bottom inset is *added on top* of a natural size
+          // instead of being squeezed into a hardcoded total.
+          //
+          // The center "+" used to be a Positioned overlay floating above the
+          // row, which visually sat higher than the other tab icons. It's now
+          // a regular Row item like the rest: every item shares the exact
+          // same [icon/button] -> 4px gap -> label-height-spacer structure, so
+          // whatever each item's icon size is, its optical center lands the
+          // same distance from the row's vertical center for all five items
+          // — alignment falls out of the shared layout instead of a hand
+          // -tuned pixel offset.
+          child: Material(
+            color: AppColors.backgroundDark,
+            child: SafeArea(
+              top: false,
+              child: SizedBox(
+                height: _kNavBarHeight,
+                child: _LiquidBottomNav(
+                  selectedIndex: _index,
+                  onSelect: (i) {
+                    setState(() => _index = i);
+                    // Clears the badge the moment the tab is opened, not
+                    // waiting on each individual notification to be tapped
+                    // (that path — `_onTapNotification` in
+                    // `notifications_feed_screen.dart` — still marks its own
+                    // one read too, this is just the faster common case).
+                    if (i == 3) {
+                      ref
+                          .read(notificationListControllerProvider.notifier)
+                          .markAllRead();
+                    }
+                  },
+                  items: [
+                    _NavItemData(
+                      icon: Icons.explore_outlined,
+                      label: loc.navDiscoverLabel,
+                    ),
+                    _NavItemData(
+                      icon: Icons.chat_bubble_outline,
+                      label: loc.navChatsLabel,
+                      badgeCount: unreadChatCount,
+                    ),
+                    _NavItemData(
+                      icon: Icons.bolt_outlined,
+                      label: loc.navLiveLabel,
+                    ),
+                    _NavItemData(
+                      icon: Icons.notifications_outlined,
+                      label: loc.navNotificationsLabel,
+                      badgeCount: unreadNotificationCount,
+                    ),
+                    _NavItemData(
+                      icon: Icons.person_outline,
+                      label: loc.navProfileLabel,
+                    ),
+                  ],
                 ),
-                _NavItemData(icon: Icons.person_outline, label: loc.navProfileLabel),
-              ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -359,17 +398,31 @@ class _NavItem extends StatelessWidget {
                     right: -7,
                     top: -4,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                      constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primary,
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.backgroundDark, width: 1.5),
+                        border: Border.all(
+                          color: AppColors.backgroundDark,
+                          width: 1.5,
+                        ),
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         count > 9 ? '9+' : '$count',
-                        style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.w700, height: 1),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1,
+                        ),
                       ),
                     ),
                   ),
@@ -402,7 +455,11 @@ class _NavItemData {
   /// sets this today (see `HomeScreen.build`'s `unreadNotificationCount`).
   final int? badgeCount;
 
-  const _NavItemData({required this.icon, required this.label, this.badgeCount});
+  const _NavItemData({
+    required this.icon,
+    required this.label,
+    this.badgeCount,
+  });
 }
 
 /// Drag-to-magnify gesture layer over the nav row — an ADDITIVE layer
@@ -429,14 +486,19 @@ class _LiquidBottomNav extends StatefulWidget {
   State<_LiquidBottomNav> createState() => _LiquidBottomNavState();
 }
 
-class _LiquidBottomNavState extends State<_LiquidBottomNav> with SingleTickerProviderStateMixin {
+class _LiquidBottomNavState extends State<_LiquidBottomNav>
+    with SingleTickerProviderStateMixin {
   // How much bigger the magnified tab gets at the drag point (dock-style
   // "peak" scale) — within the requested 1.3-1.5x range.
   static const double _peakScale = 1.4;
 
   // Soft/elastic, not heavy: a slightly under-damped spring settles in
   // ~250-350ms with a small, natural overshoot rather than a hard snap.
-  static const SpringDescription _spring = SpringDescription(mass: 1, stiffness: 350, damping: 24);
+  static const SpringDescription _spring = SpringDescription(
+    mass: 1,
+    stiffness: 350,
+    damping: 24,
+  );
 
   // Drives how strongly the magnify effect is currently applied (0 =
   // off/rest, 1 = fully engaged) — animated via spring simulations, so
@@ -461,13 +523,16 @@ class _LiquidBottomNavState extends State<_LiquidBottomNav> with SingleTickerPro
   }
 
   void _animateMagnifyTo(double target) {
-    _magnifyController.animateWith(SpringSimulation(_spring, _magnifyController.value, target, 0));
+    _magnifyController.animateWith(
+      SpringSimulation(_spring, _magnifyController.value, target, 0),
+    );
   }
 
   void _handlePanUpdate(DragUpdateDetails details, Size size) {
     final rawDx = details.localPosition.dx;
     final rawDy = details.localPosition.dy;
-    final inBounds = rawDx >= 0 && rawDx <= size.width && rawDy >= 0 && rawDy <= size.height;
+    final inBounds =
+        rawDx >= 0 && rawDx <= size.width && rawDy >= 0 && rawDy <= size.height;
 
     if (!_dragging) {
       _dragging = true;
@@ -483,7 +548,10 @@ class _LiquidBottomNavState extends State<_LiquidBottomNav> with SingleTickerPro
 
     final itemWidth = size.width / widget.items.length;
     if (inBounds) {
-      final nearest = (rawDx / itemWidth).floor().clamp(0, widget.items.length - 1);
+      final nearest = (rawDx / itemWidth).floor().clamp(
+        0,
+        widget.items.length - 1,
+      );
       if (nearest != _lastHapticIndex) {
         _lastHapticIndex = nearest;
         HapticFeedback.selectionClick();
@@ -496,7 +564,10 @@ class _LiquidBottomNavState extends State<_LiquidBottomNav> with SingleTickerPro
   void _handlePanEnd(Size size) {
     if (_dragging && _inBounds) {
       final itemWidth = size.width / widget.items.length;
-      final nearest = (_dragDx / itemWidth).floor().clamp(0, widget.items.length - 1);
+      final nearest = (_dragDx / itemWidth).floor().clamp(
+        0,
+        widget.items.length - 1,
+      );
       widget.onSelect(nearest);
     }
     _resetDrag();
@@ -532,8 +603,11 @@ class _LiquidBottomNavState extends State<_LiquidBottomNav> with SingleTickerPro
                   // Gaussian falloff — 1.0 right under the finger, decaying
                   // smoothly toward 0 (i.e. back to normal size) the further
                   // a neighboring tab is, exactly like dock magnification.
-                  final falloff = math.exp(-(distance * distance) / (2 * sigma * sigma));
-                  final scale = 1 + (_peakScale - 1) * falloff * _magnifyController.value;
+                  final falloff = math.exp(
+                    -(distance * distance) / (2 * sigma * sigma),
+                  );
+                  final scale =
+                      1 + (_peakScale - 1) * falloff * _magnifyController.value;
 
                   final item = widget.items[i];
                   return Expanded(

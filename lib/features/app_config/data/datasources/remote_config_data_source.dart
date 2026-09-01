@@ -41,7 +41,15 @@ final Map<String, dynamic> _defaults = {
   'feature_venue_submission_enabled': true,
   'feature_offers_enabled': true,
   'feature_indi_tab_enabled': true,
-  'feature_calls_enabled': true,
+  // Calls are hidden for launch — docs/calls-hidden-for-launch.md.
+  //
+  // THIS is the default that actually applies. There are two, and only
+  // one of them is reachable: when the Remote Config key is absent,
+  // `getBool` returns the value registered here via `setDefaults`, and
+  // `AppConfig`'s own fallback map is never consulted. Setting that one
+  // to `false` while leaving this at `true` left the buttons on screen
+  // — found by testing the build, not by reading the code.
+  'feature_calls_enabled': false,
   'feature_stories_enabled': true,
   'feature_vip_purchase_enabled': true,
   'feature_boost_payment_enabled': true,

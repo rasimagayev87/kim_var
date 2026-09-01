@@ -1409,14 +1409,26 @@ class _PendingMessageBubble extends StatelessWidget {
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        GestureDetector(
+                        // Text-only actions on a failed message. Bare
+                        // text with no feedback reads as a label, not a
+                        // button — the padding also gives a finger
+                        // something to hit.
+                        InkWell(
                           onTap: onRetry,
-                          child: Text(loc.actionRetry, style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            child: Text(loc.actionRetry, style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                          ),
                         ),
-                        const SizedBox(width: 10),
-                        GestureDetector(
+                        const SizedBox(width: 4),
+                        InkWell(
                           onTap: onDismiss,
-                          child: Text(loc.actionDelete, style: AppTextStyles.caption.copyWith(color: AppColors.error, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                          borderRadius: BorderRadius.circular(6),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                            child: Text(loc.actionDelete, style: AppTextStyles.caption.copyWith(color: AppColors.error, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                          ),
                         ),
                       ],
                     ),
@@ -2242,13 +2254,23 @@ class _VoiceReviewRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: _Spacing.xs),
-        GestureDetector(
-          onTap: onSend,
-          child: Container(
-            width: 48,
-            height: 48,
-            decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-            child: const Icon(Icons.send_outlined, color: AppColors.onAccent, size: 22),
+        // `Material` + `InkWell` rather than `GestureDetector`: the send
+        // button is the most-tapped control in the app and gave NO
+        // visual response at all, so a slow send read as an unregistered
+        // tap and people pressed again. The colour moves onto the
+        // `Material` so the splash has a surface to paint on — on a
+        // `Container` it would be hidden underneath the fill.
+        Material(
+          color: AppColors.primary,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onSend,
+            child: const SizedBox(
+              width: 48,
+              height: 48,
+              child: Icon(Icons.send_outlined, color: AppColors.onAccent, size: 22),
+            ),
           ),
         ),
       ],
@@ -2320,16 +2342,20 @@ class _LocalVoicePreviewPlayerState extends State<_LocalVoicePreviewPlayer> {
     final progress = _total.inMilliseconds == 0 ? 0.0 : (_position.inMilliseconds / _total.inMilliseconds).clamp(0.0, 1.0);
     return Row(
       children: [
-        GestureDetector(
-          onTap: _toggle,
-          child: Container(
-            width: 32,
-            height: 32,
-            decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
-            child: Icon(
-              _playing ? Icons.pause_outlined : Icons.play_arrow_outlined,
-              color: AppColors.onAccent,
-              size: 18,
+        Material(
+          color: AppColors.primary,
+          shape: const CircleBorder(),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: _toggle,
+            child: SizedBox(
+              width: 32,
+              height: 32,
+              child: Icon(
+                _playing ? Icons.pause_outlined : Icons.play_arrow_outlined,
+                color: AppColors.onAccent,
+                size: 18,
+              ),
             ),
           ),
         ),
