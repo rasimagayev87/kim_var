@@ -277,7 +277,23 @@ class FirebaseCallRepository implements CallRepository {
     // `accepted` call that already carries an answer is either already
     // connected or was answered on another device, and must not be set
     // up a second time.
+    // `participants arrayContains uid` is not redundant with
+    // `receiverId == uid` — it is what makes this query legal.
+    //
+    // Firestore evaluates `list` rules against the QUERY, not against
+    // the documents returned: the rule must be provably true for every
+    // document the query could match. The rule here is
+    // `request.auth.uid in resource.data.participants`, and nothing in
+    // a `receiverId`/`status` filter proves anything about
+    // `participants` — so the query was rejected outright, even with an
+    // empty result set (verified against production: zero matching
+    // documents, still `permission-denied`).
+    //
+    // Constraining `participants` in the query itself gives the rules
+    // engine the proof it needs. `receiverId` stays because it is what
+    // distinguishes an incoming call from one this user placed.
     return _calls
+        .where('participants', arrayContains: uid)
         .where('receiverId', isEqualTo: uid)
         .where('status', whereIn: ['ringing', 'accepted'])
         .snapshots()

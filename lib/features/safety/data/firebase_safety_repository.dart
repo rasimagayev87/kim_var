@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../domain/safety_repository.dart';
 
+import '../../../../core/utils/app_logger.dart';
+
 /// Backed by the `blockedUsers` array field already provisioned on
 /// every `users/{uid}` document at onboarding (see
 /// `FirebaseAuthRepository.completeOnboarding`), rather than a separate
@@ -45,7 +47,7 @@ class FirebaseSafetyRepository implements SafetyRepository {
       final bBlocked = (results[1].data()?['blockedUsers'] as List?)?.cast<String>() ?? const [];
       return aBlocked.contains(uidB) || bBlocked.contains(uidA);
     } on FirebaseException catch (e) {
-      if (e.code == 'permission-denied') return true;
+      if (errorCodeIs(e.code, 'permission-denied')) return true;
       rethrow;
     }
   }

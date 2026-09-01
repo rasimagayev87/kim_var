@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:peakpin/core/utils/app_logger.dart';
 
 void main() {
+  _localeCodes();
   group('maskSensitive', () {
     test('e-poçt maskalanır', () {
       final out = maskSensitive('write failed for rasimagayev80@gmail.com');
@@ -71,6 +72,34 @@ void main() {
       final out = maskSensitive('collection pinboxOrders field pickupWindowEnd');
       expect(out, contains('pinboxOrders'));
       expect(out, contains('pickupWindowEnd'));
+    });
+  });
+}
+
+// Azərbaycan lokalında `firebase_functions` xəta kodunu nöqtəsiz `ı`
+// ilə qaytarır (`UNAVAILABLE`.toLowerCase() → `unavaılable`), ona görə
+// düz müqayisə heç vaxt tutmurdu. Cihazda ölçülüb.
+void _localeCodes() {
+  group('errorCodeIs — lokal təhlükəsizliyi', () {
+    test('nöqtəsiz ı ilə gələn kod tanınır', () {
+      expect(errorCodeIs('unavaılable', 'unavailable'), isTrue);
+      expect(errorCodeIs('permıssıon-denıed', 'permission-denied'), isTrue);
+    });
+
+    test('düzgün yazılmış kod da tanınır', () {
+      expect(errorCodeIs('unavailable', 'unavailable'), isTrue);
+      expect(errorCodeIs('permission-denied', 'permission-denied'), isTrue);
+    });
+
+    test('böyük hərflə gələn kod tanınır', () {
+      expect(errorCodeIs('UNAVAILABLE', 'unavailable'), isTrue);
+    });
+
+    test('fərqli kodlar qarışdırılmır', () {
+      expect(errorCodeIs('unavailable', 'permission-denied'), isFalse);
+      expect(errorCodeIs('not-found', 'unavailable'), isFalse);
+      // Yaxın, amma fərqli — folding həddindən artıq geniş olmamalıdır.
+      expect(errorCodeIs('unavailable', 'unavailables'), isFalse);
     });
   });
 }

@@ -296,7 +296,7 @@ class FirebaseAuthRepository implements AuthRepository {
       if (e.code == 'failed-precondition') {
         throw const UnderageOnboardingException();
       }
-      if (e.code == 'permission-denied' && e.message == 'email-not-verified') {
+      if (errorCodeIs(e.code, 'permission-denied') && e.message == 'email-not-verified') {
         throw const EmailNotVerifiedException();
       }
       rethrow;

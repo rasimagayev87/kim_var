@@ -987,6 +987,10 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "participants",
+          "arrayConfig": "CONTAINS"
+        },
+        {
           "fieldPath": "receiverId",
           "order": "ASCENDING"
         },

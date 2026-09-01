@@ -116,7 +116,31 @@ void logError(String context, Object error, [StackTrace? stackTrace]) {
 /// rules that haven't been deployed yet, so it deserves a clearer message
 /// than a generic "something went wrong".
 bool isPermissionDeniedError(Object error) {
-  return error is FirebaseException && error.code == 'permission-denied';
+  return error is FirebaseException && errorCodeIs(error.code, 'permission-denied');
+}
+
+/// Compares a Firebase error code without letting the device's locale
+/// decide what a letter is.
+///
+/// Measured on an Azerbaijani-locale device:
+/// `[firebase_functions/unavaılable]` — with a DOTLESS ı. The native
+/// side lowercases the gRPC status name (`UNAVAILABLE`) using the
+/// default locale, and in Azerbaijani/Turkish `I` lowercases to `ı`,
+/// not `i`. A plain `code == 'unavailable'` therefore never matched,
+/// so offline failures were not recognised as offline anywhere in the
+/// app and surfaced as generic errors instead.
+///
+/// Same root as the `firestore.rules` `.lower()` defect fixed earlier
+/// the same day, from the opposite direction: there the rules engine
+/// was too ASCII, here the device is too Turkish. Both break on exactly
+/// the market this app is built for.
+///
+/// Folds the two Turkish-specific forms back to ASCII before
+/// comparing; everything else is already lowercase ASCII in Firebase's
+/// code vocabulary.
+bool errorCodeIs(String code, String expected) {
+  String fold(String v) => v.replaceAll('ı', 'i').replaceAll('İ', 'i').toLowerCase();
+  return fold(code) == fold(expected);
 }
 
 /// True when [error] is Firestore's "couldn't reach the backend" failure
@@ -124,5 +148,6 @@ bool isPermissionDeniedError(Object error) {
 /// dedicated connectivity package, since Firestore normally serves reads
 /// from its local cache instead of throwing when the device is offline.
 bool isOfflineError(Object error) {
-  return error is FirebaseException && (error.code == 'unavailable' || error.code == 'network-request-failed');
+  return error is FirebaseException &&
+      (errorCodeIs(error.code, 'unavailable') || errorCodeIs(error.code, 'network-request-failed'));
 }

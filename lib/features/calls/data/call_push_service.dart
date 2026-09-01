@@ -66,7 +66,20 @@ class CallPushService {
   /// So: the two registrations below are synchronous and must stay
   /// ahead of `runApp`, and the terminated-launch lookup is
   /// deliberately NOT awaited.
+  /// Guards against double registration.
+  ///
+  /// `main()` can run more than once in the SAME process: answering
+  /// from the OS call screen relaunches `MainActivity`, and the engine
+  /// re-runs the entrypoint without tearing down what the previous run
+  /// registered. Observed on device as every trace line appearing
+  /// twice — two `onMessage` listeners meant each push was handled
+  /// twice, so `deliveredAt` was written twice and the CallKit UI was
+  /// raised twice for one call.
+  static bool _initialized = false;
+
   static Future<void> initialize() async {
+    if (_initialized) return;
+    _initialized = true;
     FirebaseMessaging.onBackgroundMessage(callPushBackgroundHandler);
     FirebaseMessaging.onMessage.listen(_handleMessage);
 
@@ -306,7 +319,12 @@ Future<void> recoverAcceptedCallsAfterColdStart() async {
   }
 }
 
+bool _callkitListenerAttached = false;
+
 Future<void> listenToCallkitEvents() async {
+  // Same re-entrancy as `CallPushService.initialize` — see its note.
+  if (_callkitListenerAttached) return;
+  _callkitListenerAttached = true;
   FlutterCallkitIncoming.onEvent.listen((event) async {
     if (event == null) return;
     final callId = (event.body is Map ? (event.body as Map)['id'] : null) as String?;

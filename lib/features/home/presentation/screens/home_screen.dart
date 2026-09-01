@@ -63,6 +63,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
   // new call afterwards still triggers a fresh push.
   String? _handledIncomingCallId;
 
+  /// Attempts spent recovering a dead `incomingCallProvider` stream.
+  /// Reset on the first successful emission.
+  int _incomingCallRetries = 0;
+
   /// Finishes an answer that started at the OS call UI.
   ///
   /// `acceptCall()` is what actually opens the mic/camera, builds the
@@ -176,8 +180,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
       // so an accepted call simply never surfaced and nothing said why.
       if (next.hasError) {
         logError('home_screen.incomingCall', next.error!, next.stackTrace);
+        // A Firestore listener that errors STAYS errored — it does not
+        // reconnect itself. Observed on device: the query attaches
+        // before the freshly-restarted engine has a usable auth token,
+        // gets `permission-denied`, and the stream is dead from then
+        // on. An incoming call after that point surfaces nothing, which
+        // is precisely the failure this whole listener exists to
+        // prevent, so it must not be left to chance.
+        //
+        // Bounded, because a genuine rules rejection would otherwise
+        // retry for ever: three attempts, backing off, then stop and
+        // leave the logged error as the record.
+        if (_incomingCallRetries < 3) {
+          _incomingCallRetries++;
+          final delay = Duration(milliseconds: 500 * _incomingCallRetries);
+          Future<void>.delayed(delay, () {
+            if (mounted) ref.invalidate(incomingCallProvider);
+          });
+        }
         return;
       }
+      _incomingCallRetries = 0;
       final session = next.valueOrNull;
       if (session == null) {
         _handledIncomingCallId = null;
