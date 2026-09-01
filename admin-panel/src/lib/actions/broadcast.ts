@@ -4,6 +4,11 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { getCurrentAdmin } from "@/lib/auth/server";
 import type { AdminSession } from "@/lib/auth/session";
 import { getAdminDb } from "@/lib/firebase/admin";
+import {
+  BROADCAST_AUDIENCE_MAX,
+  BROADCAST_BODY_MAX,
+  BROADCAST_TITLE_MAX,
+} from "@/lib/broadcast-limits";
 import { logModerationAction } from "./log";
 
 export interface ActionResult {
@@ -14,26 +19,6 @@ export interface ActionResult {
 
 export type BroadcastSegment = "all" | "vip" | "verified";
 
-/** Matches the notification copy limits every other path already has —
- * chat text is capped at 2000 in `firestore.rules`, a listing title at
- * 120. A broadcast writes one document per recipient, so an unbounded
- * body is multiplied by the audience. */
-export const BROADCAST_TITLE_MAX = 120;
-export const BROADCAST_BODY_MAX = 500;
-
-/**
- * A single broadcast may not exceed this many recipients.
- *
- * A send cannot be undone: the documents are written and the pushes are
- * delivered. "All users" is exactly the shape of mistake that has no
- * recovery, and the number will only grow. Past this, the send is
- * refused rather than truncated — silently reaching some of the
- * audience is worse than reaching none, because nobody can tell which.
- *
- * Raising it is a deliberate decision, and it should come with a
- * second confirmation in the UI rather than a bigger constant.
- */
-export const BROADCAST_AUDIENCE_MAX = 5000;
 export type BroadcastType = "announcement" | "promotion" | "system";
 
 /** Mirrors `notifyUser`'s own `prefs[category] === false` gate in
