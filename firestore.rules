@@ -1617,6 +1617,22 @@ service cloud.firestore {
     // fields to validate. `likeCount`/`rating` on the parent venue doc
     // are derived from this collection's size by Cloud Function
     // triggers, never written directly (see venues/{venueId} above).
+    // Nightly aggregate statistics — `rollUpVenueDailyStats`, Admin SDK
+    // only. Closed to EVERY client including the venue's own owner.
+    //
+    // The reporting screen does not exist yet. When it does, read
+    // access is a separate decision made against the schema as it
+    // stands then — opening it now would grant access to a shape
+    // nobody has reviewed for that purpose. The documents hold
+    // aggregates only (see `DAILY_STATS_FIELDS` in
+    // functions/src/daily-stats.ts), but "no identifiers" is not the
+    // same as "safe to publish": counts below
+    // VENUE_AUDIENCE_MIN_REPORTABLE_COUNT are stored as null precisely
+    // because small numbers describe individuals.
+    match /venues/{venueId}/dailyStats/{dateKey} {
+      allow read, write: if false;
+    }
+
     match /venues/{venueId}/likes/{userId} {
       allow read: if request.auth != null;
       // `exists()` on create only — a like must attach to a real venue,

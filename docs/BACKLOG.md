@@ -644,3 +644,47 @@ edir. Mətn oxunaqlıdır və məbləğ/tarix onsuz da dil-neytraldır.
 çıxanda, VƏ YA çoxdilli istifadəçilərin payı əhəmiyyətli olanda.
 
 **Təxmini iş həcmi:** ~3-4 saat (sxem + miqrasiya + client formatlama).
+
+## 28. `offers.boostedFrom` yoxdur — boost saatları ölçülə bilmir
+
+**Mənbə:** məkan analitikası yığımı (2026-09-01)
+
+**Nə:** `offers.boostedUntil` yalnız boost-un BİTMƏ anını saxlayır.
+Başlanğıc heç yerdə yazılmır, ona görə «həmin gün boost neçə saat aktiv
+idi» sualına cavab vermək mümkün deyil — nə indi, nə geriyə dönük.
+
+`rollUpVenueDailyStats` hazırda yalnız `boostActive` (bool) yazır:
+«həmin gün boost aktiv idimi». Aylıq hesabatda «boost-a X saat xərclədiniz,
+Y əlavə baxış gətirdi» sətri bu sahə olmadan yazıla bilməz.
+
+**Nə edilməli:** `applyPaymentOutcome`-un `boost_fee` budağında
+`boostedUntil` ilə yanaşı `boostedFrom: serverTimestamp()` yazmaq. Bir
+sətirdir. Sonra `rollUpVenueDailyStats`-də `boostActive` boolean-ı
+`boostHours` rəqəminə çevirmək.
+
+**Geriyə dönük məlumat bərpa olunmur** — sahə əlavə edilənə qədər olan
+boost-lar üçün yalnız bool qalır.
+
+**Təxmini iş həcmi:** ~1 saat.
+
+## 29. Analytics impression seçilsə məxfilik §2.6 yenilənməlidir
+
+**Mənbə:** məkan analitikası yığımı (2026-09-01)
+
+**Nə:** «Kəşf et-də neçə dəfə göründü» göstəricisi üçün tövsiyə edilən
+həll Firebase Analytics hadisəsidir (`venue_impression`), çünki Firestore
+sayğacı bu həcmdə hesabatın gətirdiyi gəlirdən baha olar
+(docs/VENUE_ANALYTICS.md).
+
+Amma məxfilik siyasəti §2.6 hazırda yalnız ümumi ifadə saxlayır:
+«Tətbiqin istifadə statistikası Firebase Analytics… vasitəsilə toplanır».
+Məkan səviyyəsində göstəriş sayımı — yəni istifadəçinin hansı məkanları
+gördüyünün Analytics-ə göndərilməsi — bundan aydın oxunmur.
+
+**Nə edilməli:** impression izləməsi qurulmazdan ƏVVƏL §2.6-ya konkret
+bənd əlavə edilməli və `currentPrivacyVersion` artırılmalıdır (ardıcıllıq:
+docs/legal-gap-analysis.md §5.3).
+
+**Nə vaxt:** impression izləməsi qurulanda, ondan əvvəl yox.
+
+**Təxmini iş həcmi:** ~1 saat + versiya artımı prosesi.

@@ -28,6 +28,14 @@ import { isCancellableOnListingDelete, isPaymentTargetMissing } from "./payment-
 import { freeCampaignQuotaForCategory, venueSubscriptionFeeByCategory } from "./venue-fees";
 import { EVENT_URGENT_WINDOW_MS } from "./event-urgency";
 import {
+  AudienceSample,
+  DAILY_STATS_RETENTION_DAYS,
+  aggregateAudienceSamples,
+  dailyStatsDateKey,
+  previousDateKey,
+  reportableOrNull,
+} from "./daily-stats";
+import {
   bucketDistanceMeters,
   clampAudienceRadiusKm,
   haversineMeters,
@@ -2757,7 +2765,35 @@ async function bumpActiveCheckinCount(venueId: string, delta: 1 | -1): Promise<v
       if (!venueSnap.exists) return;
       const current = (countersSnap.data()?.activeCheckinCount as number | undefined) ?? 0;
       const next = Math.max(0, current + delta);
-      tx.set(countersRef, { activeCheckinCount: next, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+
+      // ── A CUMULATIVE tally per day, alongside the live count ─────
+      //
+      // `activeCheckins` documents are ephemeral: deleted on check-out,
+      // on checking in somewhere else, and by `cleanupStaleCheckins`
+      // after two hours. A nightly job counting them would see only
+      // whoever was still checked in at midnight — not the day's
+      // check-ins, which is the number a report is about. The history
+      // is unrecoverable unless something counts at the moment it
+      // happens.
+      //
+      // This is that count, and it is free: the transaction, the read
+      // and the write all already existed. Only additions are tallied
+      // (`delta === 1`) — a check-out does not un-happen a visit.
+      //
+      // Keys are pruned by `rollUpVenueDailyStats`, so the map stays
+      // at a couple of entries rather than growing a key per day.
+      const dayKey = delta === 1 ? dailyStatsDateKey(new Date()) : null;
+      const byDay = (countersSnap.data()?.checkinsByDay ?? {}) as Record<string, number>;
+
+      tx.set(
+        countersRef,
+        {
+          activeCheckinCount: next,
+          ...(dayKey ? { checkinsByDay: { ...byDay, [dayKey]: (byDay[dayKey] ?? 0) + 1 } } : {}),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
       tx.update(venueRef, { visibleCheckinCount: reportableAudienceCount(next) });
     });
   } catch {
@@ -3217,10 +3253,301 @@ export const computeVenueAudienceHistory = onSchedule(
         currentAudienceCount: reportableAudienceCount(count),
         audienceCountUpdatedAt: FieldValue.serverTimestamp(),
       });
+
+      // ── The day's running aggregate, for `rollUpVenueDailyStats` ──
+      //
+      // Additive: no existing field changes and no behaviour depends
+      // on these. They exist so the nightly rollup can read ONE
+      // document instead of the day's 96 `audienceHistory` entries —
+      // a 96x reduction in what will be that function's dominant cost
+      // at scale (see docs/VENUE_ANALYTICS.md).
+      //
+      // TWO slots, current and previous, rather than a map keyed by
+      // date: a map grows a key per day forever unless something
+      // prunes it, and the pruner is exactly the kind of job that gets
+      // forgotten. Rolling `today` into `prev` when the date changes
+      // bounds the document at two entries by construction.
+      //
+      // The roll happens HERE rather than in the rollup because this
+      // runs every 15 minutes and the rollup runs once — by the time
+      // the rollup reads `prev` just after midnight, this has already
+      // moved a complete day into it.
+      await updateAudienceDayCounters(venueDoc.ref, count, hour, now);
+
       await Promise.all(staleDocs.map((d) => d.ref.delete()));
     }
   },
 );
+
+/**
+ * Accumulates one 15-minute sample into the venue's rolling day
+ * counters — see the call site for why two slots rather than a map.
+ *
+ * Stored on `venues/{id}/private/counters`, which no client can read
+ * (`allow read, write: if false`), so the RAW unfloored figures live
+ * here exactly as they do in `audienceHistory`. The k-anonymity floor
+ * belongs at the point of reporting, not of measurement — flooring
+ * each sample would bias the day's mean upward.
+ */
+async function updateAudienceDayCounters(
+  venueRef: FirebaseFirestore.DocumentReference,
+  count: number,
+  hour: number,
+  now: Date,
+): Promise<void> {
+  const today = dailyStatsDateKey(now);
+  const countersRef = venueRef.collection("private").doc("counters");
+  try {
+    await db.runTransaction(async (tx) => {
+      const snap = await tx.get(countersRef);
+      const day = snap.data()?.audienceToday as
+        | { date?: string; sum?: number; samples?: number; peak?: number; peakHour?: number }
+        | undefined;
+
+      const rolled = day?.date !== today;
+      const base = rolled
+        ? { date: today, sum: 0, samples: 0, peak: 0, peakHour: hour }
+        : {
+            date: today,
+            sum: day?.sum ?? 0,
+            samples: day?.samples ?? 0,
+            peak: day?.peak ?? 0,
+            peakHour: day?.peakHour ?? hour,
+          };
+
+      const higher = count > base.peak;
+      tx.set(
+        countersRef,
+        {
+          // The finished day moves aside intact, so the rollup reading
+          // just after midnight finds a complete record.
+          ...(rolled && day?.date ? { audiencePrev: day } : {}),
+          audienceToday: {
+            date: today,
+            sum: base.sum + count,
+            samples: base.samples + 1,
+            peak: higher ? count : base.peak,
+            peakHour: higher ? hour : base.peakHour,
+          },
+        },
+        { merge: true },
+      );
+    });
+  } catch (e) {
+    // A counter is not worth failing the audience run over — the
+    // rollup falls back to reading `audienceHistory` directly.
+    logger.warn("updateAudienceDayCounters failed", { venueId: venueRef.id, error: e });
+  }
+}
+
+/**
+ * Nightly per-venue statistics — 00:30 UTC, for the day that just
+ * ended.
+ *
+ * ── Why collection ships before the report ────────────────────────
+ *
+ * `audienceHistory` keeps 7 days. Anything older is already gone, so
+ * a monthly report built after launch would have nothing to show for
+ * every month before this function existed. This is the only part of
+ * the analytics work that cannot be added later.
+ *
+ * ── Privacy ───────────────────────────────────────────────────────
+ *
+ * The written document holds aggregate numbers only — no uid, no name,
+ * no coordinate; `DAILY_STATS_FIELDS` in `./daily-stats` is the
+ * allowlist and a test enforces it. Person-counts pass through
+ * `reportableOrNull`, which suppresses anything under
+ * VENUE_AUDIENCE_MIN_REPORTABLE_COUNT to `null` rather than 0 —
+ * "fewer than five" and "nobody" are different facts and a report that
+ * conflates them both misleads the owner and, across a run of days,
+ * leaks the value it was hiding.
+ *
+ * Money figures carry no floor: PinBox revenue is the venue's own
+ * income, not a fact about identifiable people.
+ *
+ * ── Idempotent ────────────────────────────────────────────────────
+ *
+ * The document id is the date, and the write is a full `set`. A second
+ * run for the same day overwrites rather than duplicating.
+ *
+ * ── One venue's failure is not the run's failure ──────────────────
+ *
+ * Each venue is wrapped individually: a malformed document or a
+ * missing subcollection skips that venue with a log line and the run
+ * continues. The alternative — one throw ending the night — would lose
+ * every remaining venue's day, permanently.
+ */
+export const rollUpVenueDailyStats = onSchedule(
+  { schedule: "30 0 * * *", region: "europe-west1", timeoutSeconds: 540 },
+  async () => {
+    const now = new Date();
+    const dateKey = previousDateKey(now);
+    const dayStart = Timestamp.fromMillis(Date.parse(`${dateKey}T00:00:00Z`));
+    const dayEnd = Timestamp.fromMillis(Date.parse(`${dateKey}T00:00:00Z`) + 24 * 60 * 60 * 1000);
+    const expiresAt = Timestamp.fromMillis(now.getTime() + DAILY_STATS_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+    let written = 0;
+    let skipped = 0;
+    // Paged rather than one `.get()`: at scale the venue list is the
+    // thing that stops fitting in memory first. See
+    // docs/VENUE_ANALYTICS.md for the threshold at which this needs to
+    // become a Pub/Sub fan-out instead.
+    let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+    for (;;) {
+      let q = db.collection("venues").where("status", "==", "approved").orderBy("__name__").limit(200);
+      if (cursor) q = q.startAfter(cursor);
+      const page = await q.get();
+      if (page.empty) break;
+
+      for (const venueDoc of page.docs) {
+        try {
+          await writeVenueDailyStats(venueDoc, dateKey, dayStart, dayEnd, expiresAt);
+          written++;
+        } catch (e) {
+          skipped++;
+          logger.error("rollUpVenueDailyStats: venue failed", { venueId: venueDoc.id, dateKey, error: e });
+        }
+      }
+
+      if (page.size < 200) break;
+      cursor = page.docs[page.size - 1];
+    }
+
+    logger.info("rollUpVenueDailyStats", { dateKey, written, skipped });
+  },
+);
+
+/** One venue's day. Throws on its own failure so the caller can skip
+ * it and keep going. */
+async function writeVenueDailyStats(
+  venueDoc: FirebaseFirestore.QueryDocumentSnapshot,
+  dateKey: string,
+  dayStart: Timestamp,
+  dayEnd: Timestamp,
+  expiresAt: Timestamp,
+): Promise<void> {
+  const venueRef = venueDoc.ref;
+  const countersRef = venueRef.collection("private").doc("counters");
+  const countersSnap = await countersRef.get();
+  const counters = countersSnap.data() ?? {};
+
+  // ── Audience: one read, with a fallback that costs 96 ───────────
+  //
+  // `updateAudienceDayCounters` rolls the finished day into
+  // `audiencePrev` at the first 15-minute tick after midnight, so by
+  // 00:30 it holds a complete record. The fallback covers the first
+  // night after deploy (no counter exists yet) and any night the
+  // audience schedule stalled — correctness first, cost second.
+  const prev = counters.audiencePrev as
+    | { date?: string; sum?: number; samples?: number; peak?: number; peakHour?: number }
+    | undefined;
+
+  let audience;
+  if (prev?.date === dateKey && (prev.samples ?? 0) > 0) {
+    const samples = prev.samples ?? 0;
+    const peak = reportableOrNull(prev.peak ?? 0);
+    audience = {
+      audienceAvg: reportableOrNull(Math.round((prev.sum ?? 0) / samples)),
+      audiencePeak: peak,
+      audiencePeakHour: peak === null ? null : (prev.peakHour ?? null),
+      audienceSamples: samples,
+    };
+  } else {
+    const historySnap = await venueRef
+      .collection("audienceHistory")
+      .where("timestamp", ">=", dayStart)
+      .where("timestamp", "<", dayEnd)
+      .get();
+    const samples: AudienceSample[] = historySnap.docs.map((d) => ({
+      count: (d.data().count as number | undefined) ?? 0,
+      hour: (d.data().hour as number | undefined) ?? 0,
+    }));
+    audience = aggregateAudienceSamples(samples);
+  }
+
+  // ── The day's other counts ─────────────────────────────────────
+  const [waitlistSnap, likesSnap, reviewsSnap, pinboxSnap, eventsSnap, offersSnap] = await Promise.all([
+    venueRef.collection("waitlist").where("joinedAt", ">=", dayStart).where("joinedAt", "<", dayEnd).get(),
+    venueRef.collection("likes").where("createdAt", ">=", dayStart).where("createdAt", "<", dayEnd).get(),
+    db.collection("reviews").where("venueId", "==", venueDoc.id)
+      .where("createdAt", ">=", dayStart).where("createdAt", "<", dayEnd).get(),
+    db.collection("pinboxOrders").where("venueId", "==", venueDoc.id)
+      .where("createdAt", ">=", dayStart).where("createdAt", "<", dayEnd).get(),
+    db.collection("venueEvents").where("venueId", "==", venueDoc.id)
+      .where("createdAt", ">=", dayStart).where("createdAt", "<", dayEnd).get(),
+    db.collection("offers").where("venueId", "==", venueDoc.id).where("status", "==", "approved").get(),
+  ]);
+
+  const ratings = reviewsSnap.docs
+    .map((d) => d.data().rating as number | undefined)
+    .filter((r): r is number => typeof r === "number");
+
+  // Only orders that actually paid count as a sale — `awaiting_payment`
+  // is a held basket, not revenue.
+  const paidOrders = pinboxSnap.docs.filter((d) => {
+    const st = d.data().status as string | undefined;
+    return st === "paid" || st === "refunded";
+  });
+  const redeemed = paidOrders.filter((d) => d.data().redeemedAt != null);
+  const grossAmount = paidOrders.reduce((sum, d) => sum + ((d.data().amountPaid as number | undefined) ?? 0), 0);
+
+  // Redemptions live under each offer, so this is one query per live
+  // offer. Venues run a handful at a time; if that ever stops being
+  // true it becomes a collectionGroup query with an `offerId in` chunk.
+  const redemptionCounts = await Promise.all(
+    offersSnap.docs.map((offerDoc) =>
+      offerDoc.ref.collection("redemptions")
+        .where("redeemedAt", ">=", dayStart).where("redeemedAt", "<", dayEnd).count().get()
+        .then((c) => c.data().count)
+        .catch(() => 0),
+    ),
+  );
+
+  // `boostedUntil` records only when a boost ENDS, so "was a boost
+  // running that day" is the honest question this data can answer.
+  // Hours-active would need a `boostedFrom` field — docs/BACKLOG.md.
+  const boostActive = offersSnap.docs.some((d) => {
+    const until = (d.data().boostedUntil as Timestamp | undefined)?.toMillis();
+    return until !== undefined && until >= dayStart.toMillis();
+  });
+
+  const checkinsByDay = (counters.checkinsByDay ?? {}) as Record<string, number>;
+
+  await venueRef.collection("dailyStats").doc(dateKey).set({
+    date: dateKey,
+    ...audience,
+    checkins: reportableOrNull(checkinsByDay[dateKey] ?? 0),
+    waitlistJoined: waitlistSnap.size,
+    waitlistSeated: waitlistSnap.docs.filter((d) => d.data().status === "seated").length,
+    likes: likesSnap.size,
+    reviews: reviewsSnap.size,
+    reviewAvgRating: ratings.length > 0
+      ? Math.round((ratings.reduce((a, b) => a + b, 0) / ratings.length) * 10) / 10
+      : null,
+    offerRedemptions: redemptionCounts.reduce((a, b) => a + b, 0),
+    pinboxSold: paidOrders.length,
+    pinboxRedeemed: redeemed.length,
+    pinboxUnclaimed: paidOrders.length - redeemed.length,
+    pinboxGrossAmount: grossAmount,
+    eventsCreated: eventsSnap.size,
+    boostActive,
+    // The venue's own quota usage — no privacy dimension, and it makes
+    // "you used 2 of your 5 campaigns" possible in the report.
+    freeCampaignsUsed: (venueDoc.data().freeCampaignsUsed as number | undefined) ?? 0,
+    freeEventsUsed: (venueDoc.data().freeEventsUsed as number | undefined) ?? 0,
+    computedAt: FieldValue.serverTimestamp(),
+    expiresAt,
+  });
+
+  // Prune the tally map so it stays at a couple of keys — the reason
+  // a map is safe here at all.
+  const stale = Object.keys(checkinsByDay).filter((k) => k < previousDateKey(new Date(Date.parse(`${dateKey}T00:00:00Z`))));
+  if (stale.length > 0) {
+    const updates: Record<string, unknown> = {};
+    for (const k of stale) updates[`checkinsByDay.${k}`] = FieldValue.delete();
+    await countersRef.update(updates);
+  }
+}
 
 // ── Birthday offers ───────────────────────────────────────────────────
 

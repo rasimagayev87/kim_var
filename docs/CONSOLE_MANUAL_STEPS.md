@@ -175,8 +175,30 @@ ilə başladığını yoxla.
 ⚠️ `authDomain` DƏYİŞMİR. Bu, yalnız Console ayarıdır —
 `firebase_options.dart`-a toxunmaq lazım deyil və toxunulmayıb.
 
----
+### 6. `dailyStats` üçün TTL — ⏳ DEPLOY-DAN SONRA
 
+Məkan analitikasının gündəlik sənədləri (`rollUpVenueDailyStats`,
+docs/VENUE_ANALYTICS.md) 400 gün saxlanılır.
+
+```bash
+# ALT KOLLEKSİYADIR (`venues/{id}/dailyStats/{tarix}`), amma TTL
+# kolleksiya QRUPU üzrə işləyir — əmr eynidir.
+gcloud firestore fields ttls update expiresAt \
+  --collection-group=dailyStats \
+  --project=kim-var-73ce9 --enable-ttl
+```
+
+Yoxlama:
+```bash
+gcloud firestore fields ttls list --project=kim-var-73ce9
+```
+
+**Nə üçün 400 gün, 90 yox:** aylıq hesabatın ən dəyərli sətri «keçən ilin
+eyni ayı» müqayisəsidir; qonaqpərvərlikdə mövsümilik əsas siqnaldır. 400
+gün tam il + hesabatı yaratmaq üçün ehtiyat verir. 10 000 məkan × 400 gün
+≈ 4M kiçik sənəd ≈ $1/ay.
+
+---
 ## Bu, TTL-i toplayıcının öz silməsindən niyə üstün edir
 
 Alternativ təklif — gündəlik toplayıcı oxuduğu sənədləri sonda özü

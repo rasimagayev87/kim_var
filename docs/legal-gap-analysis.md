@@ -170,19 +170,45 @@ dərhal sonra** yenidən-razılıq dialoqunu görəcək. Mövcud istifadəçilə
 
 ## 5.3. Düzgün ardıcıllıq
 
+Versiya nömrələri **2026-09-01 tarixində təsdiqləndi** və artıq
+`legal_versions.dart`-dadır. Mətnlərin özü sonra yazılır — bu, qəsdəndir
+və aşağıdakı sıranı pozmur, çünki **Firestore artımı ən sonda gəlir.**
+
 ```
-1. Sənədlərin mətni yazılır və hüquqi baxışdan keçir
-2. HTML fayllarda başlıqdakı "Versiya: X.Y · Son yenilənmə" yenilənir
-3. peakpin-landing deploy edilir       ← sənədlər canlı olmalıdır
-4. legal_versions.dart yenilənir       ← AAB 1.0.1+14-Ə DAXİL EDİLİR
-5. AAB qurulur və mağazaya göndərilir
-6. ⏸  AAB mağazada YAYILANA QƏDƏR GÖZLƏ
-7. config/legal → currentPrivacyVersion: "2.0", currentTermsVersion: "1.1"
-8. config/businessOffer → currentVersion: "2.0"
+1. ✅ legal_versions.dart → 1.1 / 2.0     (EDİLDİ — AAB bunu daşımalıdır)
+2. ✅ AAB 1.0.1+14 qurulur
+3. ⏳ Hüquqi mətnlər yazılır və baxışdan keçir
+4. ⏳ HTML başlıqlarında "Versiya: X.Y · Son yenilənmə" yenilənir
+5. ⏳ peakpin-landing deploy edilir       ← mətnlər CANLI olmalıdır
+6. ⏳ AAB mağazada yayılır
+7. ⏸  5 VƏ 6 — HƏR İKİSİ tamamlanana qədər gözlə
+8. ⏳ config/legal → currentPrivacyVersion "2.0", currentTermsVersion "1.1"
+9. ⏳ config/businessOffer → currentVersion "2.0"
 ```
 
-**Addım 6-nı atlamaq olmaz.** 3-cü addım 7-dən əvvəl olmalıdır, çünki
-dialoq istifadəçini oxumaq üçün canlı sənədə göndərir.
+### Niyə 1-ci addım 3-dən əvvəl gələ bilər
+
+`legal_versions.dart` yalnız **qeydiyyat anında** yazılan möhürdür.
+Dialoqu tetikləyən şey Firestore-dur. Klient nömrəni Firestore-dan
+irəli daşıdıqda heç nə baş vermir — yeni hesab sadəcə Firestore-un
+hələ çatmadığı versiya ilə möhürlənir və dialoq işə düşmür.
+
+Əks istiqamət isə sınıqdır və 5.2-də təsvir olunub.
+
+### Niyə 8-ci addım İKİ şərtdən asılıdır
+
+**Şərt A — AAB mağazada yayılmalıdır.** Əks halda köhnə build hələ də
+`1.0`/`1.1` möhürləyir, Firestore isə `1.1`/`2.0` gözləyir: hər yeni
+qeydiyyatdan keçən istifadəçi razılıq qutusunu işarələdikdən **dərhal
+sonra** yenidən-razılıq dialoqunu görür.
+
+**Şərt B — mətnlər canlı olmalıdır.** Dialoq istifadəçini sənədi
+oxumağa göndərir. Versiya artırılıb mətn hələ köhnədirsə, istifadəçidən
+**oxumadığı bir sənədə razılıq** istənilmiş olur — bu, dialoqun heç
+göstərilməməsindən pisdir, çünki formal razılıq yığılır, məzmun isə
+yanlışdır.
+
+İkisindən biri hazır deyilsə, 8-ci addım gözləyir.
 
 **Oferta (addım 8) ayrıdır** — məkan sahibləri üçündür və `acceptOffer`
 axını ilə idarə olunur, istifadəçi razılıq dialoqu ilə yox.
@@ -286,6 +312,6 @@ axını ilə idarə olunur, istifadəçi razılıq dialoqu ilə yox.
 - [ ] Oferta §4, §6, §7 + gecikmə bəndi
 - [ ] Şərtlər §7 — moderasiya modeli
 - [ ] HTML başlıqlarında versiya və tarix
-- [ ] `legal_versions.dart` → AAB `1.0.1+14`
-- [ ] AAB mağazada yayıldıqdan **sonra** `config/legal`
+- [x] `legal_versions.dart` → 1.1 / 2.0 *(01.09.2026)*
+- [ ] `config/legal` — YALNIZ mətnlər canlı **VƏ** AAB yayıldıqdan sonra (§5.3)
 - [ ] `config/businessOffer.currentVersion`
