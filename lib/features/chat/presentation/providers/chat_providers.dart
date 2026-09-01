@@ -309,7 +309,18 @@ enum PendingMessageStatus { sending, failed }
 class PendingOutgoingMessage {
   final String localId;
   final MessageType type;
-  final File file;
+
+  /// Null for a text message — see [text].
+  final File? file;
+
+  /// Set only for [MessageType.text].
+  ///
+  /// Text used to have no optimistic path at all: `sendText` runs a
+  /// Firestore TRANSACTION, and transactions do not apply locally, so
+  /// nothing appeared in the thread until the server answered. The
+  /// send button sat spinning in the meantime. Media already had this
+  /// mechanism; text now shares it.
+  final String? text;
   final int? durationMs;
   final double progress;
   final PendingMessageStatus status;
@@ -318,7 +329,8 @@ class PendingOutgoingMessage {
   const PendingOutgoingMessage({
     required this.localId,
     required this.type,
-    required this.file,
+    this.file,
+    this.text,
     this.durationMs,
     this.progress = 0,
     this.status = PendingMessageStatus.sending,
@@ -333,6 +345,7 @@ class PendingOutgoingMessage {
       localId: localId,
       type: type,
       file: file,
+      text: text,
       durationMs: durationMs,
       progress: progress ?? this.progress,
       status: status ?? this.status,
@@ -748,31 +761,78 @@ class PendingMessagesController
     }
   }
 
+  /// Puts the message in the thread immediately, then sends it.
+  ///
+  /// The bubble appears on the first frame after the tap, with no
+  /// spinner on the button: `sendText` needs a server round trip
+  /// (transaction), and making the user watch it was the whole
+  /// complaint. On failure the bubble stays with the same
+  /// retry/dismiss affordances media already had.
+  Future<void> sendText({
+    required String chatId,
+    required String otherUid,
+    required String text,
+    required Future<void> Function() send,
+  }) async {
+    final localId =
+        'pending_${DateTime.now().microsecondsSinceEpoch}_${_counter++}';
+    _upsert(
+      chatId,
+      PendingOutgoingMessage(
+        localId: localId,
+        type: MessageType.text,
+        text: text,
+        createdAt: DateTime.now(),
+      ),
+    );
+
+    try {
+      await send();
+      // The real document arrives through the snapshot listener; the
+      // placeholder goes at the same moment so the two never overlap.
+      _remove(chatId, localId);
+    } catch (e, st) {
+      logError('chat_providers.PendingMessagesController.sendText', e, st);
+      _upsert(
+        chatId,
+        PendingOutgoingMessage(
+          localId: localId,
+          type: MessageType.text,
+          text: text,
+          status: PendingMessageStatus.failed,
+          createdAt: DateTime.now(),
+        ),
+      );
+      rethrow;
+    }
+  }
+
   Future<void> retry({
     required String chatId,
     required String otherUid,
     required PendingOutgoingMessage message,
   }) {
     _remove(chatId, message.localId);
+    // Media retries need the local file back; text carries no file.
+    final file = message.file;
     switch (message.type) {
       case MessageType.image:
-        return sendImage(
-          chatId: chatId,
-          otherUid: otherUid,
-          file: message.file,
-        );
+        if (file == null) return Future<void>.value();
+        return sendImage(chatId: chatId, otherUid: otherUid, file: file);
       case MessageType.video:
+        if (file == null) return Future<void>.value();
         return sendVideo(
           chatId: chatId,
           otherUid: otherUid,
-          file: message.file,
+          file: file,
           durationMs: message.durationMs,
         );
       case MessageType.audio:
+        if (file == null) return Future<void>.value();
         return sendAudio(
           chatId: chatId,
           otherUid: otherUid,
-          file: message.file,
+          file: file,
           durationMs: message.durationMs ?? 0,
         );
       case MessageType.text:

@@ -478,7 +478,6 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
   Timer? _typingTimer;
   Timer? _markSeenDebounce;
   bool _isTyping = false;
-  bool _sending = false;
   bool _isForeground = true;
   String? _myUid;
   late final String _chatId;
@@ -585,7 +584,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
 
   Future<void> _send(Chat? chat) async {
     final text = _textController.text;
-    if (text.trim().isEmpty || _sending) return;
+    if (text.trim().isEmpty) return;
     if (!mounted) return;
 
     final loc = AppLocalizations.of(context);
@@ -594,7 +593,12 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
         (chat.status == ChatRequestStatus.pending &&
             chat.lastMessageSenderId == null);
 
-    setState(() => _sending = true);
+    // No `_sending` gate any more. It disabled the button and showed a
+    // spinner for the whole server round trip — `sendText` runs a
+    // Firestore transaction, and transactions do not apply locally, so
+    // that wait was unavoidable AND visible. The message now appears
+    // instantly as a pending bubble instead, and the button stays live
+    // so a second message can be typed straight away.
     _textController.clear();
     _typingTimer?.cancel();
     if (_isTyping) {
@@ -606,8 +610,15 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
 
     try {
       await ref
-          .read(chatControllerProvider.notifier)
-          .sendText(otherUid: widget.otherUid, text: text);
+          .read(pendingMessagesProvider.notifier)
+          .sendText(
+            chatId: _chatId,
+            otherUid: widget.otherUid,
+            text: text,
+            send: () => ref
+                .read(chatControllerProvider.notifier)
+                .sendText(otherUid: widget.otherUid, text: text),
+          );
       if (!mounted) return;
       if (wasOpeningMessage) {
         _showToast(
@@ -628,8 +639,6 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(loc.chatRequestActionErrorMessage)),
       );
-    } finally {
-      if (mounted) setState(() => _sending = false);
     }
   }
 
@@ -954,7 +963,7 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                     otherUid: widget.otherUid,
                     controller: _textController,
                     focusNode: _textFocusNode,
-                    sending: _sending,
+                    sending: false,
                     onChanged: _onTextChanged,
                     onSend: () => _send(chat),
                   ),
@@ -1614,121 +1623,188 @@ class _PendingMessageBubble extends StatelessWidget {
             ),
           ],
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: SizedBox(
-                width: 180,
-                height: message.type == MessageType.audio ? 56 : 180,
-                child: message.type == MessageType.image
-                    ? Opacity(
-                        opacity: failed ? 0.5 : 1,
-                        child: Image.file(message.file, fit: BoxFit.cover),
-                      )
-                    : Container(
-                        color: ChatLightColors.composerFill,
-                        alignment: Alignment.center,
-                        child: Icon(
-                          message.type == MessageType.video
-                              ? Icons.videocam_outlined
-                              : Icons.mic_none_outlined,
-                          color: ChatLightColors.inkFaint,
-                          size: 32,
-                        ),
-                      ),
-              ),
-            ),
-            if (!failed)
-              SizedBox(
-                width: 36,
-                height: 36,
-                child: CircularProgressIndicator(
-                  value: message.progress > 0 ? message.progress : null,
-                  strokeWidth: 2.6,
-                  // Literal white, not the AppColors.white token — this
-                  // spinner sits directly on a photo/video thumbnail
-                  // (see Colors.black26 track below), not on app chrome,
-                  // so it stays theme-independent like the other
-                  // media-overlay colors.
-                  color: Colors.white,
-                  backgroundColor: Colors.black26,
-                ),
-              )
-            else
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(12),
-                ),
+        child: message.type == MessageType.text
+            // A text placeholder is just the text, dimmed until the
+            // server confirms. No thumbnail box, no progress bar — the
+            // point is that it looks like the message it is about to
+            // become, so the thread does not visibly reflow when the
+            // real document replaces it.
+            ? Opacity(
+                opacity: failed ? 1 : 0.6,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.error_outline,
-                      color: AppColors.error,
-                      size: 20,
-                    ),
-                    const SizedBox(height: 2),
                     Text(
-                      loc.chatMediaUploadFailedMessage,
-                      style: AppTextStyles.caption.copyWith(fontSize: 11),
+                      message.text ?? '',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        color: ChatLightColors.ink,
+                      ),
                     ),
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Text-only actions on a failed message. Bare
-                        // text with no feedback reads as a label, not a
-                        // button — the padding also gives a finger
-                        // something to hit.
-                        Pressable(
-                          onTap: onRetry,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 4,
-                            ),
-                            child: Text(
-                              loc.actionRetry,
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.primary,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
+                    if (failed) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Pressable(
+                            onTap: onRetry,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 4,
+                              ),
+                              child: Text(
+                                loc.actionRetry,
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.primary,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        Pressable(
-                          onTap: onDismiss,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 4,
-                            ),
-                            child: Text(
-                              loc.actionDelete,
-                              style: AppTextStyles.caption.copyWith(
-                                color: AppColors.error,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
+                          Pressable(
+                            onTap: onDismiss,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 4,
+                              ),
+                              child: Text(
+                                loc.actionDelete,
+                                style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.error,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
+              )
+            : Stack(
+                alignment: Alignment.center,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: SizedBox(
+                      width: 180,
+                      height: message.type == MessageType.audio ? 56 : 180,
+                      child: message.type == MessageType.image
+                          ? Opacity(
+                              opacity: failed ? 0.5 : 1,
+                              child: Image.file(
+                                message.file!,
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                          : Container(
+                              color: ChatLightColors.composerFill,
+                              alignment: Alignment.center,
+                              child: Icon(
+                                message.type == MessageType.video
+                                    ? Icons.videocam_outlined
+                                    : Icons.mic_none_outlined,
+                                color: ChatLightColors.inkFaint,
+                                size: 32,
+                              ),
+                            ),
+                    ),
+                  ),
+                  if (!failed)
+                    SizedBox(
+                      width: 36,
+                      height: 36,
+                      child: CircularProgressIndicator(
+                        value: message.progress > 0 ? message.progress : null,
+                        strokeWidth: 2.6,
+                        // Literal white, not the AppColors.white token — this
+                        // spinner sits directly on a photo/video thumbnail
+                        // (see Colors.black26 track below), not on app chrome,
+                        // so it stays theme-independent like the other
+                        // media-overlay colors.
+                        color: Colors.white,
+                        backgroundColor: Colors.black26,
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.error_outline,
+                            color: AppColors.error,
+                            size: 20,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            loc.chatMediaUploadFailedMessage,
+                            style: AppTextStyles.caption.copyWith(fontSize: 11),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Text-only actions on a failed message. Bare
+                              // text with no feedback reads as a label, not a
+                              // button — the padding also gives a finger
+                              // something to hit.
+                              Pressable(
+                                onTap: onRetry,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 4,
+                                  ),
+                                  child: Text(
+                                    loc.actionRetry,
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.primary,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                              Pressable(
+                                onTap: onDismiss,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 4,
+                                  ),
+                                  child: Text(
+                                    loc.actionDelete,
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: AppColors.error,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
               ),
-          ],
-        ),
       ),
     );
   }

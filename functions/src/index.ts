@@ -8809,6 +8809,32 @@ export const onChatMessageCreated = onDocumentCreated(
     const receiverId = message.receiverId as string | undefined;
     if (!senderId || !receiverId) return;
 
+    // A new message supersedes every per-user preview override.
+    //
+    // `lastMessageOverride.{uid}` freezes what one participant sees in
+    // the chat list after they hide a message with "məndən sil". It was
+    // never cleared, so once written it shadowed every later message
+    // for that user — the chat list kept showing a day-old preview
+    // while the row's timestamp advanced. Reported from the device.
+    //
+    // Clearing belongs HERE and not in a client-side comparison. The
+    // override deliberately points at an OLDER message than
+    // `lastMessageAt` (the newest one is the one being hidden), so
+    // "ignore the override when it is older" — the first attempt at
+    // this — rejected exactly the overrides that are legitimate and
+    // would have resurfaced deleted messages.
+    //
+    // A brand-new message cannot yet be hidden for anyone, so dropping
+    // every entry is correct. If a participant then hides it,
+    // `onChatMessageDeletedForUser` writes a fresh override.
+    await db.collection("chats").doc(chatId).update({
+      lastMessageOverride: FieldValue.delete(),
+    }).catch((e) => {
+      // Never block the push below — a stale preview is cosmetic, a
+      // missing notification is not.
+      logger.error("onChatMessageCreated: clearing overrides failed", { chatId, error: e });
+    });
+
     // P0 / H-4 — a new message un-hides the conversation for BOTH
     // sides. Without this, "Söhbəti sil" would be permanent from the
     // hider's point of view: the other participant could keep writing

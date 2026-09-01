@@ -28,43 +28,15 @@ void main() {
       expect(c.previewFor('me').text, 'necəsən?');
     });
 
-    test('KÖHNƏ override tətbiq edilmir — əsl qüsur bu idi', () {
-      // Override dünənki mesajdan yazılıb, sonra yeni mesaj gəlib.
+    test('override varsa o göstərilir — at DAHA KÖHNƏ olsa da', () {
+      // Qanuni override məhz belədir: istifadəçi ən son mesajı gizlədib,
+      // ona görə override daha KÖHNƏ mesajı göstərir. `at >= lastMessageAt`
+      // müqayisəsi sınandı və GERİ GÖTÜRÜLDÜ — o, məhz bu halı rədd edir
+      // və silinmiş mesajı geri gətirirdi.
       final c = chatWith(
-        lastMessage: 'necəsən?',
+        lastMessage: 'gizlədilmiş',
         lastMessageAt: t1,
-        override: (text: 'Hi', type: MessageType.text, at: t0),
-      );
-      expect(c.previewFor('me').text, 'necəsən?');
-    });
-
-    test('BƏRABƏR at override qalib gəlir — silinən mesaj geri qayıtmamalıdır', () {
-      // Silinən mesajın özü sonuncu idisə, at == lastMessageAt olur və
-      // override məhz bu hal üçün mövcuddur.
-      final c = chatWith(
-        lastMessage: 'silinmiş',
-        lastMessageAt: t1,
-        override: (text: 'əvvəlki', type: MessageType.text, at: t1),
-      );
-      expect(c.previewFor('me').text, 'əvvəlki');
-    });
-
-    test('YENİ override qalib gəlir', () {
-      final c = chatWith(
-        lastMessage: 'köhnə',
-        lastMessageAt: t0,
-        override: (text: 'yeni', type: MessageType.text, at: t1),
-      );
-      expect(c.previewFor('me').text, 'yeni');
-    });
-
-    test('at yoxdursa override qalib gəlir — köhnə sənədlər', () {
-      // `at` sahəsi əlavə olunmazdan əvvəl yazılmış override-lər.
-      // Onları köhnəlmiş saymaq silinmiş mesajı geri gətirərdi.
-      final c = chatWith(
-        lastMessage: 'silinmiş',
-        lastMessageAt: t1,
-        override: (text: 'əvvəlki', type: MessageType.text, at: null),
+        override: (text: 'əvvəlki', type: MessageType.text, at: t0),
       );
       expect(c.previewFor('me').text, 'əvvəlki');
     });
@@ -77,5 +49,9 @@ void main() {
       );
       expect(c.previewFor('other').text, 'necəsən?');
     });
+
+    // Köhnəlmə artıq SERVERDƏ həll olunur: `onChatMessageCreated` yeni
+    // mesaj gələn kimi bütün override-ləri silir, ona görə burada
+    // qalan hər override cari sayılır.
   });
 }
