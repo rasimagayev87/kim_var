@@ -752,20 +752,27 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
     );
     if (confirmed != true || !mounted) return;
 
-    try {
-      await ref.read(chatControllerProvider.notifier).deleteChat(_chatId);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.chatDeletedNotice)));
-      Navigator.popUntil(context, (route) => route.isFirst);
-    } catch (e, st) {
-      logError('chat_conversation_screen._confirmDeleteChat', e, st);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.chatRequestActionErrorMessage)),
-      );
-    }
+    // Leave FIRST, write after.
+    //
+    // `deleteChat` is a plain `update()` on the chat document, and
+    // Firestore applies those locally the instant they are issued — it
+    // queues and retries the server round trip on its own, offline
+    // included. Awaiting that round trip before popping meant the user
+    // confirmed a deletion and then watched the same screen for as long
+    // as the network took. Nothing about the next screen depends on the
+    // server's answer.
+    Navigator.popUntil(context, (route) => route.isFirst);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(loc.chatDeletedNotice)),
+    );
+    unawaited(
+      ref.read(chatControllerProvider.notifier).deleteChat(_chatId).catchError((
+        Object e,
+        StackTrace st,
+      ) {
+        logError('chat_conversation_screen._confirmDeleteChat', e, st);
+      }),
+    );
   }
 
   @override

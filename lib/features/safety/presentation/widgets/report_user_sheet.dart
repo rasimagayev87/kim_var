@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../providers/safety_providers.dart';
+
+import '../../../../core/utils/app_logger.dart';
 
 Future<void> showReportUserSheet(
   BuildContext context,
@@ -83,28 +86,30 @@ class _ReportUserSheetState extends ConsumerState<_ReportUserSheet> {
         ? _otherReasonController.text.trim()
         : _selectedReason!;
 
-    setState(() => _sending = true);
-    try {
-      await ref
+    // Closes at once; the report is written after.
+    //
+    // A report is a plain Firestore write — applied locally the moment
+    // it is issued and retried by the SDK until it reaches the server,
+    // offline included. Holding the sheet open for that round trip made
+    // reporting someone feel like the app had frozen, at exactly the
+    // moment a user least wants friction.
+    Navigator.pop(context);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(widget.loc.chatReportSentNotice)));
+    unawaited(
+      ref
           .read(reportUserUseCaseProvider)
           .call(
             reporterId: myUid,
             reportedId: widget.reportedId,
             reason: reason,
             chatId: widget.chatId,
-          );
-      if (!mounted) return;
-      Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(widget.loc.chatReportSentNotice)));
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _sending = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.loc.errorWithDetails(e.toString()))),
-      );
-    }
+          )
+          .catchError((Object e, StackTrace st) {
+            logError('report_user_sheet.submit', e, st);
+          }),
+    );
   }
 
   @override

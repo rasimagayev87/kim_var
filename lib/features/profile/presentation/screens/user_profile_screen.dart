@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -929,22 +930,24 @@ class _ProfileMenuButton extends ConsumerWidget {
     );
     if (confirmed != true || !context.mounted) return;
 
-    try {
-      await ref
+    // Leaves the profile at once; the block is written after.
+    //
+    // Blocking is a plain Firestore write, applied locally immediately
+    // and retried by the SDK until it lands. Waiting for the server
+    // kept the blocked person's profile on screen — the one thing the
+    // user just said they did not want to see.
+    Navigator.popUntil(context, (route) => route.isFirst);
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(loc.chatUserBlockedNotice)));
+    unawaited(
+      ref
           .read(blockUserUseCaseProvider)
-          .call(myUid: myUid, blockedUid: uid);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.chatUserBlockedNotice)));
-      Navigator.popUntil(context, (route) => route.isFirst);
-    } catch (e, st) {
-      logError('user_profile_screen.block', e, st);
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.chatRequestActionErrorMessage)),
-      );
-    }
+          .call(myUid: myUid, blockedUid: uid)
+          .catchError((Object e, StackTrace st) {
+            logError('user_profile_screen.block', e, st);
+          }),
+    );
   }
 
   Future<void> _confirmDeleteChat(BuildContext context, WidgetRef ref) async {
