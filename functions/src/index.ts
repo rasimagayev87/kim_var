@@ -8746,14 +8746,29 @@ async function recomputeChatState(chatId: string): Promise<void> {
   // Counted, not adjusted. An incremented/decremented counter drifts the
   // moment any one path forgets to touch it — which is exactly what
   // happened with messages deleted before they were read.
+  //
+  // NOT `where("readAt", "==", null)`. Firestore matches that only when
+  // the field EXISTS and holds null; a message document does not carry
+  // `readAt` at all until it is read, so the query found nothing and
+  // every count came back 0 — the badge appeared for about a second and
+  // then vanished. Counted the other way round instead: everything
+  // addressed to this participant, minus what has actually been read.
   for (const uid of participants) {
-    const unreadSnap = await chatRef
-      .collection("messages")
-      .where("receiverId", "==", uid)
-      .where("readAt", "==", null)
-      .count()
-      .get();
-    updates[`unreadCount.${uid}`] = unreadSnap.data().count;
+    const [totalSnap, readSnap] = await Promise.all([
+      chatRef.collection("messages").where("receiverId", "==", uid).count().get(),
+      chatRef
+        .collection("messages")
+        .where("receiverId", "==", uid)
+        .orderBy("readAt")
+        .count()
+        .get(),
+    ]);
+    // `orderBy` on a field skips documents that lack it, which is
+    // precisely the "has been read" set.
+    updates[`unreadCount.${uid}`] = Math.max(
+      0,
+      totalSnap.data().count - readSnap.data().count,
+    );
   }
 
   await chatRef.update(updates);
