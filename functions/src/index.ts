@@ -8664,151 +8664,125 @@ export const onChatDeleted = onDocumentDeleted("chats/{chatId}", async (event) =
 // transaction. Deleting an OLDER message (already superseded by a
 // newer one) is an explicit no-op — the preview is correctly whatever
 // it already was, no write happens at all.
+/**
+ * How far back a per-user preview override may reach.
+ *
+ * Only bounds the override scan: if a participant has hidden more than
+ * this many consecutive messages, their preview falls back to the
+ * shared one rather than scanning the whole history on every write.
+ * The shared preview and the unread counts do not depend on it.
+ */
+const CHAT_PREVIEW_SCAN_LIMIT = 50;
+
+/**
+ * Recomputes EVERYTHING the chat list shows, from the messages
+ * themselves.
+ *
+ * Replaces three separate ad-hoc paths — one on send, one on delete for
+ * everyone, one on delete for me — each of which maintained
+ * `lastMessage`, `lastMessageOverride` and `unreadCount` incrementally
+ * and each of which forgot at least one of the others. The symptoms
+ * were all the same shape: a chat row showing a message from the
+ * previous day, a preview that survived deleting the message it
+ * described, an unread badge counting a message that no longer existed.
+ *
+ * Incremental maintenance was the wrong model. Every one of these
+ * values is a pure function of the messages in the chat, so it is
+ * derived here in one place and the callers simply say "something
+ * changed".
+ *
+ * `lastMessageOverride.{uid}` is written ONLY when that participant's
+ * newest visible message differs from the shared one — i.e. only while
+ * they have actually hidden something. It is REMOVED otherwise, so an
+ * override can no longer outlive the reason it existed.
+ */
+async function recomputeChatState(chatId: string): Promise<void> {
+  const chatRef = db.collection("chats").doc(chatId);
+  const chatSnap = await chatRef.get();
+  if (!chatSnap.exists) return;
+
+  const participants = (chatSnap.data()?.participants as string[] | undefined) ?? [];
+
+  // Newest first. The window only bounds how far back a per-user
+  // override can reach; the shared preview and the unread counts below
+  // never depend on it.
+  const snap = await chatRef
+    .collection("messages")
+    .orderBy("sentAt", "desc")
+    .limit(CHAT_PREVIEW_SCAN_LIMIT)
+    .get();
+
+  const updates: Record<string, unknown> = {};
+
+  if (snap.empty) {
+    updates.lastMessage = "";
+    updates.lastMessageType = "deleted";
+    updates.lastMessageOverride = FieldValue.delete();
+  } else {
+    const newest = snap.docs[0].data();
+    updates.lastMessage = (newest.text as string | undefined) ?? "";
+    updates.lastMessageType = newest.type as string;
+    updates.lastMessageAt = newest.sentAt;
+    updates.lastMessageSenderId = newest.senderId as string | undefined;
+
+    const override: Record<string, unknown> = {};
+    for (const uid of participants) {
+      const visible = snap.docs.find(
+        (d) => !(((d.data().deletedFor as string[] | undefined) ?? []).includes(uid)),
+      );
+      // Same as the shared preview → no override needed. This is the
+      // line that stops stale entries accumulating.
+      if (!visible || visible.id === snap.docs[0].id) continue;
+      override[uid] = {
+        text: (visible.data().text as string | undefined) ?? "",
+        type: visible.data().type as string,
+        at: visible.data().sentAt,
+      };
+    }
+    updates.lastMessageOverride =
+      Object.keys(override).length > 0 ? override : FieldValue.delete();
+  }
+
+  // Counted, not adjusted. An incremented/decremented counter drifts the
+  // moment any one path forgets to touch it — which is exactly what
+  // happened with messages deleted before they were read.
+  for (const uid of participants) {
+    const unreadSnap = await chatRef
+      .collection("messages")
+      .where("receiverId", "==", uid)
+      .where("readAt", "==", null)
+      .count()
+      .get();
+    updates[`unreadCount.${uid}`] = unreadSnap.data().count;
+  }
+
+  await chatRef.update(updates);
+}
+
 export const onChatMessageDeleted = onDocumentDeleted(
   "chats/{chatId}/messages/{messageId}",
   async (event) => {
-    const deletedData = event.data?.data();
-    const deletedSentAt = deletedData?.sentAt as Timestamp | undefined;
-    if (!deletedSentAt) return;
-
-    const { chatId } = event.params;
-    const chatRef = db.collection("chats").doc(chatId);
-    const chatSnap = await chatRef.get();
-    // The whole chat may be mid-cascade-delete (`onChatDeleted` above,
-    // which deletes every message doc too) — nothing left to update.
-    if (!chatSnap.exists) return;
-
-    const currentLastMessageAt = chatSnap.data()?.lastMessageAt as Timestamp | undefined;
-    if (!currentLastMessageAt || !currentLastMessageAt.isEqual(deletedSentAt)) {
-      return; // Not the current preview — explicit no-op, nothing to recompute.
-    }
-
-    const remainingSnap = await chatRef.collection("messages").orderBy("sentAt", "desc").limit(1).get();
-
-    if (remainingSnap.empty) {
-      await chatRef.update({
-        lastMessage: "",
-        lastMessageType: "deleted",
-        lastMessageOverride: FieldValue.delete(),
-      });
-      return;
-    }
-
-    const remaining = remainingSnap.docs[0].data();
-    await chatRef.update({
-      lastMessage: (remaining.text as string | undefined) ?? "",
-      lastMessageType: remaining.type as string,
-      lastMessageAt: remaining.sentAt,
-      lastMessageSenderId: remaining.senderId as string | undefined,
-      // Deleting for EVERYONE changes what the shared preview is, so
-      // every per-user override describing the old one is now wrong.
-      // Without this the owner of an override kept seeing the deleted
-      // message's replacement-of-record rather than the real newest
-      // one — the case reported from the device, where the list still
-      // showed a day-old message after the newest was deleted for all.
-      lastMessageOverride: FieldValue.delete(),
-    });
+    // Everything this used to do by hand — recomputing the preview,
+    // clearing overrides, decrementing the unread counter — is now one
+    // call. Each of those was maintained separately before and each
+    // missed a case.
+    await recomputeChatState(event.params.chatId);
   },
 );
 
-// How many of a chat's most-recent messages `onChatMessageDeletedForUser`
-// below scans, newest-first, to find the first one NOT in the uid's own
-// `deletedFor` — Firestore has no "array-not-contains" query, so this is
-// an in-memory filter over a bounded page rather than a real query.
-// Matches this file's existing "bounded candidate scan" convention (see
-// `NEARBY_CANDIDATE_SCAN_LIMIT`). A uid who has "məndən sil"-ed MORE than
-// this many consecutive most-recent messages (unusual — normal use
-// deletes one at a time) would fall through to the `deleted` fallback
-// below even though an older, still-visible-to-them message technically
-// exists further back; documented limitation, not treated as a bug.
-const LAST_MESSAGE_OVERRIDE_SCAN_LIMIT = 100;
-
-// Post-launch QA — "məndən sil" (`deleteMessageForMe`, which only ever
-// adds the caller's own uid to that ONE message's `deletedFor`) is the
-// harder half of the same bug: `chats/{chatId}` is the ONE doc BOTH
-// participants read for the list preview, so nothing here may depend on
-// who's asking — a per-user override map on that same doc
-// (`lastMessageOverride.{uid}`, exactly mirroring how `unreadCount`/
-// `pinnedBy`/`archivedBy`/`mutedBy` already track other per-participant
-// state on this one shared doc) is what lets the OTHER participant's
-// view stay completely unaffected. Written ONLY here (Admin SDK,
-// bypasses rules) — `firestore.rules`' `chats/{chatId}` update rule
-// explicitly blocks this field from any client write, so neither
-// participant can fabricate what the OTHER one sees in their own list.
-//
-// Same "was this actually their current preview" guard as
-// `onChatMessageDeleted` above, just evaluated per-uid against either
-// their existing override's timestamp or (if they have none yet) the
-// shared `lastMessageAt` — hiding an old, already-superseded message is
-// a no-op for that uid exactly like it is for the shared fields.
 export const onChatMessageDeletedForUser = onDocumentUpdated(
   "chats/{chatId}/messages/{messageId}",
   async (event) => {
-    const before = event.data?.before.data();
-    const after = event.data?.after.data();
-    if (!before || !after) return;
-
-    const beforeDeletedFor = (before.deletedFor as string[] | undefined) ?? [];
-    const afterDeletedFor = (after.deletedFor as string[] | undefined) ?? [];
-    if (afterDeletedFor.length <= beforeDeletedFor.length) return; // not a new self-hide
-    const newlyHiddenFor = afterDeletedFor.filter((uid) => !beforeDeletedFor.includes(uid));
-    if (newlyHiddenFor.length === 0) return;
-
-    const messageSentAt = after.sentAt as Timestamp | undefined;
-    if (!messageSentAt) return;
-
-    const { chatId } = event.params;
-    const chatRef = db.collection("chats").doc(chatId);
-    const chatSnap = await chatRef.get();
-    if (!chatSnap.exists) return;
-
-    const chatData = chatSnap.data()!;
-    const sharedLastMessageAt = chatData.lastMessageAt as Timestamp | undefined;
-    const existingOverride = (chatData.lastMessageOverride as Record<string, { at?: Timestamp }> | undefined) ?? {};
-
-    const updates: Record<string, unknown> = {};
-    for (const uid of newlyHiddenFor) {
-      const uidCurrentPreviewAt = existingOverride[uid]?.at ?? sharedLastMessageAt;
-      if (!uidCurrentPreviewAt || !uidCurrentPreviewAt.isEqual(messageSentAt)) continue;
-
-      const recentSnap = await chatRef
-        .collection("messages")
-        .orderBy("sentAt", "desc")
-        .limit(LAST_MESSAGE_OVERRIDE_SCAN_LIMIT)
-        .get();
-      const visible = recentSnap.docs.find(
-        (doc) => !((doc.data().deletedFor as string[] | undefined) ?? []).includes(uid),
-      );
-
-      updates[`lastMessageOverride.${uid}`] = visible
-        ? {
-            text: (visible.data().text as string | undefined) ?? "",
-            type: visible.data().type as string,
-            at: visible.data().sentAt,
-          }
-        : { text: "", type: "deleted", at: messageSentAt };
-    }
-
-    if (Object.keys(updates).length > 0) {
-      await chatRef.update(updates);
-    }
+    const before = (event.data?.before.data()?.deletedFor as string[] | undefined) ?? [];
+    const after = (event.data?.after.data()?.deletedFor as string[] | undefined) ?? [];
+    // Only "məndən sil" changes what any participant sees; every other
+    // field update on a message (a read receipt, most commonly) would
+    // otherwise trigger a full recompute on every message read.
+    if (before.length === after.length) return;
+    await recomputeChatState(event.params.chatId);
   },
 );
 
-/**
- * Sends a real push notification to the recipient's device(s) whenever
- * a new chat message is written — the client only ever writes the
- * message doc itself (see `FirebaseChatRepository._sendMessage`), it
- * never sends a push directly, so this trigger is the only thing that
- * makes a message actually reach the recipient's phone in real time
- * while the app isn't open.
- *
- * Skips sending (silently, not an error) when: the recipient muted
- * this specific chat (`chats/{chatId}.mutedBy[receiverId]`), their
- * global "Mesajlar" notification category or push master toggle is
- * off (`users/{receiverId}.notificationPreferences`), or they have no
- * registered device tokens yet.
- */
 export const onChatMessageCreated = onDocumentCreated(
   "chats/{chatId}/messages/{messageId}",
   async (event) => {
@@ -8820,30 +8794,12 @@ export const onChatMessageCreated = onDocumentCreated(
     const receiverId = message.receiverId as string | undefined;
     if (!senderId || !receiverId) return;
 
-    // A new message supersedes every per-user preview override.
-    //
-    // `lastMessageOverride.{uid}` freezes what one participant sees in
-    // the chat list after they hide a message with "məndən sil". It was
-    // never cleared, so once written it shadowed every later message
-    // for that user — the chat list kept showing a day-old preview
-    // while the row's timestamp advanced. Reported from the device.
-    //
-    // Clearing belongs HERE and not in a client-side comparison. The
-    // override deliberately points at an OLDER message than
-    // `lastMessageAt` (the newest one is the one being hidden), so
-    // "ignore the override when it is older" — the first attempt at
-    // this — rejected exactly the overrides that are legitimate and
-    // would have resurfaced deleted messages.
-    //
-    // A brand-new message cannot yet be hidden for anyone, so dropping
-    // every entry is correct. If a participant then hides it,
-    // `onChatMessageDeletedForUser` writes a fresh override.
-    await db.collection("chats").doc(chatId).update({
-      lastMessageOverride: FieldValue.delete(),
-    }).catch((e) => {
-      // Never block the push below — a stale preview is cosmetic, a
-      // missing notification is not.
-      logger.error("onChatMessageCreated: clearing overrides failed", { chatId, error: e });
+    // The chat document's preview/unread state is derived, not
+    // maintained by hand — see `recomputeChatState`. Failing here must
+    // never block the push below: a stale row is cosmetic, a missing
+    // call/message notification is not.
+    await recomputeChatState(chatId).catch((e) => {
+      logger.error("onChatMessageCreated: recompute failed", { chatId, error: e });
     });
 
     // P0 / H-4 — a new message un-hides the conversation for BOTH
