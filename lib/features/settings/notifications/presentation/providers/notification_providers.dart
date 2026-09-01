@@ -4,6 +4,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart' as ph;
 
+import '../../../../location/presentation/providers/location_providers.dart';
+
 import '../../../../../core/utils/app_logger.dart';
 import '../../../../auth/presentation/providers/auth_providers.dart';
 import '../../data/repositories/firebase_notification_preferences_repository.dart';
@@ -129,6 +131,11 @@ class NotificationPreferencesController {
     final uid = _currentUid();
     if (uid == null) return;
     try {
+      // Location waits on this: two permission dialogs requested in the
+      // same frame meant the second never appeared (see
+      // `LocationController.closePermissionGate`). `finally` below opens
+      // the gate whatever happens here — a failed notification request
+      // must not cost the user their map.
       await FirebaseMessaging.instance.requestPermission();
       final repo = _ref.read(notificationPreferencesRepositoryProvider);
       final prefs = await repo.watchPreferences(uid).first;
@@ -143,6 +150,8 @@ class NotificationPreferencesController {
       await _registerFcmToken(uid);
     } catch (e, st) {
       logError('notification_providers.NotificationPreferencesController.syncSubscriptions', e, st);
+    } finally {
+      LocationController.releasePermissionGate();
     }
   }
 

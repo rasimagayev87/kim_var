@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_branch_sdk/flutter_branch_sdk.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+
+import 'core/utils/app_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/localization/locale_providers.dart';
@@ -137,6 +139,13 @@ void main() async {
   applyRemoteRadiusOptions(resolvedAppConfig.radiusOptionsKm);
   applyRemoteNearbyRefreshSeconds(resolvedAppConfig.nearbyRefreshSeconds);
   final packageInfo = await PackageInfo.fromPlatform();
+  // Proves the release log channel reaches `logcat` before anything
+  // relies on it — see `logStartupMarker`.
+  logStartupMarker('${packageInfo.version}+${packageInfo.buildNumber}');
+  // Closed here so the first position request waits for the
+  // notification prompt to settle — Android shows one dialog at a time
+  // and drops whichever asks second. Opened by `syncSubscriptions`.
+  LocationController.closePermissionGate();
 
   runApp(ProviderScope(
     overrides: [

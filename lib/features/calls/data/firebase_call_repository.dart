@@ -8,6 +8,7 @@ import 'package:flutter_webrtc/flutter_webrtc.dart';
 import '../../../core/utils/app_logger.dart';
 import '../../safety/data/firebase_safety_repository.dart';
 import '../../safety/domain/safety_repository.dart';
+import '../domain/incoming_call_filter.dart';
 import '../domain/call_repository.dart';
 import '../domain/entities/call_session.dart';
 
@@ -199,7 +200,30 @@ class FirebaseCallRepository implements CallRepository {
     final answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
 
-    await callDoc.update({'status': 'accepted', 'answer': answer.toMap()});
+    // Transactional, not a plain update: the same account can be signed
+    // in on two devices, and both now see the `accepted` document in
+    // `watchIncomingCall`. Without this guard both could reach here and
+    // write competing answers — the caller would negotiate against
+    // whichever landed last while the other device sat with a live
+    // PeerConnection and no path to it. The `answer == null` read makes
+    // the second writer lose cleanly and tear its own connection down.
+    final won = await FirebaseFirestore.instance.runTransaction<bool>((tx) async {
+      final fresh = await tx.get(callDoc);
+      final data = fresh.data();
+      if (data == null) return false;
+      if (data['answer'] != null) return false;
+      final status = data['status'] as String?;
+      if (status == 'declined' || status == 'ended') return false;
+      tx.update(callDoc, {'status': 'accepted', 'answer': answer.toMap()});
+      return true;
+    });
+
+    logTrace('acceptCall.answerWrite', 'callId=$callId won=$won');
+    if (!won) {
+      // Another device (or a decline that raced us) owns this call.
+      await _cleanup(callId);
+      return;
+    }
 
     _listenForRemoteCandidates(callId, pc, callDoc.collection('offerCandidates'));
   }
@@ -238,11 +262,41 @@ class FirebaseCallRepository implements CallRepository {
   Stream<CallSession?> watchIncomingCall() {
     final uid = _myUid;
     if (uid == null) return Stream.value(null);
+    // `accepted` is in here alongside `ringing` on purpose.
+    //
+    // When the callee answers from the OS call UI, the CallKit event
+    // handler flips the document to `accepted` (that is what stops the
+    // caller's ringback). With only `ringing` in this query, that very
+    // write dropped the call out of the stream — so `HomeScreen` never
+    // pushed anything, `acceptCall()` never ran, and no answer SDP was
+    // ever produced. The caller saw a running timer against a call that
+    // had no media on the other end.
+    //
+    // `answer == null` is the discriminator, applied below rather than
+    // in the query (Firestore cannot filter on a missing field): an
+    // `accepted` call that already carries an answer is either already
+    // connected or was answered on another device, and must not be set
+    // up a second time.
     return _calls
         .where('receiverId', isEqualTo: uid)
-        .where('status', isEqualTo: 'ringing')
+        .where('status', whereIn: ['ringing', 'accepted'])
         .snapshots()
-        .map((snap) => snap.docs.isEmpty ? null : _sessionFromDoc(snap.docs.first));
+        .map((snap) {
+          final now = DateTime.now();
+          for (final doc in snap.docs) {
+            final data = doc.data();
+            if (!shouldSurfaceIncomingCall(
+              status: data['status'] as String?,
+              hasAnswer: data['answer'] != null,
+              createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+              now: now,
+            )) {
+              continue;
+            }
+            return _sessionFromDoc(doc);
+          }
+          return null;
+        });
   }
 
   @override

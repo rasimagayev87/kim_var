@@ -115,8 +115,15 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
   /// clears it.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
-        ref.read(locationControllerProvider).hasError) {
+    if (state != AppLifecycleState.resumed) return;
+    final location = ref.read(locationControllerProvider);
+    // `hasError` alone was not enough. A first launch whose permission
+    // dialog never appeared left this stuck in `loading` — not `error`
+    // — for ever, so the retry below never ran and the map showed an
+    // unbounded spinner with no way out but reinstalling. A `loading`
+    // state with no position is exactly as stuck as an error, and is
+    // now treated the same.
+    if (location.hasError || (location.isLoading && location.valueOrNull == null)) {
       ref.read(locationControllerProvider.notifier).refresh();
     }
   }

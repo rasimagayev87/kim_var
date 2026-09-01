@@ -42,6 +42,7 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
+    unawaited(_seedFromLastKnown());
     state = await AsyncValue.guard(_getPosition);
     final position = state.valueOrNull;
     if (position != null) {
@@ -62,7 +63,38 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
     }
   }
 
+  /// Set once the notification-permission request has finished, so the
+  /// two never overlap.
+  ///
+  /// Android shows ONE permission dialog at a time: a second request
+  /// made while another is in flight is dropped without ever appearing.
+  /// That is what left a fresh install with no location prompt at all —
+  /// `HomeScreen.initState` fires `syncSubscriptions()` (notifications)
+  /// and `DiscoverTab.build` builds this controller in the same frame,
+  /// so the location dialog lost the race and the map sat on a spinner
+  /// until the app was backgrounded and resumed.
+  static Completer<void>? _permissionGate;
+
+  /// Opens the gate. Called after the notification request settles.
+  static void releasePermissionGate() {
+    _permissionGate ??= Completer<void>();
+    if (!_permissionGate!.isCompleted) _permissionGate!.complete();
+  }
+
+  /// Closed at startup by `main()`; anything asking for a position
+  /// before the gate opens waits rather than racing.
+  static void closePermissionGate() {
+    _permissionGate = Completer<void>();
+  }
+
   Future<Position> _getPosition() async {
+    final gate = _permissionGate;
+    if (gate != null && !gate.isCompleted) {
+      // Bounded: if the notification flow never settles (a crash, a
+      // dialog the user leaves open), location must not be hostage to
+      // it — a missing prompt is worse than an overlapping one.
+      await gate.future.timeout(const Duration(seconds: 10), onTimeout: () {});
+    }
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
       throw const LocationException(LocationFailure.serviceDisabled);
@@ -80,9 +112,34 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
       throw const LocationException(LocationFailure.permissionDeniedForever);
     }
 
+    // A cold GPS can take a minute to reach a high-accuracy fix, and
+    // `getCurrentPosition` has no default deadline — which is how a
+    // first launch ended up on an unbounded spinner. Fail fast instead,
+    // and let the live stream refine afterwards.
     return Geolocator.getCurrentPosition(
-      locationSettings: LocationSettings(accuracy: _accuracy),
+      locationSettings: LocationSettings(accuracy: _accuracy, timeLimit: const Duration(seconds: 15)),
     );
+  }
+
+  /// Paints the map from the OS's cached fix while the real one is
+  /// still being acquired.
+  ///
+  /// `getLastKnownPosition` returns immediately and costs nothing — it
+  /// reads what the platform already has. The app never used it, so
+  /// every launch waited for a full fix before showing anything, even
+  /// when a perfectly good position from a minute ago was sitting
+  /// there. Only used to fill an EMPTY state; it never overwrites a
+  /// live fix.
+  Future<void> _seedFromLastKnown() async {
+    if (state.valueOrNull != null) return;
+    try {
+      final last = await Geolocator.getLastKnownPosition();
+      if (last != null && state.valueOrNull == null) {
+        state = AsyncValue.data(last);
+      }
+    } catch (e, st) {
+      logError('location_providers.seedFromLastKnown', e, st);
+    }
   }
 
   /// Streams position updates in the background so the user's

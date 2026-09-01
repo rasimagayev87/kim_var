@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +10,11 @@ import '../providers/home_tab_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../l10n/app_localizations.dart';
+import '../../../../core/utils/app_logger.dart';
+import '../../../calls/data/call_push_service.dart';
+import '../../../calls/domain/entities/call_session.dart';
 import '../../../calls/presentation/providers/call_providers.dart';
+import '../../../calls/presentation/screens/call_screen.dart';
 import '../../../calls/presentation/screens/incoming_call_screen.dart';
 import '../../../chat/presentation/providers/chat_providers.dart' show totalUnreadChatCountProvider;
 import '../../../legal/presentation/widgets/consent_dialog.dart';
@@ -57,6 +63,41 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
   // new call afterwards still triggers a fresh push.
   String? _handledIncomingCallId;
 
+  /// Finishes an answer that started at the OS call UI.
+  ///
+  /// `acceptCall()` is what actually opens the mic/camera, builds the
+  /// PeerConnection and publishes the answer SDP — it is not a status
+  /// write. It stays safe to call here even though the document already
+  /// says `accepted`, because its own write is transactional and backs
+  /// out if another device got there first (see
+  /// `FirebaseCallRepository.acceptCall`).
+  Future<void> _resumeAcceptedCall(CallSession session) async {
+    final navigator = Navigator.of(context);
+    try {
+      logTrace('resumeAcceptedCall.start', session.id);
+      await ref.read(callRepositoryProvider).acceptCall(session.id);
+      logTrace('resumeAcceptedCall.accepted', session.id);
+    } catch (e, st) {
+      logError('home_screen._resumeAcceptedCall', e, st);
+      // Mic/camera denied, or the call died while we were setting up.
+      // Nothing to navigate to; the caller's own timeout ends it.
+      if (!mounted) return;
+      _handledIncomingCallId = null;
+      return;
+    }
+    if (!mounted) return;
+    navigator.push(
+      MaterialPageRoute(
+        builder: (_) => CallScreen(
+          callId: session.id,
+          otherUid: session.callerId,
+          type: session.type,
+          isCaller: false,
+        ),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +106,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     ref.read(deviceSessionControllerProvider).touchCurrentSession();
     ref.read(notificationPreferencesControllerProvider).syncSubscriptions();
     _applySavedGpsAccuracy();
+    // A call answered from the OS screen while the app was killed never
+    // reached `listenToCallkitEvents` — no isolate existed to hear it.
+    // Ask the plugin's own native store what the OS knows and mark the
+    // document, which the `incomingCallProvider` listener below then
+    // picks up like any other OS-accepted call.
+    //
+    // Here rather than in `main()` because it needs a restored auth
+    // session: reaching this screen means one exists.
+    unawaited(recoverAcceptedCallsAfterColdStart());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) checkAndShowConsentDialogIfNeeded(context, ref);
     });
@@ -119,6 +169,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
     });
 
     ref.listen(incomingCallProvider, (previous, next) {
+      // A failing stream must never look like "no incoming call".
+      // `watchIncomingCall` gained an `IN` filter, which needs a
+      // composite index; the index did not exist, the query errored,
+      // and reading only `valueOrNull` turned that into a silent null —
+      // so an accepted call simply never surfaced and nothing said why.
+      if (next.hasError) {
+        logError('home_screen.incomingCall', next.error!, next.stackTrace);
+        return;
+      }
       final session = next.valueOrNull;
       if (session == null) {
         _handledIncomingCallId = null;
@@ -126,6 +185,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
       }
       if (_handledIncomingCallId == session.id) return;
       _handledIncomingCallId = session.id;
+
+      // Two ways in, and they are NOT the same.
+      //
+      // `ringing` — the app is open and nobody has answered yet: show
+      // the in-app answer/decline screen as before.
+      //
+      // `accepted` — the callee already answered from the OS call UI.
+      // That path (`listenToCallkitEvents`) can only write the status;
+      // it has no Navigator and no way to open a microphone, so the
+      // WebRTC side of answering has never run. Sending the user to
+      // `IncomingCallScreen` here would ask them to accept a call they
+      // just accepted, so go straight to the call and do the setup that
+      // the OS button could not.
+      logTrace('incomingCall.surfaced', '${session.id} status=${session.status.name}');
+      if (session.status == CallStatus.accepted) {
+        _resumeAcceptedCall(session);
+        return;
+      }
       Navigator.of(context).push(MaterialPageRoute(builder: (_) => IncomingCallScreen(session: session)));
     });
 
