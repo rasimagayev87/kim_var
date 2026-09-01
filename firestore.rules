@@ -128,6 +128,32 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/venues/$(venueId)).data.status == 'approved';
     }
 
+    // Whether the two users already have an ACCEPTED conversation.
+    //
+    // The product rule has always been "you cannot call someone who has
+    // not accepted your message request", but until now nothing
+    // enforced it for calls: the `calls` create rule checked identity,
+    // ban status and blocking, and the acceptance gate lived only in
+    // the chat UI's decision to show or hide the call button — which a
+    // direct `startCall()` bypasses. That gap is named in this file's
+    // own `calls` comment.
+    //
+    // `messages/create` deliberately does NOT do this (see its note): a
+    // `get()`-based check there broke the first message of a brand-new
+    // conversation, which by definition has no accepted chat yet. Calls
+    // have no equivalent case — a call always presupposes an existing
+    // conversation — so the check is safe here and wrong there.
+    //
+    // Chat ids are the two uids sorted and joined with "_"
+    // (`FirebaseChatRepository.chatIdFor`). A missing `status` means a
+    // chat created before "Hesab gizliliyi" existed, treated as
+    // accepted — the same default `isFollowAccepted` uses.
+    function chatAcceptedBetween(a, b) {
+      return exists(/databases/$(database)/documents/chats/$(a < b ? a + '_' + b : b + '_' + a)) &&
+        get(/databases/$(database)/documents/chats/$(a < b ? a + '_' + b : b + '_' + a))
+          .data.get('status', 'accepted') == 'accepted';
+    }
+
     function isPinBoxCategory(venueId) {
       return get(/databases/$(database)/documents/venues/$(venueId)).data.category
         in ['restaurant', 'coffeeShop', 'fastFood', 'sweetsShop', 'perfumeryCosmetics', 'supermarket'];
@@ -1243,7 +1269,12 @@ service cloud.firestore {
         request.auth.uid in request.resource.data.participants &&
         request.resource.data.status == 'ringing' &&
         isActiveUser(request.auth.uid) &&
-        !isBlockedPair(request.resource.data.callerId, request.resource.data.receiverId);
+        !isBlockedPair(request.resource.data.callerId, request.resource.data.receiverId) &&
+        // The third gate, and the one that was missing: an accepted
+        // conversation must already exist. Without it a stranger could
+        // ring anyone's phone — which becomes a real harassment vector
+        // the moment incoming calls actually wake the device.
+        chatAcceptedBetween(request.resource.data.callerId, request.resource.data.receiverId);
 
       // Callee accepting/declining (status only), either side ending
       // the call, or the caller attaching its SDP offer / callee

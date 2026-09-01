@@ -279,6 +279,12 @@ describe("K-3/RT-14 — blok: calls create", () => {
     await seed(async (fs) => {
       await setDoc(doc(fs, "users", a), userFixture(a));
       await setDoc(doc(fs, "users", b), userFixture(b));
+      // `calls/create` now also requires an accepted conversation. This
+      // test asserts the BLOCK check does not fire when there is no
+      // block, so the chat is seeded to isolate that.
+      await setDoc(doc(fs, "chats", [a, b].sort().join("_")), {
+        participants: [a, b].sort(), status: "accepted", createdAt: new Date(),
+      });
     });
     const db = testEnv.authenticatedContext(b).firestore();
     await assertSucceeds(

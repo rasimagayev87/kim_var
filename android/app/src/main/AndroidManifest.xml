@@ -19,6 +19,24 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+
+    <!-- ── Gələn zəng ──────────────────────────────────────────────
+         Zəng bildirişini kilidli ekranın üstündə tam ekran açmaq üçün.
+         Bunsuz push yalnız bildiriş çekmecəsinə düşür və telefon
+         çalmır — düzəltdiyimiz simptomun özü budur.
+
+         ⚠️ Android 14+ (API 34): bu icazə yalnız zəng və alarm
+         tətbiqlərinə avtomatik verilir və Play Console-da bəyannamə
+         tələb edir. PeakPin zəng tətbiqidir, yəni uyğun gəlir, amma
+         mağaza baxışında sual doğura bilər. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+    <!-- Zəng davam edərkən prosesin öldürülməməsi üçün. Android 14+
+         xüsusi tip tələb edir. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
+    <!-- Kilidli ekranda zəng ekranını göstərmək üçün. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- Required by `in_app_purchase` for Google Play Billing (VIP
          subscriptions — see lib/features/premium/). -->
     <uses-permission android:name="com.android.vending.BILLING"/>

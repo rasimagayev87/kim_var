@@ -3549,6 +3549,227 @@ async function writeVenueDailyStats(
   }
 }
 
+// ── Incoming calls ────────────────────────────────────────────────────
+//
+// ⚠️ THIS PATH DELIBERATELY DOES NOT GO THROUGH `notifyUser`.
+//
+// `notifyUser` is the shared gate built for the daily digest: it writes
+// a `users/{uid}/notifications` document, and it consults
+// `notificationPreferences[category]`. Both are wrong for a call.
+//
+//   · A ringing phone is not a feed entry. Writing one would leave a
+//     notification row for something that is over in thirty seconds.
+//   · A call must not be silenceable by a content preference. The
+//     digest's categories exist to let someone turn off marketing;
+//     routing a call through them means a switch meant for "fewer
+//     campaign notifications" also stops the phone ringing.
+//   · The digest batches. A call is a real-time event — if it ever
+//     entered that machinery it would be delivered at 15:00.
+//
+// Whoever adds the next notification type: do not "unify" this with
+// `notifyUser`. The separation is the design.
+//
+// Who may call whom is enforced in `firestore.rules` at create time
+// (identity, ban status, blocking, and an accepted conversation), so
+// this trigger does not re-check any of it. What rules CANNOT do is
+// limit frequency — see `CALL_RATE_*` below.
+
+/** One caller may ring this many times per window before the pushes
+ * stop. Rules cannot express frequency, and an unthrottled call
+ * trigger is a way to make a stranger's phone light up on demand —
+ * worse than message spam, because a full-screen call notification
+ * takes over the screen. */
+const CALL_RATE_LIMIT = 10;
+const CALL_RATE_WINDOW_SECONDS = 600;
+
+/** Per RECEIVER, from one caller: unanswered calls that may ring
+ * before this pair goes quiet for the rest of the window. Someone who
+ * is not picking up has answered. */
+const CALL_UNANSWERED_LIMIT = 3;
+
+/**
+ * A call's FCM payload. `data`-only, deliberately.
+ *
+ * A `notification` block would make Android draw a system notification
+ * and NOT wake the app — the exact symptom this whole change exists to
+ * fix. Only a data message reaches
+ * `firebaseMessagingBackgroundHandler`, which is what raises the
+ * full-screen incoming-call UI.
+ */
+function buildCallPushMessage(
+  token: string,
+  data: Record<string, string>,
+): import("firebase-admin/messaging").Message {
+  return {
+    token,
+    data,
+    android: {
+      priority: "high",
+      // A call that arrives late is worse than one that never arrives:
+      // FCM's default TTL is four weeks, so a phone switched on hours
+      // later would ring for a call from this morning.
+      ttl: 45_000,
+    },
+    apns: {
+      headers: {
+        // PushKit/VoIP. iOS cannot deliver this without a VoIP
+        // certificate, which this project does not have yet — the
+        // header is correct and inert until it does. See
+        // docs/CALLS.md.
+        "apns-push-type": "voip",
+        "apns-priority": "10",
+        "apns-expiration": String(Math.floor(Date.now() / 1000) + 45),
+      },
+    },
+  };
+}
+
+/** Sends a call push to every device the recipient has. Bypasses
+ * `notifyUser` entirely — see this section's header. */
+async function sendCallPush(uid: string, data: Record<string, string>): Promise<void> {
+  const privateData = (await privateDataRef(uid).get()).data() ?? {};
+  const tokens = (privateData.fcmTokens ?? []) as string[];
+  if (tokens.length === 0) return;
+
+  // `pushEnabled` is honoured — it is the master switch, not a content
+  // category. Someone who turned off every notification on the device
+  // is not reachable anyway.
+  const prefs = (privateData.notificationPreferences ?? {}) as Record<string, boolean>;
+  if (prefs.pushEnabled === false) return;
+
+  const response = await messaging.sendEach(tokens.map((t) => buildCallPushMessage(t, data)));
+  await pruneStaleTokensAndLogFailures(uid, tokens, response);
+}
+
+/**
+ * An incoming call, delivered to the callee's device.
+ *
+ * Before this existed there was NO push for a call at all: the only
+ * mechanism was a Firestore snapshot listener attached by `HomeScreen`
+ * (`incomingCallProvider`), which runs solely while the app is in the
+ * foreground. A backgrounded or closed app was never told anything —
+ * the caller heard its own local ringback and the callee's phone stayed
+ * dark until the "missed call" chat message arrived after the call had
+ * already ended.
+ */
+export const onCallCreated = onDocumentCreated("calls/{callId}", async (event) => {
+  const call = event.data?.data();
+  if (!call) return;
+  if (call.status !== "ringing") return;
+
+  const callerId = call.callerId as string | undefined;
+  const receiverId = call.receiverId as string | undefined;
+  if (!callerId || !receiverId) return;
+
+  // The receiver's side of what rules already checked for the caller:
+  // a banned or deleted account should not have its phone rung.
+  const receiverSnap = await db.collection("users").doc(receiverId).get();
+  if (!receiverSnap.exists || receiverSnap.data()?.banned === true) return;
+
+  // ── Frequency, which rules cannot express ──────────────────────
+  const withinLimits = await consumeCallRateBudget(callerId, receiverId);
+  if (!withinLimits) {
+    logger.warn("onCallCreated: rate limited", { callerId, receiverId, callId: event.params.callId });
+    // Ended rather than left ringing, so the caller sees the call fail
+    // instead of waiting on a phone that will never be told.
+    await event.data!.ref.update({ status: "ended" });
+    return;
+  }
+
+  const caller = (await db.collection("users").doc(callerId).get()).data() ?? {};
+  const callerName = [caller.firstName, caller.lastName].filter(Boolean).join(" ").trim();
+
+  await sendCallPush(receiverId, {
+    type: "incoming_call",
+    callId: event.params.callId,
+    callerId,
+    callerName: callerName || (caller.username as string | undefined) || "PeakPin",
+    callerPhoto: (caller.photoUrl as string | undefined) ?? "",
+    callType: (call.type as string | undefined) ?? "voice",
+  });
+});
+
+/**
+ * The call stopped ringing — take the notification off the callee's
+ * screen.
+ *
+ * Without this a cancelled call leaves a full-screen incoming-call UI
+ * up until the OS times it out. The callee answers a call that ended
+ * minutes ago and nothing happens, which is worse than never having
+ * been notified.
+ *
+ * Fires for every exit from `ringing`: the caller hanging up, the
+ * callee answering on another device, a decline, or a timeout.
+ */
+export const onCallUpdated = onDocumentUpdated("calls/{callId}", async (event) => {
+  const before = event.data?.before.data();
+  const after = event.data?.after.data();
+  if (!before || !after) return;
+  if (before.status !== "ringing" || after.status === "ringing") return;
+
+  const receiverId = after.receiverId as string | undefined;
+  if (!receiverId) return;
+
+  // An answered call clears the unanswered-pair budget — see
+  // `consumeCallRateBudget`. Without this, ten normal conversations
+  // in ten minutes would silence the eleventh.
+  if (after.status === "accepted") {
+    const callerId = after.callerId as string | undefined;
+    if (callerId) {
+      await db.collection("rateLimits").doc(`call-pair:${callerId}_${receiverId}`).delete().catch(() => {});
+    }
+  }
+
+  await sendCallPush(receiverId, {
+    type: "call_cancelled",
+    callId: event.params.callId,
+    // Why it stopped, so the client can tell "they hung up" from "you
+    // picked up elsewhere" if it ever wants to.
+    reason: (after.status as string | undefined) ?? "ended",
+  });
+});
+
+/**
+ * Whether this call may ring, and books it against both budgets.
+ *
+ * TWO limits, because they catch different behaviour:
+ *
+ *   · per caller — someone scripting `startCall` in a loop
+ *   · per pair, unanswered — someone ringing ONE person repeatedly.
+ *     That is the shape real harassment takes, and a per-caller limit
+ *     alone permits it: ten calls to one person is inside any sane
+ *     global budget.
+ *
+ * The pair counter is reset by an ANSWERED call (`onCallUpdated` →
+ * `accepted`), so a normal back-and-forth never trips it — only a run
+ * of calls nobody picks up.
+ *
+ * Non-throwing: the document already exists by the time a trigger
+ * runs, so the caller cannot be handed an error. Returning false lets
+ * the caller end the call quietly instead.
+ */
+async function consumeCallRateBudget(callerId: string, receiverId: string): Promise<boolean> {
+  const now = Date.now();
+  const windowMs = CALL_RATE_WINDOW_SECONDS * 1000;
+
+  const check = async (docId: string, limit: number): Promise<boolean> => {
+    const ref = db.collection("rateLimits").doc(docId);
+    return db.runTransaction(async (tx) => {
+      const data = (await tx.get(ref)).data();
+      const windowStart = (data?.windowStart as number | undefined) ?? 0;
+      const count = (data?.count as number | undefined) ?? 0;
+      const fresh = now - windowStart > windowMs;
+      const next = fresh ? 1 : count + 1;
+      if (!fresh && count >= limit) return false;
+      tx.set(ref, { windowStart: fresh ? now : windowStart, count: next }, { merge: true });
+      return true;
+    });
+  };
+
+  if (!(await check(`call:${callerId}`, CALL_RATE_LIMIT))) return false;
+  return check(`call-pair:${callerId}_${receiverId}`, CALL_UNANSWERED_LIMIT);
+}
+
 // ── Birthday offers ───────────────────────────────────────────────────
 
 /** Defensive cap on how many opted-in birthday users one run considers — see this function's own doc comment on the geohash follow-up. */

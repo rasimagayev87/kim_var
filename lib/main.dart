@@ -15,6 +15,7 @@ import 'core/widgets/premium_background_wrapper.dart';
 import 'features/app_config/data/repositories/firebase_app_config_repository.dart';
 import 'features/app_config/presentation/providers/app_config_providers.dart';
 import 'features/app_config/presentation/widgets/app_config_lifecycle_observer.dart';
+import 'features/calls/data/call_push_service.dart';
 import 'features/calls/presentation/widgets/call_pip_overlay.dart';
 import 'features/location/presentation/providers/location_providers.dart';
 import 'features/onboarding/presentation/screens/splash_screen.dart';
@@ -27,6 +28,20 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Incoming-call pushes. Registered BEFORE `runApp` because
+  // `onBackgroundMessage` has to be attached while the engine starts —
+  // a handler registered later never receives a push that woke the app.
+  //
+  // Fail-open like every other startup block here: if this throws, calls
+  // fall back to the foreground-only Firestore listener, which is what
+  // the app did before. It must not be the reason the app cannot open.
+  try {
+    await CallPushService.initialize();
+    await listenToCallkitEvents();
+  } catch (_) {
+    // Best-effort, see above.
+  }
 
   // Crash reporting must never be the reason the app fails to start —
   // same fail-open shape as the App Check block right below. A failure

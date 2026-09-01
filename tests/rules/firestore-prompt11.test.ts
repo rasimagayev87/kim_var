@@ -114,6 +114,16 @@ describe("Prompt 11 — calls create isActiveUser() ilə qapılıb", () => {
 
   before(async () => {
     actors = await seedActors("p11-call");
+    // `calls/create` now also requires an ACCEPTED conversation between
+    // the two — the gate that used to live only in the chat UI. This
+    // test is about `isActiveUser()`, so the chat is seeded to keep it
+    // testing that and nothing else.
+    await seed(async (fs) => {
+      const id = [actors.active, "peer"].sort().join("_");
+      await setDoc(doc(fs(), "chats", id), {
+        participants: [actors.active, "peer"].sort(), status: "accepted", createdAt: new Date(),
+      });
+    });
   });
 
   test("users sənədi mövcud olan istifadəçi zəng yarada bilir", async () => {

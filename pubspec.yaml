@@ -50,6 +50,11 @@ dependencies:
   package_info_plus: ^8.1.1
   device_info_plus: ^11.2.0
   firebase_messaging: ^15.1.5
+  # Incoming-call UI on both platforms: a full-screen intent +
+  # foreground service on Android, CallKit on iOS. Chosen over
+  # `awesome_notifications` (no CallKit) and `callkeep` (unmaintained)
+  # because it covers both platforms behind one API — see docs/CALLS.md.
+  flutter_callkit_incoming: ^2.5.2
   firebase_app_check: ^0.3.1
   firebase_remote_config: ^5.1.5
   firebase_analytics: ^11.3.5
