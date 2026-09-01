@@ -11,6 +11,8 @@ import '../../../../core/widgets/media_photo_picker.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
+import '../../../venues/domain/venue_listing_eligibility.dart';
+import '../../../venues/presentation/venue_block_message.dart';
 import '../../domain/entities/venue_event.dart';
 import '../providers/venue_event_providers.dart';
 import 'category_label.dart';
@@ -130,6 +132,21 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
 
   Future<void> _submit() async {
     if (!_canSubmit || _submitting) return;
+
+    // Only on create. Editing an existing event must stay possible even
+    // if the venue's status has since changed — the event is already
+    // live, and blocking its edit would strand the owner with content
+    // they cannot correct.
+    if (!widget._isEditing) {
+      final block = venueListingBlock(widget.venue.status);
+      if (block != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(venueBlockMessage(AppLocalizations.of(context), block))),
+        );
+        return;
+      }
+    }
+
     setState(() => _submitting = true);
     final loc = AppLocalizations.of(context);
 

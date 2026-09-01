@@ -10,6 +10,8 @@ import '../../../../core/widgets/media_photo_picker.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
+import '../../../venues/domain/venue_listing_eligibility.dart';
+import '../../../venues/presentation/venue_block_message.dart';
 import '../../domain/entities/pinbox.dart';
 import '../../domain/pinbox_failure.dart';
 import '../providers/pinbox_providers.dart';
@@ -146,6 +148,19 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
   }
 
   Future<void> _submitCreate() async {
+    // See `CreateOfferScreen._submitCreate` for why this is re-checked
+    // at submit and not only where the venue was chosen: a form takes
+    // minutes, and a subscription can lapse inside them. `venueIsLive()`
+    // in `firestore.rules` still does the enforcing; this only turns its
+    // `permission-denied` into a sentence that says what to do.
+    final blockCheck = venueListingBlock(widget.venue!.status);
+    if (blockCheck != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(venueBlockMessage(AppLocalizations.of(context), blockCheck))),
+      );
+      return;
+    }
+
     setState(() {
       _submitting = true;
       _fieldErrors = {};

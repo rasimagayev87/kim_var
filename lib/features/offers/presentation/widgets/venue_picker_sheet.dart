@@ -6,6 +6,8 @@ import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
+import '../../../venues/domain/venue_listing_eligibility.dart';
+import '../../../venues/presentation/venue_block_message.dart';
 import '../../../venues/presentation/providers/venue_providers.dart';
 import '../../../venues/presentation/screens/create_venue_screen.dart' show venueCategoryLabel;
 
@@ -95,11 +97,25 @@ class _VenueRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
+    // A venue that cannot carry a listing stays VISIBLE but unpickable,
+    // with the reason under its name.
+    //
+    // Hiding it was the other option and is worse: an owner who just
+    // created a venue and then cannot find it in the picker learns
+    // nothing and assumes the app lost it. Showing it greyed out with
+    // "the subscription payment is incomplete" tells them what to do.
+    //
+    // The alternative that was actually shipped before — letting them
+    // pick it, fill in the whole form, and fail at submit with
+    // «Əməliyyat baş tutmadı» — is the worst of the three.
+    final block = venueListingBlock(venue.status);
+    final blocked = block != null;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
-        onTap: () => Navigator.pop(context, venue),
+        onTap: blocked ? null : () => Navigator.pop(context, venue),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           child: Row(
@@ -125,21 +141,31 @@ class _VenueRow extends StatelessWidget {
                   children: [
                     Text(
                       venue.name,
-                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                      style: TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: blocked ? ChatLightColors.inkFaint : ChatLightColors.ink,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      venue.address.isNotEmpty ? venue.address : venueCategoryLabel(loc, venue.category),
-                      style: TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
-                      maxLines: 1,
+                      blocked
+                          ? venueBlockMessage(loc, block)
+                          : (venue.address.isNotEmpty ? venue.address : venueCategoryLabel(loc, venue.category)),
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: blocked ? AppColors.primary : ChatLightColors.inkSoft,
+                      ),
+                      // The reason needs room; an address does not.
+                      maxLines: blocked ? 3 : 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, size: 18, color: ChatLightColors.inkFaint),
+              if (!blocked) Icon(Icons.chevron_right, size: 18, color: ChatLightColors.inkFaint),
             ],
           ),
         ),

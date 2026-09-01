@@ -13,6 +13,8 @@ import '../../../../core/widgets/media_photo_picker.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
+import '../../../venues/domain/venue_listing_eligibility.dart';
+import '../../../venues/presentation/venue_block_message.dart';
 import '../../../venues/presentation/providers/venue_providers.dart';
 import '../../../venues/presentation/screens/create_venue_screen.dart' show venueCategoryLabel;
 import '../../domain/entities/offer.dart';
@@ -277,6 +279,28 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
 
   Future<void> _submitCreate() async {
     if (_submitting) return;
+
+    // Re-checked here, not only in the picker.
+    //
+    // The picker refuses to hand back a venue that cannot carry a
+    // listing, but a form takes minutes to fill and the venue's status
+    // can change underneath it — a subscription lapsing is the ordinary
+    // case. Without this the owner would land on the generic failure
+    // again, having done all the work. The server still decides
+    // (`submitOffer` throws `venue-not-approved`); this only makes the
+    // refusal say why.
+    final venue = _selectedVenue;
+    if (venue != null) {
+      final block = venueListingBlock(venue.status);
+      if (block != null) {
+        final loc = AppLocalizations.of(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(venueBlockMessage(loc, block))),
+        );
+        return;
+      }
+    }
+
     setState(() {
       _submitting = true;
       _fieldErrors = {};
