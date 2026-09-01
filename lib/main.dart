@@ -57,9 +57,26 @@ void main() async {
   // initializing Crashlytics itself just means crashes go unreported,
   // not that the app can't open.
   try {
-    FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+    // Sanitised before it leaves the device — see `SanitizedError`.
+    //
+    // These two handlers are the ONLY paths into Crashlytics (no custom
+    // keys, no breadcrumbs, no `setUserIdentifier`), so masking here
+    // covers the whole surface. The stack trace itself carries no user
+    // data; the exception message can, which is why only that is
+    // rewritten.
+    FlutterError.onError = (details) {
+      FirebaseCrashlytics.instance.recordError(
+        SanitizedError(details.exception),
+        details.stack,
+        fatal: true,
+      );
+    };
     PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      FirebaseCrashlytics.instance.recordError(
+        SanitizedError(error),
+        stack,
+        fatal: true,
+      );
       return true;
     };
   } catch (_) {

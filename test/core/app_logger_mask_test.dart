@@ -6,6 +6,7 @@ import 'package:peakpin/core/utils/app_logger.dart';
 
 void main() {
   _localeCodes();
+  _crashlytics();
   group('maskSensitive', () {
     test('e-poçt maskalanır', () {
       final out = maskSensitive('write failed for rasimagayev80@gmail.com');
@@ -100,6 +101,38 @@ void _localeCodes() {
       expect(errorCodeIs('not-found', 'unavailable'), isFalse);
       // Yaxın, amma fərqli — folding həddindən artıq geniş olmamalıdır.
       expect(errorCodeIs('unavailable', 'unavailables'), isFalse);
+    });
+  });
+}
+
+
+// Crashlytics hesabatları cihazdan çıxır və konsola girişi olan hər kəs
+// oxuya bilər — logcat ilə eyni qayda.
+void _crashlytics() {
+  group('SanitizedError', () {
+    test('istisna mətnindəki həssas dəyər maskalanır', () {
+      final e = Exception('write failed for rasimagayev80@gmail.com at 40.37575310379095');
+      final s = SanitizedError(e).toString();
+      expect(s, contains('[email]'));
+      expect(s, contains('[coord]'));
+      expect(s, isNot(contains('rasimagayev80')));
+      expect(s, isNot(contains('40.375')));
+    });
+
+    test('ORİJİNAL tip adı saxlanılır — qruplaşdırma pozulmasın', () {
+      // Hər çökməni bir səbətə yığmaq məxfilik problemini diaqnostika
+      // problemi ilə əvəz edərdi.
+      final s = SanitizedError(FormatException('bad')).toString();
+      expect(s, startsWith('FormatException:'));
+    });
+
+    test('xəta kodu qorunur — qruplaşdırma mənalı qalır', () {
+      // `maskSensitive` dəyərləri əvəz edir, strukturu yox.
+      final e = Exception('[cloud_firestore/permission-denied] denied for AbcDefGhiJklMnoPqrStu');
+      final s = SanitizedError(e).toString();
+      expect(s, contains('permission-denied'));
+      expect(s, contains('[id]'));
+      expect(s, isNot(contains('AbcDefGhiJklMnoPqrStu')));
     });
   });
 }

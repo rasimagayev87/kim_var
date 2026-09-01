@@ -84,6 +84,21 @@ android {
             // baseline; `proguard-rules.pro` holds this app's keep
             // rules and explains what each one protects. Read that file
             // before touching this line.
+            // Upload the R8 mapping to Crashlytics on every release
+            // build.
+            //
+            // Without it Crashlytics still receives crashes, but every
+            // frame arrives as `a.b.c(SourceFile:1)` — the reports are
+            // delivered and unreadable, which is worse than knowing you
+            // have none. R8 is on two lines below, so this is not
+            // optional for this app.
+            //
+            // Costs some build time (the file is ~60 MB and is uploaded
+            // on each release build). That is the price of being able
+            // to read a production crash.
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = true
+            }
             isMinifyEnabled = true
             // Drops unreferenced resources once R8 knows what code
             // survives. Requires minification to be on.

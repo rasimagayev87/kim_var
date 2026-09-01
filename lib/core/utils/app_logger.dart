@@ -56,6 +56,33 @@ String maskSensitive(String input) {
   return out;
 }
 
+/// An error whose message has been stripped of anything identifying,
+/// for sending to Crashlytics.
+///
+/// Crashlytics reports leave the device and are readable by anyone with
+/// console access, so the same rule as `logcat` applies — see
+/// [maskSensitive]. Only two things ever reach Crashlytics
+/// (`FlutterError.onError` and `PlatformDispatcher.onError`, both in
+/// `main.dart`); there are no custom keys and no breadcrumb logs, so
+/// the exception message is the entire exposure.
+///
+/// The ORIGINAL type name is kept in the message on purpose. Crashlytics
+/// groups by what it is given, and collapsing every crash into one
+/// bucket would trade a privacy problem for a diagnostic one.
+/// [maskSensitive] replaces values, not structure, so error codes like
+/// `permission-denied` survive and grouping stays meaningful.
+class SanitizedError implements Exception {
+  final String typeName;
+  final String maskedMessage;
+
+  SanitizedError(Object original)
+      : typeName = original.runtimeType.toString(),
+        maskedMessage = maskSensitive(original.toString());
+
+  @override
+  String toString() => '$typeName: $maskedMessage';
+}
+
 /// A step that SUCCEEDED, on the release log channel.
 ///
 /// [logError] alone cannot answer the question that matters during a
