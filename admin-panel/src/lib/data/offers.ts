@@ -3,7 +3,11 @@ import "server-only";
 import { getAdminDb } from "@/lib/firebase/admin";
 import { birthdayDeadlineState } from "@/lib/birthday-deadline";
 
-export type OfferStatus = "approved" | "pending" | "needs_revision" | "rejected";
+/** `expired` is written by `expireStaleListings` (Cloud Function) once
+ * an approved campaign's `endDate` passes. Users never saw such a
+ * campaign — every discovery fetch filters on `endDate` — but this
+ * screen listed it as active until the status itself moved. */
+export type OfferStatus = "approved" | "pending" | "needs_revision" | "rejected" | "expired";
 export type OfferStatusFilter = "all" | OfferStatus;
 
 export type OfferType = "discount" | "gift" | "buyOneGetOne" | "fixedPrice" | "happyHour" | "firstVisit" | "birthday";
@@ -66,7 +70,9 @@ export interface AdminOfferRow {
 const FETCH_LIMIT = 200;
 
 function parseStatus(value: unknown): OfferStatus {
-  return value === "pending" || value === "needs_revision" || value === "rejected" ? value : "approved";
+  return value === "pending" || value === "needs_revision" || value === "rejected" || value === "expired"
+    ? value
+    : "approved";
 }
 
 function parseOfferType(value: unknown): OfferType {

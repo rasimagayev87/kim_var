@@ -245,11 +245,50 @@ class _MyListingsList extends ConsumerWidget {
             ),
           );
         }
-        return ListView.separated(
+        // ── Aktiv / Müddəti bitib ─────────────────────────────────
+        //
+        // Split rather than sorted: a finished listing is a different
+        // kind of thing from one still selling, and mixing them made
+        // the owner read every card's dates to tell which was which.
+        //
+        // Derived from `pickupWindowEnd` as well as `status`, because
+        // the sweep that writes `expired` runs hourly — for up to an
+        // hour a closed box would otherwise still sit under "Aktiv".
+        final now = DateTime.now();
+        bool isFinished(PinBox b) =>
+            b.status == 'expired' || b.pickupWindowEnd.isBefore(now);
+        final active = pinboxes.where((b) => !isFinished(b)).toList();
+        final finished = pinboxes.where(isFinished).toList();
+
+        return ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-          itemCount: pinboxes.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 12),
-          itemBuilder: (context, index) => _ListingCard(pinbox: pinboxes[index]),
+          children: [
+            for (final b in active) ...[
+              _ListingCard(pinbox: b),
+              const SizedBox(height: 12),
+            ],
+            if (finished.isNotEmpty) ...[
+              if (active.isNotEmpty) const SizedBox(height: 12),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Text(
+                  loc.pinboxSectionExpired,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: ChatLightColors.inkSoft,
+                  ),
+                ),
+              ),
+              for (final b in finished) ...[
+                // Dimmed for the same reason the buyer's uncollected
+                // order card is: a finished listing should not compete
+                // visually with one still selling.
+                Opacity(opacity: 0.55, child: _ListingCard(pinbox: b)),
+                const SizedBox(height: 12),
+              ],
+            ],
+          ],
         );
       },
     );

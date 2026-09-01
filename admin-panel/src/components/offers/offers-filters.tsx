@@ -55,6 +55,7 @@ export function OffersFilters({
           <SelectItem value="needs_revision">Düzəliş tələb olunur</SelectItem>
           <SelectItem value="approved">Aktiv</SelectItem>
           <SelectItem value="rejected">Rədd edilib</SelectItem>
+          <SelectItem value="expired">Müddəti bitib</SelectItem>
         </SelectContent>
       </Select>
     </div>

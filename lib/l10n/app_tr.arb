@@ -1710,5 +1710,6 @@
   "pinboxPickupWindowWarning": "Teslim aralığı: {window}\\nBu aralıkta gelmezsen tutar iade edilmez.",
   "notifPinboxNoShowTitle": "Kutu teslim alınmadı",
   "notifPinboxNoShowBody": "«{title}» için müşteri teslim aralığında gelmedi. Ürünü yeniden satışa çıkarabilirsin.",
-  "notifPinboxNoShowBodyGeneric": "Müşteri teslim aralığında gelmedi. Ürünü yeniden satışa çıkarabilirsin."
+  "notifPinboxNoShowBodyGeneric": "Müşteri teslim aralığında gelmedi. Ürünü yeniden satışa çıkarabilirsin.",
+  "pinboxSectionExpired": "Süresi dolanlar"
 }

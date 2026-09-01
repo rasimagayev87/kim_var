@@ -3652,7 +3652,13 @@ export const onSupportMessageCreated = onDocumentCreated(
 );
 
 /**
- * Marks paid PinBox orders nobody collected.
+ * Closes out listings whose own end time has passed — PinBox orders,
+ * PinBox listings, and campaigns.
+ *
+ * One function rather than three: they answer the same question ("is
+ * this over yet?") against three different date fields, and three
+ * schedules would be three chances to drift apart on cadence or on
+ * what "over" means.
  *
  * ── The gap this closes ────────────────────────────────────────────
  *
@@ -3678,7 +3684,7 @@ export const onSupportMessageCreated = onDocumentCreated(
  * actually happened. The money is not refunded (see the Public Offer
  * §5), so the record should not imply the platform lost the order.
  */
-export const expirePinBoxOrders = onSchedule(
+export const expireStaleListings = onSchedule(
   { schedule: "every 60 minutes", region: "europe-west1" },
   async () => {
     // Paid orders only. `awaiting_payment` never became a sale and is
@@ -3730,11 +3736,80 @@ export const expirePinBoxOrders = onSchedule(
       } catch (e) {
         // One order's failure must not end the sweep — the rest of the
         // hour's orders would stay `reserved` until the next run.
-        logger.error("expirePinBoxOrders: order failed", { orderId: doc.id, error: e });
+        logger.error("expireStaleListings: order failed", { orderId: doc.id, error: e });
       }
     }
 
-    if (marked > 0) logger.info("expirePinBoxOrders", { marked });
+    // ── The LISTING, not just its orders ───────────────────────────
+    //
+    // A listing and its orders expire for the same reason at the same
+    // moment, so they are swept together rather than by two functions
+    // that could drift apart on schedule or definition.
+    //
+    // The split is worth stating: a box with 5 stock that sold 2 and
+    // whose window then closed leaves 2 ORDERS carrying their own
+    // outcome (`completed` or `no_show`) and 1 LISTING that is
+    // `expired` — the 3 unsold units can never be bought.
+    //
+    // `expired` has been a documented `PinBox.status` value from the
+    // start, and nothing has ever written it: only `soldOut` was. The
+    // admin panel already offers an "expired" filter that could never
+    // match a document.
+    //
+    // Money was never at risk — `reservePinBoxOrder` reads
+    // `pickupWindowEnd` inside its own transaction and refuses
+    // ("pickup-window-ended"), and its comment names this missing sweep
+    // as the reason it has to. What was wrong is everything that reads
+    // the STATUS: the owner's list, the admin panel, and any report.
+    const listingsSnap = await db
+      .collection("pinboxes")
+      .where("status", "==", "active")
+      .get();
+    let expiredListings = 0;
+    for (const doc of listingsSnap.docs) {
+      try {
+        const end = (doc.data().pickupWindowEnd as Timestamp | undefined)?.toMillis();
+        if (end === undefined || end > now) continue;
+        await doc.ref.update({ status: "expired", updatedAt: FieldValue.serverTimestamp() });
+        expiredListings++;
+      } catch (e) {
+        logger.error("expireStaleListings: listing failed", { pinboxId: doc.id, error: e });
+      }
+    }
+
+    // ── Campaigns ─────────────────────────────────────────────────
+    //
+    // An offer keeps `status: "approved"` for ever once its `endDate`
+    // passes. Users never see it — all four discovery fetches filter
+    // `endDate.isAfter(now)` client-side — so nothing was broken for
+    // them. What reads the STATUS was wrong: the admin panel lists a
+    // finished campaign as active, and any report counting "approved"
+    // would count it too.
+    //
+    // ⚠️ THE QUOTA IS DELIBERATELY NOT TOUCHED. An expired campaign
+    // must NOT return its free slot: it was published and it did its
+    // job. That holds by construction rather than by care —
+    // `releaseFreeCampaignHold` runs only on `rejected` and on deletion
+    // while `freeCampaignHold` is still set, and approval clears that
+    // flag. `expired` is neither, so no refund path can reach it.
+    const offersSnap = await db
+      .collection("offers")
+      .where("status", "==", "approved")
+      .where("endDate", "<", Timestamp.fromMillis(now))
+      .get();
+    let expiredOffers = 0;
+    for (const doc of offersSnap.docs) {
+      try {
+        await doc.ref.update({ status: "expired", updatedAt: FieldValue.serverTimestamp() });
+        expiredOffers++;
+      } catch (e) {
+        logger.error("expireStaleListings: offer failed", { offerId: doc.id, error: e });
+      }
+    }
+
+    if (marked > 0 || expiredListings > 0 || expiredOffers > 0) {
+      logger.info("expireStaleListings", { marked, expiredListings, expiredOffers });
+    }
   },
 );
 

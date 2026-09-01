@@ -1824,5 +1824,6 @@
   "pinboxPickupWindowWarning": "Pickup window: {window}\\nIf you do not come within this window, the amount is not refunded.",
   "notifPinboxNoShowTitle": "Box not collected",
   "notifPinboxNoShowBody": "The customer did not come for “{title}” within the pickup window. You can put the goods back on sale.",
-  "notifPinboxNoShowBodyGeneric": "The customer did not come within the pickup window. You can put the goods back on sale."
+  "notifPinboxNoShowBodyGeneric": "The customer did not come within the pickup window. You can put the goods back on sale.",
+  "pinboxSectionExpired": "Expired"
 }

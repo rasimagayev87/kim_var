@@ -7,7 +7,8 @@ import { getCurrentAdmin } from "@/lib/auth/server";
 import { listOffers, type OfferStatusFilter } from "@/lib/data/offers";
 
 function parseStatus(value: string | undefined): OfferStatusFilter {
-  return value === "pending" || value === "needs_revision" || value === "approved" || value === "rejected"
+  return value === "pending" || value === "needs_revision" || value === "approved" ||
+    value === "rejected" || value === "expired"
     ? value
     : "all";
 }
