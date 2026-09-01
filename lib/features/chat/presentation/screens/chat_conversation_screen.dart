@@ -22,6 +22,7 @@ import '../../../../core/utils/relative_time_formatter.dart';
 import '../../../../core/widgets/app_image.dart';
 import '../../../../core/widgets/friendly_error_state.dart';
 import '../../../../core/widgets/marquee_text.dart';
+import '../../../../core/widgets/pressable.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../theme/chat_light_theme.dart';
 import '../../../calls/domain/entities/call_session.dart';
@@ -66,6 +67,7 @@ class _ChatHeader extends StatelessWidget {
   final String statusText;
   final bool statusIsLive;
   final VoidCallback onBack;
+
   /// Null when the peer's profile is unreachable — blocked (Düzəliş
   /// Prompt 5 / K-3) or deleted — same "İstifadəçi" + grey avatar
   /// fallback [peerName]/[peerPhoto] already show; a null callback
@@ -76,6 +78,7 @@ class _ChatHeader extends StatelessWidget {
   final VoidCallback onVideoCall;
   final String callLabel;
   final String videoCallLabel;
+
   /// False while the message request between these two hasn't been
   /// accepted yet — calling a stranger before they've even accepted
   /// your message request shouldn't be possible. Disabling the button
@@ -96,6 +99,7 @@ class _ChatHeader extends StatelessWidget {
   final String callsDisabledTooltip;
   final bool peerIdentityVerified;
   final bool peerPremium;
+
   /// Independent of [onTapProfile]/the peer's profile stream — deleting
   /// the chat must stay reachable even when the peer's `users/{uid}` doc
   /// is gone (profile screen unreachable, see [onTapProfile]'s doc
@@ -130,14 +134,20 @@ class _ChatHeader extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             color: ChatLightColors.barTint.withValues(alpha: 0.72),
-            border: const Border(bottom: BorderSide(color: Colors.black12, width: 0.6)),
+            border: const Border(
+              bottom: BorderSide(color: Colors.black12, width: 0.6),
+            ),
           ),
           padding: const EdgeInsets.fromLTRB(4, 10, _Spacing.sm, 10),
           child: Row(
             children: [
               IconButton(
                 onPressed: onBack,
-                icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new,
+                  size: 18,
+                  color: ChatLightColors.ink,
+                ),
               ),
               Expanded(
                 child: GestureDetector(
@@ -147,9 +157,15 @@ class _ChatHeader extends StatelessWidget {
                       CircleAvatar(
                         radius: 23,
                         backgroundColor: Colors.white,
-                        backgroundImage: peerPhoto != null ? NetworkImage(peerPhoto!) : null,
+                        backgroundImage: peerPhoto != null
+                            ? NetworkImage(peerPhoto!)
+                            : null,
                         child: peerPhoto == null
-                            ? const Icon(Icons.person_outline, color: ChatLightColors.inkFaint, size: 22)
+                            ? const Icon(
+                                Icons.person_outline,
+                                color: ChatLightColors.inkFaint,
+                                size: 22,
+                              )
                             : null,
                       ),
                       const SizedBox(width: _Spacing.sm + 4),
@@ -200,13 +216,16 @@ class _ChatHeader extends StatelessWidget {
                                 ],
                                 Flexible(
                                   child: MarqueeText(
-                                    peerUsername != null && peerUsername!.isNotEmpty
+                                    peerUsername != null &&
+                                            peerUsername!.isNotEmpty
                                         ? '@$peerUsername · $statusText'
                                         : statusText,
                                     style: TextStyle(
                                       fontSize: 12.5,
                                       fontWeight: FontWeight.w400,
-                                      color: statusIsLive ? ChatLightColors.onlineGreen : ChatLightColors.inkFaint,
+                                      color: statusIsLive
+                                          ? ChatLightColors.onlineGreen
+                                          : ChatLightColors.inkFaint,
                                     ),
                                   ),
                                 ),
@@ -225,7 +244,9 @@ class _ChatHeader extends StatelessWidget {
                   tooltip: callsEnabled ? callLabel : callsDisabledTooltip,
                   icon: Icon(
                     Icons.call_outlined,
-                    color: callsEnabled ? ChatLightColors.inkSoft : ChatLightColors.inkFaint,
+                    color: callsEnabled
+                        ? ChatLightColors.inkSoft
+                        : ChatLightColors.inkFaint,
                     size: 21,
                   ),
                 ),
@@ -234,13 +255,19 @@ class _ChatHeader extends StatelessWidget {
                   tooltip: callsEnabled ? videoCallLabel : callsDisabledTooltip,
                   icon: Icon(
                     Icons.videocam_outlined,
-                    color: callsEnabled ? ChatLightColors.inkSoft : ChatLightColors.inkFaint,
+                    color: callsEnabled
+                        ? ChatLightColors.inkSoft
+                        : ChatLightColors.inkFaint,
                     size: 23,
                   ),
                 ),
               ],
               PopupMenuButton<void>(
-                icon: const Icon(Icons.more_vert, color: ChatLightColors.inkSoft, size: 21),
+                icon: const Icon(
+                  Icons.more_vert,
+                  color: ChatLightColors.inkSoft,
+                  size: 21,
+                ),
                 onSelected: (_) => onDeleteChat(),
                 itemBuilder: (menuContext) => [
                   PopupMenuItem<void>(
@@ -248,7 +275,11 @@ class _ChatHeader extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                        const Icon(
+                          Icons.delete_outline,
+                          color: AppColors.error,
+                          size: 20,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           AppLocalizations.of(menuContext).actionDelete,
@@ -324,12 +355,17 @@ List<_ThreadItem> _buildThreadItems({
   DateTime? lastAt;
 
   for (final message in messages) {
-    final day = DateTime(message.sentAt.year, message.sentAt.month, message.sentAt.day);
+    final day = DateTime(
+      message.sentAt.year,
+      message.sentAt.month,
+      message.sentAt.day,
+    );
     final isNewDay = lastDay == null || day != lastDay;
     if (isNewDay) {
       items.add(_DateSeparatorItem(day));
     }
-    final tight = !isNewDay &&
+    final tight =
+        !isNewDay &&
         lastSenderId == message.senderId &&
         lastAt != null &&
         message.sentAt.difference(lastAt).abs() < _kGroupingWindow;
@@ -351,8 +387,18 @@ List<_ThreadItem> _buildThreadItems({
 }
 
 const _azMonths = [
-  'yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun',
-  'iyul', 'avqust', 'sentyabr', 'oktyabr', 'noyabr', 'dekabr',
+  'yanvar',
+  'fevral',
+  'mart',
+  'aprel',
+  'may',
+  'iyun',
+  'iyul',
+  'avqust',
+  'sentyabr',
+  'oktyabr',
+  'noyabr',
+  'dekabr',
 ];
 
 /// "Bugün"/"Dünən" for the two closest days, otherwise "18 iyul" (or
@@ -368,7 +414,9 @@ String _formatDateSeparator(AppLocalizations loc, DateTime day) {
   if (diff == 1) return loc.chatDateYesterday;
 
   final month = _azMonths[day.month - 1];
-  return day.year == now.year ? '${day.day} $month' : '${day.day} $month ${day.year}';
+  return day.year == now.year
+      ? '${day.day} $month'
+      : '${day.day} $month ${day.year}';
 }
 
 /// A normal (non-sticky) scrolling capsule — shown once per day change,
@@ -418,10 +466,12 @@ class ChatConversationScreen extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<ChatConversationScreen> createState() => _ChatConversationScreenState();
+  ConsumerState<ChatConversationScreen> createState() =>
+      _ChatConversationScreenState();
 }
 
-class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen> with WidgetsBindingObserver {
+class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
+    with WidgetsBindingObserver {
   final _textController = TextEditingController();
   final _textFocusNode = FocusNode();
   final _scrollController = ScrollController();
@@ -539,29 +589,39 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
     if (!mounted) return;
 
     final loc = AppLocalizations.of(context);
-    final wasOpeningMessage = chat == null || (chat.status == ChatRequestStatus.pending && chat.lastMessageSenderId == null);
+    final wasOpeningMessage =
+        chat == null ||
+        (chat.status == ChatRequestStatus.pending &&
+            chat.lastMessageSenderId == null);
 
     setState(() => _sending = true);
     _textController.clear();
     _typingTimer?.cancel();
     if (_isTyping) {
       _isTyping = false;
-      unawaited(ref.read(chatControllerProvider.notifier).setTyping(_chatId, false));
+      unawaited(
+        ref.read(chatControllerProvider.notifier).setTyping(_chatId, false),
+      );
     }
 
     try {
-      await ref.read(chatControllerProvider.notifier).sendText(otherUid: widget.otherUid, text: text);
+      await ref
+          .read(chatControllerProvider.notifier)
+          .sendText(otherUid: widget.otherUid, text: text);
       if (!mounted) return;
       if (wasOpeningMessage) {
-        _showToast(icon: Icons.mark_email_read_outlined, message: loc.chatRequestSentNotice);
+        _showToast(
+          icon: Icons.mark_email_read_outlined,
+          message: loc.chatRequestSentNotice,
+        );
       } else {
         _scrollToBottom();
       }
     } on ChatException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(_chatFailureMessage(loc, e.type))),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(_chatFailureMessage(loc, e.type))));
     } catch (e, st) {
       logError('chat_conversation_screen.sendText', e, st);
       if (!mounted) return;
@@ -597,7 +657,12 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
           children: [
             Icon(icon, color: AppColors.textSecondary, size: 20),
             const SizedBox(width: _Spacing.sm + 4),
-            Expanded(child: Text(message, style: AppTextStyles.body.copyWith(fontSize: 14.5))),
+            Expanded(
+              child: Text(
+                message,
+                style: AppTextStyles.body.copyWith(fontSize: 14.5),
+              ),
+            ),
           ],
         ),
       ),
@@ -614,7 +679,9 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
     // which UI trigger reaches it.
     final chat = ref.read(chatByIdProvider(_chatId)).valueOrNull;
     if (chat?.status != ChatRequestStatus.accepted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatCallDisabledTooltip)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.chatCallDisabledTooltip)));
       return;
     }
     // Defence in depth: the buttons are hidden while the feature is
@@ -624,18 +691,27 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
 
     final type = video ? CallType.video : CallType.audio;
     try {
-      final session = await ref.read(callRepositoryProvider).startCall(receiverId: widget.otherUid, type: type);
+      final session = await ref
+          .read(callRepositoryProvider)
+          .startCall(receiverId: widget.otherUid, type: type);
       if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => CallScreen(callId: session.id, otherUid: widget.otherUid, type: type, isCaller: true),
+          builder: (_) => CallScreen(
+            callId: session.id,
+            otherUid: widget.otherUid,
+            type: type,
+            isCaller: true,
+          ),
         ),
       );
     } catch (e, st) {
       logError('chat_conversation_screen._startCall', e, st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.callStartFailedMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.callStartFailedMessage)));
     }
   }
 
@@ -643,14 +719,20 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
   /// same `deleteChat` call, same post-delete navigation — but reachable
   /// from `_ChatHeader`'s own menu regardless of whether the peer's
   /// profile stream ever resolves, since that was the only route before.
-  Future<void> _confirmDeleteChat(BuildContext context, AppLocalizations loc) async {
+  Future<void> _confirmDeleteChat(
+    BuildContext context,
+    AppLocalizations loc,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(loc.chatDeleteConfirmTitle),
         content: Text(loc.chatDeleteConfirmMessage),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -664,12 +746,16 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
     try {
       await ref.read(chatControllerProvider.notifier).deleteChat(_chatId);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatDeletedNotice)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.chatDeletedNotice)));
       Navigator.popUntil(context, (route) => route.isFirst);
     } catch (e, st) {
       logError('chat_conversation_screen._confirmDeleteChat', e, st);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatRequestActionErrorMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.chatRequestActionErrorMessage)),
+      );
     }
   }
 
@@ -693,7 +779,8 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
 
     ref.listen(chatByIdProvider(_chatId), (previous, next) {
       next.whenOrNull(
-        error: (e, st) => logError('chat_conversation_screen.chatByIdProvider', e, st),
+        error: (e, st) =>
+            logError('chat_conversation_screen.chatByIdProvider', e, st),
       );
     });
 
@@ -705,23 +792,31 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
 
     final chat = chatAsync.valueOrNull;
     final peer = peerAsync.valueOrNull;
-    final peerName = (peer?.name ?? widget.otherName).isEmpty ? loc.defaultUserName : (peer?.name ?? widget.otherName);
+    final peerName = (peer?.name ?? widget.otherName).isEmpty
+        ? loc.defaultUserName
+        : (peer?.name ?? widget.otherName);
     final peerPhoto = peer?.photoUrl ?? widget.otherPhotoUrl;
     final myPhoto = ref.watch(profileControllerProvider).photoUrl;
     final isPeerTyping = chat?.typingUserId == widget.otherUid;
-    ref.watch(presenceTickProvider); // forces re-evaluation of isRecentlyActive as time passes
+    ref.watch(
+      presenceTickProvider,
+    ); // forces re-evaluation of isRecentlyActive as time passes
     final isPeerOnline = peer?.isRecentlyActive == true;
     final peerLastSeen = peer?.lastSeen;
     final statusText = isPeerTyping
         ? loc.chatTypingIndicator
         : (isPeerOnline
-            ? loc.chatOnlineStatus
-            : (peerLastSeen != null ? loc.chatLastSeenAt(formatLastSeen(peerLastSeen, loc)) : loc.chatLastSeenUnknown));
+              ? loc.chatOnlineStatus
+              : (peerLastSeen != null
+                    ? loc.chatLastSeenAt(formatLastSeen(peerLastSeen, loc))
+                    : loc.chatLastSeenUnknown));
     final statusIsLive = isPeerTyping || isPeerOnline;
-    final canCompose = !(chat != null &&
-        (chat.needsResponseFrom(myUid) ||
-            (chat.status == ChatRequestStatus.pending && chat.initiatorId == myUid) ||
-            chat.status == ChatRequestStatus.declined));
+    final canCompose =
+        !(chat != null &&
+            (chat.needsResponseFrom(myUid) ||
+                (chat.status == ChatRequestStatus.pending &&
+                    chat.initiatorId == myUid) ||
+                chat.status == ChatRequestStatus.declined));
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -759,7 +854,9 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                   onVideoCall: () => _startCall(video: true),
                   callLabel: loc.chatVoiceCallLabel,
                   videoCallLabel: loc.chatVideoCallLabel,
-                  callsVisible: ref.watch(featureFlagProvider(FeatureFlag.calls)),
+                  callsVisible: ref.watch(
+                    featureFlagProvider(FeatureFlag.calls),
+                  ),
                   callsEnabled: chat?.status == ChatRequestStatus.accepted,
                   callsDisabledTooltip: loc.chatCallDisabledTooltip,
                   onDeleteChat: () => _confirmDeleteChat(context, loc),
@@ -767,47 +864,72 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                 _OngoingCallBanner(otherUid: widget.otherUid),
                 Expanded(
                   child: messagesAsync.when(
-                    loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    ),
                     error: (e, st) => FriendlyErrorState(
-                      logContext: 'chat_conversation_screen.chatMessagesProvider',
+                      logContext:
+                          'chat_conversation_screen.chatMessagesProvider',
                       error: e,
                       stackTrace: st,
-                      onRetry: () => ref.invalidate(chatMessagesProvider(_chatId)),
+                      onRetry: () =>
+                          ref.invalidate(chatMessagesProvider(_chatId)),
                     ),
                     data: (messages) {
                       if (messages.isEmpty && pendingMessages.isEmpty) {
-                        return _EmptyConversationState(loc: loc, onGreet: _fillGreeting);
+                        return _EmptyConversationState(
+                          loc: loc,
+                          onGreet: _fillGreeting,
+                        );
                       }
-                      final items = _buildThreadItems(messages: messages, pending: pendingMessages, myUid: myUid);
+                      final items = _buildThreadItems(
+                        messages: messages,
+                        pending: pendingMessages,
+                        myUid: myUid,
+                      );
                       return ListView.builder(
                         controller: _scrollController,
-                        padding: const EdgeInsets.fromLTRB(_Spacing.md, _Spacing.md, _Spacing.md, _Spacing.sm),
+                        padding: const EdgeInsets.fromLTRB(
+                          _Spacing.md,
+                          _Spacing.md,
+                          _Spacing.md,
+                          _Spacing.sm,
+                        ),
                         itemCount: items.length,
                         itemBuilder: (context, index) {
                           final item = items[index];
                           return switch (item) {
-                            _DateSeparatorItem() => _DateSeparator(day: item.day),
+                            _DateSeparatorItem() => _DateSeparator(
+                              day: item.day,
+                            ),
                             _MessageItem() => _MessageBubble(
-                                key: ValueKey('msg_${item.message.id}'),
-                                chatId: _chatId,
-                                message: item.message,
-                                isMine: item.message.senderId == myUid,
-                                avatarUrl: item.message.senderId == myUid ? myPhoto : peerPhoto,
-                                myUid: myUid,
-                                topGap: item.tightGap ? _Spacing.sm : 18,
-                              ),
+                              key: ValueKey('msg_${item.message.id}'),
+                              chatId: _chatId,
+                              message: item.message,
+                              isMine: item.message.senderId == myUid,
+                              avatarUrl: item.message.senderId == myUid
+                                  ? myPhoto
+                                  : peerPhoto,
+                              myUid: myUid,
+                              topGap: item.tightGap ? _Spacing.sm : 18,
+                            ),
                             _PendingItem() => _PendingMessageBubble(
-                                key: ValueKey('pending_${item.message.localId}'),
-                                message: item.message,
-                                topGap: item.tightGap ? _Spacing.sm : 18,
-                                onRetry: () => ref.read(pendingMessagesProvider.notifier).retry(
-                                      chatId: _chatId,
-                                      otherUid: widget.otherUid,
-                                      message: item.message,
-                                    ),
-                                onDismiss: () =>
-                                    ref.read(pendingMessagesProvider.notifier).dismiss(_chatId, item.message.localId),
-                              ),
+                              key: ValueKey('pending_${item.message.localId}'),
+                              message: item.message,
+                              topGap: item.tightGap ? _Spacing.sm : 18,
+                              onRetry: () => ref
+                                  .read(pendingMessagesProvider.notifier)
+                                  .retry(
+                                    chatId: _chatId,
+                                    otherUid: widget.otherUid,
+                                    message: item.message,
+                                  ),
+                              onDismiss: () => ref
+                                  .read(pendingMessagesProvider.notifier)
+                                  .dismiss(_chatId, item.message.localId),
+                            ),
                           };
                         },
                       );
@@ -816,10 +938,16 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                 ),
                 if (chat != null && chat.needsResponseFrom(myUid))
                   _RequestBanner(chatId: _chatId)
-                else if (chat != null && chat.status == ChatRequestStatus.pending && chat.initiatorId == myUid)
+                else if (chat != null &&
+                    chat.status == ChatRequestStatus.pending &&
+                    chat.initiatorId == myUid)
                   _PendingNotice(loc: loc)
-                else if (chat != null && chat.status == ChatRequestStatus.declined)
-                  _DeclinedNotice(loc: loc, iAmInitiator: chat.initiatorId == myUid)
+                else if (chat != null &&
+                    chat.status == ChatRequestStatus.declined)
+                  _DeclinedNotice(
+                    loc: loc,
+                    iAmInitiator: chat.initiatorId == myUid,
+                  )
                 else if (canCompose)
                   _Composer(
                     chatId: _chatId,
@@ -859,20 +987,35 @@ class _EmptyConversationState extends StatelessWidget {
             Container(
               width: 72,
               height: 72,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-              child: const Icon(Icons.chat_bubble_outline, color: ChatLightColors.inkFaint, size: 30),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+              ),
+              child: const Icon(
+                Icons.chat_bubble_outline,
+                color: ChatLightColors.inkFaint,
+                size: 30,
+              ),
             ),
             const SizedBox(height: _Spacing.md),
             Text(
               loc.chatEmptyStateTitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: ChatLightColors.ink,
+              ),
             ),
             const SizedBox(height: _Spacing.xs),
             Text(
               loc.chatEmptyStateSubtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: ChatLightColors.inkFaint, height: 1.5),
+              style: const TextStyle(
+                fontSize: 13,
+                color: ChatLightColors.inkFaint,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: _Spacing.lg),
             ElevatedButton(
@@ -943,7 +1086,11 @@ class _OngoingCallBanner extends ConsumerWidget {
             const SizedBox(width: 6),
             Text(
               loc.chatCallOngoingBannerLabel(_formatDuration(call.duration)),
-              style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w700, fontSize: 12.5),
+              style: AppTextStyles.caption.copyWith(
+                color: AppColors.primary,
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+              ),
             ),
           ],
         ),
@@ -989,82 +1136,113 @@ class _MessageBubble extends ConsumerWidget {
     final isMedia = message.isImage || message.isVideo || message.isPost;
 
     return GestureDetector(
-      onLongPress: () => _openMessageMenu(context, ref),
-      child: Align(
-        alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.76),
-          margin: EdgeInsets.only(top: topGap),
-          padding: isMedia
-              ? const EdgeInsets.all(_Spacing.xs)
-              : const EdgeInsets.symmetric(horizontal: _Spacing.md, vertical: _Spacing.sm + 2),
-          decoration: BoxDecoration(
-            color: isMine ? null : ChatLightColors.bubbleTheirs,
-            gradient: isMine
-                ? const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [ChatLightColors.bubbleMineStart, Colors.white],
-                  )
-                : null,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(22),
-              topRight: const Radius.circular(22),
-              bottomLeft: Radius.circular(isMine ? 22 : 6),
-              bottomRight: Radius.circular(isMine ? 6 : 22),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: isMine ? AppColors.primary.withValues(alpha: 0.14) : const Color(0x0F3C4650),
-                blurRadius: 10,
-                offset: const Offset(0, 3),
+          onLongPress: () => _openMessageMenu(context, ref),
+          child: Align(
+            alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.76,
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildContent(context, ref, textColor),
-              const SizedBox(height: 3),
-              Padding(
-                padding: isMedia ? const EdgeInsets.only(right: _Spacing.xs + 2, bottom: 2) : EdgeInsets.zero,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      DateFormat('HH:mm').format(message.sentAt),
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        color: isMedia ? Colors.white70 : ChatLightColors.inkFaint,
-                      ),
+              margin: EdgeInsets.only(top: topGap),
+              padding: isMedia
+                  ? const EdgeInsets.all(_Spacing.xs)
+                  : const EdgeInsets.symmetric(
+                      horizontal: _Spacing.md,
+                      vertical: _Spacing.sm + 2,
                     ),
-                    if (isMine) ...[
-                      const SizedBox(width: _Spacing.xs),
-                      Builder(builder: (context) {
-                        // "Mesaj oxundu məlumatını göstər" is bidirectional
-                        // (WhatsApp's own rule, see PrivacySettings.showReadReceipts'
-                        // doc comment): turning it off also hides read receipts
-                        // FROM this user, even on their own sent messages, even
-                        // though the recipient genuinely did read it.
-                        final myShowReadReceipts = ref.watch(privacySettingsProvider).valueOrNull?.showReadReceipts ?? true;
-                        final isRead = myShowReadReceipts && message.deliveryStatus == MessageDeliveryStatus.read;
-                        final isDelivered = isRead || message.deliveryStatus != MessageDeliveryStatus.sent;
-                        return Icon(
-                          isDelivered ? Icons.done_all : Icons.done,
-                          size: 14,
-                          color: isRead ? AppColors.primary : (isMedia ? Colors.white70 : ChatLightColors.inkFaint),
-                        );
-                      }),
-                    ],
-                  ],
+              decoration: BoxDecoration(
+                color: isMine ? null : ChatLightColors.bubbleTheirs,
+                gradient: isMine
+                    ? const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [ChatLightColors.bubbleMineStart, Colors.white],
+                      )
+                    : null,
+                borderRadius: BorderRadius.only(
+                  topLeft: const Radius.circular(22),
+                  topRight: const Radius.circular(22),
+                  bottomLeft: Radius.circular(isMine ? 22 : 6),
+                  bottomRight: Radius.circular(isMine ? 6 : 22),
                 ),
+                boxShadow: [
+                  BoxShadow(
+                    color: isMine
+                        ? AppColors.primary.withValues(alpha: 0.14)
+                        : const Color(0x0F3C4650),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
               ),
-            ],
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildContent(context, ref, textColor),
+                  const SizedBox(height: 3),
+                  Padding(
+                    padding: isMedia
+                        ? const EdgeInsets.only(
+                            right: _Spacing.xs + 2,
+                            bottom: 2,
+                          )
+                        : EdgeInsets.zero,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          DateFormat('HH:mm').format(message.sentAt),
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: isMedia
+                                ? Colors.white70
+                                : ChatLightColors.inkFaint,
+                          ),
+                        ),
+                        if (isMine) ...[
+                          const SizedBox(width: _Spacing.xs),
+                          Builder(
+                            builder: (context) {
+                              // "Mesaj oxundu məlumatını göstər" is bidirectional
+                              // (WhatsApp's own rule, see PrivacySettings.showReadReceipts'
+                              // doc comment): turning it off also hides read receipts
+                              // FROM this user, even on their own sent messages, even
+                              // though the recipient genuinely did read it.
+                              final myShowReadReceipts =
+                                  ref
+                                      .watch(privacySettingsProvider)
+                                      .valueOrNull
+                                      ?.showReadReceipts ??
+                                  true;
+                              final isRead =
+                                  myShowReadReceipts &&
+                                  message.deliveryStatus ==
+                                      MessageDeliveryStatus.read;
+                              final isDelivered =
+                                  isRead ||
+                                  message.deliveryStatus !=
+                                      MessageDeliveryStatus.sent;
+                              return Icon(
+                                isDelivered ? Icons.done_all : Icons.done,
+                                size: 14,
+                                color: isRead
+                                    ? AppColors.primary
+                                    : (isMedia
+                                          ? Colors.white70
+                                          : ChatLightColors.inkFaint),
+                              );
+                            },
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ),
-    )
+        )
         .animate(key: ValueKey('anim_${message.id}'))
         .fadeIn(duration: 220.ms, curve: Curves.easeOut)
         .slideY(begin: 0.08, end: 0, duration: 220.ms, curve: Curves.easeOut);
@@ -1075,7 +1253,9 @@ class _MessageBubble extends ConsumerWidget {
     final action = await showModalBottomSheet<_MessageMenuAction>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1083,28 +1263,55 @@ class _MessageBubble extends ConsumerWidget {
             const SizedBox(height: 8),
             if (isMine) ...[
               ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: ChatLightColors.ink),
-                title: Text(loc.chatMessageDeleteForMeOption, style: const TextStyle(fontSize: 15)),
-                onTap: () => Navigator.pop(sheetContext, _MessageMenuAction.deleteForMe),
+                leading: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: ChatLightColors.ink,
+                ),
+                title: Text(
+                  loc.chatMessageDeleteForMeOption,
+                  style: const TextStyle(fontSize: 15),
+                ),
+                onTap: () =>
+                    Navigator.pop(sheetContext, _MessageMenuAction.deleteForMe),
               ),
               ListTile(
-                leading: const Icon(Icons.delete_forever_outlined, color: AppColors.error),
+                leading: const Icon(
+                  Icons.delete_forever_outlined,
+                  color: AppColors.error,
+                ),
                 title: Text(
                   loc.chatMessageDeleteForEveryoneOption,
                   style: const TextStyle(fontSize: 15, color: AppColors.error),
                 ),
-                onTap: () => Navigator.pop(sheetContext, _MessageMenuAction.deleteForEveryone),
+                onTap: () => Navigator.pop(
+                  sheetContext,
+                  _MessageMenuAction.deleteForEveryone,
+                ),
               ),
             ] else ...[
               ListTile(
-                leading: const Icon(Icons.delete_outline_rounded, color: ChatLightColors.ink),
-                title: Text(loc.chatMessageDeleteOption, style: const TextStyle(fontSize: 15)),
-                onTap: () => Navigator.pop(sheetContext, _MessageMenuAction.deleteForMe),
+                leading: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: ChatLightColors.ink,
+                ),
+                title: Text(
+                  loc.chatMessageDeleteOption,
+                  style: const TextStyle(fontSize: 15),
+                ),
+                onTap: () =>
+                    Navigator.pop(sheetContext, _MessageMenuAction.deleteForMe),
               ),
               ListTile(
-                leading: const Icon(Icons.forward_outlined, color: ChatLightColors.ink),
-                title: Text(loc.chatMessageForwardOption, style: const TextStyle(fontSize: 15)),
-                onTap: () => Navigator.pop(sheetContext, _MessageMenuAction.forward),
+                leading: const Icon(
+                  Icons.forward_outlined,
+                  color: ChatLightColors.ink,
+                ),
+                title: Text(
+                  loc.chatMessageForwardOption,
+                  style: const TextStyle(fontSize: 15),
+                ),
+                onTap: () =>
+                    Navigator.pop(sheetContext, _MessageMenuAction.forward),
               ),
             ],
             const SizedBox(height: 8),
@@ -1121,10 +1328,13 @@ class _MessageBubble extends ConsumerWidget {
         // silently dropped, so a failed delete (rules rejection, offline,
         // anything) looked identical to a successful one: no error, the
         // message just stayed put with no explanation why.
-        final deletedForMe =
-            await ref.read(chatControllerProvider.notifier).deleteMessageForMe(chatId: chatId, messageId: message.id);
+        final deletedForMe = await ref
+            .read(chatControllerProvider.notifier)
+            .deleteMessageForMe(chatId: chatId, messageId: message.id);
         if (!deletedForMe && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatMessageDeleteFailedError)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(loc.chatMessageDeleteFailedError)),
+          );
         }
       case _MessageMenuAction.deleteForEveryone:
         final confirmed = await _confirmDeleteForEveryone(context, loc);
@@ -1133,25 +1343,35 @@ class _MessageBubble extends ConsumerWidget {
             .read(chatControllerProvider.notifier)
             .deleteMessageForEveryone(chatId: chatId, messageId: message.id);
         if (!deletedForEveryone && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatMessageDeleteFailedError)));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(loc.chatMessageDeleteFailedError)),
+          );
         }
       case _MessageMenuAction.forward:
         if (!context.mounted) return;
         await Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => ForwardMessageScreen(message: message)),
+          MaterialPageRoute(
+            builder: (_) => ForwardMessageScreen(message: message),
+          ),
         );
     }
   }
 
-  Future<bool?> _confirmDeleteForEveryone(BuildContext context, AppLocalizations loc) {
+  Future<bool?> _confirmDeleteForEveryone(
+    BuildContext context,
+    AppLocalizations loc,
+  ) {
     return showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(loc.chatMessageDeleteForEveryoneOption),
         content: Text(loc.chatMessageDeleteForEveryoneConfirmMessage),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -1168,7 +1388,10 @@ class _MessageBubble extends ConsumerWidget {
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => FullscreenMediaViewer(mediaUrl: message.mediaUrl!, type: MessageType.image),
+            builder: (_) => FullscreenMediaViewer(
+              mediaUrl: message.mediaUrl!,
+              type: MessageType.image,
+            ),
           ),
         ),
         child: ClipRRect(
@@ -1183,7 +1406,10 @@ class _MessageBubble extends ConsumerWidget {
               height: 220,
               color: ChatLightColors.composerFill,
               alignment: Alignment.center,
-              child: const Icon(Icons.broken_image_outlined, color: ChatLightColors.inkFaint),
+              child: const Icon(
+                Icons.broken_image_outlined,
+                color: ChatLightColors.inkFaint,
+              ),
             ),
           ),
         ),
@@ -1199,7 +1425,9 @@ class _MessageBubble extends ConsumerWidget {
         isVideo: message.postIsVideo,
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => PostDetailScreen(postId: message.postId!)),
+          MaterialPageRoute(
+            builder: (_) => PostDetailScreen(postId: message.postId!),
+          ),
         ),
       );
     }
@@ -1213,10 +1441,15 @@ class _MessageBubble extends ConsumerWidget {
         avatarUrl: avatarUrl,
         onPlayStarted: isMine
             ? null
-            : () => ref.read(chatControllerProvider.notifier).markMessageRead(chatId, message.id),
+            : () => ref
+                  .read(chatControllerProvider.notifier)
+                  .markMessageRead(chatId, message.id),
       );
     }
-    return Text(message.text ?? '', style: AppTextStyles.body.copyWith(color: textColor, fontSize: 15));
+    return Text(
+      message.text ?? '',
+      style: AppTextStyles.body.copyWith(color: textColor, fontSize: 15),
+    );
   }
 }
 
@@ -1232,7 +1465,11 @@ class _CallLogRow extends StatelessWidget {
   final String myUid;
   final double topGap;
 
-  const _CallLogRow({required this.message, required this.myUid, required this.topGap});
+  const _CallLogRow({
+    required this.message,
+    required this.myUid,
+    required this.topGap,
+  });
 
   String _formatDuration(AppLocalizations loc, int totalSeconds) {
     final minutes = totalSeconds ~/ 60;
@@ -1262,9 +1499,13 @@ class _CallLogRow extends StatelessWidget {
 
     final String label = missed
         ? (iAmCaller
-            ? loc.chatCallNoAnswerLabel
-            : (isVideo ? loc.chatCallMissedVideoLabel : loc.chatCallMissedVoiceLabel))
-        : (isVideo ? loc.chatCallCompletedVideoLabel : loc.chatCallCompletedVoiceLabel);
+              ? loc.chatCallNoAnswerLabel
+              : (isVideo
+                    ? loc.chatCallMissedVideoLabel
+                    : loc.chatCallMissedVoiceLabel))
+        : (isVideo
+              ? loc.chatCallCompletedVideoLabel
+              : loc.chatCallCompletedVoiceLabel);
 
     final durationSeconds = message.callDurationSeconds;
     final dataUsage = message.callDataUsageBytes;
@@ -1291,12 +1532,19 @@ class _CallLogRow extends StatelessWidget {
                   !missed && durationSeconds != null
                       ? '$label · ${_formatDuration(loc, durationSeconds)}'
                       : label,
-                  style: AppTextStyles.caption.copyWith(color: tint, fontWeight: FontWeight.w700, fontSize: 12.5),
+                  style: AppTextStyles.caption.copyWith(
+                    color: tint,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                  ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   DateFormat('HH:mm').format(message.sentAt),
-                  style: AppTextStyles.caption.copyWith(color: ChatLightColors.inkFaint, fontSize: 11.5),
+                  style: AppTextStyles.caption.copyWith(
+                    color: ChatLightColors.inkFaint,
+                    fontSize: 11.5,
+                  ),
                 ),
               ],
             ),
@@ -1304,7 +1552,10 @@ class _CallLogRow extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 loc.chatCallDataUsageLabel(_formatDataUsage(dataUsage)),
-                style: AppTextStyles.caption.copyWith(color: ChatLightColors.inkFaint, fontSize: 10.5),
+                style: AppTextStyles.caption.copyWith(
+                  color: ChatLightColors.inkFaint,
+                  fontSize: 10.5,
+                ),
               ),
             ],
           ],
@@ -1338,7 +1589,9 @@ class _PendingMessageBubble extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
         margin: EdgeInsets.only(top: topGap),
         padding: const EdgeInsets.all(_Spacing.xs),
         decoration: BoxDecoration(
@@ -1353,7 +1606,13 @@ class _PendingMessageBubble extends StatelessWidget {
             bottomLeft: Radius.circular(22),
             bottomRight: Radius.circular(6),
           ),
-          boxShadow: const [BoxShadow(color: Color(0x243C4650), blurRadius: 10, offset: Offset(0, 3))],
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x243C4650),
+              blurRadius: 10,
+              offset: Offset(0, 3),
+            ),
+          ],
         ),
         child: Stack(
           alignment: Alignment.center,
@@ -1372,7 +1631,9 @@ class _PendingMessageBubble extends StatelessWidget {
                         color: ChatLightColors.composerFill,
                         alignment: Alignment.center,
                         child: Icon(
-                          message.type == MessageType.video ? Icons.videocam_outlined : Icons.mic_none_outlined,
+                          message.type == MessageType.video
+                              ? Icons.videocam_outlined
+                              : Icons.mic_none_outlined,
                           color: ChatLightColors.inkFaint,
                           size: 32,
                         ),
@@ -1397,14 +1658,27 @@ class _PendingMessageBubble extends StatelessWidget {
               )
             else
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: Colors.black54, borderRadius: BorderRadius.circular(12)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.error_outline, color: AppColors.error, size: 20),
+                    const Icon(
+                      Icons.error_outline,
+                      color: AppColors.error,
+                      size: 20,
+                    ),
                     const SizedBox(height: 2),
-                    Text(loc.chatMediaUploadFailedMessage, style: AppTextStyles.caption.copyWith(fontSize: 11)),
+                    Text(
+                      loc.chatMediaUploadFailedMessage,
+                      style: AppTextStyles.caption.copyWith(fontSize: 11),
+                    ),
                     const SizedBox(height: 4),
                     Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1413,21 +1687,39 @@ class _PendingMessageBubble extends StatelessWidget {
                         // text with no feedback reads as a label, not a
                         // button — the padding also gives a finger
                         // something to hit.
-                        InkWell(
+                        Pressable(
                           onTap: onRetry,
-                          borderRadius: BorderRadius.circular(6),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                            child: Text(loc.actionRetry, style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
+                            ),
+                            child: Text(
+                              loc.actionRetry,
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.primary,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 4),
-                        InkWell(
+                        Pressable(
                           onTap: onDismiss,
-                          borderRadius: BorderRadius.circular(6),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                            child: Text(loc.actionDelete, style: AppTextStyles.caption.copyWith(color: AppColors.error, fontSize: 11.5, fontWeight: FontWeight.w600)),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 4,
+                            ),
+                            child: Text(
+                              loc.actionDelete,
+                              style: AppTextStyles.caption.copyWith(
+                                color: AppColors.error,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -1484,7 +1776,12 @@ class _RequestBannerState extends ConsumerState<_RequestBanner> {
 
     return Container(
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(_Spacing.lg, _Spacing.md, _Spacing.lg, _Spacing.lg),
+      padding: const EdgeInsets.fromLTRB(
+        _Spacing.lg,
+        _Spacing.md,
+        _Spacing.lg,
+        _Spacing.lg,
+      ),
       child: SafeArea(
         top: false,
         child: Column(
@@ -1493,10 +1790,20 @@ class _RequestBannerState extends ConsumerState<_RequestBanner> {
           children: [
             Text(
               loc.chatRequestBannerTitle,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: ChatLightColors.ink,
+              ),
             ),
             const SizedBox(height: _Spacing.xs),
-            Text(loc.chatRequestBannerSubtitle, style: const TextStyle(fontSize: 13, color: ChatLightColors.inkFaint)),
+            Text(
+              loc.chatRequestBannerSubtitle,
+              style: const TextStyle(
+                fontSize: 13,
+                color: ChatLightColors.inkFaint,
+              ),
+            ),
             const SizedBox(height: _Spacing.md + 2),
             Row(
               children: [
@@ -1510,12 +1817,17 @@ class _RequestBannerState extends ConsumerState<_RequestBanner> {
                       foregroundColor: ChatLightColors.ink,
                       side: const BorderSide(color: Colors.black26, width: 1.2),
                     ),
-                    onPressed: busy ? null : () => _handle(_RequestBannerAction.declining),
+                    onPressed: busy
+                        ? null
+                        : () => _handle(_RequestBannerAction.declining),
                     child: _action == _RequestBannerAction.declining
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: ChatLightColors.inkSoft),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: ChatLightColors.inkSoft,
+                            ),
                           )
                         : Text(loc.chatRequestDeclineButton),
                   ),
@@ -1523,12 +1835,17 @@ class _RequestBannerState extends ConsumerState<_RequestBanner> {
                 const SizedBox(width: _Spacing.md),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: busy ? null : () => _handle(_RequestBannerAction.accepting),
+                    onPressed: busy
+                        ? null
+                        : () => _handle(_RequestBannerAction.accepting),
                     child: _action == _RequestBannerAction.accepting
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.onAccent,
+                            ),
                           )
                         : Text(loc.chatRequestAcceptButton),
                   ),
@@ -1552,7 +1869,12 @@ class _PendingNotice extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(_Spacing.lg, _Spacing.md, _Spacing.lg, _Spacing.lg),
+      padding: const EdgeInsets.fromLTRB(
+        _Spacing.lg,
+        _Spacing.md,
+        _Spacing.lg,
+        _Spacing.lg,
+      ),
       child: SafeArea(
         top: false,
         child: Text(
@@ -1579,7 +1901,12 @@ class _DeclinedNotice extends StatelessWidget {
     return Container(
       width: double.infinity,
       color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(_Spacing.lg, _Spacing.md, _Spacing.lg, _Spacing.lg),
+      padding: const EdgeInsets.fromLTRB(
+        _Spacing.lg,
+        _Spacing.md,
+        _Spacing.lg,
+        _Spacing.lg,
+      ),
       child: SafeArea(
         top: false,
         child: Row(
@@ -1590,7 +1917,9 @@ class _DeclinedNotice extends StatelessWidget {
             const SizedBox(width: _Spacing.sm),
             Flexible(
               child: Text(
-                iAmInitiator ? loc.chatRequestDeclinedByPeerNotice : loc.chatRequestDeclinedNotice,
+                iAmInitiator
+                    ? loc.chatRequestDeclinedByPeerNotice
+                    : loc.chatRequestDeclinedNotice,
                 textAlign: TextAlign.center,
                 style: const TextStyle(fontSize: 13, color: AppColors.error),
               ),
@@ -1680,7 +2009,9 @@ class _ComposerState extends ConsumerState<_Composer> {
     final choice = await showModalBottomSheet<MessageType>(
       context: context,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(_Spacing.lg))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(_Spacing.lg)),
+      ),
       builder: (sheetContext) {
         return SafeArea(
           top: false,
@@ -1692,18 +2023,33 @@ class _ComposerState extends ConsumerState<_Composer> {
                 padding: const EdgeInsets.symmetric(horizontal: _Spacing.lg),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(loc.chatAttachmentSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontSize: 16)),
+                  child: Text(
+                    loc.chatAttachmentSheetTitle,
+                    style: AppTextStyles.cardTitle.copyWith(fontSize: 16),
+                  ),
                 ),
               ),
               const SizedBox(height: _Spacing.sm),
               ListTile(
-                leading: const Icon(Icons.image_outlined, color: AppColors.textSecondary),
-                title: Text(loc.chatAttachmentImageOption, style: AppTextStyles.body.copyWith(fontSize: 15)),
+                leading: const Icon(
+                  Icons.image_outlined,
+                  color: AppColors.textSecondary,
+                ),
+                title: Text(
+                  loc.chatAttachmentImageOption,
+                  style: AppTextStyles.body.copyWith(fontSize: 15),
+                ),
                 onTap: () => Navigator.pop(sheetContext, MessageType.image),
               ),
               ListTile(
-                leading: const Icon(Icons.videocam_outlined, color: AppColors.textSecondary),
-                title: Text(loc.chatAttachmentVideoOption, style: AppTextStyles.body.copyWith(fontSize: 15)),
+                leading: const Icon(
+                  Icons.videocam_outlined,
+                  color: AppColors.textSecondary,
+                ),
+                title: Text(
+                  loc.chatAttachmentVideoOption,
+                  style: AppTextStyles.body.copyWith(fontSize: 15),
+                ),
                 onTap: () => Navigator.pop(sheetContext, MessageType.video),
               ),
               const SizedBox(height: _Spacing.sm),
@@ -1716,22 +2062,39 @@ class _ComposerState extends ConsumerState<_Composer> {
 
     final picker = ImagePicker();
     final XFile? picked = choice == MessageType.image
-        ? await picker.pickImage(source: ImageSource.gallery, maxWidth: 1600, imageQuality: 85)
-        : await picker.pickVideo(source: ImageSource.gallery, maxDuration: const Duration(minutes: 2));
+        ? await picker.pickImage(
+            source: ImageSource.gallery,
+            maxWidth: 1600,
+            imageQuality: 85,
+          )
+        : await picker.pickVideo(
+            source: ImageSource.gallery,
+            maxDuration: const Duration(minutes: 2),
+          );
     if (picked == null || !mounted) return;
 
     final file = File(picked.path);
     final action = await Navigator.push<MediaPreviewAction>(
       context,
-      MaterialPageRoute(builder: (_) => MediaSendPreviewScreen(file: file, type: choice)),
+      MaterialPageRoute(
+        builder: (_) => MediaSendPreviewScreen(file: file, type: choice),
+      ),
     );
     if (action != MediaPreviewAction.send || !mounted) return;
 
     final notifier = ref.read(pendingMessagesProvider.notifier);
     if (choice == MessageType.image) {
-      notifier.sendImage(chatId: widget.chatId, otherUid: widget.otherUid, file: file);
+      notifier.sendImage(
+        chatId: widget.chatId,
+        otherUid: widget.otherUid,
+        file: file,
+      );
     } else {
-      notifier.sendVideo(chatId: widget.chatId, otherUid: widget.otherUid, file: file);
+      notifier.sendVideo(
+        chatId: widget.chatId,
+        otherUid: widget.otherUid,
+        file: file,
+      );
     }
   }
 
@@ -1740,12 +2103,18 @@ class _ComposerState extends ConsumerState<_Composer> {
     final picker = ImagePicker();
     XFile? picked;
     try {
-      picked = await picker.pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 85);
+      picked = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
     } catch (e, st) {
       logError('chat_composer.takePhoto', e, st);
       if (!mounted) return;
       final loc = AppLocalizations.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatCameraPermissionDeniedMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.chatCameraPermissionDeniedMessage)),
+      );
       return;
     }
     if (picked == null || !mounted) return;
@@ -1753,7 +2122,13 @@ class _ComposerState extends ConsumerState<_Composer> {
     final file = File(picked.path);
     final action = await Navigator.push<MediaPreviewAction>(
       context,
-      MaterialPageRoute(builder: (_) => MediaSendPreviewScreen(file: file, type: MessageType.image, allowRetake: true)),
+      MaterialPageRoute(
+        builder: (_) => MediaSendPreviewScreen(
+          file: file,
+          type: MessageType.image,
+          allowRetake: true,
+        ),
+      ),
     );
     if (!mounted) return;
     if (action == MediaPreviewAction.retake) {
@@ -1761,7 +2136,13 @@ class _ComposerState extends ConsumerState<_Composer> {
       return;
     }
     if (action == MediaPreviewAction.send) {
-      ref.read(pendingMessagesProvider.notifier).sendImage(chatId: widget.chatId, otherUid: widget.otherUid, file: file);
+      ref
+          .read(pendingMessagesProvider.notifier)
+          .sendImage(
+            chatId: widget.chatId,
+            otherUid: widget.otherUid,
+            file: file,
+          );
     }
   }
 
@@ -1771,13 +2152,19 @@ class _ComposerState extends ConsumerState<_Composer> {
     if (!hasPermission) {
       if (!mounted) return;
       final loc = AppLocalizations.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatMicPermissionDeniedMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.chatMicPermissionDeniedMessage)),
+      );
       return;
     }
 
     final dir = await getTemporaryDirectory();
-    final path = '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-    await _recorder.start(const RecordConfig(encoder: AudioEncoder.aacLc), path: path);
+    final path =
+        '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+    await _recorder.start(
+      const RecordConfig(encoder: AudioEncoder.aacLc),
+      path: path,
+    );
 
     _recordStartedAt = DateTime.now();
     _cancelRecording = false;
@@ -1831,7 +2218,10 @@ class _ComposerState extends ConsumerState<_Composer> {
     return _finishRecording(cancel: false, toReview: true);
   }
 
-  Future<void> _finishRecording({required bool cancel, required bool toReview}) async {
+  Future<void> _finishRecording({
+    required bool cancel,
+    required bool toReview,
+  }) async {
     _recordTimer?.cancel();
     _recordTimer = null;
     final path = await _recorder.stop();
@@ -1856,7 +2246,9 @@ class _ComposerState extends ConsumerState<_Composer> {
       if (await file.exists()) await file.delete();
       if (!mounted) return;
       final loc = AppLocalizations.of(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatVoiceTooShortMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.chatVoiceTooShortMessage)));
       return;
     }
 
@@ -1869,7 +2261,9 @@ class _ComposerState extends ConsumerState<_Composer> {
       return;
     }
 
-    ref.read(pendingMessagesProvider.notifier).sendAudio(
+    ref
+        .read(pendingMessagesProvider.notifier)
+        .sendAudio(
           chatId: widget.chatId,
           otherUid: widget.otherUid,
           file: file,
@@ -1894,7 +2288,9 @@ class _ComposerState extends ConsumerState<_Composer> {
       _reviewFile = null;
       _reviewDuration = Duration.zero;
     });
-    ref.read(pendingMessagesProvider.notifier).sendAudio(
+    ref
+        .read(pendingMessagesProvider.notifier)
+        .sendAudio(
           chatId: widget.chatId,
           otherUid: widget.otherUid,
           file: file,
@@ -1920,7 +2316,9 @@ class _ComposerState extends ConsumerState<_Composer> {
         child: Container(
           decoration: BoxDecoration(
             color: ChatLightColors.barTint.withValues(alpha: 0.6),
-            border: const Border(top: BorderSide(color: Colors.black12, width: 0.6)),
+            border: const Border(
+              top: BorderSide(color: Colors.black12, width: 0.6),
+            ),
           ),
           // Right padding is deliberately larger than the other three sides —
           // the trailing mic/send button used to sit only 8px from the
@@ -1928,7 +2326,12 @@ class _ComposerState extends ConsumerState<_Composer> {
           // press reliably (bezel proximity leaves little margin for
           // error). Nudging it in by a few more pixels keeps the whole
           // row visually balanced while giving that button real room.
-          padding: const EdgeInsets.fromLTRB(_Spacing.sm, _Spacing.sm, _Spacing.md, _Spacing.sm),
+          padding: const EdgeInsets.fromLTRB(
+            _Spacing.sm,
+            _Spacing.sm,
+            _Spacing.md,
+            _Spacing.sm,
+          ),
           child: SafeArea(
             top: false,
             child: reviewing
@@ -1942,8 +2345,13 @@ class _ComposerState extends ConsumerState<_Composer> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       IconButton(
-                        onPressed: (widget.sending || _isRecording) ? null : _pickAttachment,
-                        icon: const Icon(Icons.attach_file_outlined, color: ChatLightColors.inkSoft),
+                        onPressed: (widget.sending || _isRecording)
+                            ? null
+                            : _pickAttachment,
+                        icon: const Icon(
+                          Icons.attach_file_outlined,
+                          color: ChatLightColors.inkSoft,
+                        ),
                       ),
                       Expanded(
                         child: _isRecording
@@ -1959,7 +2367,9 @@ class _ComposerState extends ConsumerState<_Composer> {
                             : AnimatedContainer(
                                 duration: const Duration(milliseconds: 200),
                                 curve: Curves.easeOut,
-                                constraints: const BoxConstraints(minHeight: 48),
+                                constraints: const BoxConstraints(
+                                  minHeight: 48,
+                                ),
                                 decoration: BoxDecoration(
                                   color: ChatLightColors.composerFill,
                                   borderRadius: BorderRadius.circular(28),
@@ -1971,7 +2381,9 @@ class _ComposerState extends ConsumerState<_Composer> {
                                     ),
                                     if (_fieldFocused)
                                       BoxShadow(
-                                        color: AppColors.primary.withValues(alpha: 0.25),
+                                        color: AppColors.primary.withValues(
+                                          alpha: 0.25,
+                                        ),
                                         blurRadius: 12,
                                         spreadRadius: 1,
                                       ),
@@ -1987,20 +2399,41 @@ class _ComposerState extends ConsumerState<_Composer> {
                                   // (Düzəliş Prompt 8 / RT-2) — no visible counter,
                                   // same silent-cap UX as a normal chat input.
                                   maxLength: 2000,
-                                  buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-                                  style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+                                  buildCounter:
+                                      (
+                                        context, {
+                                        required currentLength,
+                                        required isFocused,
+                                        maxLength,
+                                      }) => null,
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    color: ChatLightColors.ink,
+                                  ),
                                   cursorColor: AppColors.primary,
                                   decoration: InputDecoration(
                                     hintText: loc.chatMessageHint,
-                                    hintStyle: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 15),
+                                    hintStyle: const TextStyle(
+                                      color: ChatLightColors.inkFaint,
+                                      fontSize: 15,
+                                    ),
                                     filled: false,
-                                    contentPadding:
-                                        const EdgeInsets.symmetric(horizontal: _Spacing.md, vertical: _Spacing.sm + 4),
-                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
-                                    enabledBorder:
-                                        OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
-                                    focusedBorder:
-                                        OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide.none),
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: _Spacing.md,
+                                      vertical: _Spacing.sm + 4,
+                                    ),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(28),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    enabledBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(28),
+                                      borderSide: BorderSide.none,
+                                    ),
+                                    focusedBorder: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(28),
+                                      borderSide: BorderSide.none,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -2008,7 +2441,10 @@ class _ComposerState extends ConsumerState<_Composer> {
                       if (!_isRecording)
                         IconButton(
                           onPressed: widget.sending ? null : _takePhoto,
-                          icon: const Icon(Icons.camera_alt_outlined, color: ChatLightColors.inkSoft),
+                          icon: const Icon(
+                            Icons.camera_alt_outlined,
+                            color: ChatLightColors.inkSoft,
+                          ),
                         ),
                       const SizedBox(width: _Spacing.xs),
                       _TrailingActionButton(
@@ -2021,7 +2457,8 @@ class _ComposerState extends ConsumerState<_Composer> {
                         onRecordStart: () => _startRecording(),
                         onRecordMove: _updateDrag,
                         onRecordEnd: _finishOnRelease,
-                        onRecordCancel: () => _finishRecording(cancel: true, toReview: false),
+                        onRecordCancel: () =>
+                            _finishRecording(cancel: true, toReview: false),
                         onLockedTap: _finishToReview,
                       ),
                     ],
@@ -2056,9 +2493,12 @@ class _RecordingInfo extends StatefulWidget {
   State<_RecordingInfo> createState() => _RecordingInfoState();
 }
 
-class _RecordingInfoState extends State<_RecordingInfo> with SingleTickerProviderStateMixin {
-  late final AnimationController _blinkController =
-      AnimationController(vsync: this, duration: const Duration(milliseconds: 700))..repeat(reverse: true);
+class _RecordingInfoState extends State<_RecordingInfo>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _blinkController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+  )..repeat(reverse: true);
 
   @override
   void dispose() {
@@ -2080,24 +2520,43 @@ class _RecordingInfoState extends State<_RecordingInfo> with SingleTickerProvide
           FadeTransition(
             opacity: _blinkController,
             child: const DecoratedBox(
-              decoration: BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                shape: BoxShape.circle,
+              ),
               child: SizedBox(width: 10, height: 10),
             ),
           ),
           const SizedBox(width: _Spacing.sm),
-          Text(widget.duration, style: AppTextStyles.body.copyWith(fontSize: 14.5)),
+          Text(
+            widget.duration,
+            style: AppTextStyles.body.copyWith(fontSize: 14.5),
+          ),
           const Spacer(),
           GestureDetector(
             onTap: widget.onFinish,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: _Spacing.sm + 2, vertical: 6),
-              decoration: BoxDecoration(color: AppColors.error, borderRadius: BorderRadius.circular(14)),
+              padding: const EdgeInsets.symmetric(
+                horizontal: _Spacing.sm + 2,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                borderRadius: BorderRadius.circular(14),
+              ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Icon(Icons.stop_rounded, size: 14, color: Colors.white),
                   const SizedBox(width: 4),
-                  Text(widget.finishLabel, style: AppTextStyles.caption.copyWith(fontSize: 11.5, color: Colors.white, fontWeight: FontWeight.w600)),
+                  Text(
+                    widget.finishLabel,
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 11.5,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -2109,7 +2568,9 @@ class _RecordingInfoState extends State<_RecordingInfo> with SingleTickerProvide
 
   Widget _buildUnlocked(BuildContext context) {
     final hintColor = widget.cancelling ? AppColors.error : AppColors.textMuted;
-    final hintIcon = widget.cancelling ? Icons.chevron_left_rounded : Icons.keyboard_arrow_up_rounded;
+    final hintIcon = widget.cancelling
+        ? Icons.chevron_left_rounded
+        : Icons.keyboard_arrow_up_rounded;
     final hintText = widget.cancelling ? widget.cancelHint : widget.lockHint;
     return SizedBox(
       height: 48,
@@ -2118,19 +2579,28 @@ class _RecordingInfoState extends State<_RecordingInfo> with SingleTickerProvide
           FadeTransition(
             opacity: _blinkController,
             child: const DecoratedBox(
-              decoration: BoxDecoration(color: AppColors.error, shape: BoxShape.circle),
+              decoration: BoxDecoration(
+                color: AppColors.error,
+                shape: BoxShape.circle,
+              ),
               child: SizedBox(width: 10, height: 10),
             ),
           ),
           const SizedBox(width: _Spacing.sm),
-          Text(widget.duration, style: AppTextStyles.body.copyWith(fontSize: 14.5)),
+          Text(
+            widget.duration,
+            style: AppTextStyles.body.copyWith(fontSize: 14.5),
+          ),
           const Spacer(),
           Icon(hintIcon, size: 18, color: hintColor),
           Flexible(
             child: Text(
               hintText,
               overflow: TextOverflow.ellipsis,
-              style: AppTextStyles.caption.copyWith(fontSize: 11.5, color: hintColor),
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 11.5,
+                color: hintColor,
+              ),
             ),
           ),
         ],
@@ -2168,7 +2638,9 @@ class _TrailingActionButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final backgroundColor = isRecording ? (cancelling ? AppColors.error : AppColors.primary) : AppColors.primary;
+    final backgroundColor = isRecording
+        ? (cancelling ? AppColors.error : AppColors.primary)
+        : AppColors.primary;
     // Once locked, releasing the finger must NOT stop the recording —
     // only the explicit "Bitir" control (which calls onLockedTap) may.
     final lockedAndRecording = isRecording && isLocked;
@@ -2180,9 +2652,16 @@ class _TrailingActionButton extends StatelessWidget {
       onLongPressStart: hasText ? null : (_) => onRecordStart(),
       onLongPressMoveUpdate: hasText
           ? null
-          : (details) => onRecordMove(details.localOffsetFromOrigin.dx, details.localOffsetFromOrigin.dy),
-      onLongPressEnd: (hasText || lockedAndRecording) ? null : (_) => onRecordEnd(),
-      onLongPressCancel: (hasText || lockedAndRecording) ? null : onRecordCancel,
+          : (details) => onRecordMove(
+              details.localOffsetFromOrigin.dx,
+              details.localOffsetFromOrigin.dy,
+            ),
+      onLongPressEnd: (hasText || lockedAndRecording)
+          ? null
+          : (_) => onRecordEnd(),
+      onLongPressCancel: (hasText || lockedAndRecording)
+          ? null
+          : onRecordCancel,
       // The tappable region is deliberately a few pixels bigger than the
       // visible 48x48 circle (still centered the same) — right next to
       // the screen edge, a hit-test box exactly matching the visual
@@ -2195,7 +2674,10 @@ class _TrailingActionButton extends StatelessWidget {
             duration: const Duration(milliseconds: 150),
             width: 48,
             height: 48,
-            decoration: BoxDecoration(color: backgroundColor, shape: BoxShape.circle),
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              shape: BoxShape.circle,
+            ),
             child: Center(
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 180),
@@ -2204,7 +2686,10 @@ class _TrailingActionButton extends StatelessWidget {
                         key: ValueKey('loading'),
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.onAccent,
+                        ),
                       )
                     : Icon(
                         hasText ? Icons.send_outlined : Icons.mic_none_outlined,
@@ -2244,32 +2729,42 @@ class _VoiceReviewRow extends StatelessWidget {
       children: [
         IconButton(
           onPressed: onDiscard,
-          icon: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
+          icon: const Icon(
+            Icons.delete_outline_rounded,
+            color: AppColors.error,
+          ),
         ),
         Expanded(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: _Spacing.sm + 2, vertical: 6),
-            decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(24)),
+            padding: const EdgeInsets.symmetric(
+              horizontal: _Spacing.sm + 2,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(24),
+            ),
             child: _LocalVoicePreviewPlayer(file: file, durationMs: durationMs),
           ),
         ),
         const SizedBox(width: _Spacing.xs),
-        // `Material` + `InkWell` rather than `GestureDetector`: the send
-        // button is the most-tapped control in the app and gave NO
-        // visual response at all, so a slow send read as an unregistered
-        // tap and people pressed again. The colour moves onto the
-        // `Material` so the splash has a surface to paint on — on a
-        // `Container` it would be hidden underneath the fill.
-        Material(
-          color: AppColors.primary,
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: onSend,
-            child: const SizedBox(
-              width: 48,
-              height: 48,
-              child: Icon(Icons.send_outlined, color: AppColors.onAccent, size: 22),
+        // The most-tapped control in the app, and it gave NO visual
+        // response at all — a slow send read as a tap that never
+        // registered, so people pressed again. `InkWell` would not help:
+        // `AppTheme` disables the ripple app-wide.
+        Pressable(
+          onTap: onSend,
+          child: Container(
+            width: 48,
+            height: 48,
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.send_outlined,
+              color: AppColors.onAccent,
+              size: 22,
             ),
           ),
         ),
@@ -2285,10 +2780,14 @@ class _LocalVoicePreviewPlayer extends StatefulWidget {
   final File file;
   final int durationMs;
 
-  const _LocalVoicePreviewPlayer({required this.file, required this.durationMs});
+  const _LocalVoicePreviewPlayer({
+    required this.file,
+    required this.durationMs,
+  });
 
   @override
-  State<_LocalVoicePreviewPlayer> createState() => _LocalVoicePreviewPlayerState();
+  State<_LocalVoicePreviewPlayer> createState() =>
+      _LocalVoicePreviewPlayerState();
 }
 
 class _LocalVoicePreviewPlayerState extends State<_LocalVoicePreviewPlayer> {
@@ -2339,23 +2838,24 @@ class _LocalVoicePreviewPlayerState extends State<_LocalVoicePreviewPlayer> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = _total.inMilliseconds == 0 ? 0.0 : (_position.inMilliseconds / _total.inMilliseconds).clamp(0.0, 1.0);
+    final progress = _total.inMilliseconds == 0
+        ? 0.0
+        : (_position.inMilliseconds / _total.inMilliseconds).clamp(0.0, 1.0);
     return Row(
       children: [
-        Material(
-          color: AppColors.primary,
-          shape: const CircleBorder(),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            onTap: _toggle,
-            child: SizedBox(
-              width: 32,
-              height: 32,
-              child: Icon(
-                _playing ? Icons.pause_outlined : Icons.play_arrow_outlined,
-                color: AppColors.onAccent,
-                size: 18,
-              ),
+        Pressable(
+          onTap: _toggle,
+          child: Container(
+            width: 32,
+            height: 32,
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              _playing ? Icons.pause_outlined : Icons.play_arrow_outlined,
+              color: AppColors.onAccent,
+              size: 18,
             ),
           ),
         ),

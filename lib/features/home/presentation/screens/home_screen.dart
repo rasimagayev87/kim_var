@@ -13,6 +13,7 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../../core/utils/app_logger.dart';
 import '../../../app_config/domain/entities/app_config.dart';
 import '../../../app_config/presentation/providers/app_config_providers.dart';
+import '../../../../core/widgets/pressable.dart';
 import '../../../calls/data/call_push_service.dart';
 import '../../../calls/domain/entities/call_session.dart';
 import '../../../calls/presentation/providers/call_providers.dart';
@@ -380,9 +381,13 @@ class _NavItem extends StatelessWidget {
     final color = selected ? AppColors.primary : AppColors.textMuted;
     final count = badgeCount ?? 0;
 
-    return InkWell(
+    // `Pressable`, not `InkWell`. `AppTheme` disables the Material
+    // ripple on purpose (`NoSplash`, transparent splash/highlight), so
+    // an `InkWell` here draws nothing whatsoever — which is exactly how
+    // these tabs behaved: they used `InkWell` already and had never
+    // shown a thing. See `Pressable` for the replacement.
+    return Pressable(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
         child: Column(
