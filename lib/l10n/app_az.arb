@@ -1549,7 +1549,7 @@
   "sendSuggestionSheetTitle": "Təklif göndər",
   "supportMessageHint": "Mesajını buraya yaz...",
   "supportMessageSendButton": "Göndər",
-  "supportMessageSentNotice": "Mesajın göndərildi. Təşəkkürlər!",
+  "supportMessageSentNotice": "Mesajınız qəbul edildi. Dəstək komandamız e-poçt ünvanınıza tezliklə cavab verəcək.",
   "supportMessageErrorMessage": "Mesaj göndərilmədi. Bir az sonra yenidən cəhd edin.",
   "legalPrivacyPolicyTitle": "Məxfilik siyasəti",
   "legalTermsOfServiceTitle": "İstifadə şərtləri",
@@ -1699,5 +1699,9 @@
   "eventQuotaExhausted": "Bu dövrdə {limit} tədbir limitiniz doldu. Kvota {date} yenilənir.",
   "eventQuotaRemaining": "Bu dövrdə {count} tədbir hüququnuz qalıb ({limit} -dan)",
   "callStatusDialing": "Zəng gedir…",
-  "callStatusBusy": "Məşğuldur"
+  "callStatusBusy": "Məşğuldur",
+  "notifEventApprovedTitle": "Tədbiriniz təsdiqləndi",
+  "notifEventApprovedBody": "«{title}» yayımlandı.",
+  "notifEventRejectedTitle": "Tədbir yayımlanmadı",
+  "notifEventRejectedBodyGeneric": "Tədbiriniz yayımlanmadı."
 }

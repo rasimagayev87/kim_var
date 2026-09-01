@@ -688,3 +688,33 @@ docs/legal-gap-analysis.md §5.3).
 **Nə vaxt:** impression izləməsi qurulanda, ondan əvvəl yox.
 
 **Təxmini iş həcmi:** ~1 saat + versiya artımı prosesi.
+
+## 30. Dəstək mesajları üçün admin panel ekranı
+
+**Mənbə:** funksional bütövlük auditi (2026-09-01)
+
+**Nə:** `supportMessages` kolleksiyasının **oxuyucusu yox idi** —
+tətbiq yazırdı, admin paneldə ekran yoxdur (`UNIMPLEMENTED_PERMISSIONS`
+bunu özü qeyd edirdi), serverdə trigger yoxdur. İstifadəçi dəstəyə
+yazırdı və mesaj heç kimə çatmırdı.
+
+**İndi nə var:** `onSupportMessageCreated` mesajı `support@peakpin.app`
+ünvanına e-poçtla göndərir, hesabın öz təsdiqlənmiş e-poçtunu
+`replyToEmail` sahəsində əlavə edir və `status: "open"` yazır.
+
+**Niyə bu müvəqqətidir:** e-poçt qutusu növbə deyil. Miqyasda lazımdır:
+
+- siyahı və axtarış (növ, tarix, status üzrə filtr)
+- status idarəsi (`open` → `answered` → `closed`) — sahə onsuz da yazılır
+- panel daxilindən cavab (və ya cavab verilib işarələmə)
+- eyni istifadəçinin əvvəlki mesajları — kontekst üçün
+- cavabsız qalmış mesajların yaşı üzrə xəbərdarlıq
+
+`viewSupportMessages` / `manageSupportMessages` icazələri **artıq
+matrisdədir** və `UNIMPLEMENTED_PERMISSIONS`-dədir — ekran qurulanda
+yeni icazə əlavə edilməməlidir, mövcudları bağlanmalıdır.
+
+**Nə vaxt:** gündəlik dəstək mesajı sayı e-poçt qutusunda idarə edilə
+biləndən çox olanda, VƏ YA cavab müddəti ölçülməli olanda.
+
+**Təxmini iş həcmi:** ~4-6 saat (`/offers` naxışı ilə).

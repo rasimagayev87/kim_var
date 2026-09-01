@@ -304,6 +304,22 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         body: venueName.isEmpty ? loc.notifBirthdayOfferBodyGeneric : loc.notifBirthdayOfferBody(venueName),
       );
 
+    case NotificationType.eventApproved:
+      return LocalizedNotificationText(
+        title: loc.notifEventApprovedTitle,
+        body: loc.notifEventApprovedBody(str('title')),
+      );
+
+    case NotificationType.eventRejected:
+      // The reason matters most when the rejection was OURS — an event
+      // auto-rejected for missing its own start while still in review.
+      // Without the note it simply vanished.
+      final note = str('reason');
+      return LocalizedNotificationText(
+        title: loc.notifEventRejectedTitle,
+        body: note.isEmpty ? loc.notifEventRejectedBodyGeneric : note,
+      );
+
     case NotificationType.birthdayVenues:
       // `venueNames` is a list of up to three venue names; the server
       // already picked one per category. Joined here rather than

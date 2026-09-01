@@ -1549,7 +1549,7 @@
   "sendSuggestionSheetTitle": "Öneri gönder",
   "supportMessageHint": "Mesajını buraya yaz...",
   "supportMessageSendButton": "Gönder",
-  "supportMessageSentNotice": "Mesajın gönderildi. Teşekkürler!",
+  "supportMessageSentNotice": "Mesajın alındı. Destek ekibimiz e-posta adresine kısa süre içinde yanıt verecek.",
   "supportMessageErrorMessage": "Mesaj gönderilmedi. Lütfen daha sonra tekrar deneyin.",
   "legalPrivacyPolicyTitle": "Gizlilik Politikası",
   "legalTermsOfServiceTitle": "Kullanım Şartları",
@@ -1699,5 +1699,9 @@
   "eventQuotaExhausted": "Bu dönemde {limit} etkinlik limitine ulaştın. Kota {date} tarihinde yenilenir.",
   "eventQuotaRemaining": "Bu dönemde {count} etkinlik hakkın kaldı ({limit} içinden)",
   "callStatusDialing": "Aranıyor…",
-  "callStatusBusy": "Meşgul"
+  "callStatusBusy": "Meşgul",
+  "notifEventApprovedTitle": "Etkinliğin onaylandı",
+  "notifEventApprovedBody": "«{title}» yayınlandı.",
+  "notifEventRejectedTitle": "Etkinlik yayınlanmadı",
+  "notifEventRejectedBodyGeneric": "Etkinliğin yayınlanmadı."
 }

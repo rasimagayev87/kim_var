@@ -1549,7 +1549,7 @@
   "sendSuggestionSheetTitle": "Отправить предложение",
   "supportMessageHint": "Напишите ваше сообщение здесь...",
   "supportMessageSendButton": "Отправить",
-  "supportMessageSentNotice": "Ваше сообщение отправлено. Спасибо!",
+  "supportMessageSentNotice": "Ваше сообщение получено. Служба поддержки ответит на вашу электронную почту в ближайшее время.",
   "supportMessageErrorMessage": "Сообщение не отправлено. Повторите попытку позже.",
   "legalPrivacyPolicyTitle": "Политика конфиденциальности",
   "legalTermsOfServiceTitle": "Условия использования",
@@ -1699,5 +1699,9 @@
   "eventQuotaExhausted": "Вы исчерпали лимит в {limit} мероприятий за период. Квота обновится {date}.",
   "eventQuotaRemaining": "В этом периоде осталось {count} мероприятий (из {limit})",
   "callStatusDialing": "Идёт вызов…",
-  "callStatusBusy": "Занято"
+  "callStatusBusy": "Занято",
+  "notifEventApprovedTitle": "Мероприятие одобрено",
+  "notifEventApprovedBody": "«{title}» опубликовано.",
+  "notifEventRejectedTitle": "Мероприятие не опубликовано",
+  "notifEventRejectedBodyGeneric": "Ваше мероприятие не было опубликовано."
 }

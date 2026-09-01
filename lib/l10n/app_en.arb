@@ -1663,7 +1663,7 @@
   "sendSuggestionSheetTitle": "Send a suggestion",
   "supportMessageHint": "Write your message here...",
   "supportMessageSendButton": "Send",
-  "supportMessageSentNotice": "Your message was sent. Thank you!",
+  "supportMessageSentNotice": "Your message has been received. Our support team will reply to your email address shortly.",
   "supportMessageErrorMessage": "The message wasn't sent. Please try again shortly.",
   "legalPrivacyPolicyTitle": "Privacy Policy",
   "legalTermsOfServiceTitle": "Terms of Service",
@@ -1813,5 +1813,9 @@
   "eventQuotaExhausted": "You have reached your limit of {limit} events this period. Quota renews on {date}.",
   "eventQuotaRemaining": "You have {count} events left this period (of {limit})",
   "callStatusDialing": "Calling…",
-  "callStatusBusy": "Busy"
+  "callStatusBusy": "Busy",
+  "notifEventApprovedTitle": "Your event is approved",
+  "notifEventApprovedBody": "“{title}” is now published.",
+  "notifEventRejectedTitle": "Event not published",
+  "notifEventRejectedBodyGeneric": "Your event was not published."
 }

@@ -32,6 +32,10 @@ enum NotificationType {
   /// feature would just need its own Cloud Function producer, nothing
   /// client-side.
   mention,
+  /// RETIRED — the per-listing "new offer nearby" fan-out was replaced
+  /// by the daily digest (`dailyOffersDigest`). Nothing sends this any
+  /// more; it stays in the enum so notifications already in users'
+  /// feeds keep rendering instead of turning blank.
   venueOffer,
   venueAdded,
   venueVerified,
@@ -145,6 +149,17 @@ enum NotificationType {
   /// campaigns arrive at once.
   birthdayVenues,
 
+  /// A venue event's moderation outcome — see `onVenueEventUpdated`
+  /// (Cloud Function). Owner-only. `targetType: 'event'`, so tapping
+  /// opens the event itself.
+  ///
+  /// `eventRejected` also covers the AUTOMATIC rejection when a pending
+  /// event reaches its own `startAt` before anyone reviewed it. That
+  /// one is the product's delay rather than the owner's mistake, which
+  /// is why the note travels with it and is rendered in the feed.
+  eventApproved,
+  eventRejected,
+
   /// The daily opportunity digest — one per content kind, at most three
   /// a day, sent by `sendDailyOpportunityDigest` at 15:00 in place of
   /// the per-listing fan-out that used to send one push per venue.
@@ -172,6 +187,10 @@ enum NotificationType {
   /// A venue published a new event within this user's radius — see
   /// `notifyNearbyUsersOfNewEvent` (Cloud Function). `targetType:
   /// 'event'`, deep-links to `EventDetailsScreen(eventId: ...)`.
+  /// RETIRED — the per-listing "event nearby" fan-out was replaced by
+  /// the daily digest (`dailyEventsDigest`). Nothing sends this any
+  /// more; it stays in the enum so notifications already sitting in
+  /// users' feeds keep rendering instead of turning blank.
   venueEvent,
 
   /// `users/{uid}.premium` just flipped false -> true — see
@@ -194,6 +213,9 @@ enum NotificationType {
   /// `event` same as those two, whichever kind of post triggered it —
   /// this only exists to give the follow-based case its own icon/copy
   /// in the feed.
+  /// RETIRED — nothing has sent this since the fan-out rewrite. Nothing sends this any
+  /// more; it stays in the enum so notifications already sitting in
+  /// users' feeds keep rendering instead of turning blank.
   productionPost,
 
   /// PinBox equivalent of [venueAdded] — see `onPinBoxCreated` (Cloud
@@ -219,6 +241,10 @@ enum NotificationType {
   /// A venue published a new PinBox within this user's radius — see
   /// `notifyNearbyUsersOfNewPinBox` (Cloud Function). `targetType:
   /// 'pinbox'`, deep-links to `PinBoxCheckoutScreen`.
+  /// RETIRED — the per-listing "new PinBox nearby" fan-out was replaced
+  /// by the daily digest (`dailyPinboxDigest`). Nothing sends this any
+  /// more; it stays in the enum so notifications already sitting in
+  /// users' feeds keep rendering instead of turning blank.
   pinboxNearby,
 
   /// Admin-authored, sent via the admin panel's broadcast tool

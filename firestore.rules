@@ -2543,7 +2543,13 @@ service cloud.firestore {
       // `message` size cap (Düzəliş Prompt 8 / RT-2) — was unbounded on
       // both client and rules before; new limit on both sides now.
       allow create: if request.auth != null && request.auth.uid == request.resource.data.uid &&
-        (!('message' in request.resource.data) || request.resource.data.message.size() <= 2000);
+        (!('message' in request.resource.data) || request.resource.data.message.size() <= 2000) &&
+        // `replyToEmail`/`username`/`status` are written by
+        // `onSupportMessageCreated` from the account's own verified
+        // data — never by the client, which could otherwise put an
+        // address it does not control on a message support will reply
+        // to.
+        !request.resource.data.keys().hasAny(['replyToEmail', 'username', 'status']);
       allow read, update, delete: if false;
     }
 

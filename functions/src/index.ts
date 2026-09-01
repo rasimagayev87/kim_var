@@ -348,7 +348,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-async function sendPrivacyNotificationEmail(subject: string, html: string): Promise<void> {
+async function sendPrivacyNotificationEmail(subject: string, html: string, to = "privacy@peakpin.app"): Promise<void> {
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -358,7 +358,7 @@ async function sendPrivacyNotificationEmail(subject: string, html: string): Prom
       },
       body: JSON.stringify({
         from: "PeakPin <noreply@peakpin.app>",
-        to: "privacy@peakpin.app",
+        to,
         subject,
         html,
       }),
@@ -3549,6 +3549,72 @@ async function writeVenueDailyStats(
   }
 }
 
+/**
+ * A support message reaches a human.
+ *
+ * ── The gap this closes ────────────────────────────────────────────
+ *
+ * `supportMessages` had a writer and no reader. The app wrote into it
+ * (`FirebaseSupportRepository.sendMessage`), the admin panel has no
+ * screen for it — its own `UNIMPLEMENTED_PERMISSIONS` list says so:
+ * `"viewSupportMessages", // supportMessages has no admin screen at
+ * all` — and no Cloud Function watched it. A user asking for help
+ * wrote into a collection nobody could read, and waited for an answer
+ * that could never come.
+ *
+ * `reports` has had `onUserReportCreated` relaying to
+ * privacy@peakpin.app since it shipped; support messages simply never
+ * got the equivalent.
+ *
+ * Email is the INTERIM answer, not the end state — at any real volume
+ * this needs a queue with status and replies, not an inbox. See
+ * docs/BACKLOG.md.
+ */
+export const onSupportMessageCreated = onDocumentCreated(
+  { document: "supportMessages/{messageId}", secrets: [resendApiKey] },
+  async (event) => {
+    const data = event.data?.data();
+    if (!data) return;
+    const uid = data.uid as string | undefined;
+    if (!uid) return;
+
+    // The sender's own contact details — a support message you cannot
+    // reply to is only marginally better than one nobody reads.
+    // Written by this trigger rather than by the client so the address
+    // is the VERIFIED one on the account, not whatever a form supplied.
+    const [userSnap, privateSnap] = await Promise.all([
+      db.collection("users").doc(uid).get(),
+      privateDataRef(uid).get(),
+    ]);
+    const user = userSnap.data() ?? {};
+    const email = (privateSnap.data()?.email as string | undefined) ?? (user.email as string | undefined) ?? "";
+    const username = (user.username as string | undefined) ?? "";
+    const name = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+
+    await event.data!.ref.update({
+      replyToEmail: email,
+      username,
+      status: "open",
+    });
+
+    const escape = (v: unknown) =>
+      String(v ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    await sendPrivacyNotificationEmail(
+      `PeakPin dəstək — ${escape(data.type)} (@${escape(username)})`,
+      `<h3>Yeni dəstək mesajı</h3>
+       <p><strong>İstifadəçi:</strong> ${escape(name)} (@${escape(username)})<br>
+       <strong>Cavab ünvanı:</strong> ${escape(email) || "— (hesabda e-poçt yoxdur)"}<br>
+       <strong>uid:</strong> ${escape(uid)}<br>
+       <strong>Növ:</strong> ${escape(data.type)}<br>
+       <strong>Tətbiq:</strong> ${escape(data.appVersion)} · ${escape(data.platform)}</p>
+       <hr>
+       <p style="white-space:pre-wrap">${escape(data.message)}</p>`,
+      "support@peakpin.app",
+    );
+  },
+);
+
 // ── Incoming calls ────────────────────────────────────────────────────
 //
 // ⚠️ THIS PATH DELIBERATELY DOES NOT GO THROUGH `notifyUser`.
@@ -5714,7 +5780,15 @@ export const onVenueEventCreated = onDocumentCreated("venueEvents/{eventId}", as
         outcome.kind === "quota-exhausted"
           ? `Bu dövrdə ${FREE_EVENTS_PER_PERIOD} tədbir limitiniz doldu. Kvota ${renewsAt ? formatBakuDate(renewsAt) : "növbəti dövrdə"} yenilənir.`
           : "Məkan abunəliyiniz aktiv olmadığı üçün tədbir yayımlanmadı.",
-      params: { limit: FREE_EVENTS_PER_PERIOD },
+      params: {
+        limit: FREE_EVENTS_PER_PERIOD,
+        // The feed renders this verbatim — see the `eventRejected` case
+        // in notification_localizer.dart.
+        reason:
+          outcome.kind === "quota-exhausted"
+            ? `Bu dövrdə ${FREE_EVENTS_PER_PERIOD} tədbir limitiniz doldu. Kvota ${renewsAt ? formatBakuDate(renewsAt) : "növbəti dövrdə"} yenilənir.`
+            : "Məkan abunəliyiniz aktiv olmadığı üçün tədbir yayımlanmadı.",
+      },
       targetId: event.params.eventId,
       targetType: "event",
     });
@@ -5769,7 +5843,11 @@ export const onVenueEventUpdated = onDocumentUpdated("venueEvents/{eventId}", as
       type: "eventApproved",
       title: "Tədbiriniz təsdiqləndi",
       body: `"${(after.title as string | undefined) ?? ""}" yayımlandı.`,
-      params: {},
+      // The feed rebuilds its text from these, not from `body` — see
+      // `notification_localizer.dart`. A missing param renders an empty
+      // sentence, which is why `tests/rules/notification-parity.test.ts`
+      // exists.
+      params: { title: (after.title as string | undefined) ?? "" },
       targetId: event.params.eventId,
       targetType: "event",
     });
@@ -6000,7 +6078,9 @@ export const advanceVenueEventStatuses = onSchedule(
         type: "eventRejected",
         title: "Tədbir yayımlanmadı",
         body: `"${(data.title as string | undefined) ?? ""}" baxış vaxtında tamamlanmadığı üçün başlama vaxtını keçdi. Tədbir hələ aktualdırsa yenidən yarada bilərsiniz.`,
-        params: {},
+        params: {
+          reason: `"${(data.title as string | undefined) ?? ""}" baxış vaxtında tamamlanmadığı üçün başlama vaxtını keçdi. Tədbir hələ aktualdırsa yenidən yarada bilərsiniz.`,
+        },
         targetId: doc.id,
         targetType: "event",
       });
