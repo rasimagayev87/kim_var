@@ -57,6 +57,21 @@ export function deriveNameLower(firstName: string, lastName: string): string {
   return `${firstName} ${lastName}`.trim().toLowerCase();
 }
 
+/// Separate search key for the surname.
+///
+/// `nameLower` is "first last", and `searchUsersByName` is a PREFIX
+/// range scan over it — so it can only ever match from the first name
+/// onwards. Typing a surname returned nothing at all, which is how most
+/// people search for someone they know.
+///
+/// A second field is the smallest fix that keeps the query a range scan
+/// (Firestore has no substring search, and a token array cannot do
+/// prefixes). Same Unicode-correct `toLowerCase` as `nameLower` — see
+/// this module's header for why that matters here.
+export function deriveLastNameLower(lastName: string): string {
+  return lastName.trim().toLowerCase();
+}
+
 /**
  * Whole days still to wait, or 0 when the change is allowed now.
  *

@@ -49,6 +49,7 @@ import {
 import { InvalidPhoneNumberError, normalizePhoneNumber } from "./phone";
 import {
   BIRTH_DATE_CHANGES_ALLOWED,
+  deriveLastNameLower,
   NAME_COOLDOWN_DAYS,
   USERNAME_COOLDOWN_DAYS,
   USERNAME_PATTERN,
@@ -736,6 +737,7 @@ export const completeOnboarding = onCall({ region: "us-central1", enforceAppChec
       // Shared with `updateProfileDetails` so signup and later edits
       // can never derive the search key differently.
       nameLower: deriveNameLower(firstName, lastName),
+      lastNameLower: deriveLastNameLower(lastName),
       firstName,
       lastName,
       bio,
@@ -1265,6 +1267,7 @@ export const updateProfileDetails = onCall({ region: "us-central1", enforceAppCh
       // Derived here, never accepted from the caller — see
       // `deriveNameLower`'s module header.
       publicUpdate.nameLower = deriveNameLower(nextFirst, nextLast);
+      publicUpdate.lastNameLower = deriveLastNameLower(nextLast);
       publicUpdate.nameChangedAt = FieldValue.serverTimestamp();
     }
 
@@ -1807,7 +1810,16 @@ export const searchUsersByName = onCall({ region: "us-central1", enforceAppCheck
   const query = (request.data?.query as string | undefined)?.trim().toLowerCase() ?? "";
   if (!query) return { profiles: [] };
 
-  const [callerSnap, snap] = await Promise.all([
+  // TWO prefix scans, not one.
+  //
+  // `nameLower` is "first last", so a prefix range over it can only
+  // match from the first name — typing a surname returned nothing,
+  // which is how most people search for someone they know.
+  // `lastNameLower` carries the surname on its own so the same kind of
+  // range scan can find it. Firestore has no substring search and a
+  // token array cannot do prefixes, so a second key is the smallest
+  // thing that works.
+  const [callerSnap, byName, bySurname] = await Promise.all([
     db.collection("users").doc(uid).get(),
     db
       .collection("users")
@@ -1816,13 +1828,28 @@ export const searchUsersByName = onCall({ region: "us-central1", enforceAppCheck
       .endAt(`${query}`)
       .limit(SEARCH_BY_NAME_LIMIT)
       .get(),
+    db
+      .collection("users")
+      .orderBy("lastNameLower")
+      .startAt(query)
+      .endAt(`${query}`)
+      .limit(SEARCH_BY_NAME_LIMIT)
+      .get(),
   ]);
   const myBlockedUsers = (callerSnap.data()?.blockedUsers as string[] | undefined) ?? [];
 
-  const profiles = snap.docs
-    .filter((d) => d.id !== uid)
+  // Someone whose first name also starts with the query appears in both.
+  const seen = new Set<string>();
+  const merged = [...byName.docs, ...bySurname.docs].filter((d) => seen.size !== seen.add(d.id).size);
+
+  // The caller's OWN profile is deliberately included. They are a
+  // findable user like any other — searching your own name and not
+  // finding yourself reads as the search being broken, and there is
+  // nothing to protect: it is your own public profile.
+  const profiles = merged
     .filter((d) => !myBlockedUsers.includes(d.id))
     .filter((d) => !((d.data().blockedUsers as string[] | undefined) ?? []).includes(uid))
+    .slice(0, SEARCH_BY_NAME_LIMIT)
     .map((d) => buildSearchProfilePayload(d.id, d.data()));
 
   return { profiles };
@@ -1875,7 +1902,9 @@ export const searchUsersByUsername = onCall({ region: "us-central1", enforceAppC
 
   const uids = usernamesSnap.docs
     .map((d) => d.data()?.uid as string | undefined)
-    .filter((u): u is string => typeof u === "string" && u !== uid);
+    // Own uid kept — see the note in `searchUsersByName`: a user must
+    // be able to find themselves by their own handle.
+    .filter((u): u is string => typeof u === "string");
   if (uids.length === 0) return { profiles: [] };
 
   const [callerSnap, profileSnaps] = await Promise.all([
