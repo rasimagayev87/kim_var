@@ -19,6 +19,36 @@ void main() {
       expect(config.featureFlags[FeatureFlag.calls], isFalse);
     });
 
+    test('ödəniş bayraqları da fail-closed-dur — MEYAR', () {
+      // Meyar (bax `remote_config_data_source.dart`): bayraq söndürülüb
+      // və bir anlıq açıq qalsa geri qaytarıla bilməyən nəticə varsa,
+      // defolt `false`. Ödəniş başlayanda pul hərəkət edir.
+      const config = AppConfig();
+      expect(config.featureFlags[FeatureFlag.vipPurchase], isFalse);
+      expect(config.featureFlags[FeatureFlag.boostPayment], isFalse);
+
+      // Mənbədə də eyni — iki defolt var, biri o birindən xəbərsiz
+      // qala bilər (bir dəfə məhz belə olub).
+      final src = File('lib/features/app_config/data/datasources/remote_config_data_source.dart')
+          .readAsStringSync();
+      expect(src.contains("'feature_vip_purchase_enabled': false,"), isTrue);
+      expect(src.contains("'feature_boost_payment_enabled': false,"), isTrue);
+    });
+
+    test('geri qaytarıla bilən funksiyalar TRUE qalır — meyarın o biri tərəfi', () {
+      // Bunların nəticəsi moderasiyaya düşür, silinə bilir, ya da
+      // sadəcə UI-dır. `false` qoymaq HƏR açılışda «yoxdur → var»
+      // keçidi yaradardı — nadir haldan pisdir.
+      const config = AppConfig();
+      expect(config.featureFlags[FeatureFlag.mediaUpload], isTrue);
+      expect(config.featureFlags[FeatureFlag.stories], isTrue);
+      expect(config.featureFlags[FeatureFlag.newsAgency], isTrue);
+      expect(config.featureFlags[FeatureFlag.venueSubmission], isTrue);
+      expect(config.featureFlags[FeatureFlag.offers], isTrue);
+      expect(config.featureFlags[FeatureFlag.waitlist], isTrue);
+      expect(config.featureFlags[FeatureFlag.indiTab], isTrue);
+    });
+
     test('digər funksiyalar bundan təsirlənməyib', () {
       // Gizlətmə yalnız zəngə aiddir; qonşu bayraqları söndürmək
       // launch-ı daha da daraldardı.

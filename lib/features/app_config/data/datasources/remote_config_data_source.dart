@@ -39,6 +39,24 @@ final Map<String, dynamic> _defaults = {
   'announcement_message_tr': '',
   'announcement_message_ru': '',
   'announcement_action_url': '',
+  // MEYAR — yeni `feature_*` bayrağı əlavə edərkən bunu tətbiq et:
+  //
+  //   Bayraq söndürüləndə, o bir anlıq AÇIQ qalsa, geri qaytarıla
+  //   bilməyən nəticə yaranırmı?
+  //
+  //     BƏLİ  → defolt `false`. Ödəniş başlayır, pul hərəkət edir.
+  //     XEYR  → defolt `true`.  Nəticə moderasiyaya düşür, silinə
+  //             bilir, və ya sadəcə UI-dır.
+  //
+  // Bu, nəzəri məsələ deyil: Remote Config fetch-i artıq `runApp()`-dan
+  // SONRA işləyir (startup 3.1s → 0.83s), yəni ilk saniyədə məhz bu
+  // defoltlar tətbiq olunur. Uzaqdan söndürülmüş funksiya həmin
+  // saniyədə açıq görünə bilər.
+  //
+  // Əvəzi də realdır: `false` qoyulan bayraq HƏR açılışda «yoxdur →
+  // var» keçidi yaradır, halbuki qorunduğumuz hal (uzaqdan söndürmə)
+  // nadirdir. Ona görə `false` yalnız geri qaytarıla bilməyən nəticə
+  // üçün verilir, «hər ehtimala qarşı» üçün yox.
   'feature_venue_submission_enabled': true,
   'feature_offers_enabled': true,
   'feature_indi_tab_enabled': true,
@@ -52,8 +70,11 @@ final Map<String, dynamic> _defaults = {
   // — found by testing the build, not by reading the code.
   'feature_calls_enabled': false,
   'feature_stories_enabled': true,
-  'feature_vip_purchase_enabled': true,
-  'feature_boost_payment_enabled': true,
+  // Bu ikisi ödəniş başladır — istifadəçinin pulu hərəkət edir və
+  // nəticə geri qaytarıla bilmir. Ödəniş provayderi ilə problem
+  // olduğuna görə söndürülübsə, bir saniyəlik açıqlıq real zərərdir.
+  'feature_vip_purchase_enabled': false,
+  'feature_boost_payment_enabled': false,
   'feature_waitlist_enabled': true,
   'feature_news_agency_enabled': true,
   'feature_media_upload_enabled': true,

@@ -59,8 +59,8 @@ class AppConfig {
       // precisely the surface we are hiding.
       FeatureFlag.calls: false,
       FeatureFlag.stories: true,
-      FeatureFlag.vipPurchase: true,
-      FeatureFlag.boostPayment: true,
+      FeatureFlag.vipPurchase: false,
+      FeatureFlag.boostPayment: false,
       FeatureFlag.waitlist: true,
       FeatureFlag.newsAgency: true,
       FeatureFlag.mediaUpload: true,
