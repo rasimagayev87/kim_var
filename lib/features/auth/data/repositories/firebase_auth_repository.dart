@@ -70,8 +70,23 @@ class FirebaseAuthRepository implements AuthRepository {
     return LoginProvider.email;
   }
 
+  /// Bounded on purpose.
+  ///
+  /// This is the first thing every sign-in awaits, and it had no
+  /// deadline — a slow or blocked network left the user on a spinner
+  /// with no way out. A timeout here is safe: the caller treats a null
+  /// result as "not onboarded yet", which sends the user to onboarding,
+  /// and `completeOnboarding` is idempotent (it returns
+  /// `alreadyOnboarded` rather than creating a second document). The
+  /// worst case is one extra screen, not a lost account.
+  static const _hydrateTimeout = Duration(seconds: 8);
+
   Future<AppUser?> _hydrateFromFirestore(fb.User user) async {
-    final doc = await _firestore.collection('users').doc(user.uid).get();
+    final doc = await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .get()
+        .timeout(_hydrateTimeout);
     final data = doc.data();
 
     // NOT just `data == null` — several other providers (location,
@@ -90,8 +105,14 @@ class FirebaseAuthRepository implements AuthRepository {
     // `phoneNumber`/`birthDate`/`gender` moved to `users/{uid}/private/
     // data` (Düzəliş Prompt 4) — this is a self-read (the signed-in
     // user's own doc), always allowed.
+    // Bounded like the read above — this is the SECOND sequential round
+    // trip on the sign-in path, so an unbounded one here would undo the
+    // deadline set on the first.
     final privateData =
-        (await privateDataRef(user.uid, firestore: _firestore).get()).data() ??
+        (await privateDataRef(
+          user.uid,
+          firestore: _firestore,
+        ).get().timeout(_hydrateTimeout)).data() ??
         {};
 
     unawaited(_maybeWriteVersionTelemetry(user.uid, privateData));
@@ -238,7 +259,18 @@ class FirebaseAuthRepository implements AuthRepository {
     // here shouldn't block registration itself; the account exists
     // either way, so this never blocks or rethrows.
     unawaited(result.user!.sendEmailVerification());
-    return _afterSignIn(result.user!);
+
+    // No Firestore round trip here, deliberately.
+    //
+    // `_afterSignIn` reads `users/{uid}` to decide whether the account
+    // is already onboarded — but an account created one line above has
+    // no such document by definition (`completeOnboarding` writes it
+    // later). The read could only ever come back empty, and it was
+    // costing a full server round trip with no timeout: on a slow
+    // network the sign-up spinner hung on a question whose answer was
+    // already known.
+    _needsOnboarding = true;
+    return (_minimalAppUser(result.user!), true);
   }
 
   @override
