@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
@@ -83,51 +84,42 @@ void main() async {
   // Check activation must never be the reason the app can't open; a
   // user stuck on this path just gets rejected by server-side
   // enforcement on individual requests instead of never seeing the UI.
-  try {
-    // Bounded: `activate()` itself is a network round-trip on release
-    // providers (Play Integrity/DeviceCheck) with no built-in timeout —
-    // confirmed on a real device (wireless-debugged iPhone 12 Pro,
-    // release build) hanging indefinitely on the launch screen,
-    // meaning `runApp()` below never ran. `getToken()`'s own timeout a
-    // few lines down only protects the SECOND call, not this one — the
-    // exact "must never be the reason the app can't open" failure this
-    // whole block claims to prevent.
-    await FirebaseAppCheck.instance
+  // App Check moved OFF the startup path.
+  //
+  // Measured on a Samsung SM-A057F (release, `am start -W`): 2970 ms of
+  // a 3125 ms cold start happened before `runApp()`, and this block was
+  // the largest single contributor — TWO five-second ceilings, and
+  // logcat shows the attestation actually FAILING here
+  // (`403 App attestation failed`), so those timeouts were being spent
+  // in full on every launch rather than resolving early.
+  //
+  // Nothing on the first frame needs the token: all 40 callables are
+  // deployed with `enforceAppCheck: false`, so no request is rejected
+  // without it. Activating after the UI is up returns those seconds and
+  // costs nothing — the original comment's concern (App Check must
+  // never be the reason the app cannot open) is now structural rather
+  // than a matter of picking the right timeout.
+  unawaited(
+    FirebaseAppCheck.instance
         .activate(
           androidProvider: kDebugMode
               ? AndroidProvider.debug
               : AndroidProvider.playIntegrity,
-          // Was AppleProvider.appAttest — real devices (confirmed: Google
-          // Sign-In itself succeeding, Gmail even sending its own "new
-          // sign-in" notification) were getting "Firebase App Check token is
-          // invalid" back from Identity Toolkit even with server-side
-          // enforcement OFF, meaning the SDK was generating a broken
-          // attestation and still attaching it. DeviceCheck is the older,
-          // simpler Apple attestation API — no per-install key generation to
-          // go stale/mismatch the way App Attest's can.
           appleProvider: kDebugMode
               ? AppleProvider.debug
               : AppleProvider.deviceCheck,
         )
-        .timeout(const Duration(seconds: 5));
-    // activate() only registers the token provider — it does NOT mean
-    // a token is actually cached yet. The real first fetch is a
-    // network round-trip to Apple/Google's attestation servers, and
-    // SplashScreen's very first frame already triggers a Firestore
-    // read for a returning user (AuthController._restore() →
-    // FirebaseAuthRepository._hydrateFromFirestore, users/{uid}.get())
-    // with nothing in between to wait for that token. Force-fetching
-    // here closes that race window. Bounded by a timeout and
-    // swallowed on failure, same fail-open philosophy as activate()
-    // itself above — a slow/unreachable attestation service must
-    // never be the reason the app can't open.
-    await FirebaseAppCheck.instance.getToken().timeout(
-      const Duration(seconds: 5),
-      onTimeout: () => null,
-    );
-  } catch (_) {
-    // Best-effort, see above — swallow and continue without App Check.
-  }
+        .timeout(const Duration(seconds: 5))
+        .then(
+          (_) => FirebaseAppCheck.instance.getToken().timeout(
+            const Duration(seconds: 5),
+          ),
+        )
+        .catchError((Object e, StackTrace st) {
+          logError('main.appCheck', e, st);
+          return null;
+        }),
+  );
 
   final prefs = await SharedPreferences.getInstance();
   final initialLocale = await resolveInitialLocale(prefs);

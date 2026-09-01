@@ -85,6 +85,23 @@ class RemoteConfigDataSource {
 
   /// See [AppConfigRepository.init]'s own doc comment for the cache-first,
   /// bounded-only-on-first-launch contract this implements.
+  /// Registers the bundled defaults. Deliberately does NOT wait for the
+  /// network.
+  ///
+  /// It used to await `fetchAndActivate` (3s ceiling) on the first ever
+  /// launch, from inside `main()` and therefore BEFORE `runApp()`. On a
+  /// Samsung SM-A057F that helped push time-to-first-frame to 2970 ms,
+  /// 95% of the whole cold start.
+  ///
+  /// Waiting bought nothing: every value has a bundled default, all of
+  /// them safe if the fetch never lands — `force_update_enabled`,
+  /// `maintenance_mode_enabled` and `read_only_mode_enabled` are all
+  /// `false`, `feature_calls_enabled` is `false` (fail-closed), and the
+  /// legal `url_*` entries are the real production URLs, so even the
+  /// onboarding screen's links work before any fetch.
+  ///
+  /// The fetch now runs after the first frame and the UI updates when
+  /// it lands — see `AppConfigController.refresh`.
   Future<void> init() async {
     try {
       await _remoteConfig.setConfigSettings(
@@ -96,21 +113,6 @@ class RemoteConfigDataSource {
         ),
       );
       await _remoteConfig.setDefaults(_defaults);
-
-      final isFirstEverFetch =
-          _remoteConfig.lastFetchTime.millisecondsSinceEpoch == 0;
-      if (isFirstEverFetch) {
-        try {
-          await _remoteConfig.fetchAndActivate().timeout(
-            const Duration(seconds: 3),
-            onTimeout: () => false,
-          );
-        } catch (e, st) {
-          logError('app_config.RemoteConfigDataSource.init.firstFetch', e, st);
-        }
-      } else {
-        unawaited(refresh());
-      }
     } catch (e, st) {
       // setDefaults/setConfigSettings failing entirely (e.g. Remote
       // Config unreachable/misconfigured) must never block startup —

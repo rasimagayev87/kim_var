@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/localization/locale_providers.dart';
 import '../../domain/entities/app_config.dart';
 import '../../domain/repositories/app_config_repository.dart';
 import '../../domain/usecases/check_update_status_usecase.dart';
+
+import '../../../../core/utils/app_logger.dart';
 
 /// Overridden in `main()` with an already-`init()`-ed instance — see
 /// that override's own comment for why (mirrors `localeProvider`'s
@@ -50,6 +53,22 @@ final appConfigProvider = StateNotifierProvider<AppConfigController, AppConfig>(
     final languageCode = ref.watch(localeProvider).languageCode;
     final repository = ref.watch(appConfigRepositoryProvider);
     final controller = AppConfigController(repository, languageCode);
+
+    // The Remote Config network fetch happens HERE, after the first
+    // frame, rather than inside `main()` before `runApp()`.
+    //
+    // `RemoteConfigDataSource.init` now only registers the bundled
+    // defaults (local, instant); waiting for the fetch was costing
+    // seconds of blank screen on a cold start. Every value has a safe
+    // bundled default, so the app is fully usable before this lands —
+    // and because `AppConfigController` is a `StateNotifier`, whatever
+    // the fetch changes rebuilds the widgets watching it. Without this
+    // line the app would simply never see remote values.
+    unawaited(
+      controller.refresh(languageCode).catchError((Object e, StackTrace st) {
+        logError('app_config.backgroundRefresh', e, st);
+      }),
+    );
     // Re-localize (no network) whenever the user switches app language.
     ref.listen(localeProvider, (previous, next) {
       if (previous?.languageCode != next.languageCode)
