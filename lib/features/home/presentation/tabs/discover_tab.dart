@@ -228,10 +228,21 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                 // "Yaratdıqlarım" stays owner-only inside the screen
                 // itself (`eligibleVenues.isNotEmpty`), so this exposes
                 // no owner surface.
+                //
+                // ⚠️ THE EXEMPTION IS FOR THE MANAGE ICON ONLY. The "+"
+                // below is a CREATE-listing action and stays
+                // business-only. It sat inside this same spread and so
+                // inherited the PinBox exemption by accident: a user who
+                // answered "not a business" at onboarding saw a "+" on
+                // the PinBox filter that offered to create venue
+                // listings they cannot own. The two buttons answer
+                // different questions — "where are my boxes" is for
+                // everyone, "publish a listing" is not — so they are
+                // gated separately now.
                 if (_view == _DiscoverView.offers &&
                     (hasBusinessAccess || listingFilter == ListingFilter.pinbox)) ...[
                   _buildListingManageIcon(loc, listingFilter, myEventVenues, myPinboxVenues),
-                  if (ref.watch(featureFlagProvider(FeatureFlag.offers)))
+                  if (hasBusinessAccess && ref.watch(featureFlagProvider(FeatureFlag.offers)))
                     IconButton(
                       tooltip: loc.offerAddButtonTooltip,
                       onPressed: () => _openCreateOptionsSheet(loc, myEventVenues, myPinboxVenues),
