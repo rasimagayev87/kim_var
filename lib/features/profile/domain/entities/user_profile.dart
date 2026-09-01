@@ -12,6 +12,13 @@ class UserProfile {
   final String? country;
   final String? city;
   final String? email;
+
+  /// Lives on `users/{uid}/private/data`, like [birthDate] — the public
+  /// document never carries it. Editable at any time through
+  /// `updateProfileDetails`; unlike the handle and the birth date it
+  /// carries no cooldown, since a new SIM is an ordinary event and
+  /// nothing is gamed by changing it.
+  final String? phoneNumber;
   final bool online;
   final DateTime? lastSeen;
 
@@ -40,6 +47,7 @@ class UserProfile {
     this.country,
     this.city,
     this.email,
+    this.phoneNumber,
     this.online = false,
     this.lastSeen,
     this.identityVerified = false,
@@ -70,6 +78,7 @@ class UserProfile {
     String? country,
     String? city,
     String? email,
+    String? phoneNumber,
     bool? online,
     DateTime? lastSeen,
     String? businessStatus,
@@ -85,6 +94,7 @@ class UserProfile {
       country: country ?? this.country,
       city: city ?? this.city,
       email: email ?? this.email,
+      phoneNumber: phoneNumber ?? this.phoneNumber,
       online: online ?? this.online,
       lastSeen: lastSeen ?? this.lastSeen,
       businessStatus: businessStatus ?? this.businessStatus,

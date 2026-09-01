@@ -36,25 +36,6 @@ class FirebaseAuthRepository implements AuthRepository {
 
   CollectionReference<Map<String, dynamic>> get _usernames => _firestore.collection('usernames');
 
-  /// Firestore's SDK doesn't always finish propagating a just-changed
-  /// auth context (a fresh sign-up right after a prior sign-out, most
-  /// commonly) to its underlying connection before the very next write
-  /// goes out — that write can land as a transient `permission-denied`
-  /// even though the security rule is satisfied a moment later. Retries
-  /// a couple of times with a short backoff before giving up for real.
-  Future<void> _writeUsernameReservationWithRetry(String usernameId, Map<String, dynamic> data) async {
-    const maxAttempts = 3;
-    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        await _usernames.doc(usernameId).set(data);
-        return;
-      } on FirebaseException catch (e) {
-        if (e.code != 'permission-denied' || attempt == maxAttempts) rethrow;
-        await Future<void>.delayed(Duration(milliseconds: 400 * attempt));
-      }
-    }
-  }
-
   @override
   bool get needsOnboarding => _needsOnboarding;
 
@@ -257,39 +238,12 @@ class FirebaseAuthRepository implements AuthRepository {
     return _auth.currentUser?.emailVerified ?? false;
   }
 
-  @override
-  Future<void> updateUsername({
-    required String oldUsername,
-    required String newUsername,
-  }) async {
-    final user = _auth.currentUser;
-    if (user == null) {
-      throw StateError('Username dəyişmək üçün əvvəlcə giriş edilməlidir.');
-    }
-
-    final oldLower = oldUsername.trim().toLowerCase();
-    final normalizedNew = newUsername.trim();
-    final newLower = normalizedNew.toLowerCase();
-    if (oldLower == newLower) return;
-
-    await _writeUsernameReservationWithRetry(newLower, {
-      'uid': user.uid,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-
-    await _firestore.collection('users').doc(user.uid).update({
-      'username': normalizedNew,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-
-    try {
-      await _usernames.doc(oldLower).delete();
-    } catch (_) {
-      // Best-effort — an orphaned old reservation just permanently
-      // holds that username, it doesn't break this account (its new
-      // reservation is already live and Firestore is updated).
-    }
-  }
+  // `updateUsername` REMOVED — see the note in `AuthRepository`. The
+  // reservation swap it performed now happens inside
+  // `updateProfileDetails`' Firestore transaction, which additionally
+  // enforces the 30-day cooldown and the reserved-handle blocklist, and
+  // commits the handle together with the rest of the profile edit so a
+  // half-applied save is no longer possible.
 
   @override
   Future<AppUser> completeOnboarding({

@@ -157,6 +157,7 @@
   "onboardingPhoneRequiredError": "Telefon nömrəsini daxil edin",
   "fieldBirthDateLabel": "Doğum tarixi",
   "fieldBirthDateHint": "gg.aa.iiii",
+  "fieldBirthDateHelper": "Gün.Ay.İl sırası ilə. Ad günü təkliflərini düzgün gündə almaq üçün dəqiq seçin — bu tarix yalnız bir dəfə düzəldilə bilər.",
   "birthDatePickerHelpText": "Doğum tarixini seç",
   "fieldGenderLabel": "Cins",
   "sectionCountryCityTitle": "Ölkə və şəhər",

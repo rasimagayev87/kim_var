@@ -131,10 +131,4 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     state = const AsyncValue.data(null);
   }
 
-  Future<void> updateUsername({
-    required String oldUsername,
-    required String newUsername,
-  }) {
-    return _repository.updateUsername(oldUsername: oldUsername, newUsername: newUsername);
-  }
 }

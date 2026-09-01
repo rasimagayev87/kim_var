@@ -370,8 +370,33 @@ service cloud.firestore {
         // therefore have restored exactly the age-spoofing vector the
         // subcollection lock exists to close, just via a different path.
         // Both locations are now locked; neither alone is sufficient.
+        //
+        // `username`, `firstName`, `lastName`, `nameLower` and the two
+        // rate-limit stamps joined this list in the "kilidləndi, amma
+        // açarı verilmədi" fix. They are NOT locked because the owner
+        // may not change them — the owner absolutely may — but because
+        // the ONLY writer is now `updateProfileDetails` (Admin SDK,
+        // bypasses these rules), which is where the per-field cooldowns
+        // and the `usernames` reservation swap live. A cooldown that a
+        // client can write around is not a cooldown.
+        //
+        // This REPLACES the `nameLowerMatchesName()` equality check
+        // that shipped earlier the same day and had to be reverted:
+        // Firestore Rules' `.lower()` is ASCII-only, while Dart's
+        // `String.toLowerCase()` is full Unicode, so the two disagreed
+        // on every name carrying Ə/İ/Ş/Ç/Ö/Ü/Ğ — i.e. on most
+        // Azerbaijani names — and locked those users out of editing
+        // their own profile. Proven in the emulator: 4 of 5 sample
+        // names were rejected (see `firestore-profile-identity.test.ts`,
+        // which keeps those exact names as a regression fence).
+        // Deriving `nameLower` server-side (Node's `toLowerCase()`, the
+        // same call `submitVenue`/`updateVenue` already use for
+        // `venues.nameLower`) is the only way to hold the invariant
+        // without a rules-side case conversion.
         return request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['premium', 'identityVerified', 'premiumExpiresAt', 'birthDate', 'reportedCount']);
+          .hasAny(['premium', 'identityVerified', 'premiumExpiresAt', 'birthDate', 'reportedCount',
+                   'username', 'firstName', 'lastName', 'nameLower',
+                   'usernameChangedAt', 'nameChangedAt']);
       }
 
       // Defense-in-depth (Düzəliş Prompt 8 / RT-2) — matches the
@@ -382,81 +407,23 @@ service cloud.firestore {
         return !('bio' in request.resource.data) || request.resource.data.bio.size() <= 200;
       }
 
-      // A handle displayed here must actually be HELD in `usernames`.
+      // NOTE — `usernameOwnedByCaller()` and `nameLowerMatchesName()`
+      // used to live here and have been REMOVED, not weakened.
       //
-      // `usernames/{lowercased}` is the reservation ledger — its create
-      // rule already makes a handle unique and binds it to one uid
-      // (`resource == null && request.auth.uid == request.resource.data
-      // .uid`). But nothing tied THIS document's `username` field to
-      // that ledger, and `username` was not in
-      // `touchesLockedUserFields()` either. So a modified client could
-      // simply write `username: "someone_elses_handle"` here, skipping
-      // the reservation entirely, and every surface that renders an
-      // @handle — public profile, `searchUsersByName`/
-      // `searchUsersByUsername` results (both read `users.username`,
-      // see `buildSearchProfilePayload`), the share card, chat rows —
-      // would show it. `isReservedUsername`'s blocklist ('admin',
-      // 'support', 'peakpin', …) was bypassed the same way, since it
-      // only ever guarded the ledger. Verified in the emulator: writing
-      // both an unreserved handle and one reserved by another account
-      // succeeded before this rule.
+      // Both guarded a client write path that no longer exists:
+      // `username`, `firstName`, `lastName` and `nameLower` are now in
+      // `touchesLockedUserFields()`, so no client can write them at
+      // all, and `updateProfileDetails` (Admin SDK) is the single
+      // writer. It re-checks everything those two functions checked —
+      // the `usernames` reservation is claimed and released inside the
+      // same transaction that sets `users.username`, and `nameLower` is
+      // DERIVED from the new name rather than accepted from the caller
+      // — plus the reserved-handle blocklist, the format pattern, and
+      // the cooldowns, none of which rules could express.
       //
-      // Enforced HERE rather than by moving username changes into a
-      // callable, which was the other candidate. `updateUsername`
-      // (`firebase_auth_repository.dart`) is a two-step client flow —
-      // reserve, then write this field — and that flow is what the
-      // build already in the store runs. A callable would be the
-      // cleaner shape, but it would also mean no shipped install could
-      // change its username until users updated. This rule makes the
-      // EXISTING flow safe, which is the change that can go out today;
-      // the callable stays worth doing later, and this rule keeps
-      // holding when it lands (the Admin SDK bypasses rules).
-      //
-      // Costs one `get()`, and only on a write that actually changes
-      // the field — `affectedKeys()` compares values, and rules
-      // short-circuit `||`, so ordinary profile saves (which don't
-      // touch `username` at all — see `ProfileController.save`) pay
-      // nothing.
-      function usernameOwnedByCaller() {
-        return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['username']) ||
-          (
-            request.resource.data.username is string &&
-            exists(/databases/$(database)/documents/usernames/$(request.resource.data.username.lower())) &&
-            get(/databases/$(database)/documents/usernames/$(request.resource.data.username.lower())).data.uid == request.auth.uid
-          );
-      }
-
-      // `nameLower` must stay the derivative of the name actually shown.
-      //
-      // Same class as the venue `nameLower` lock two hundred lines
-      // below (P0 / C-d) — that one was closed, this one was not, so
-      // the sweep was half-finished. `searchUsersByName` orders and
-      // range-scans on `nameLower` and NEVER on `firstName`/`lastName`
-      // (functions/src/index.ts), so the two fields answer different
-      // questions: one is what a viewer reads on the profile, the other
-      // is what the account is findable by. Left unbound, an account
-      // could display one identity and be indexed under another —
-      // surfacing in searches for a specific real person while showing
-      // something else, or dropping out of search entirely.
-      //
-      // NOT a blocklist entry, and not derived in a trigger. Both would
-      // reject the write that `ProfileController.save` already sends
-      // (it sets `firstName`/`lastName`/`nameLower` in ONE batch, see
-      // profile_providers.dart), breaking profile editing for every
-      // install currently in the store; a trigger would additionally
-      // leave search stale for as long as it takes to fire. Requiring
-      // the value to EQUAL the derivation gets the same invariant, with
-      // the shipped client already computing exactly this expression
-      // ('$firstName $lastName'.trim().toLowerCase()).
-      //
-      // This does not stop someone from choosing a misleading display
-      // name — no consumer app does, users rename themselves — it stops
-      // the display name and the search key from disagreeing.
-      function nameLowerMatchesName() {
-        return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['nameLower']) ||
-          request.resource.data.nameLower ==
-            (request.resource.data.get('firstName', '') + ' ' + request.resource.data.get('lastName', '')).trim().lower();
-      }
+      // `nameLowerMatchesName()` additionally could not work at all:
+      // see the note in `touchesLockedUserFields()` for the ASCII-only
+      // `.lower()` defect that made it reject most Azerbaijani names.
 
       // No client `create` path exists any more — `completeOnboarding`
       // (Cloud Function, Admin SDK, bypasses these rules) is the ONLY way a
@@ -526,8 +493,7 @@ service cloud.firestore {
       }
 
       allow update: if request.auth != null && (
-        (request.auth.uid == userId && !touchesLockedUserFields() && bioSizeOk() && photoUrlOk() &&
-          usernameOwnedByCaller() && nameLowerMatchesName()) ||
+        (request.auth.uid == userId && !touchesLockedUserFields() && bioSizeOk() && photoUrlOk()) ||
         (
           request.auth.uid != userId &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reportedCount']) &&
@@ -606,6 +572,11 @@ service cloud.firestore {
           return [
             'birthDate', 'phoneNumber', 'email', 'consent', 'loginProvider',
             'fcmTokens', 'knownDeviceSignatures', 'blockedByUsers',
+            // Stamp for the once-per-lifetime `birthDate` correction —
+            // must be server-only for the same reason the field it
+            // guards is: an owner who can reset the stamp has no
+            // cooldown. Written only by `updateProfileDetails`.
+            'birthDateChangedAt',
             // Read-side mirror of `bannedUsers/{uid}` — see
             // `setUserBanned` (admin panel) for why it lives on the
             // OWNER-ONLY private doc rather than the public one, and

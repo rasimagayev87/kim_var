@@ -752,3 +752,29 @@ edilməz hala düşər — dəyişiklik ayrıca, öz test dəsti ilə getməlidi
 və admin panelin `setOfferStatus`-u dəyişiklikdən sonra işləməlidir.
 
 **Təxmini iş həcmi:** ~2 saat (dəyişiklik bir sətir, testlər qalanı).
+
+## 32. `venues.gallery` kilidlidir, amma heç bir yazıcısı yoxdur
+
+**Tapılıb:** 2026-09-01, «kilidləndi, amma açarı verilmədi» sweep-i.
+
+`touchesLockedVenueFields()` 46 sahəni bloklayır. Onlardan 45-i üçün
+serverdə qanuni yol var (`submitVenue`, `updateVenue`, `resubmitVenue`,
+ödəniş axınları, sayğac triggerləri). `gallery` istisnadır: bütün kod
+bazasında — Dart, `functions/src`, admin panel — ona yazan heç nə
+yoxdur. Yeganə istinadlar `l10n`-dakı "Choose from gallery" mətnləridir,
+yəni şəkil seçicisinə aiddir, bu sahəyə deyil.
+
+Yəni sahə ölüdür: nə oxunur, nə yazılır. `starCount`/`heartCount`/
+`dislikeCount` ilə eyni sinifdəndir (Düzəliş Prompt 2 / K-8 onları
+silmişdi).
+
+**Risk:** yoxdur. Kilid heç bir legitim axını dayandırmır — dayandıracaq
+axın mövcud deyil. Ona görə bu düzəliş deyil, təmizlikdir.
+
+**Nə etməli:** ya `touchesLockedVenueFields()`-dən çıxarmaq (sahə
+yoxdursa kilid mənasızdır), ya da məkan qalereyası funksiyası
+planlaşdırılırsa saxlamaq və `updateVenue`-a yazma yolu əlavə etmək.
+Qərar məhsul tərəfindədir; kod tərəfində təcili heç nə yoxdur.
+
+**Qeyd:** bu bənd sweep-in nəticəsi kimi yazılıb ki, gələcək audit eyni
+sahəni yenidən «boşluq» kimi tapıb təcili düzəliş etməsin.

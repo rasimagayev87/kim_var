@@ -133,7 +133,25 @@ describe("P0 / M-7 — reviews list bağlıdır, get açıqdır", () => {
  * `searchUsersByName` range-scans, and nothing tied it to the
  * `firstName`/`lastName` a viewer sees.
  */
-describe("A4-H1 — users.username rezervasiyaya bağlıdır", () => {
+describe("A4-H1 — users.username və nameLower KLİENTDƏN yazıla bilmir", () => {
+  // Bu blok əvvəllər `usernameOwnedByCaller()` + `nameLowerMatchesName()`
+  // şərtli icazələrini yoxlayırdı: klient `usernames` rezervasiyasını
+  // tutubsa `username` yaza bilirdi, `nameLower` göstərilən adla
+  // uzlaşırsa keçirdi.
+  //
+  // Hər ikisi GETDİ, zəiflədilmədi. `nameLowerMatchesName()` işləyə
+  // bilmirdi: Firestore Rules-un `.lower()`-i yalnız ASCII-dir, Dart-ın
+  // `toLowerCase()`-i tam Unicode, ona görə Ə/İ/Ş/Ç/Ö/Ü/Ğ daşıyan hər ad
+  // rədd olunurdu və sahibi öz profilini redaktə edə bilmirdi.
+  //
+  // Bu faylın köhnə versiyası bunu tutmadı, çünki hər nümunəsi ("Ad
+  // Soyad", "Tək") ASCII idi. Yeni `profile-identity.test.ts` məhz o
+  // hərfləri saxlayır.
+  //
+  // İndi dörd sahə də `touchesLockedUserFields()`-dədir və yeganə yazıcı
+  // `updateProfileDetails`-dir (Admin SDK) — rezervasiya dəyişimi,
+  // kuldaunlar və `nameLower` törəməsi orada, bir tranzaksiyada.
+  // Tam əhatə: `firestore-profile-identity.test.ts`.
   const HOLDER = "p0h6-alice";      // 'alice' rezervasiyasının sahibi
   const ATTACKER = "a4h1-attacker";
 
@@ -152,54 +170,36 @@ describe("A4-H1 — users.username rezervasiyaya bağlıdır", () => {
   });
 
   test("BAŞQASININ rezerv etdiyi handle-ı yazmaq RƏDD EDİLİR", async () => {
-    // 'alice' HOLDER-in rezervasiyasıdır.
     const db = testEnv.authenticatedContext(ATTACKER).firestore();
     await assertFails(updateDoc(doc(db, "users", ATTACKER), { username: "alice" }));
   });
 
   test("HEÇ KİMİN rezerv etmədiyi handle-ı yazmaq da RƏDD EDİLİR", async () => {
-    // Rezervasiyasız handle — ledger-də sənəd yoxdur, `exists()` false.
     const db = testEnv.authenticatedContext(ATTACKER).firestore();
-    await assertFails(updateDoc(doc(db, "users", ATTACKER), { username: "tamamile_bos_ad" }));
+    await assertFails(updateDoc(doc(db, "users", ATTACKER), { username: "bosdur_bu_handle" }));
   });
 
-  test("`isReservedUsername` blocklist-i artıq bu yolla da keçilə bilmir", async () => {
-    // Əvvəl blocklist yalnız ledger-i qoruyurdu; profil sahəsi açıq
-    // olduğu üçün @support kimi görünmək mümkün idi.
+  test("`isReservedUsername` blocklist-i bu yolla da keçilə bilmir", async () => {
     const db = testEnv.authenticatedContext(ATTACKER).firestore();
-    for (const reserved of ["support", "admin", "peakpin"]) {
-      await assertFails(updateDoc(doc(db, "users", ATTACKER), { username: reserved }));
-    }
+    await assertFails(updateDoc(doc(db, "users", ATTACKER), { username: "admin" }));
   });
 
-  test("ÖZ rezervasiyasını yazmaq İŞLƏYİR — mövcud axın pozulmur", async () => {
-    // `updateUsername` əvvəlcə `usernames/{lower}`-i tutur, sonra bu
-    // sahəni yazır. Mağazadakı build məhz bunu edir.
-    await testEnv.withSecurityRulesDisabled(async (ctx) => {
-      await setDoc(doc(ctx.firestore(), "usernames", "yeni_ad"), { uid: ATTACKER, createdAt: new Date() });
-    });
+  test("ÖZ rezervasiyasını tutmaq da artıq KİFAYƏT ETMİR", async () => {
+    // Köhnə axının tam forması — rezervasiya artıq bu uid-dədir. Əvvəllər
+    // keçirdi; indi keçmir, çünki kuldaun klientin yaza bildiyi yerdə
+    // saxlana bilməz. `updateProfileDetails` eyni yazını, eyni
+    // yoxlamalarla, üstəgəl 30 günlük limitlə edir.
     const db = testEnv.authenticatedContext(ATTACKER).firestore();
-    await assertSucceeds(updateDoc(doc(db, "users", ATTACKER), { username: "yeni_ad" }));
+    await assertFails(updateDoc(doc(db, "users", ATTACKER), { username: `user_${ATTACKER}_yeni` }));
   });
 
-  test("böyük/kiçik hərf: ledger id-si kiçik, göstərilən dəyər original qala bilər", () => {
-    // `updateUsername` `newLower`-i rezerv edir, `normalizedNew`-i yazır.
-    return (async () => {
-      await testEnv.withSecurityRulesDisabled(async (ctx) => {
-        await setDoc(doc(ctx.firestore(), "usernames", "mixedcase"), { uid: ATTACKER, createdAt: new Date() });
-      });
-      const db = testEnv.authenticatedContext(ATTACKER).firestore();
-      await assertSucceeds(updateDoc(doc(db, "users", ATTACKER), { username: "MixedCase" }));
-    })();
-  });
-
-  test("username-ə TOXUNMAYAN redaktə əlavə oxu ödəmir və keçir", async () => {
+  test("username-ə TOXUNMAYAN redaktə hələ də keçir", async () => {
     const db = testEnv.authenticatedContext(ATTACKER).firestore();
     await assertSucceeds(updateDoc(doc(db, "users", ATTACKER), { bio: "yeni bio" }));
   });
 });
 
-describe("A4 — users.nameLower göstərilən adla uzlaşmalıdır", () => {
+describe("A4 — users.nameLower artıq klientdən gəlmir", () => {
   const U = "a4nl-user";
 
   before(async () => {
@@ -214,38 +214,31 @@ describe("A4 — users.nameLower göstərilən adla uzlaşmalıdır", () => {
   });
 
   test("axtarış açarını göstərilən addan AYIRMAQ rədd edilir", async () => {
-    // Profilində "Ad Soyad" yazan hesab "elvin memmedov" axtarışında
-    // çıxa bilməməlidir.
     const db = testEnv.authenticatedContext(U).firestore();
-    await assertFails(updateDoc(doc(db, "users", U), { nameLower: "elvin memmedov" }));
+    await assertFails(updateDoc(doc(db, "users", U), { nameLower: "tamam basqa adam" }));
   });
 
   test("adı dəyişmədən nameLower-i dəyişmək rədd edilir", async () => {
     const db = testEnv.authenticatedContext(U).firestore();
-    await assertFails(updateDoc(doc(db, "users", U), { nameLower: "" }));
+    await assertFails(updateDoc(doc(db, "users", U), { nameLower: "ad soyad basqa" }));
   });
 
-  test("ad DƏYİŞƏNDƏ uyğun nameLower ilə birlikdə keçir — client-in mövcud batch-i", async () => {
-    // `ProfileController.save` üçü də bir batch-də yazır; ifadə
-    // Dart tərəfdəki `'$firstName $lastName'.trim().toLowerCase()`
-    // ilə eynidir.
-    const db = testEnv.authenticatedContext(U).firestore();
-    await assertSucceeds(updateDoc(doc(db, "users", U), {
-      firstName: "Elvin", lastName: "Məmmədov", nameLower: "elvin məmmədov",
-    }));
-  });
-
-  test("uyğunsuz cütlük rədd edilir", async () => {
+  test("UYĞUN cütlük də rədd edilir — köhnə batch artıq keçmir", async () => {
+    // Klientin köhnə `WriteBatch`-i tam olaraq bu idi. İndi rədd olunur;
+    // ekran `updateProfileDetails`-ə keçdi (`ProfileController.save`).
     const db = testEnv.authenticatedContext(U).firestore();
     await assertFails(updateDoc(doc(db, "users", U), {
-      firstName: "Rəşad", lastName: "Əliyev", nameLower: "basqa adam",
+      firstName: "Yeni", lastName: "Ad", nameLower: "yeni ad",
     }));
   });
 
-  test("boş soyad: trim() nəzərə alınır", async () => {
+  test("Azərbaycan hərfli ad da rədd edilir — indi ARDICIL olaraq", async () => {
+    // Əsas məqam: əvvəl bu ad rədd, ASCII ad qəbul edilirdi — yəni
+    // qaydanın davranışı istifadəçinin adının hərflərindən asılı idi.
+    // İndi hər ikisi eyni yolla, serverdən keçir.
     const db = testEnv.authenticatedContext(U).firestore();
-    await assertSucceeds(updateDoc(doc(db, "users", U), {
-      firstName: "Tək", lastName: "", nameLower: "tək",
+    await assertFails(updateDoc(doc(db, "users", U), {
+      firstName: "Əli", lastName: "Məmmədov", nameLower: "əli məmmədov",
     }));
   });
 });

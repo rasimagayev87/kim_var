@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -59,13 +60,17 @@ class ProfileController extends StateNotifier<UserProfile> {
   Map<String, dynamic>? _latestPublicData;
   Map<String, dynamic>? _latestPrivateData;
 
+  final FirebaseFunctions _functions;
+
   ProfileController({
     FirebaseFirestore? firestore,
     fb.FirebaseAuth? auth,
     FlutterSecureStorage? secureStorage,
+    FirebaseFunctions? functions,
   })  : _firestore = firestore ?? FirebaseFirestore.instance,
         _auth = auth ?? fb.FirebaseAuth.instance,
         _secureStorage = secureStorage ?? const FlutterSecureStorage(),
+        _functions = functions ?? FirebaseFunctions.instance,
         super(const UserProfile()) {
     _init();
   }
@@ -130,6 +135,7 @@ class ProfileController extends StateNotifier<UserProfile> {
       country: publicData['country'] as String?,
       city: privateData?['city'] as String?,
       email: privateData?['email'] as String?,
+      phoneNumber: privateData?['phoneNumber'] as String?,
       online: publicData['online'] as bool? ?? false,
       lastSeen: (publicData['lastSeen'] as Timestamp?)?.toDate(),
       identityVerified: publicData['identityVerified'] as bool? ?? false,
@@ -184,54 +190,56 @@ class ProfileController extends StateNotifier<UserProfile> {
     if (profile.email != null) await _secureStorage.write(key: _secureKeyEmail, value: profile.email!);
   }
 
-  /// Writes the "Şəxsi məlumatlar" fields — `firstName`/`lastName`/`bio`/
-  /// `country` stay on the public `users/{uid}` doc; `birthDate`/
-  /// `gender`/`city` go to `users/{uid}/private/data` (Düzəliş Prompt 4).
-  /// The photo is handled separately by [updatePhotoUrl] — see
-  /// `PhotoUploadController` in `photo_upload_provider.dart`, which
-  /// uploads to Firebase Storage first and then calls that method.
-  /// Username is handled separately too, via `AuthController
-  /// .updateUsername` — it needs the `usernames` reservation-swap
-  /// dance, not a plain field write.
+  /// Writes the "Şəxsi məlumatlar" fields through `updateProfileDetails`
+  /// (Cloud Function) rather than writing Firestore directly.
   ///
-  /// There is no `age` parameter: age is always derived from
-  /// [birthDate] — see [UserProfile.age].
+  /// It used to be a two-document `WriteBatch`, with the username
+  /// handled separately by `AuthController.updateUsername` beforehand.
+  /// That shape had to go for two reasons:
+  ///
+  ///   * `firstName`/`lastName`/`nameLower`/`username` are now locked in
+  ///     `firestore.rules` (`touchesLockedUserFields()`), and
+  ///     `birthDate`/`phoneNumber` in the private doc's
+  ///     `serverOnlyFields()`. A direct write is rejected outright.
+  ///   * Running the username swap first and the batch second meant a
+  ///     failure in the second step left the account with a new handle
+  ///     and the old name. The callable commits every field in one
+  ///     transaction — all of it, or none.
+  ///
+  /// Errors arrive as `FirebaseFunctionsException.message`, already a
+  /// full Azerbaijani sentence naming the field and the wait (see
+  /// `updateProfileDetails`). Callers should show it verbatim rather
+  /// than mapping it to a generic failure string.
+  ///
+  /// Only CHANGED values should be passed: every argument is optional
+  /// and an omitted one is left untouched server-side, which is also
+  /// what keeps an unchanged `birthDate` from burning its one allowed
+  /// correction.
   Future<void> save({
-    required String firstName,
-    required String lastName,
-    required DateTime birthDate,
-    required String bio,
+    String? firstName,
+    String? lastName,
+    String? username,
+    DateTime? birthDate,
+    String? bio,
     String? gender,
     String? country,
     String? city,
+    String? phoneNumber,
   }) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
 
-    final batch = _firestore.batch();
-    batch.set(
-      _firestore.collection('users').doc(uid),
-      {
-        'firstName': firstName,
-        'lastName': lastName,
-        'nameLower': '$firstName $lastName'.trim().toLowerCase(),
-        'bio': bio,
-        if (country != null) 'country': country,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-    batch.set(
-      privateDataRef(uid, firestore: _firestore),
-      {
-        'birthDate': Timestamp.fromDate(birthDate),
-        if (gender != null) 'gender': gender,
-        if (city != null) 'city': city,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
-    await batch.commit();
+    await _functions.httpsCallable('updateProfileDetails').call<Map<String, dynamic>>({
+      if (firstName != null) 'firstName': firstName,
+      if (lastName != null) 'lastName': lastName,
+      if (username != null) 'username': username,
+      if (birthDate != null) 'birthDateMs': birthDate.millisecondsSinceEpoch,
+      if (bio != null) 'bio': bio,
+      if (gender != null) 'gender': gender,
+      if (country != null) 'country': country,
+      if (city != null) 'city': city,
+      if (phoneNumber != null) 'phoneNumber': phoneNumber,
+    });
     // `state` updates automatically via the live Firestore listeners above.
   }
 

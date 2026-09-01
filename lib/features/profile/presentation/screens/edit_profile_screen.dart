@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -40,8 +41,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late final TextEditingController _firstNameController;
   late final TextEditingController _lastNameController;
   late final TextEditingController _bioController;
+  late final TextEditingController _phoneController;
 
   late String _originalUsername;
+  late String _originalFirstName;
+  late String _originalLastName;
+  late DateTime? _originalBirthDate;
+  late String? _originalPhone;
   DateTime? _birthDate;
   String? _gender;
   String? _country;
@@ -60,6 +66,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _firstNameController = TextEditingController(text: profile.firstName);
     _lastNameController = TextEditingController(text: profile.lastName);
     _bioController = TextEditingController(text: profile.bio);
+    _originalFirstName = profile.firstName;
+    _originalLastName = profile.lastName;
+    _originalBirthDate = profile.birthDate;
+    _originalPhone = profile.phoneNumber;
+    _phoneController = TextEditingController(text: profile.phoneNumber ?? '');
     _birthDate = profile.birthDate;
     _gender = profile.gender;
     _country = profile.country;
@@ -70,6 +81,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   void dispose() {
     _usernameDebounce?.cancel();
     _usernameController.dispose();
+    _phoneController.dispose();
     _firstNameController.dispose();
     _lastNameController.dispose();
     _bioController.dispose();
@@ -95,6 +107,23 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       if (!mounted || _usernameController.text.trim() != trimmed) return;
       setState(() => _usernameStatus = available ? _UsernameStatus.available : _UsernameStatus.taken);
     });
+  }
+
+  /// Same bounds as the onboarding picker — `firstDate` 100 years back,
+  /// `lastDate` exactly 18 years ago. The 18+ rule is enforced server
+  /// side by `updateProfileDetails`; this only keeps the wheel from
+  /// offering a date the server would reject.
+  Future<void> _pickBirthDate() async {
+    final loc = AppLocalizations.of(context);
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _birthDate ?? DateTime(now.year - 20, now.month, now.day),
+      firstDate: DateTime(now.year - 100),
+      lastDate: DateTime(now.year - 18, now.month, now.day),
+      helpText: loc.birthDatePickerHelpText,
+    );
+    if (picked != null && mounted) setState(() => _birthDate = picked);
   }
 
   Future<void> _handleSave() async {
@@ -125,26 +154,47 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       return;
     }
 
+    final phone = _phoneController.text.trim();
+
     setState(() => _saving = true);
 
     try {
-      if (usernameChanged) {
-        await ref.read(authControllerProvider.notifier).updateUsername(
-              oldUsername: _originalUsername,
-              newUsername: newUsername,
-            );
-        _originalUsername = newUsername;
-      }
-
+      // ONE call, one server-side transaction. This used to be
+      // `updateUsername()` followed by `save()`; when the second failed
+      // the first had already committed and the account was left with a
+      // new handle and the old name, with nothing on screen saying so.
+      //
+      // Only CHANGED fields are sent. That is not an optimisation — the
+      // birth date may be corrected exactly once ever, so re-sending an
+      // untouched value would spend that one correction on a save the
+      // user made for an unrelated field.
       await ref.read(profileControllerProvider.notifier).save(
-            firstName: firstName,
-            lastName: lastName,
-            birthDate: _birthDate!,
+            firstName: firstName == _originalFirstName ? null : firstName,
+            lastName: lastName == _originalLastName ? null : lastName,
+            username: usernameChanged ? newUsername : null,
+            birthDate: _birthDate == _originalBirthDate ? null : _birthDate,
             bio: _bioController.text.trim(),
             gender: _gender,
             country: _country,
             city: _city,
+            phoneNumber: phone == (_originalPhone ?? '') ? null : phone,
           );
+      _originalUsername = newUsername;
+      _originalFirstName = firstName;
+      _originalLastName = lastName;
+      _originalBirthDate = _birthDate;
+      _originalPhone = phone;
+    } on FirebaseFunctionsException catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      // `updateProfileDetails` returns a complete Azerbaijani sentence
+      // naming the field and, for a cooldown, the days left. Showing it
+      // verbatim is the whole point of moving off `permission-denied`,
+      // which told the user neither what failed nor when to retry.
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? loc.saveFailedError(e.code))),
+      );
+      return;
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -259,21 +309,40 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 16),
-            // Doğum tarixi qeydiyyatdan sonra dəyişməzdir (server-tərəf yaş
-            // qapısını mənasız etməmək üçün — bax `completeOnboarding` Cloud
-            // Function) — bu sahə artıq toxunulmaz, yalnız göstərici
-            // formasındadır. `firestore.rules`-un `users` sənədində
-            // `birthDate` kilidli sahələr siyahısındadır; səhv daxil edilmiş
-            // tarix dəstək vasitəsilə həll olunur.
-            AbsorbPointer(
-              child: PremiumTextField(
-                controller: TextEditingController(
-                  text: _birthDate == null ? '' : DateFormat('dd.MM.yyyy').format(_birthDate!),
+            // Doğum tarixi ÖMÜRDƏ BİR DƏFƏ düzəldilə bilər — bu sahə
+            // əvvəllər tamamilə toxunulmaz idi (`AbsorbPointer`), yəni
+            // qeydiyyatda səhv yazan istifadəçi onu heç vaxt düzəldə
+            // bilmirdi və ad günü kampaniyaları onun üçün əbədi yanlış
+            // günə düşürdü. Serverdə `updateProfileDetails` həm 18+
+            // qapısını, həm də bir dəfəlik limiti saxlayır; buradakı
+            // `lastDate` yalnız UX-dir.
+            //
+            // Köməkçi mətn qəsdən gün/ay sırasını göstərir: istifadəçi
+            // sıranı səhv salsa, ad günü təklifləri yanlış tarixdə gedir
+            // və ikinci düzəliş yoxdur.
+            GestureDetector(
+              onTap: _saving ? null : _pickBirthDate,
+              child: AbsorbPointer(
+                child: PremiumTextField(
+                  controller: TextEditingController(
+                    text: _birthDate == null ? '' : DateFormat('dd.MM.yyyy').format(_birthDate!),
+                  ),
+                  label: loc.fieldBirthDateLabel,
+                  hint: loc.fieldBirthDateHint,
+                  icon: Icons.calendar_today_outlined,
                 ),
-                label: loc.fieldBirthDateLabel,
-                hint: loc.fieldBirthDateHint,
-                icon: Icons.calendar_today_outlined,
               ),
+            ),
+            const SizedBox(height: 6),
+            Text(loc.fieldBirthDateHelper, style: AppTextStyles.caption),
+            const SizedBox(height: 16),
+            PremiumTextField(
+              controller: _phoneController,
+              label: loc.fieldPhoneLabel,
+              hint: loc.fieldPhoneHint,
+              icon: Icons.phone_outlined,
+              keyboardType: TextInputType.phone,
+              onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 16),
             Text(loc.fieldGenderLabel, style: AppTextStyles.caption),

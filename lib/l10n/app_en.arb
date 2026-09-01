@@ -180,6 +180,7 @@
   "onboardingPhoneRequiredError": "Enter your phone number",
   "fieldBirthDateLabel": "Date of birth",
   "fieldBirthDateHint": "dd.mm.yyyy",
+  "fieldBirthDateHelper": "Day.Month.Year order. Pick it exactly so birthday offers reach you on the right day — this date can be corrected only once.",
   "birthDatePickerHelpText": "Select your date of birth",
   "fieldGenderLabel": "Gender",
   "sectionCountryCityTitle": "Country and city",

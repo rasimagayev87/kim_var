@@ -157,6 +157,7 @@
   "onboardingPhoneRequiredError": "Введите номер телефона",
   "fieldBirthDateLabel": "Дата рождения",
   "fieldBirthDateHint": "дд.мм.гггг",
+  "fieldBirthDateHelper": "В порядке День.Месяц.Год. Укажите точно, чтобы получать предложения ко дню рождения в нужный день — дату можно исправить только один раз.",
   "birthDatePickerHelpText": "Выберите дату рождения",
   "fieldGenderLabel": "Пол",
   "sectionCountryCityTitle": "Страна и город",

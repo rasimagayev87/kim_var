@@ -35,7 +35,7 @@ class EmailNotVerifiedException implements Exception {
 /// sign-in method returns whether the account is brand new (caller
 /// should route to [AuthRepository.completeOnboarding]) or already
 /// exists. A separate public `@username` handle is still collected
-/// during onboarding (see [isUsernameAvailable]/[updateUsername]) —
+/// during onboarding (see [isUsernameAvailable]) —
 /// purely a display name, never itself a sign-in credential.
 abstract class AuthRepository {
   Stream<AppUser?> authStateChanges();
@@ -120,12 +120,10 @@ abstract class AuthRepository {
 
   Future<void> signOut();
 
-  /// Renames the display username — a pure handle change with no
-  /// effect on sign-in (there's no credential to touch — see this
-  /// class's own doc comment). [oldUsername] stops resolving the
-  /// instant this succeeds; only [newUsername] does from then on.
-  Future<void> updateUsername({
-    required String oldUsername,
-    required String newUsername,
-  });
+  // `updateUsername` was REMOVED here. Renaming a handle now goes
+  // through the `updateProfileDetails` Cloud Function
+  // (`ProfileController.save`), because `users.username` is locked in
+  // `firestore.rules` and the once-per-30-days cooldown has to live
+  // somewhere a client cannot rewrite. A client-side implementation
+  // could no longer succeed at all.
 }

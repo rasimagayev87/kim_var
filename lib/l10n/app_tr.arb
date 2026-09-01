@@ -157,6 +157,7 @@
   "onboardingPhoneRequiredError": "Telefon numaranızı girin",
   "fieldBirthDateLabel": "Doğum tarihi",
   "fieldBirthDateHint": "gg.aa.yyyy",
+  "fieldBirthDateHelper": "Gün.Ay.Yıl sırasıyla. Doğum günü tekliflerinin doğru güne gelmesi için tam seçin — bu tarih yalnızca bir kez düzeltilebilir.",
   "birthDatePickerHelpText": "Doğum tarihini seç",
   "fieldGenderLabel": "Cinsiyet",
   "sectionCountryCityTitle": "Ülke ve şehir",

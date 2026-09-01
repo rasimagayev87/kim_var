@@ -47,6 +47,14 @@ import {
   VENUE_AUDIENCE_RADIUS_OPTIONS_KM,
 } from "./geo";
 import { InvalidPhoneNumberError, normalizePhoneNumber } from "./phone";
+import {
+  BIRTH_DATE_CHANGES_ALLOWED,
+  NAME_COOLDOWN_DAYS,
+  USERNAME_COOLDOWN_DAYS,
+  USERNAME_PATTERN,
+  cooldownRemainingDays,
+  deriveNameLower,
+} from "./profile-identity";
 import { isGatedCategory } from "./notification-categories";
 import {
   eventCoverPath,
@@ -725,7 +733,9 @@ export const completeOnboarding = onCall({ region: "us-central1", enforceAppChec
     tx.create(userRef, {
       uid,
       username,
-      nameLower: `${firstName} ${lastName}`.trim().toLowerCase(),
+      // Shared with `updateProfileDetails` so signup and later edits
+      // can never derive the search key differently.
+      nameLower: deriveNameLower(firstName, lastName),
       firstName,
       lastName,
       bio,
@@ -1116,6 +1126,243 @@ function buildPublicCandidatePayload(id: string, data: FirebaseFirestore.Documen
     lng,
   };
 }
+
+/**
+ * The single write path for every editable profile field.
+ *
+ * Replaces `ProfileController.save`'s two-document `WriteBatch` plus a
+ * separate `FirebaseAuthRepository.updateUsername` call. Two problems
+ * forced the consolidation:
+ *
+ * 1. `username`, `firstName`, `lastName` and `nameLower` are now in
+ *    `touchesLockedUserFields()`, so no client can write them. They had
+ *    to be locked to make the cooldowns below real — a client-writable
+ *    field has no cooldown, only a suggestion.
+ *
+ * 2. The old screen ran `updateUsername()` and THEN `save()`. When the
+ *    second call failed the first had already committed, leaving the
+ *    account with a new handle and the old name and no indication which
+ *    half had landed. Everything here commits in ONE transaction: the
+ *    caller either gets the whole edit or none of it.
+ *
+ * Every rejection carries a sentence the screen can show verbatim.
+ * `permission-denied` told the user nothing about which field was the
+ * problem or when they could retry.
+ */
+export const updateProfileDetails = onCall({ region: "us-central1", enforceAppCheck: false }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Bu əməliyyat üçün giriş etməlisiniz.");
+
+  const data = request.data ?? {};
+  const str = (k: string): string | undefined =>
+    typeof data[k] === "string" ? (data[k] as string).trim() : undefined;
+
+  const firstName = str("firstName");
+  const lastName = str("lastName");
+  const username = str("username");
+  const bio = str("bio");
+  const country = str("country");
+  const gender = str("gender");
+  const city = str("city");
+  const rawPhone = str("phoneNumber");
+  const birthDateMs = typeof data.birthDateMs === "number" ? (data.birthDateMs as number) : undefined;
+
+  if (firstName !== undefined && firstName.length === 0) {
+    throw new HttpsError("invalid-argument", "Ad boş ola bilməz.");
+  }
+  if (lastName !== undefined && lastName.length === 0) {
+    throw new HttpsError("invalid-argument", "Soyad boş ola bilməz.");
+  }
+  // Matches `bioSizeOk()` in firestore.rules — the rule still guards the
+  // fields this callable does NOT own, so the two limits must agree.
+  if (bio !== undefined && bio.length > 200) {
+    throw new HttpsError("invalid-argument", "Haqqınızda bölməsi 200 simvoldan uzun ola bilməz.");
+  }
+
+  // Phone is validated but NOT rate-limited: it is the one identity
+  // field that legitimately changes often (new SIM, new operator,
+  // travel), and unlike a handle or a birth date nothing is gamed by
+  // changing it.
+  let phoneNumber: string | undefined;
+  if (rawPhone !== undefined && rawPhone.length > 0) {
+    try {
+      phoneNumber = normalizePhoneNumber(rawPhone);
+    } catch (e) {
+      if (e instanceof InvalidPhoneNumberError) {
+        throw new HttpsError(
+          "invalid-argument",
+          "Telefon nömrəsi düzgün deyil. Ölkə kodu ilə yazın, məsələn +994501234567.",
+        );
+      }
+      throw e;
+    }
+  }
+
+  let usernameLower: string | undefined;
+  if (username !== undefined) {
+    if (!USERNAME_PATTERN.test(username)) {
+      throw new HttpsError(
+        "invalid-argument",
+        "İstifadəçi adı 3-20 simvol olmalı, yalnız latın hərfləri, rəqəm, nöqtə və alt xətt saxlamalıdır.",
+      );
+    }
+    usernameLower = username.toLowerCase();
+    if (RESERVED_USERNAMES.has(usernameLower)) {
+      throw new HttpsError("failed-precondition", "Bu istifadəçi adı ayrılıb, seçilə bilməz.");
+    }
+  }
+
+  let birthDate: Date | undefined;
+  if (birthDateMs !== undefined) {
+    birthDate = new Date(birthDateMs);
+    if (Number.isNaN(birthDate.getTime())) {
+      throw new HttpsError("invalid-argument", "Doğum tarixi düzgün deyil.");
+    }
+    // The same 18+ gate `completeOnboarding` enforces. It has to be
+    // repeated here: that gate is the entire reason `birthDate` is
+    // server-only, and a correction path that skipped it would hand
+    // back the bypass the lock exists to prevent.
+    if (calculateAgeUtc(birthDate, new Date()) < MINIMUM_AGE_YEARS) {
+      throw new HttpsError("failed-precondition", "PeakPin yalnız 18 yaşdan yuxarı istifadəçilər üçündür.");
+    }
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const privateRef = userRef.collection("private").doc("data");
+  const nowMs = Date.now();
+
+  await db.runTransaction(async (tx) => {
+    const [userSnap, privateSnap] = await Promise.all([tx.get(userRef), tx.get(privateRef)]);
+    if (!userSnap.exists) {
+      throw new HttpsError("not-found", "Profil tapılmadı.");
+    }
+    const current = userSnap.data() ?? {};
+    const currentPrivate = privateSnap.data() ?? {};
+
+    const publicUpdate: Record<string, unknown> = {};
+    const privateUpdate: Record<string, unknown> = {};
+
+    // --- name -------------------------------------------------------
+    const nextFirst = firstName ?? ((current.firstName as string | undefined) ?? "");
+    const nextLast = lastName ?? ((current.lastName as string | undefined) ?? "");
+    const nameChanged =
+      (firstName !== undefined && firstName !== current.firstName) ||
+      (lastName !== undefined && lastName !== current.lastName);
+    if (nameChanged) {
+      const wait = cooldownRemainingDays(
+        (current.nameChangedAt as Timestamp | undefined)?.toMillis(),
+        NAME_COOLDOWN_DAYS,
+        nowMs,
+      );
+      if (wait > 0) {
+        throw new HttpsError(
+          "failed-precondition",
+          `Ad və soyadınızı ${NAME_COOLDOWN_DAYS} gündən bir dəyişə bilərsiniz. Növbəti dəyişikliyə ${wait} gün qalıb.`,
+        );
+      }
+      publicUpdate.firstName = nextFirst;
+      publicUpdate.lastName = nextLast;
+      // Derived here, never accepted from the caller — see
+      // `deriveNameLower`'s module header.
+      publicUpdate.nameLower = deriveNameLower(nextFirst, nextLast);
+      publicUpdate.nameChangedAt = FieldValue.serverTimestamp();
+    }
+
+    // --- username ---------------------------------------------------
+    const currentUsername = current.username as string | undefined;
+    const usernameChanged =
+      usernameLower !== undefined && usernameLower !== (currentUsername ?? "").toLowerCase();
+    let oldUsernameRef: FirebaseFirestore.DocumentReference | undefined;
+    let newUsernameRef: FirebaseFirestore.DocumentReference | undefined;
+    if (usernameChanged) {
+      const wait = cooldownRemainingDays(
+        (current.usernameChangedAt as Timestamp | undefined)?.toMillis(),
+        USERNAME_COOLDOWN_DAYS,
+        nowMs,
+      );
+      if (wait > 0) {
+        throw new HttpsError(
+          "failed-precondition",
+          `İstifadəçi adını ${USERNAME_COOLDOWN_DAYS} gündən bir dəyişə bilərsiniz. Növbəti dəyişikliyə ${wait} gün qalıb.`,
+        );
+      }
+      newUsernameRef = db.collection("usernames").doc(usernameLower!);
+      const held = await tx.get(newUsernameRef);
+      // Inside the transaction on purpose: two people claiming the same
+      // handle in the same second is exactly what the ledger exists to
+      // decide, and a pre-read outside would let both pass.
+      if (held.exists && held.data()?.uid !== uid) {
+        throw new HttpsError("already-exists", "Bu istifadəçi adı artıq tutulub. Başqa bir ad seçin.");
+      }
+      if (currentUsername) {
+        const oldRef = db.collection("usernames").doc(currentUsername.toLowerCase());
+        const oldSnap = await tx.get(oldRef);
+        // Release only a reservation that still points at this account
+        // — same guard as `releaseUsernameReservation`.
+        if (oldSnap.exists && oldSnap.data()?.uid === uid) oldUsernameRef = oldRef;
+      }
+      publicUpdate.username = username;
+      publicUpdate.usernameChangedAt = FieldValue.serverTimestamp();
+    }
+
+    // --- birth date -------------------------------------------------
+    if (birthDate !== undefined) {
+      const storedMs = (currentPrivate.birthDate as Timestamp | undefined)?.toMillis();
+      if (storedMs !== birthDate.getTime()) {
+        const changes = (currentPrivate.birthDateChangedAt as Timestamp | undefined) ? 1 : 0;
+        if (changes >= BIRTH_DATE_CHANGES_ALLOWED) {
+          throw new HttpsError(
+            "failed-precondition",
+            "Doğum tarixi yalnız bir dəfə dəyişdirilə bilər. Yenidən düzəliş üçün dəstəyə müraciət edin.",
+          );
+        }
+        privateUpdate.birthDate = Timestamp.fromDate(birthDate);
+        privateUpdate.birthDateChangedAt = FieldValue.serverTimestamp();
+      }
+    }
+
+    // --- phone ------------------------------------------------------
+    let oldPhoneRef: FirebaseFirestore.DocumentReference | undefined;
+    let newPhoneRef: FirebaseFirestore.DocumentReference | undefined;
+    if (phoneNumber !== undefined && phoneNumber !== currentPrivate.phoneNumber) {
+      newPhoneRef = db.collection("phoneNumbers").doc(phoneNumber);
+      const held = await tx.get(newPhoneRef);
+      if (held.exists && held.data()?.uid !== uid) {
+        throw new HttpsError("already-exists", "Bu telefon nömrəsi başqa hesaba bağlıdır.");
+      }
+      const previous = currentPrivate.phoneNumber as string | undefined;
+      if (previous) {
+        const oldRef = db.collection("phoneNumbers").doc(previous);
+        const oldSnap = await tx.get(oldRef);
+        if (oldSnap.exists && oldSnap.data()?.uid === uid) oldPhoneRef = oldRef;
+      }
+      privateUpdate.phoneNumber = phoneNumber;
+    }
+
+    // --- freely editable -------------------------------------------
+    if (bio !== undefined) publicUpdate.bio = bio;
+    if (country !== undefined) publicUpdate.country = country;
+    if (gender !== undefined) privateUpdate.gender = gender;
+    if (city !== undefined) privateUpdate.city = city;
+
+    if (Object.keys(publicUpdate).length > 0) {
+      publicUpdate.updatedAt = FieldValue.serverTimestamp();
+      tx.set(userRef, publicUpdate, { merge: true });
+    }
+    if (Object.keys(privateUpdate).length > 0) {
+      privateUpdate.updatedAt = FieldValue.serverTimestamp();
+      tx.set(privateRef, privateUpdate, { merge: true });
+    }
+    // Reservation swaps go last so a rejection above leaves the ledgers
+    // untouched.
+    if (newUsernameRef) tx.set(newUsernameRef, { uid, createdAt: FieldValue.serverTimestamp() });
+    if (oldUsernameRef) tx.delete(oldUsernameRef);
+    if (newPhoneRef) tx.set(newPhoneRef, { uid, createdAt: FieldValue.serverTimestamp() });
+    if (oldPhoneRef) tx.delete(oldPhoneRef);
+  });
+
+  return { success: true };
+});
 
 /**
  * Returns Ölkə üzrə/Dünya üzrə Discover candidates for the CALLING
