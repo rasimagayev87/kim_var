@@ -14,10 +14,23 @@ Rəqəmlərin statusu bu sənəddə açıq göstərilir: **[ölçülmüş]**,
 ```
 YER:       lib/main.dart:31–159, runApp() sətir 147
 AXIN:      tətbiqi açmaq
-GECİKMƏ:   [koddan] ən pis hal 8+ saniyə, ilk açılışda
+GECİKMƏ:   [ÖLÇÜLMÜŞ] soyuq başlanğıc 3125 / 3557 / 4169 / 6963 ms
+           bunun 2970 ms-i (95%) runApp()-dan ƏVVƏLdir
 SƏBƏB:     runApp()-dan əvvəl 10 ardıcıl await, ikisi şəbəkə gözləyir
 PRİORİTET: 🔴
 ```
+
+### Ölçmə (Samsung SM-A057F, release, `am start -W`)
+
+```
+23:59:55.589   Proses başladı
+23:59:58.559   PEAKPIN_ALIVE  (runApp-dan bir sətir əvvəl)   → 2970 ms
+23:59:58.696   Displayed MainActivity                        → 3125 ms
+```
+
+Platformanın öz başlanğıcı ~155 ms. Qalan hər şey bizimdir. Dörd
+təkrarda 3125–6963 ms; ən yüksək rəqəm ən soyuq açılışdadır (Remote
+Config keşi boş, App Check ilk cəhd).
 
 Zəncir: `Firebase.initializeApp` → `CallPushService.initialize` →
 `listenToCallkitEvents` → `AppCheck.activate` → **`AppCheck.getToken()
