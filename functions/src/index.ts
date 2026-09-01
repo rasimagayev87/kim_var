@@ -47,6 +47,7 @@ import {
   VENUE_AUDIENCE_RADIUS_OPTIONS_KM,
 } from "./geo";
 import { InvalidPhoneNumberError, normalizePhoneNumber } from "./phone";
+import { computeChatState } from "./chat-state";
 import {
   BIRTH_DATE_CHANGES_ALLOWED,
   deriveLastNameLower,
@@ -8701,13 +8702,8 @@ export const onChatDeleted = onDocumentDeleted("chats/{chatId}", async (event) =
  * shared one rather than scanning the whole history on every write.
  * The shared preview and the unread counts do not depend on it.
  */
-const CHAT_PREVIEW_SCAN_LIMIT = 50;
+const CHAT_SCAN_LIMIT = 200;
 
-/// How many recent messages the unread count is derived from.
-///
-/// A badge, not an audit: beyond this the exact figure stops mattering,
-/// and an unbounded scan on every write would not.
-const CHAT_UNREAD_SCAN_LIMIT = 200;
 
 /**
  * Recomputes EVERYTHING the chat list shows, from the messages
@@ -8738,84 +8734,51 @@ async function recomputeChatState(chatId: string): Promise<void> {
 
   const participants = (chatSnap.data()?.participants as string[] | undefined) ?? [];
 
-  // Newest first. The window only bounds how far back a per-user
-  // override can reach; the shared preview and the unread counts below
-  // never depend on it.
+  // Newest first. One read, one decision, one write — the decision
+  // itself lives in `computeChatState` so the seven cases that kept
+  // regressing can be tested without Firestore.
   const snap = await chatRef
     .collection("messages")
     .orderBy("sentAt", "desc")
-    .limit(CHAT_PREVIEW_SCAN_LIMIT)
+    .limit(CHAT_SCAN_LIMIT)
     .get();
 
-  const updates: Record<string, unknown> = {};
-
-  if (snap.empty) {
-    updates.lastMessage = "";
-    updates.lastMessageType = "deleted";
-    updates.lastMessageOverride = FieldValue.delete();
-  } else {
-    const newest = snap.docs[0].data();
-    updates.lastMessage = (newest.text as string | undefined) ?? "";
-    updates.lastMessageType = newest.type as string;
-    updates.lastMessageAt = newest.sentAt;
-    updates.lastMessageSenderId = newest.senderId as string | undefined;
-
-    const override: Record<string, unknown> = {};
-    for (const uid of participants) {
-      const visible = snap.docs.find(
-        (d) => !(((d.data().deletedFor as string[] | undefined) ?? []).includes(uid)),
-      );
-      // Same as the shared preview → no override needed. This is the
-      // line that stops stale entries accumulating.
-      if (!visible || visible.id === snap.docs[0].id) continue;
-      override[uid] = {
-        text: (visible.data().text as string | undefined) ?? "",
-        type: visible.data().type as string,
-        at: visible.data().sentAt,
-      };
-    }
-    updates.lastMessageOverride =
-      Object.keys(override).length > 0 ? override : FieldValue.delete();
-  }
-
-  // Counted from the actual documents, over a bounded window.
-  //
-  // Two earlier attempts were both wrong, in opposite directions:
-  //
-  //   `where("readAt", "==", null)` matched nothing, because Firestore
-  //   only matches an explicit null and a message carries no `readAt`
-  //   field at all until it is read — every count came back 0 and the
-  //   badge vanished a second after it appeared.
-  //
-  //   total-minus-read counted messages the recipient had DELETED for
-  //   themselves, because `deletedFor` cannot be excluded in a query
-  //   (Firestore has no "array does not contain"). That produced 46
-  //   phantom unread messages in a chat that had none.
-  //
-  // Both facts have to be applied per document, so the documents are
-  // read and filtered here. The window is bounded because an unread
-  // count is a badge, not an audit: past `CHAT_UNREAD_SCAN_LIMIT` the
-  // exact number stops mattering.
-  const unreadScan = await chatRef
-    .collection("messages")
-    .orderBy("sentAt", "desc")
-    .limit(CHAT_UNREAD_SCAN_LIMIT)
-    .get();
-
-  for (const uid of participants) {
-    updates[`unreadCount.${uid}`] = unreadScan.docs.filter((d) => {
+  const state = computeChatState(
+    snap.docs.map((d) => {
       const m = d.data();
-      if (m.receiverId !== uid) return false;
-      // Call records are system entries, not messages. Nothing ever
-      // writes `readAt` on them because there is nothing to read, so
-      // counting "no readAt" as unread made every past call show up as
-      // an unread message — 46 of them in one chat, against zero real
-      // ones. The old incremental counter never counted them because it
-      // only ever incremented on a real send.
-      if (m.type === "call" || m.type === "deleted") return false;
-      if (m.readAt) return false;
-      return !(((m.deletedFor as string[] | undefined) ?? []).includes(uid));
-    }).length;
+      return {
+        id: d.id,
+        senderId: (m.senderId as string | undefined) ?? "",
+        receiverId: (m.receiverId as string | undefined) ?? "",
+        type: (m.type as string | undefined) ?? "text",
+        text: m.text as string | undefined,
+        sentAtMs: (m.sentAt as Timestamp | undefined)?.toMillis() ?? 0,
+        readAtMs: (m.readAt as Timestamp | undefined)?.toMillis() ?? null,
+        deletedFor: (m.deletedFor as string[] | undefined) ?? [],
+      };
+    }),
+    participants,
+  );
+
+  const updates: Record<string, unknown> = {
+    lastMessage: state.lastMessage,
+    lastMessageType: state.lastMessageType,
+  };
+  if (state.lastMessageAtMs !== null) {
+    updates.lastMessageAt = Timestamp.fromMillis(state.lastMessageAtMs);
+    updates.lastMessageSenderId = state.lastMessageSenderId;
+  }
+  updates.lastMessageOverride =
+    Object.keys(state.override).length > 0
+      ? Object.fromEntries(
+          Object.entries(state.override).map(([uid, o]) => [
+            uid,
+            { text: o.text, type: o.type, at: Timestamp.fromMillis(o.atMs) },
+          ]),
+        )
+      : FieldValue.delete();
+  for (const [uid, count] of Object.entries(state.unread)) {
+    updates[`unreadCount.${uid}`] = count;
   }
 
   await chatRef.update(updates);
