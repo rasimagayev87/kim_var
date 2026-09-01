@@ -28,6 +28,7 @@
   "authPasswordMismatchError": "Şifreler eşleşmiyor",
   "authConsentRequiredError": "Devam etmek için Gizlilik Politikası ve Kullanım Şartlarını kabul edin",
   "authSignInFailedError": "Giriş başarısız oldu. Tekrar deneyin.",
+  "authConnectionSlowError": "Bağlantı yavaş. İnternet bağlantınızı kontrol edip tekrar deneyin.",
   "authAccountExistsDifferentCredentialError": "Bu e-posta zaten farklı bir yöntemle kayıtlı. Şifreyle giriş yapmayı deneyin veya \"Şifremi unuttum\" ile yeni bir şifre belirleyin.",
   "authEmailNotVerifiedError": "Devam etmek için önce e-postanızı doğrulayın.",
   "verifyEmailTitle": "E-postanızı doğrulayın",

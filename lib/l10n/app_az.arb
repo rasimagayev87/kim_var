@@ -28,6 +28,7 @@
   "authPasswordMismatchError": "Parollar üst-üstə düşmür",
   "authConsentRequiredError": "Davam etmək üçün Məxfilik Siyasəti və İstifadə Şərtlərini qəbul edin",
   "authSignInFailedError": "Giriş uğursuz oldu. Yenidən cəhd edin.",
+  "authConnectionSlowError": "Bağlantı yavaşdır. İnternet bağlantınızı yoxlayıb yenidən cəhd edin.",
   "authAccountExistsDifferentCredentialError": "Bu e-poçt artıq başqa üsulla qeydiyyatdan keçib. Parolla daxil olmağı, ya da \"Şifrəni unutmusunuz?\" ilə yeni parol təyin etməyi sınayın.",
   "authEmailNotVerifiedError": "Davam etmək üçün əvvəlcə e-poçtunuzu təsdiqləyin.",
   "verifyEmailTitle": "E-poçtunuzu təsdiqləyin",

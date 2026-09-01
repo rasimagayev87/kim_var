@@ -34,6 +34,7 @@
   "authPasswordMismatchError": "Passwords don't match",
   "authConsentRequiredError": "Accept the Privacy Policy and Terms of Service to continue",
   "authSignInFailedError": "Sign-in failed. Please try again.",
+  "authConnectionSlowError": "The connection is slow. Check your internet and try again.",
   "authAccountExistsDifferentCredentialError": "This email is already registered a different way. Try signing in with your password, or use \"Forgot password?\" to set a new one.",
   "authEmailNotVerifiedError": "Please verify your email before continuing.",
   "verifyEmailTitle": "Verify your email",

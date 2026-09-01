@@ -74,11 +74,15 @@ class FirebaseAuthRepository implements AuthRepository {
   ///
   /// This is the first thing every sign-in awaits, and it had no
   /// deadline — a slow or blocked network left the user on a spinner
-  /// with no way out. A timeout here is safe: the caller treats a null
-  /// result as "not onboarded yet", which sends the user to onboarding,
-  /// and `completeOnboarding` is idempotent (it returns
-  /// `alreadyOnboarded` rather than creating a second document). The
-  /// worst case is one extra screen, not a lost account.
+  /// with no way out.
+  ///
+  /// It THROWS on expiry rather than returning null, deliberately. A
+  /// null would read as "not onboarded yet" and drop an existing user
+  /// into the onboarding form, only for `completeOnboarding` to answer
+  /// `alreadyOnboarded` and bounce them out again — being thrown out of
+  /// a half-filled form is worse than being told the connection is
+  /// slow. `AuthScreen` catches `TimeoutException` separately and says
+  /// exactly that.
   static const _hydrateTimeout = Duration(seconds: 8);
 
   Future<AppUser?> _hydrateFromFirestore(fb.User user) async {

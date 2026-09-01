@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -233,6 +234,22 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       setState(() {
         _submitting = false;
         _error = _mapAuthError(e, loc);
+      });
+    } on TimeoutException catch (e, st) {
+      // The profile reads in `_hydrateFromFirestore` are bounded, and
+      // hitting that bound is a NETWORK problem, not a credential one.
+      //
+      // The bound throws rather than returning null on purpose: a null
+      // would read as "not onboarded" and drop an existing user into
+      // the onboarding form, only to bounce them out once
+      // `completeOnboarding` answered `alreadyOnboarded`. Filling in a
+      // form and being thrown out of it is worse than being told to try
+      // again.
+      logError('auth_screen._submitEmailPassword.timeout', e, st);
+      if (!mounted) return;
+      setState(() {
+        _submitting = false;
+        _error = loc.authConnectionSlowError;
       });
     } catch (e, st) {
       logError('auth_screen._submitEmailPassword', e, st);
