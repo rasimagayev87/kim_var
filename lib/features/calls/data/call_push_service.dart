@@ -102,7 +102,8 @@ class CallPushService {
     );
   }
 
-  static Future<void> _handleMessage(RemoteMessage message) => handleCallPush(message.data);
+  static Future<void> _handleMessage(RemoteMessage message) =>
+      handleCallPush(message.data, showNativeUi: false);
 }
 
 /// Background isolate entry point.
@@ -141,26 +142,47 @@ Future<void> callPushBackgroundHandler(RemoteMessage message) async {
     logError('call_push_service.backgroundInit', e, st);
   }
   logTrace('bgHandler.entered');
-  await handleCallPush(message.data);
+  await handleCallPush(message.data, showNativeUi: true);
 }
 
 /// Shared by the foreground listener and the background isolate — the
 /// two differ only in which isolate they run in, not in what they do.
-Future<void> handleCallPush(Map<String, dynamic> data) async {
+/// [showNativeUi] decides whether the OS call screen is raised.
+///
+/// It must be false while the app is in the FOREGROUND. Both surfaces
+/// react to the same call: this push raises the CallKit screen, and
+/// `incomingCallProvider` independently pushes `IncomingCallScreen` the
+/// moment the document appears. With both enabled the callee saw TWO
+/// incoming-call UIs stacked for one call and had to answer both — the
+/// OS one and the in-app one.
+///
+/// The in-app screen wins in the foreground: it is the surface that
+/// calls `acceptCall()` directly, and it matches what the user is
+/// already looking at. CallKit stays for the background and killed
+/// cases, where no Flutter UI exists to show anything.
+///
+/// `deliveredAt` is marked either way — the caller's "Zəng çalınır"
+/// depends on the callee's device having surfaced the call, not on
+/// which surface did it.
+Future<void> handleCallPush(Map<String, dynamic> data, {required bool showNativeUi}) async {
   final type = data['type'] as String?;
   final callId = data['callId'] as String?;
   if (callId == null) return;
 
   try {
     if (type == CallPushService._incoming) {
-      await FlutterCallkitIncoming.showCallkitIncoming(
-        _incomingCallParams(callId, data),
-      );
+      if (showNativeUi) {
+        await FlutterCallkitIncoming.showCallkitIncoming(
+          _incomingCallParams(callId, data),
+        );
+        logTrace('handleCallPush.callkitShown', callId);
+      } else {
+        logTrace('handleCallPush.foregroundSkippedNativeUi', callId);
+      }
       // Marked AFTER the UI is up, not on receipt of the push: the
       // caller's "Zəng çalınır" must mean a phone is actually ringing,
       // not that a message arrived somewhere. One extra write per call,
       // and `firestore.rules` lets only the callee make it.
-      logTrace('handleCallPush.callkitShown', callId);
       unawaited(_markDelivered(callId));
     } else if (type == CallPushService._cancelled) {
       // Without this the full-screen UI stays up until the OS times it
