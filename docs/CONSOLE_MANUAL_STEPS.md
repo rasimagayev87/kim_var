@@ -126,6 +126,55 @@ zəncirini yoxlaya bilməməyimiz idi. Burada isə TTL-dən heç bir trigger
 asılı deyil — sənədlərin özündən başqa silinəsi şey yoxdur (nə Storage
 obyekti, nə alt kolleksiya), yəni zəncir sadəcə mövcud deyil.
 
+### 5. Auth linklərinin brendləşdirilməsi — ⏳ CONSOLE TƏLƏB OLUNUR
+
+Parol bərpası və e-poçt doğrulama linkləri
+`kim-var-73ce9.firebaseapp.com/__/auth/action`-a gedir — həm layihənin
+KÖHNƏ adı, həm də istifadəçinin şübhələnməyə öyrədildiyi tanımadığı
+domen.
+
+Əvəzedici səhifə **hazırdır və canlıdır**: `https://peakpin.app/auth-action`
+(`peakpin-landing/public/auth-action.html`). Üç rejim, dörd dil, PeakPin
+dizaynı, sıfır üçüncü tərəf skripti.
+
+**Bu ayar API ilə edilə bilmir.** Cəhd edildi:
+
+```
+PATCH identitytoolkit.googleapis.com/admin/v2/projects/kim-var-73ce9/config
+     ?updateMask=notification.sendEmail.callbackUri
+→ INVALID_ARGUMENT: EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED
+```
+
+Pulsuz Firebase Auth təbəqəsi e-poçt şablonu / `callbackUri`
+yeniləmələrini API-dən bağlayır. Konfiqurasiya dəyişməyib — qismən
+yazı baş verməyib.
+
+**Console addımları (bir dəfə, hər üç şablon üçün ORTAQ ayardır):**
+
+1. Firebase Console → **Authentication** → **Templates**
+2. İstənilən şablonu aç (məsələn "Password reset") → karandaş ikonu
+3. Aşağıda **"Customize action URL"** linkinə bas
+4. Dəyəri belə et:
+   ```
+   https://peakpin.app/auth-action
+   ```
+5. **Save**
+
+`callbackUri` **tək sahədir** — üçünü ayrı-ayrı təyin etmək lazım
+deyil, birində dəyişmək `resetPassword`, `verifyEmail` və
+`recoverEmail`-in hamısına tətbiq olunur (API-dən oxunan konfiqurasiya
+bunu təsdiqləyir).
+
+**Yoxlama:** ayarı dəyişəndən sonra tətbiqdən parol bərpası istə və
+gələn linkin `peakpin.app/auth-action?mode=resetPassword&oobCode=…`
+ilə başladığını yoxla.
+
+**Geri qaytarma:** eyni sahəni
+`https://kim-var-73ce9.firebaseapp.com/__/auth/action` et.
+
+⚠️ `authDomain` DƏYİŞMİR. Bu, yalnız Console ayarıdır —
+`firebase_options.dart`-a toxunmaq lazım deyil və toxunulmayıb.
+
 ---
 
 ## Bu, TTL-i toplayıcının öz silməsindən niyə üstün edir
