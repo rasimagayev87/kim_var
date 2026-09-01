@@ -8686,7 +8686,11 @@ export const onChatMessageDeleted = onDocumentDeleted(
     const remainingSnap = await chatRef.collection("messages").orderBy("sentAt", "desc").limit(1).get();
 
     if (remainingSnap.empty) {
-      await chatRef.update({ lastMessage: "", lastMessageType: "deleted" });
+      await chatRef.update({
+        lastMessage: "",
+        lastMessageType: "deleted",
+        lastMessageOverride: FieldValue.delete(),
+      });
       return;
     }
 
@@ -8696,6 +8700,13 @@ export const onChatMessageDeleted = onDocumentDeleted(
       lastMessageType: remaining.type as string,
       lastMessageAt: remaining.sentAt,
       lastMessageSenderId: remaining.senderId as string | undefined,
+      // Deleting for EVERYONE changes what the shared preview is, so
+      // every per-user override describing the old one is now wrong.
+      // Without this the owner of an override kept seeing the deleted
+      // message's replacement-of-record rather than the real newest
+      // one — the case reported from the device, where the list still
+      // showed a day-old message after the newest was deleted for all.
+      lastMessageOverride: FieldValue.delete(),
     });
   },
 );
