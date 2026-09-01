@@ -4,6 +4,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '../../domain/entities/saved_card.dart';
 import '../../domain/repositories/saved_card_repository.dart';
 
+import '../../../../../core/utils/callables.dart';
+
 class FirebaseSavedCardRepository implements SavedCardRepository {
   FirebaseSavedCardRepository({FirebaseFirestore? firestore, FirebaseFunctions? functions})
       : _firestore = firestore ?? FirebaseFirestore.instance,
@@ -42,18 +44,18 @@ class FirebaseSavedCardRepository implements SavedCardRepository {
 
   @override
   Future<String> startCardRegistration() async {
-    final result = await _functions.httpsCallable('startCardRegistration').call<Map<String, dynamic>>();
+    final result = await _functions.httpsCallable('startCardRegistration', options: callableOptions(kPaymentCallableTimeout)).call<Map<String, dynamic>>();
     return result.data['checkoutUrl'] as String;
   }
 
   @override
   Future<void> deleteCard(String cardId) {
-    return _functions.httpsCallable('deleteSavedCard').call<Map<String, dynamic>>({'cardId': cardId});
+    return _functions.httpsCallable('deleteSavedCard', options: callableOptions(kPaymentCallableTimeout)).call<Map<String, dynamic>>({'cardId': cardId});
   }
 
   @override
   Future<void> setDefaultCard(String cardId) {
-    return _functions.httpsCallable('setDefaultSavedCard').call<Map<String, dynamic>>({'cardId': cardId});
+    return _functions.httpsCallable('setDefaultSavedCard', options: callableOptions(kPaymentCallableTimeout)).call<Map<String, dynamic>>({'cardId': cardId});
   }
 
   @override
@@ -61,7 +63,7 @@ class FirebaseSavedCardRepository implements SavedCardRepository {
     required String paymentId,
     required String cardId,
   }) async {
-    final result = await _functions.httpsCallable('payWithSavedCard').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('payWithSavedCard', options: callableOptions(kPaymentCallableTimeout)).call<Map<String, dynamic>>({
       'paymentId': paymentId,
       'cardId': cardId,
     });

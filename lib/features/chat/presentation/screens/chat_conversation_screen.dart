@@ -83,6 +83,15 @@ class _ChatHeader extends StatelessWidget {
   /// it visibly greyed out and untappable, matching how `_Composer` is
   /// already swapped out for `_PendingNotice`/`_RequestBanner` in the
   /// same pending state.
+  /// Whether the call buttons EXIST at all (`FeatureFlag.calls`).
+  ///
+  /// Separate from [callsEnabled] on purpose. A greyed-out button still
+  /// advertises a feature and invites a tap that explains nothing;
+  /// while calling is hidden for launch the buttons must not be drawn.
+  /// [callsEnabled] keeps its original meaning — the feature exists but
+  /// this particular chat has not been accepted yet — and still shows
+  /// the disabled state with its explanatory tooltip.
+  final bool callsVisible;
   final bool callsEnabled;
   final String callsDisabledTooltip;
   final bool peerIdentityVerified;
@@ -105,6 +114,7 @@ class _ChatHeader extends StatelessWidget {
     required this.onVideoCall,
     required this.callLabel,
     required this.videoCallLabel,
+    required this.callsVisible,
     required this.callsEnabled,
     required this.callsDisabledTooltip,
     required this.peerIdentityVerified,
@@ -209,24 +219,26 @@ class _ChatHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              IconButton(
-                onPressed: callsEnabled ? onCall : null,
-                tooltip: callsEnabled ? callLabel : callsDisabledTooltip,
-                icon: Icon(
-                  Icons.call_outlined,
-                  color: callsEnabled ? ChatLightColors.inkSoft : ChatLightColors.inkFaint,
-                  size: 21,
+              if (callsVisible) ...[
+                IconButton(
+                  onPressed: callsEnabled ? onCall : null,
+                  tooltip: callsEnabled ? callLabel : callsDisabledTooltip,
+                  icon: Icon(
+                    Icons.call_outlined,
+                    color: callsEnabled ? ChatLightColors.inkSoft : ChatLightColors.inkFaint,
+                    size: 21,
+                  ),
                 ),
-              ),
-              IconButton(
-                onPressed: callsEnabled ? onVideoCall : null,
-                tooltip: callsEnabled ? videoCallLabel : callsDisabledTooltip,
-                icon: Icon(
-                  Icons.videocam_outlined,
-                  color: callsEnabled ? ChatLightColors.inkSoft : ChatLightColors.inkFaint,
-                  size: 23,
+                IconButton(
+                  onPressed: callsEnabled ? onVideoCall : null,
+                  tooltip: callsEnabled ? videoCallLabel : callsDisabledTooltip,
+                  icon: Icon(
+                    Icons.videocam_outlined,
+                    color: callsEnabled ? ChatLightColors.inkSoft : ChatLightColors.inkFaint,
+                    size: 23,
+                  ),
                 ),
-              ),
+              ],
               PopupMenuButton<void>(
                 icon: const Icon(Icons.more_vert, color: ChatLightColors.inkSoft, size: 21),
                 onSelected: (_) => onDeleteChat(),
@@ -605,6 +617,11 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatCallDisabledTooltip)));
       return;
     }
+    // Defence in depth: the buttons are hidden while the feature is
+    // off, but this method is also reachable from anywhere else that
+    // might call it in future, and the check costs nothing.
+    if (!ref.read(featureFlagProvider(FeatureFlag.calls))) return;
+
     final type = video ? CallType.video : CallType.audio;
     try {
       final session = await ref.read(callRepositoryProvider).startCall(receiverId: widget.otherUid, type: type);
@@ -742,8 +759,8 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
                   onVideoCall: () => _startCall(video: true),
                   callLabel: loc.chatVoiceCallLabel,
                   videoCallLabel: loc.chatVideoCallLabel,
-                  callsEnabled: chat?.status == ChatRequestStatus.accepted &&
-                      ref.watch(featureFlagProvider(FeatureFlag.calls)),
+                  callsVisible: ref.watch(featureFlagProvider(FeatureFlag.calls)),
+                  callsEnabled: chat?.status == ChatRequestStatus.accepted,
                   callsDisabledTooltip: loc.chatCallDisabledTooltip,
                   onDeleteChat: () => _confirmDeleteChat(context, loc),
                 ),

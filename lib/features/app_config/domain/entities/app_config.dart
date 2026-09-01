@@ -49,7 +49,14 @@ class AppConfig {
       FeatureFlag.venueSubmission: true,
       FeatureFlag.offers: true,
       FeatureFlag.indiTab: true,
-      FeatureFlag.calls: true,
+      // Calls are HIDDEN for launch — see docs/calls-hidden-for-launch.md.
+      //
+      // The bundled default is what applies when Remote Config has not
+      // been fetched yet (first launch, offline, a failed fetch), so it
+      // must fail CLOSED: defaulting to `true` would flash the call
+      // buttons on every cold start before the config arrives, which is
+      // precisely the surface we are hiding.
+      FeatureFlag.calls: false,
       FeatureFlag.stories: true,
       FeatureFlag.vipPurchase: true,
       FeatureFlag.boostPayment: true,

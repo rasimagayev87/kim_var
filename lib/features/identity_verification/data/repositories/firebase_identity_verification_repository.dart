@@ -8,6 +8,8 @@ import '../../../profile/domain/storage_failure.dart';
 import '../../domain/entities/identity_verification_request.dart';
 import '../../domain/repositories/identity_verification_repository.dart';
 
+import '../../../../core/utils/callables.dart';
+
 /// Stores images at `identity_verifications/{userId}/{requestId}/...`
 /// (matching storage.rules) and, unlike [FirebaseStorageRepository]
 /// (profile photos), never calls `getDownloadURL()` — that call
@@ -87,7 +89,7 @@ class FirebaseIdentityVerificationRepository implements IdentityVerificationRepo
         upload('selfie', selfieWithId, 'selfie_with_id.jpg'),
       ]);
 
-      await _functions.httpsCallable('submitIdentityVerification').call<Map<String, dynamic>>({
+      await _functions.httpsCallable('submitIdentityVerification', options: callableOptions()).call<Map<String, dynamic>>({
         'requestId': requestId,
         'idFrontPath': paths[0],
         'idBackPath': paths[1],

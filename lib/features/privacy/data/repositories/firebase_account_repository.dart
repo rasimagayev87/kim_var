@@ -10,6 +10,8 @@ import '../../../../core/utils/private_data_ref.dart';
 import '../../../auth/domain/entities/app_user.dart';
 import '../../domain/repositories/account_repository.dart';
 
+import '../../../../core/utils/callables.dart';
+
 class FirebaseAccountRepository implements AccountRepository {
   FirebaseAccountRepository({
     fb.FirebaseAuth? auth,
@@ -47,7 +49,7 @@ class FirebaseAccountRepository implements AccountRepository {
     }
 
     try {
-      await _functions.httpsCallable('deleteAccount').call<Map<String, dynamic>>();
+      await _functions.httpsCallable('deleteAccount', options: callableOptions()).call<Map<String, dynamic>>();
     } on FirebaseFunctionsException catch (e) {
       if (e.code == 'failed-precondition') {
         throw const ReauthenticationRequiredException();
@@ -240,6 +242,6 @@ class FirebaseAccountRepository implements AccountRepository {
     // source that can't be forged. The local `authEmail` read above is
     // kept only as a cheap "is there anything to sync at all" guard.
     if (authEmail.isEmpty) return;
-    await FirebaseFunctions.instance.httpsCallable('syncContactEmail').call<Map<String, dynamic>>();
+    await FirebaseFunctions.instance.httpsCallable('syncContactEmail', options: callableOptions()).call<Map<String, dynamic>>();
   }
 }

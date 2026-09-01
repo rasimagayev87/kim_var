@@ -10,6 +10,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../core/utils/private_data_ref.dart';
 import '../../domain/entities/user_profile.dart';
 
+import '../../../../core/utils/callables.dart';
+
 /// Firestore is the source of truth for the profile. SharedPreferences/
 /// secure storage are used ONLY as a local cache so the UI can paint
 /// instantly on app start (before the first Firestore snapshot arrives)
@@ -229,7 +231,7 @@ class ProfileController extends StateNotifier<UserProfile> {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
 
-    await _functions.httpsCallable('updateProfileDetails').call<Map<String, dynamic>>({
+    await _functions.httpsCallable('updateProfileDetails', options: callableOptions()).call<Map<String, dynamic>>({
       if (firstName != null) 'firstName': firstName,
       if (lastName != null) 'lastName': lastName,
       if (username != null) 'username': username,

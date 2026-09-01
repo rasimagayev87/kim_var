@@ -15,6 +15,8 @@ import '../../domain/repositories/pinbox_repository.dart';
 import '../datasources/firebase_pinbox_remote_datasource.dart';
 import '../datasources/pinbox_remote_datasource.dart';
 
+import '../../../../core/utils/callables.dart';
+
 class FirebasePinBoxRepository implements PinBoxRepository {
   FirebasePinBoxRepository({PinBoxRemoteDatasource? datasource, FirebaseFunctions? functions})
       : _datasource = datasource ?? FirebasePinBoxRemoteDatasource(),
@@ -133,7 +135,7 @@ class FirebasePinBoxRepository implements PinBoxRepository {
       );
     }
 
-    final result = await _functions.httpsCallable('updatePinBox').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('updatePinBox', options: callableOptions()).call<Map<String, dynamic>>({
       'pinboxId': pinboxId,
       'title': title,
       'description': description,
@@ -155,7 +157,7 @@ class FirebasePinBoxRepository implements PinBoxRepository {
 
   @override
   Future<void> resubmitPinBox(String pinboxId) async {
-    await _functions.httpsCallable('resubmitPinBox').call<Map<String, dynamic>>({
+    await _functions.httpsCallable('resubmitPinBox', options: callableOptions()).call<Map<String, dynamic>>({
       'pinboxId': pinboxId,
     });
   }
@@ -219,7 +221,7 @@ class FirebasePinBoxRepository implements PinBoxRepository {
     required String pinboxId,
     int quantity = 1,
   }) async {
-    final result = await _functions.httpsCallable('reservePinBoxOrder').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('reservePinBoxOrder', options: callableOptions()).call<Map<String, dynamic>>({
       'pinboxId': pinboxId,
       'quantity': quantity,
     });
@@ -247,7 +249,7 @@ class FirebasePinBoxRepository implements PinBoxRepository {
 
   @override
   Future<({String qrToken, DateTime expiresAt})> generateQrToken(String orderId) async {
-    final result = await _functions.httpsCallable('generatePinBoxQrToken').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('generatePinBoxQrToken', options: callableOptions()).call<Map<String, dynamic>>({
       'orderId': orderId,
     });
     final qrToken = result.data['qrToken'] as String;
@@ -260,7 +262,7 @@ class FirebasePinBoxRepository implements PinBoxRepository {
     required String venueId,
     required String code,
   }) async {
-    final result = await _functions.httpsCallable('redeemPinBoxOrder').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('redeemPinBoxOrder', options: callableOptions()).call<Map<String, dynamic>>({
       'venueId': venueId,
       'code': code,
     });

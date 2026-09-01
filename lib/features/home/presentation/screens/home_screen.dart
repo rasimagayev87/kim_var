@@ -11,6 +11,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../../core/utils/app_logger.dart';
+import '../../../app_config/domain/entities/app_config.dart';
+import '../../../app_config/presentation/providers/app_config_providers.dart';
 import '../../../calls/data/call_push_service.dart';
 import '../../../calls/domain/entities/call_session.dart';
 import '../../../calls/presentation/providers/call_providers.dart';
@@ -172,7 +174,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObse
       WidgetsBinding.instance.addPostFrameCallback((_) => _consumeRequestedTab());
     });
 
+    // Hiding the call BUTTONS is not enough. A document written by an
+    // older build, by a modified client, or straight into Firestore
+    // would otherwise still raise a full-screen incoming call on a user
+    // for whom the feature does not exist. The listener stays wired —
+    // no code is deleted — but it does nothing while calling is off.
+    //
+    // The server refuses the same thing independently (`onCallCreated`
+    // checks `config/features.callsEnabled` before sending any push),
+    // so neither side alone is load-bearing.
+    final callsEnabled = ref.watch(featureFlagProvider(FeatureFlag.calls));
     ref.listen(incomingCallProvider, (previous, next) {
+      if (!callsEnabled) return;
       // A failing stream must never look like "no incoming call".
       // `watchIncomingCall` gained an `IN` filter, which needs a
       // composite index; the index did not exist, the query errored,

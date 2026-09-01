@@ -14,6 +14,8 @@ import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../domain/location_failure.dart';
 import '../../domain/nearby_user.dart';
 
+import '../../../../core/utils/callables.dart';
+
 final locationControllerProvider =
     StateNotifierProvider<LocationController, AsyncValue<Position>>((ref) {
       // Same fix as chatListControllerProvider/notificationListControllerProvider
@@ -454,7 +456,7 @@ class _RemoteCandidate {
 /// silently bypassable client-side filters before this). Polling, not
 /// realtime — see [kNearbyRefreshSeconds]'s own doc comment.
 Stream<List<_RemoteCandidate>> _pollNearbyCandidates(GenderFilter genderFilter) async* {
-  final callable = FirebaseFunctions.instance.httpsCallable('findNearbyUsers');
+  final callable = FirebaseFunctions.instance.httpsCallable('findNearbyUsers', options: callableOptions());
   while (true) {
     try {
       final genderWire = _genderFilterWireValue(genderFilter);
@@ -500,6 +502,7 @@ Stream<List<_RemoteCandidate>> _pollDiscoverCandidates({
 }) async* {
   final callable = FirebaseFunctions.instance.httpsCallable(
     'getDiscoverCandidates',
+    options: callableOptions(),
   );
   while (true) {
     try {
@@ -583,7 +586,7 @@ final venueAudienceCountProvider = FutureProvider.autoDispose.family<
   ({String venueId, String mode, double lat, double lng, double radiusKm, String? country})
 >((ref, params) async {
   try {
-    final callable = FirebaseFunctions.instance.httpsCallable('previewVenueAudience');
+    final callable = FirebaseFunctions.instance.httpsCallable('previewVenueAudience', options: callableOptions());
     final result = await callable.call<Map<String, dynamic>>({
       'venueId': params.venueId,
       'mode': params.mode,

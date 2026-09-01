@@ -13,6 +13,8 @@ import '../../domain/repositories/offer_repository.dart';
 import '../datasources/firebase_offer_remote_datasource.dart';
 import '../datasources/offer_remote_datasource.dart';
 
+import '../../../../core/utils/callables.dart';
+
 class FirebaseOfferRepository implements OfferRepository {
   FirebaseOfferRepository({OfferRemoteDatasource? datasource, FirebaseFunctions? functions})
       : _datasource = datasource ?? FirebaseOfferRemoteDatasource(),
@@ -68,7 +70,7 @@ class FirebaseOfferRepository implements OfferRepository {
       );
     }
 
-    final result = await _functions.httpsCallable('submitOffer').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('submitOffer', options: callableOptions()).call<Map<String, dynamic>>({
       'offerId': offerId,
       'venueId': venueId,
       'title': title,
@@ -98,7 +100,7 @@ class FirebaseOfferRepository implements OfferRepository {
 
   @override
   Future<({String checkoutUrl, double feeAmount, String paymentId})> retryOfferPayment(String offerId) async {
-    final result = await _functions.httpsCallable('retryOfferPayment').call<Map<String, dynamic>>({'offerId': offerId});
+    final result = await _functions.httpsCallable('retryOfferPayment', options: callableOptions()).call<Map<String, dynamic>>({'offerId': offerId});
     final data = result.data;
     return (
       checkoutUrl: data['checkoutUrl'] as String,
@@ -141,7 +143,7 @@ class FirebaseOfferRepository implements OfferRepository {
       );
     }
 
-    final result = await _functions.httpsCallable('updateOffer').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('updateOffer', options: callableOptions()).call<Map<String, dynamic>>({
       'offerId': offerId,
       'category': category.name,
       'title': title,
@@ -243,12 +245,12 @@ class FirebaseOfferRepository implements OfferRepository {
 
   @override
   Future<void> resubmitOffer(String offerId) async {
-    await _functions.httpsCallable('resubmitOffer').call<Map<String, dynamic>>({'offerId': offerId});
+    await _functions.httpsCallable('resubmitOffer', options: callableOptions()).call<Map<String, dynamic>>({'offerId': offerId});
   }
 
   @override
   Future<({String checkoutUrl, double feeAmount, String paymentId})> createBoostCheckout(String offerId, int hours) async {
-    final result = await _functions.httpsCallable('createBoostCheckout').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('createBoostCheckout', options: callableOptions()).call<Map<String, dynamic>>({
       'offerId': offerId,
       'hours': hours,
     });

@@ -10,6 +10,8 @@ import '../../../../core/utils/app_logger.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/vip_package.dart';
 
+import '../../../../core/utils/callables.dart';
+
 /// Started once from `main.dart`, same pattern/reasoning as
 /// `startDeepLinkListener` — a subscription's own doc comment on
 /// `InAppPurchase.purchaseStream` says to listen "as early as possible"
@@ -82,7 +84,7 @@ Future<void> _onPurchaseUpdate(List<PurchaseDetails> purchases) async {
         // itself already succeeded from the store's point of view, this
         // app failing to verify it is this app's problem, not grounds
         // to leave the customer's transaction hanging.
-        await FirebaseFunctions.instance.httpsCallable('verifyInAppPurchase').call<Map<String, dynamic>>({
+        await FirebaseFunctions.instance.httpsCallable('verifyInAppPurchase', options: callableOptions()).call<Map<String, dynamic>>({
           'productId': purchase.productID,
           'platform': Platform.isIOS ? 'ios' : 'android',
           'receiptData': purchase.verificationData.serverVerificationData,

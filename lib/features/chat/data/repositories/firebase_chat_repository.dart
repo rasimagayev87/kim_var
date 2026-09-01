@@ -13,6 +13,8 @@ import '../../domain/entities/chat.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../domain/repositories/chat_repository.dart';
 
+import '../../../../core/utils/callables.dart';
+
 class FirebaseChatRepository implements ChatRepository {
   FirebaseChatRepository({FirebaseFirestore? firestore, FirebaseStorage? storage, SafetyRepository? safetyRepository})
       : _firestore = firestore ?? FirebaseFirestore.instance,
@@ -289,7 +291,7 @@ class FirebaseChatRepository implements ChatRepository {
       // pending-accepted checks in `_sendMessage` below) is unchanged.
       final ownMediaUrl = mediaUrl == null
           ? null
-          : (await FirebaseFunctions.instance.httpsCallable('forwardChatMedia').call<Map<String, dynamic>>({
+          : (await FirebaseFunctions.instance.httpsCallable('forwardChatMedia', options: callableOptions()).call<Map<String, dynamic>>({
               'sourceUrl': mediaUrl,
               'chatId': chatId,
               'messageId': messageRef.id,

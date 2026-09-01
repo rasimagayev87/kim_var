@@ -14,6 +14,8 @@ import 'epoint_card_checkout_screen.dart';
 import 'epoint_payment_result_screen.dart';
 import 'epoint_token_widget_screen.dart';
 
+import '../../core/utils/callables.dart';
+
 /// The ONE place every Epoint-backed checkout (offer placement fee,
 /// Boost, venue subscription — see `submitOffer`/`createBoostCheckout`/
 /// `retryOfferPayment`/`retryVenueSubscriptionPayment`, all of which
@@ -98,7 +100,7 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
     setState(() => _confirming = true);
     try {
       final result = await FirebaseFunctions.instance
-          .httpsCallable('createEpointWidgetCheckout')
+          .httpsCallable('createEpointWidgetCheckout', options: callableOptions(kPaymentCallableTimeout))
           .call<Map<String, dynamic>>({'paymentId': widget.paymentId});
       final widgetUrl = result.data['widgetUrl'] as String;
       if (!mounted) return;

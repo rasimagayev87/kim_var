@@ -12,6 +12,8 @@ import '../domain/incoming_call_filter.dart';
 import '../domain/call_repository.dart';
 import '../domain/entities/call_session.dart';
 
+import '../../../core/utils/callables.dart';
+
 /// Real, WebRTC-backed [CallRepository]. Signaling (the SDP offer/answer
 /// and trickled ICE candidates) rides on `calls/{callId}` the same way
 /// `FirebaseChatRepository` rides on `chats/{chatId}` — see
@@ -51,7 +53,7 @@ class FirebaseCallRepository implements CallRepository {
 
   Future<List<Map<String, dynamic>>> _iceServers() async {
     try {
-      final result = await _functions.httpsCallable('getTurnCredentials').call<Map<String, dynamic>>();
+      final result = await _functions.httpsCallable('getTurnCredentials', options: callableOptions()).call<Map<String, dynamic>>();
       final raw = (result.data['iceServers'] as List).cast<dynamic>();
       return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } catch (e, st) {

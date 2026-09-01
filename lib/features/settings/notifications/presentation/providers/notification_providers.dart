@@ -12,6 +12,8 @@ import '../../data/repositories/firebase_notification_preferences_repository.dar
 import '../../domain/entities/notification_preferences.dart';
 import '../../domain/repositories/notification_preferences_repository.dart';
 
+import '../../../../../core/utils/callables.dart';
+
 const Map<String, String> notificationCategoryTopics = {
   'messages': 'messages',
   'followers': 'followers',
@@ -184,7 +186,7 @@ class NotificationPreferencesController {
   Future<void> _addToken(String token) async {
     try {
       await FirebaseFunctions.instance
-          .httpsCallable('registerFcmToken')
+          .httpsCallable('registerFcmToken', options: callableOptions())
           .call<Map<String, dynamic>>({'token': token});
     } catch (e, st) {
       logError('notification_providers.NotificationPreferencesController._addToken', e, st);
@@ -207,7 +209,7 @@ class NotificationPreferencesController {
       // P0 / H-9 — see `_addToken` above. Deliberately still called
       // BEFORE sign-out: the callable needs a live `request.auth`.
       await FirebaseFunctions.instance
-          .httpsCallable('unregisterFcmToken')
+          .httpsCallable('unregisterFcmToken', options: callableOptions())
           .call<Map<String, dynamic>>({'token': token});
     } catch (e, st) {
       logError('notification_providers.NotificationPreferencesController.unregisterFcmToken', e, st);

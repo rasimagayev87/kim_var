@@ -12,6 +12,8 @@ import '../../domain/repositories/venue_repository.dart';
 import '../datasources/firebase_venue_remote_datasource.dart';
 import '../datasources/venue_remote_datasource.dart';
 
+import '../../../../core/utils/callables.dart';
+
 /// Maps between the domain `Venue` model and [VenueRemoteDatasource]'s
 /// raw Firestore/Storage primitives — this class owns "what shape does
 /// a venue document have" and "how do I turn form input into that
@@ -72,7 +74,7 @@ class FirebaseVenueRepository implements VenueRepository {
       onTaskReady: onUploadTaskReady,
     );
 
-    final result = await _functions.httpsCallable('submitVenue').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('submitVenue', options: callableOptions()).call<Map<String, dynamic>>({
       'venueId': venueId,
       'name': name,
       'category': category.name,
@@ -137,7 +139,7 @@ class FirebaseVenueRepository implements VenueRepository {
       );
     }
 
-    final result = await _functions.httpsCallable('updateVenue').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('updateVenue', options: callableOptions()).call<Map<String, dynamic>>({
       'venueId': venueId,
       'name': name,
       'category': category.name,
@@ -258,7 +260,7 @@ class FirebaseVenueRepository implements VenueRepository {
 
   @override
   Future<void> resubmitVenue(String venueId) async {
-    await _functions.httpsCallable('resubmitVenue').call<Map<String, dynamic>>({
+    await _functions.httpsCallable('resubmitVenue', options: callableOptions()).call<Map<String, dynamic>>({
       'venueId': venueId,
     });
   }
@@ -268,7 +270,7 @@ class FirebaseVenueRepository implements VenueRepository {
     String venueId, {
     ({String version, String documentUrl, String appVersion})? offerAcceptance,
   }) async {
-    final result = await _functions.httpsCallable('retryVenueSubscriptionPayment').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('retryVenueSubscriptionPayment', options: callableOptions()).call<Map<String, dynamic>>({
       'venueId': venueId,
       if (offerAcceptance != null)
         'offerAcceptance': {
@@ -288,7 +290,7 @@ class FirebaseVenueRepository implements VenueRepository {
 
   @override
   Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueCreationPayment(String venueId) async {
-    final result = await _functions.httpsCallable('retryVenueCreationPayment').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('retryVenueCreationPayment', options: callableOptions()).call<Map<String, dynamic>>({
       'venueId': venueId,
     });
     final data = result.data;
@@ -301,7 +303,7 @@ class FirebaseVenueRepository implements VenueRepository {
 
   @override
   Future<({String checkoutUrl, double feeAmount, String paymentId})> createVenuePremiumCheckout(String venueId, int months) async {
-    final result = await _functions.httpsCallable('createVenuePremiumCheckout').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('createVenuePremiumCheckout', options: callableOptions()).call<Map<String, dynamic>>({
       'venueId': venueId,
       'months': months,
     });

@@ -4178,10 +4178,44 @@ async function sendCallPush(uid: string, data: Record<string, string>): Promise<
  * dark until the "missed call" chat message arrived after the call had
  * already ended.
  */
+/**
+ * Server-side kill switch for calling, read from
+ * `config/features.callsEnabled`.
+ *
+ * Hiding the buttons in the app is not enough: a `calls` document can
+ * be written by an older build still on someone's phone, by a modified
+ * client, or directly against Firestore. Without this check the push
+ * would still go out and the callee's phone would ring for a feature
+ * that, as far as they are concerned, does not exist.
+ *
+ * A Firestore doc rather than a constant so the feature can be turned
+ * on without redeploying functions — matching the client, which reads
+ * `feature_calls_enabled` from Remote Config and therefore needs no new
+ * build either.
+ *
+ * Defaults to DISABLED when the document is missing or unreadable. A
+ * config failure must not quietly re-enable a feature that was
+ * deliberately withdrawn.
+ */
+async function callsEnabled(): Promise<boolean> {
+  try {
+    const snap = await db.collection("config").doc("features").get();
+    return snap.data()?.callsEnabled === true;
+  } catch (e) {
+    logger.error("callsEnabled: config/features unreadable", { error: e });
+    return false;
+  }
+}
+
 export const onCallCreated = onDocumentCreated("calls/{callId}", async (event) => {
   const call = event.data?.data();
   if (!call) return;
   if (call.status !== "ringing") return;
+
+  if (!(await callsEnabled())) {
+    logger.info("onCallCreated: calling disabled, no push sent", { callId: event.params.callId });
+    return;
+  }
 
   const callerId = call.callerId as string | undefined;
   const receiverId = call.receiverId as string | undefined;

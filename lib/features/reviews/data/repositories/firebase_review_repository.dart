@@ -5,6 +5,8 @@ import '../../../../core/utils/app_logger.dart';
 import '../../domain/entities/review.dart';
 import '../../domain/repositories/review_repository.dart';
 
+import '../../../../core/utils/callables.dart';
+
 class FirebaseReviewRepository implements ReviewRepository {
   FirebaseReviewRepository({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
 
@@ -47,7 +49,7 @@ class FirebaseReviewRepository implements ReviewRepository {
   @override
   Future<List<Review>> fetchVenueReviews(String venueId) async {
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('listVenueReviews');
+      final callable = FirebaseFunctions.instance.httpsCallable('listVenueReviews', options: callableOptions());
       final result = await callable.call<Map<String, dynamic>>({'venueId': venueId});
       final raw = (result.data['reviews'] as List).cast<dynamic>();
       return raw

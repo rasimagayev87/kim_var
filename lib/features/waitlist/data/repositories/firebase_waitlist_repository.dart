@@ -4,6 +4,8 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '../../domain/entities/waitlist_entry.dart';
 import '../../domain/repositories/waitlist_repository.dart';
 
+import '../../../../core/utils/callables.dart';
+
 class FirebaseWaitlistRepository implements WaitlistRepository {
   FirebaseWaitlistRepository({FirebaseFirestore? firestore, FirebaseFunctions? functions})
       : _firestore = firestore ?? FirebaseFirestore.instance,
@@ -23,7 +25,7 @@ class FirebaseWaitlistRepository implements WaitlistRepository {
     required String phoneNumber,
     String? note,
   }) async {
-    final result = await _functions.httpsCallable('joinWaitlist').call<Map<String, dynamic>>({
+    final result = await _functions.httpsCallable('joinWaitlist', options: callableOptions()).call<Map<String, dynamic>>({
       'venueId': venueId,
       'partySize': partySize,
       'phoneNumber': phoneNumber,

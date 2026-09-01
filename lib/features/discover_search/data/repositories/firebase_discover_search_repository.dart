@@ -6,6 +6,8 @@ import '../../../profile/domain/entities/public_profile.dart';
 import '../../../venues/domain/entities/venue.dart';
 import '../../domain/repositories/discover_search_repository.dart';
 
+import '../../../../core/utils/callables.dart';
+
 /// U+F8FF (Unicode's highest single code point below the private-
 /// use area) — appending it to a lowercased query and using it as
 /// the range's upper bound is the standard Firestore "prefix"
@@ -37,7 +39,7 @@ class FirebaseDiscoverSearchRepository implements DiscoverSearchRepository {
     if (q.isEmpty) return [];
 
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('searchUsersByUsername');
+      final callable = FirebaseFunctions.instance.httpsCallable('searchUsersByUsername', options: callableOptions());
       final result = await callable.call<Map<String, dynamic>>({'query': q});
       final raw = (result.data['profiles'] as List).cast<dynamic>();
       return raw.map((e) => _profileFromMap(Map<String, dynamic>.from(e as Map))).toList();
@@ -61,7 +63,7 @@ class FirebaseDiscoverSearchRepository implements DiscoverSearchRepository {
     if (q.isEmpty) return [];
 
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('searchUsersByName');
+      final callable = FirebaseFunctions.instance.httpsCallable('searchUsersByName', options: callableOptions());
       final result = await callable.call<Map<String, dynamic>>({'query': q});
       final raw = (result.data['profiles'] as List).cast<dynamic>();
       return raw.map((e) => _profileFromMap(Map<String, dynamic>.from(e as Map))).toList();

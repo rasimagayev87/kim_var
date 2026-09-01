@@ -14,6 +14,8 @@ import '../../../legal/legal_versions.dart';
 import '../../domain/entities/app_user.dart';
 import '../../domain/repositories/auth_repository.dart';
 
+import '../../../../core/utils/callables.dart';
+
 /// Production Firebase implementation of [AuthRepository].
 class FirebaseAuthRepository implements AuthRepository {
   final fb.FirebaseAuth _auth;
@@ -274,7 +276,7 @@ class FirebaseAuthRepository implements AuthRepository {
     // idempotent — a retried call after a dropped response is a no-op
     // success, not a duplicate-create error.
     try {
-      await _functions.httpsCallable('completeOnboarding').call<Map<String, dynamic>>({
+      await _functions.httpsCallable('completeOnboarding', options: callableOptions()).call<Map<String, dynamic>>({
         'username': normalizedUsername,
         'firstName': firstName,
         'lastName': lastName,

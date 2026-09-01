@@ -11,6 +11,8 @@ import '../../../../core/utils/private_data_ref.dart';
 import '../../../../l10n/app_localizations.dart';
 import 'consent_checkbox_row.dart';
 
+import '../../../../core/utils/callables.dart';
+
 /// One-shot, best-effort check — called once from `HomeScreen.initState`,
 /// same pattern as its other launch-time setup calls (`setOnline()`,
 /// `syncSubscriptions()`, etc.). Compares the signed-in user's stored
@@ -79,7 +81,7 @@ class _ConsentDialogState extends ConsumerState<_ConsentDialog> {
       // the field from any client write. The versions passed to this
       // widget still drive what the user is SHOWN — they just no longer
       // decide what gets recorded as agreed to.
-      await FirebaseFunctions.instance.httpsCallable('recordConsent').call<Map<String, dynamic>>();
+      await FirebaseFunctions.instance.httpsCallable('recordConsent', options: callableOptions()).call<Map<String, dynamic>>();
       if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e, st) {
