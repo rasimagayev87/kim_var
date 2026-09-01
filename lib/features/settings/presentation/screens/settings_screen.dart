@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -31,6 +32,8 @@ import '../../payments/presentation/screens/payments_screen.dart';
 import '../providers/app_version_provider.dart';
 
 import '../../../../core/widgets/pressable.dart';
+
+import '../../../../core/utils/app_logger.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -468,6 +471,11 @@ class _LogoutRow extends ConsumerStatefulWidget {
   ConsumerState<_LogoutRow> createState() => _LogoutRowState();
 }
 
+/// Ceiling for the fire-and-forget cleanup writes during logout. They
+/// no longer block anything, but an unbounded pending future would keep
+/// the old session's Firestore work alive after sign-out.
+const _logoutCleanupTimeout = Duration(seconds: 5);
+
 class _LogoutRowState extends ConsumerState<_LogoutRow> {
   bool _loggingOut = false;
 
@@ -475,22 +483,42 @@ class _LogoutRowState extends ConsumerState<_LogoutRow> {
     if (_loggingOut) return;
     setState(() => _loggingOut = true);
 
-    try {
-      await ref
+    // ORDER MATTERS, and it used to be wrong.
+    //
+    // Previously all three of `setOfflineNow`, `unregisterFcmToken` and
+    // `signOut` were awaited in sequence and only then did the app
+    // navigate — so tapping "log out" left the user staring at the
+    // settings screen for several seconds while network writes
+    // finished. `unregisterFcmToken` had no timeout at all.
+    //
+    // `signOut` IS awaited: it is the operation the user actually asked
+    // for, it is fast (local credential clearing), and leaving it in the
+    // background would drop the user on the welcome screen while still
+    // authenticated — a worse bug than the delay.
+    //
+    // The two housekeeping writes are fire-and-forget WITH timeouts.
+    // Neither changes what the user sees, and neither is worth a second
+    // of their time: a presence flag goes stale on its own, and a stale
+    // FCM token is pruned server-side by
+    // `pruneStaleTokensAndLogFailures` on the next failed send.
+    unawaited(
+      ref
           .read(presenceControllerProvider)
           .setOfflineNow()
-          .timeout(_presenceWriteTimeout, onTimeout: () {});
-    } catch (_) {
-      // Non-fatal — sign-out must proceed even if the presence write failed.
-    }
-
-    try {
-      await ref
+          .timeout(_presenceWriteTimeout, onTimeout: () {})
+          .catchError((Object e, StackTrace st) {
+            logError('settings_screen.logout.setOffline', e, st);
+          }),
+    );
+    unawaited(
+      ref
           .read(notificationPreferencesControllerProvider)
-          .unregisterFcmToken();
-    } catch (_) {
-      // Non-fatal — same reasoning as the presence write above.
-    }
+          .unregisterFcmToken()
+          .timeout(_logoutCleanupTimeout, onTimeout: () {})
+          .catchError((Object e, StackTrace st) {
+            logError('settings_screen.logout.unregisterToken', e, st);
+          }),
+    );
 
     try {
       await ref.read(authControllerProvider.notifier).signOut();

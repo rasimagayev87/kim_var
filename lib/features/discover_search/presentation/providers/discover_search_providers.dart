@@ -84,34 +84,75 @@ class DiscoverSearchController extends StateNotifier<DiscoverSearchState> {
   /// `allow get`, not `allow list`, so the username query's
   /// permission-denied was silently blanking name/venue results too
   /// even though those were never actually broken.
+  /// Three independent lookups, fired TOGETHER and rendered as each
+  /// one lands.
+  ///
+  /// They used to be awaited in sequence — username, then name, then
+  /// venues — so the wait was the sum of three round trips rather than
+  /// the longest one, and nothing appeared until all three were done.
+  ///
+  /// Results are merged incrementally rather than through a single
+  /// `Future.wait`: usernames usually resolve first, and showing them
+  /// immediately is better than holding a finished list back until the
+  /// slowest query returns. `isSearching` stays true until the last one
+  /// lands, so the spinner keeps running under whatever is already on
+  /// screen.
   Future<void> _runSearch(String query) async {
-    state = state.copyWith(isSearching: true);
-
-    final byUsername = await _guarded(
-      () => _repository.searchUsersByUsername(query),
-      'searchUsersByUsername',
-    );
-    final byName = await _guarded(
-      () => _repository.searchUsersByName(query),
-      'searchUsersByName',
-    );
-    final venues = await _guarded(
-      () => _repository.searchVenues(query),
-      'searchVenues',
+    state = state.copyWith(
+      isSearching: true,
+      users: const [],
+      venues: const [],
     );
 
-    // The user may have kept typing while this was in flight — a
-    // stale response for an earlier query landing after a newer one
-    // would otherwise flicker the results backwards.
+    // Every callback re-checks the query: the user keeps typing, and a
+    // response for an abandoned query must never overwrite the current
+    // one. There is no way to cancel an in-flight callable, so the
+    // result is discarded on arrival instead.
+    var byUsername = <PublicProfile>[];
+    var byName = <PublicProfile>[];
+
+    void mergeUsers() {
+      final seen = <String>{};
+      state = state.copyWith(
+        users: [
+          for (final user in [...byUsername, ...byName])
+            if (seen.add(user.id)) user,
+        ],
+      );
+    }
+
+    final usernameFuture =
+        _guarded(
+          () => _repository.searchUsersByUsername(query),
+          'searchUsersByUsername',
+        ).then((r) {
+          if (state.query != query) return;
+          byUsername = r;
+          mergeUsers();
+        });
+
+    final nameFuture =
+        _guarded(
+          () => _repository.searchUsersByName(query),
+          'searchUsersByName',
+        ).then((r) {
+          if (state.query != query) return;
+          byName = r;
+          mergeUsers();
+        });
+
+    final venuesFuture =
+        _guarded(() => _repository.searchVenues(query), 'searchVenues').then((
+          r,
+        ) {
+          if (state.query != query) return;
+          state = state.copyWith(venues: r);
+        });
+
+    await Future.wait([usernameFuture, nameFuture, venuesFuture]);
+
     if (state.query != query) return;
-
-    final seen = <String>{};
-    final users = <PublicProfile>[
-      for (final user in [...byUsername, ...byName])
-        if (seen.add(user.id)) user,
-    ];
-
-    state = state.copyWith(users: users, venues: venues, isSearching: false);
+    state = state.copyWith(isSearching: false);
   }
 
   Future<List<T>> _guarded<T>(

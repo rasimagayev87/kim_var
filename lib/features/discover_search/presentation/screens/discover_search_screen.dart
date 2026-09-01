@@ -180,9 +180,36 @@ class _SearchResultsList extends StatelessWidget {
       );
     }
 
+    // While searching with nothing yet to show, the screen used to be
+    // BLANK: `isSearching` only suppressed the "no results" text and the
+    // list below rendered as an empty `ListView`. The user could not
+    // tell the difference between "searching" and "nothing found".
+    if (state.isSearching && state.users.isEmpty && state.venues.isEmpty) {
+      return const Center(
+        child: SizedBox(
+          width: 22,
+          height: 22,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.2,
+            color: AppColors.primary,
+          ),
+        ),
+      );
+    }
+
     return ListView(
       padding: const EdgeInsets.only(bottom: 24),
       children: [
+        // Results already arrived, but a slower query is still running —
+        // a thin bar keeps that visible without hiding what is there.
+        if (state.isSearching)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 6),
+            child: LinearProgressIndicator(
+              minHeight: 2,
+              color: AppColors.primary,
+            ),
+          ),
         if (state.users.isNotEmpty) ...[
           _SectionHeader(loc.discoverSearchUsersSection),
           for (final user in state.users) _UserResultRow(user: user),

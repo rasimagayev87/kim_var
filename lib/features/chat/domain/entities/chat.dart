@@ -58,7 +58,18 @@ class Chat {
   /// `firestore.rules` blocks any client write to this field) whenever a
   /// uid's own "məndən sil" targets what was, at that moment, their own
   /// current preview. See [previewFor].
-  final Map<String, ({String text, MessageType? type})> lastMessageOverride;
+  /// Carries `at` — the `sentAt` of the message the override describes.
+  ///
+  /// Without it the override never expires. It was written once, when
+  /// "məndən sil" hid what was then the newest message, and then won
+  /// every comparison for ever: new messages updated `lastMessage` and
+  /// `lastMessageAt`, but the chat list kept rendering the frozen text.
+  /// Observed on device as a preview stuck on a message from the
+  /// previous day while the row's timestamp showed the newest one.
+  ///
+  /// The server has always written `at` (`onChatMessageDeletedForUser`);
+  /// the client simply dropped it while parsing.
+  final Map<String, ({String text, MessageType? type, DateTime? at})> lastMessageOverride;
 
   const Chat({
     required this.id,
@@ -106,7 +117,27 @@ class Chat {
   /// and why it can never come from a raw client write.
   ({String text, MessageType? type}) previewFor(String uid) {
     final override = lastMessageOverride[uid];
-    if (override != null) return override;
+    if (override != null && _overrideStillCurrent(override.at)) {
+      return (text: override.text, type: override.type);
+    }
     return (text: lastMessage, type: lastMessageType);
+  }
+
+  /// An override only describes the preview as of the message it was
+  /// computed from. Anything newer supersedes it.
+  ///
+  /// EQUAL counts as current, deliberately: when the hidden message was
+  /// itself the last one, the override's `at` is exactly
+  /// [lastMessageAt], and that is precisely the case the override
+  /// exists for. Treating equality as stale would show the deleted
+  /// message straight back.
+  ///
+  /// A missing `at` (documents written before the field existed) is
+  /// treated as current, so an old override still hides what it was
+  /// meant to hide rather than resurfacing a deleted message.
+  bool _overrideStillCurrent(DateTime? at) {
+    if (at == null) return true;
+    if (lastMessageAt == null) return true;
+    return !at.isBefore(lastMessageAt!);
   }
 }

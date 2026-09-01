@@ -682,12 +682,12 @@ class FirebaseChatRepository implements ChatRepository {
   /// write). Malformed entries are dropped rather than thrown on, same
   /// defensive spirit as [_safeVenue]-style parsing elsewhere in this
   /// codebase — one bad entry shouldn't blank a whole chat's preview.
-  Map<String, ({String text, MessageType? type})> _lastMessageOverrideFrom(
-    dynamic value,
-  ) {
+  /// `at` is parsed, not dropped — see `Chat.lastMessageOverride`.
+  Map<String, ({String text, MessageType? type, DateTime? at})>
+  _lastMessageOverrideFrom(dynamic value) {
     final raw = value as Map?;
     if (raw == null) return const {};
-    final result = <String, ({String text, MessageType? type})>{};
+    final result = <String, ({String text, MessageType? type, DateTime? at})>{};
     for (final entry in raw.entries) {
       final uid = entry.key as String?;
       final map = entry.value as Map?;
@@ -695,6 +695,7 @@ class FirebaseChatRepository implements ChatRepository {
       result[uid] = (
         text: map['text'] as String? ?? '',
         type: _typeFrom(map['type'] as String?),
+        at: (map['at'] as Timestamp?)?.toDate(),
       );
     }
     return result;
