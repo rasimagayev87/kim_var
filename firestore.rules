@@ -1280,10 +1280,20 @@ service cloud.firestore {
       // the call, or the caller attaching its SDP offer / callee
       // attaching its SDP answer — never a reassignment of who's on
       // the call.
+      // `deliveredAt` — "the callee's device is actually showing this
+      // call" — may be written ONLY by the callee.
+      //
+      // It drives the caller's "Zəng gedir" → "Zəng çalınır" text, and
+      // that distinction is only worth anything if it cannot be
+      // faked: a caller able to write it would show themselves a
+      // ringing phone that does not exist, which is worse than showing
+      // nothing, because it tells them to keep waiting.
       allow update: if request.auth != null &&
         request.auth.uid in resource.data.participants &&
         request.resource.data.participants == resource.data.participants &&
-        request.resource.data.callerId == resource.data.callerId;
+        request.resource.data.callerId == resource.data.callerId &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['deliveredAt']) ||
+          request.auth.uid == resource.data.receiverId);
 
       allow delete: if false;
 

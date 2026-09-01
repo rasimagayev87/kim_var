@@ -331,9 +331,11 @@ class FirebaseCallRepository implements CallRepository {
         'accepted' => CallStatus.accepted,
         'declined' => CallStatus.declined,
         'ended' => CallStatus.ended,
+        'busy' => CallStatus.busy,
         _ => CallStatus.ringing,
       },
       startedAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      deliveredAt: (data['deliveredAt'] as Timestamp?)?.toDate(),
     );
   }
 }

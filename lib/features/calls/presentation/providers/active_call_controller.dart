@@ -30,6 +30,12 @@ class ActiveCallUiState {
   final bool renderersReady;
   final bool hasRemoteVideo;
 
+  /// The callee's device has confirmed it is showing the incoming-call
+  /// UI (`calls/{id}.deliveredAt`). Only meaningful while `ringing`,
+  /// and only to the caller — it is what turns "Zəng gedir" into
+  /// "Zəng çalınır".
+  final bool delivered;
+
   final bool muted;
   final bool cameraOff;
   final bool speakerOn;
@@ -49,6 +55,7 @@ class ActiveCallUiState {
     this.remoteRenderer,
     this.renderersReady = false,
     this.hasRemoteVideo = false,
+    this.delivered = false,
     this.muted = false,
     this.cameraOff = false,
     this.speakerOn = false,
@@ -71,6 +78,7 @@ class ActiveCallUiState {
     RTCVideoRenderer? remoteRenderer,
     bool? renderersReady,
     bool? hasRemoteVideo,
+    bool? delivered,
     bool? muted,
     bool? cameraOff,
     bool? speakerOn,
@@ -89,6 +97,7 @@ class ActiveCallUiState {
       remoteRenderer: remoteRenderer ?? this.remoteRenderer,
       renderersReady: renderersReady ?? this.renderersReady,
       hasRemoteVideo: hasRemoteVideo ?? this.hasRemoteVideo,
+      delivered: delivered ?? this.delivered,
       muted: muted ?? this.muted,
       cameraOff: cameraOff ?? this.cameraOff,
       speakerOn: speakerOn ?? this.speakerOn,
@@ -194,8 +203,19 @@ class ActiveCallController extends StateNotifier<ActiveCallUiState> {
     } else {
       state = state.copyWith(status: session.status);
     }
+    // Latches: once the phone has rung, a later snapshot without the
+    // field must not walk the caller's text back to "Zəng gedir".
+    if (session.deliveredAt != null && !state.delivered) {
+      state = state.copyWith(delivered: true);
+    }
     _updateRingback(session.status);
-    if (session.status == CallStatus.declined || session.status == CallStatus.ended) {
+    // `busy` ends the call the same way a decline does — and
+    // deliberately goes through the SAME path, because that path is
+    // what logs the "missed call" chat message. The callee never saw
+    // the call, so the record is the only way they learn it happened.
+    if (session.status == CallStatus.declined ||
+        session.status == CallStatus.ended ||
+        session.status == CallStatus.busy) {
       unawaited(_finish());
     }
   }

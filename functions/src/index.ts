@@ -3588,6 +3588,21 @@ const CALL_RATE_WINDOW_SECONDS = 600;
 const CALL_UNANSWERED_LIMIT = 3;
 
 /**
+ * How old an `accepted` call may be before it stops meaning "this
+ * person is on a call".
+ *
+ * A call ends by a client writing `ended`. If that client dies mid-call
+ * — process killed, battery flat, network gone — the document stays
+ * `accepted` forever and its owner would read as permanently busy,
+ * unreachable by anyone, with nothing to tell them why.
+ *
+ * Two hours, matching `CHECKIN_EXPIRY_MS`, and for the same reason:
+ * state a client is responsible for clearing needs a server-side
+ * expiry, or one crash becomes permanent.
+ */
+const CALL_BUSY_STALE_MS = 2 * 60 * 60 * 1000;
+
+/**
  * A call's FCM payload. `data`-only, deliberately.
  *
  * A `notification` block would make Android draw a system notification
@@ -3676,6 +3691,34 @@ export const onCallCreated = onDocumentCreated("calls/{callId}", async (event) =
     return;
   }
 
+  // ── Already on a call ──────────────────────────────────────────
+  //
+  // A second call must not interrupt a conversation in progress. The
+  // in-call state is `accepted` — there is no `active` status in this
+  // codebase (`CallStatus { ringing, accepted, declined, ended }`).
+  //
+  // Marked `busy` rather than left ringing so the caller learns why
+  // immediately, and so the caller's own client runs its normal end-of
+  // -call path — which is what writes the "missed call" chat message,
+  // so the callee still sees afterwards that someone rang.
+  const ongoing = await db
+    .collection("calls")
+    .where("participants", "array-contains", receiverId)
+    .where("status", "==", "accepted")
+    .get();
+  const busyCutoff = Date.now() - CALL_BUSY_STALE_MS;
+  const reallyBusy = ongoing.docs.some((d) => {
+    if (d.id === event.params.callId) return false;
+    const startedAt = (d.data().createdAt as Timestamp | undefined)?.toMillis();
+    // A stale `accepted` document is a crashed client, not a
+    // conversation — see CALL_BUSY_STALE_MS.
+    return startedAt !== undefined && startedAt > busyCutoff;
+  });
+  if (reallyBusy) {
+    await event.data!.ref.update({ status: "busy" });
+    return;
+  }
+
   const caller = (await db.collection("users").doc(callerId).get()).data() ?? {};
   const callerName = [caller.firstName, caller.lastName].filter(Boolean).join(" ").trim();
 
@@ -3706,6 +3749,10 @@ export const onCallUpdated = onDocumentUpdated("calls/{callId}", async (event) =
   const after = event.data?.after.data();
   if (!before || !after) return;
   if (before.status !== "ringing" || after.status === "ringing") return;
+
+  // `busy` never rang, so there is no notification to dismiss and no
+  // push to send — the caller learns from the document itself.
+  if (after.status === "busy") return;
 
   const receiverId = after.receiverId as string | undefined;
   if (!receiverId) return;

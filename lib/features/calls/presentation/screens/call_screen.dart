@@ -87,7 +87,14 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
     final isVideo = widget.type == CallType.video;
     final statusText = switch (call.status) {
-      CallStatus.ringing => loc.callStatusRinging,
+      // "Zəng gedir" vs "Zəng çalınır" — the WhatsApp distinction, and
+      // it is a real one: until the callee's device confirms it is
+      // showing the call (`deliveredAt`), nobody knows whether the
+      // other phone is ringing or switched off. Showing "çalınır"
+      // regardless tells the caller to keep waiting for something that
+      // may never happen.
+      CallStatus.ringing => call.delivered ? loc.callStatusRinging : loc.callStatusDialing,
+      CallStatus.busy => loc.callStatusBusy,
       CallStatus.accepted => call.duration == Duration.zero ? loc.callStatusConnecting : _formatDuration(call.duration),
       CallStatus.declined => loc.callDeclinedMessage,
       CallStatus.ended => loc.callEndedMessage,

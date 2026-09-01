@@ -14,7 +14,7 @@
  */
 import { after, before, describe, test } from "node:test";
 import { assertFails, assertSucceeds, RulesTestEnvironment } from "@firebase/rules-unit-testing";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { createTestEnv, userFixture } from "./helpers.ts";
 
 let env: RulesTestEnvironment;
@@ -108,5 +108,37 @@ describe("zəng — mövcud qatlar pozulmayıb", () => {
   test("anonim zəng edə bilmir", async () => {
     const db = env.unauthenticatedContext().firestore();
     await assertFails(setDoc(doc(db, "calls", "cg-anon"), callDoc(A, B)));
+  });
+});
+
+describe("deliveredAt — yalnız qəbul edən yaza bilər", () => {
+  // "Zəng çalınır" mətni yalnız saxtalaşdırıla bilmədikdə dəyər
+  // daşıyır: zəng edən onu özü yaza bilsəydi, mövcud olmayan bir
+  // çalan telefon göstərərdi — bu, heç nə göstərməkdən pisdir, çünki
+  // adama gözləməyi deyir.
+  test("qəbul edən yaza bilir", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "calls", "cg-deliv"), callDoc(A, B));
+    });
+    const db = env.authenticatedContext(B).firestore();
+    await assertSucceeds(updateDoc(doc(db, "calls", "cg-deliv"), { deliveredAt: new Date() }));
+  });
+
+  test("ZƏNG EDƏN yaza bilmir", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "calls", "cg-deliv2"), callDoc(A, B));
+    });
+    const db = env.authenticatedContext(A).firestore();
+    await assertFails(updateDoc(doc(db, "calls", "cg-deliv2"), { deliveredAt: new Date() }));
+  });
+
+  test("zəng edən digər sahələri hələ də yeniləyə bilir", async () => {
+    // Məhdudiyyət dar olmalıdır — zəng edən öz zəngini bitirə bilməsə
+    // qayda funksiyanı sındırardı.
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "calls", "cg-deliv3"), callDoc(A, B));
+    });
+    const db = env.authenticatedContext(A).firestore();
+    await assertSucceeds(updateDoc(doc(db, "calls", "cg-deliv3"), { status: "ended" }));
   });
 });

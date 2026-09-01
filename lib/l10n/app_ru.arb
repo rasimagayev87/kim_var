@@ -1697,5 +1697,7 @@
   "eventStatusPending": "На проверке",
   "eventStatusRejected": "Не опубликовано",
   "eventQuotaExhausted": "Вы исчерпали лимит в {limit} мероприятий за период. Квота обновится {date}.",
-  "eventQuotaRemaining": "В этом периоде осталось {count} мероприятий (из {limit})"
+  "eventQuotaRemaining": "В этом периоде осталось {count} мероприятий (из {limit})",
+  "callStatusDialing": "Идёт вызов…",
+  "callStatusBusy": "Занято"
 }

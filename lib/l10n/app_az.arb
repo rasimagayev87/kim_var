@@ -1697,5 +1697,7 @@
   "eventStatusPending": "Baxışdadır",
   "eventStatusRejected": "Yayımlanmadı",
   "eventQuotaExhausted": "Bu dövrdə {limit} tədbir limitiniz doldu. Kvota {date} yenilənir.",
-  "eventQuotaRemaining": "Bu dövrdə {count} tədbir hüququnuz qalıb ({limit} -dan)"
+  "eventQuotaRemaining": "Bu dövrdə {count} tədbir hüququnuz qalıb ({limit} -dan)",
+  "callStatusDialing": "Zəng gedir…",
+  "callStatusBusy": "Məşğuldur"
 }

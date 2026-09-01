@@ -1811,5 +1811,7 @@
   "eventStatusPending": "In review",
   "eventStatusRejected": "Not published",
   "eventQuotaExhausted": "You have reached your limit of {limit} events this period. Quota renews on {date}.",
-  "eventQuotaRemaining": "You have {count} events left this period (of {limit})"
+  "eventQuotaRemaining": "You have {count} events left this period (of {limit})",
+  "callStatusDialing": "Calling…",
+  "callStatusBusy": "Busy"
 }

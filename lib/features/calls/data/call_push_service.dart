@@ -83,6 +83,11 @@ Future<void> handleCallPush(Map<String, dynamic> data) async {
       await FlutterCallkitIncoming.showCallkitIncoming(
         _incomingCallParams(callId, data),
       );
+      // Marked AFTER the UI is up, not on receipt of the push: the
+      // caller's "Zəng çalınır" must mean a phone is actually ringing,
+      // not that a message arrived somewhere. One extra write per call,
+      // and `firestore.rules` lets only the callee make it.
+      unawaited(_markDelivered(callId));
     } else if (type == CallPushService._cancelled) {
       // Without this the full-screen UI stays up until the OS times it
       // out, and the callee answers a call that ended minutes ago.
@@ -90,6 +95,19 @@ Future<void> handleCallPush(Map<String, dynamic> data) async {
     }
   } catch (e, st) {
     logError('call_push_service.handleCallPush', e, st);
+  }
+}
+
+/// Best-effort: a failure here costs the caller a more precise label,
+/// nothing more, so it must never stop the phone ringing.
+Future<void> _markDelivered(String callId) async {
+  try {
+    await FirebaseFirestore.instance
+        .collection('calls')
+        .doc(callId)
+        .update({'deliveredAt': FieldValue.serverTimestamp()});
+  } catch (e, st) {
+    logError('call_push_service.markDelivered', e, st);
   }
 }
 
