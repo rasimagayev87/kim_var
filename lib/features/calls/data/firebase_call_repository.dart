@@ -179,6 +179,24 @@ class FirebaseCallRepository implements CallRepository {
 
   @override
   Future<void> acceptCall(String callId) async {
+    // Two paths can reach here for the SAME call: the in-app
+    // `IncomingCallScreen` button, and `_resumeAcceptedCall` when the
+    // document turns up as `accepted` (an answer given on the OS call
+    // screen). Once the in-app button has run, the document IS
+    // `accepted`, so the second path fires against a call this device
+    // already set up.
+    //
+    // That second run is not merely wasted. `_openPeerConnection` and
+    // `_openLocalStream` store into `_peerConnections[callId]` /
+    // `_localStreams[callId]`, overwriting the live entries, and the
+    // losing transaction then calls `_cleanup(callId)` — which closes
+    // the connection the FIRST run built and is actively using.
+    // Observed on device as `answerWrite won=false` followed by a call
+    // that connected and then went silent.
+    //
+    // One connection per call, owned by whoever got here first.
+    if (_peerConnections.containsKey(callId)) return;
+
     final callDoc = _calls.doc(callId);
     final snap = await callDoc.get();
     final data = snap.data();
@@ -220,7 +238,10 @@ class FirebaseCallRepository implements CallRepository {
 
     logTrace('acceptCall.answerWrite', 'callId=$callId won=$won');
     if (!won) {
-      // Another device (or a decline that raced us) owns this call.
+      // Another DEVICE owns this call (the guard above already excludes
+      // a second run on this one). Tear down only what this invocation
+      // opened — `_cleanup` is safe here precisely because the guard
+      // guarantees these entries are ours.
       await _cleanup(callId);
       return;
     }

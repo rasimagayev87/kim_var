@@ -42,7 +42,6 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
-    unawaited(_seedFromLastKnown());
     state = await AsyncValue.guard(_getPosition);
     final position = state.valueOrNull;
     if (position != null) {
@@ -63,40 +62,42 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
     }
   }
 
-  /// Set once the notification-permission request has finished, so the
-  /// two never overlap.
+  /// Completed once the LOCATION permission request has resolved, so
+  /// the notification request can queue behind it.
   ///
-  /// Android shows ONE permission dialog at a time: a second request
-  /// made while another is in flight is dropped without ever appearing.
-  /// That is what left a fresh install with no location prompt at all —
-  /// `HomeScreen.initState` fires `syncSubscriptions()` (notifications)
-  /// and `DiscoverTab.build` builds this controller in the same frame,
-  /// so the location dialog lost the race and the map sat on a spinner
-  /// until the app was backgrounded and resumed.
-  static Completer<void>? _permissionGate;
+  /// Android shows one permission dialog at a time and silently drops
+  /// whichever asks second. Originally both were fired in the same
+  /// frame (`HomeScreen.initState` → `syncSubscriptions`, and
+  /// `DiscoverTab.build` → this controller), and location lost — a
+  /// fresh install got no location prompt at all and the map sat on a
+  /// spinner.
+  ///
+  /// Location goes FIRST, deliberately. Discover is the landing screen
+  /// and cannot draw anything without a position, while notifications
+  /// affect nothing the user is currently looking at. Ordering it the
+  /// other way round meant every first launch stared at a spinner
+  /// waiting for a dialog about something else.
+  static Completer<void> _locationPermissionSettled = Completer<void>();
 
-  /// Opens the gate. Called after the notification request settles.
-  static void releasePermissionGate() {
-    _permissionGate ??= Completer<void>();
-    if (!_permissionGate!.isCompleted) _permissionGate!.complete();
+  /// Awaited by the notification flow — see `syncSubscriptions`.
+  ///
+  /// The 5s ceiling is a safety net, not a delay: this completes as
+  /// soon as the location dialog is answered. It only matters if that
+  /// dialog never resolves, and notifications must not be lost to a
+  /// stuck location flow.
+  static Future<void> awaitLocationPermission() {
+    return _locationPermissionSettled.future
+        .timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 
-  /// Closed at startup by `main()`; anything asking for a position
-  /// before the gate opens waits rather than racing.
-  static void closePermissionGate() {
-    _permissionGate = Completer<void>();
+  static void _markLocationPermissionSettled() {
+    if (!_locationPermissionSettled.isCompleted) _locationPermissionSettled.complete();
   }
 
   Future<Position> _getPosition() async {
-    final gate = _permissionGate;
-    if (gate != null && !gate.isCompleted) {
-      // Bounded: if the notification flow never settles (a crash, a
-      // dialog the user leaves open), location must not be hostage to
-      // it — a missing prompt is worse than an overlapping one.
-      await gate.future.timeout(const Duration(seconds: 10), onTimeout: () {});
-    }
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
+      _markLocationPermissionSettled();
       throw const LocationException(LocationFailure.serviceDisabled);
     }
 
@@ -104,13 +105,25 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
+        _markLocationPermissionSettled();
         throw const LocationException(LocationFailure.permissionDenied);
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
+      _markLocationPermissionSettled();
       throw const LocationException(LocationFailure.permissionDeniedForever);
     }
+    // Whatever the answer, the dialog is gone — notifications may ask now.
+    _markLocationPermissionSettled();
+
+    // Now that permission is actually held, the OS's cached fix can be
+    // read and painted while the real one is still being acquired.
+    // Seeding BEFORE this point (where it used to be) always failed:
+    // `getLastKnownPosition` performs its own permission check, and at
+    // the top of `refresh()` the permission has not been requested yet,
+    // so it threw every time and delivered nothing.
+    unawaited(_seedFromLastKnown());
 
     // A cold GPS can take a minute to reach a high-accuracy fix, and
     // `getCurrentPosition` has no default deadline — which is how a

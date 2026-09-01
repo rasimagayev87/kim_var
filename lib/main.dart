@@ -142,10 +142,7 @@ void main() async {
   // Proves the release log channel reaches `logcat` before anything
   // relies on it — see `logStartupMarker`.
   logStartupMarker('${packageInfo.version}+${packageInfo.buildNumber}');
-  // Closed here so the first position request waits for the
-  // notification prompt to settle — Android shows one dialog at a time
-  // and drops whichever asks second. Opened by `syncSubscriptions`.
-  LocationController.closePermissionGate();
+
 
   runApp(ProviderScope(
     overrides: [

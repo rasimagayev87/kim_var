@@ -131,11 +131,18 @@ class NotificationPreferencesController {
     final uid = _currentUid();
     if (uid == null) return;
     try {
-      // Location waits on this: two permission dialogs requested in the
-      // same frame meant the second never appeared (see
-      // `LocationController.closePermissionGate`). `finally` below opens
-      // the gate whatever happens here — a failed notification request
-      // must not cost the user their map.
+      // Queue behind the location prompt. Android shows one permission
+      // dialog at a time and silently drops whichever asks second, and
+      // both used to be requested in the same frame — location lost, so
+      // a fresh install never got a location prompt and Discover sat on
+      // a spinner.
+      //
+      // Location goes first because Discover is the landing screen and
+      // cannot draw without a position; a notification prompt affects
+      // nothing the user is looking at yet. The wait ends as soon as
+      // the location dialog is answered — the 5s inside is only a
+      // ceiling for a location flow that never resolves.
+      await LocationController.awaitLocationPermission();
       await FirebaseMessaging.instance.requestPermission();
       final repo = _ref.read(notificationPreferencesRepositoryProvider);
       final prefs = await repo.watchPreferences(uid).first;
@@ -150,8 +157,6 @@ class NotificationPreferencesController {
       await _registerFcmToken(uid);
     } catch (e, st) {
       logError('notification_providers.NotificationPreferencesController.syncSubscriptions', e, st);
-    } finally {
-      LocationController.releasePermissionGate();
     }
   }
 
