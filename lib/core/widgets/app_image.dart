@@ -23,14 +23,17 @@ String? deriveThumbnailUrl(String url) {
 
   final pathStart = markerIndex + marker.length;
   final queryIndex = url.indexOf('?', pathStart);
-  final encodedPath = queryIndex == -1 ? url.substring(pathStart) : url.substring(pathStart, queryIndex);
+  final encodedPath = queryIndex == -1
+      ? url.substring(pathStart)
+      : url.substring(pathStart, queryIndex);
   final query = queryIndex == -1 ? '' : url.substring(queryIndex);
 
   final dotIndex = encodedPath.lastIndexOf('.');
   if (dotIndex <= 0) return null;
   if (encodedPath.substring(0, dotIndex).endsWith('_200x200')) return null;
 
-  final resizedPath = '${encodedPath.substring(0, dotIndex)}_200x200${encodedPath.substring(dotIndex)}';
+  final resizedPath =
+      '${encodedPath.substring(0, dotIndex)}_200x200${encodedPath.substring(dotIndex)}';
   return '${url.substring(0, pathStart)}$resizedPath$query';
 }
 
@@ -87,13 +90,13 @@ class AppImage extends StatelessWidget {
       errorBuilder: thumbnailUrl == null
           ? errorBuilder
           : (context, error, stackTrace) => Image.network(
-                url,
-                fit: fit,
-                width: width,
-                height: height,
-                loadingBuilder: loadingBuilder,
-                errorBuilder: errorBuilder,
-              ),
+              url,
+              fit: fit,
+              width: width,
+              height: height,
+              loadingBuilder: loadingBuilder,
+              errorBuilder: errorBuilder,
+            ),
     );
   }
 }

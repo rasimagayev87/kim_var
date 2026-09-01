@@ -31,7 +31,9 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final config = ref.watch(appConfigProvider);
-    final message = config.maintenanceMessage.isNotEmpty ? config.maintenanceMessage : loc.maintenanceDefaultMessage;
+    final message = config.maintenanceMessage.isNotEmpty
+        ? config.maintenanceMessage
+        : loc.maintenanceDefaultMessage;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -41,18 +43,29 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.build_circle_outlined, size: 72, color: AppColors.primary),
+              const Icon(
+                Icons.build_circle_outlined,
+                size: 72,
+                color: AppColors.primary,
+              ),
               const SizedBox(height: 24),
               Text(
                 loc.maintenanceTitle,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.white),
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.white,
+                ),
               ),
               const SizedBox(height: 12),
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: AppColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 32),
               SizedBox(
@@ -62,17 +75,26 @@ class _MaintenanceScreenState extends ConsumerState<MaintenanceScreen> {
                   onPressed: _checking ? null : _retry,
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: AppColors.primary),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                   ),
                   child: _checking
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.primary,
+                          ),
                         )
                       : Text(
                           loc.maintenanceRetryButton,
-                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.primary),
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
                         ),
                 ),
               ),

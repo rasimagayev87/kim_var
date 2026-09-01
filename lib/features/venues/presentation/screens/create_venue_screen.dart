@@ -22,6 +22,8 @@ import '../widgets/business_offer_consent_row.dart';
 import '../widgets/opening_hours_editor.dart';
 import 'venue_location_picker_screen.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Venues is a light-theme exception like the chat screens — every
 /// color below comes from [ChatLightColors]/[AppColors.primary]
 /// rather than the app's global dark [ThemeData], so widgets that
@@ -78,7 +80,8 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
   /// choice).
   late bool _birthdayNotificationsEnabled =
       widget.existingVenue?.birthdayNotificationsEnabled ??
-      (_category != null && kBirthdayEligibleVenueCategories.contains(_category));
+      (_category != null &&
+          kBirthdayEligibleVenueCategories.contains(_category));
   File? _photo;
   bool _submitting = false;
   Set<VenueFieldError> _fieldErrors = {};
@@ -125,7 +128,10 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      checkLostPhotoOnResume((file) => setState(() => _photo = file), aspectRatio: _photoAspectRatio);
+      checkLostPhotoOnResume(
+        (file) => setState(() => _photo = file),
+        aspectRatio: _photoAspectRatio,
+      );
     }
   }
 
@@ -193,14 +199,17 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
       setState(() {
         _category = selected;
         if (!_isEditing) {
-          _birthdayNotificationsEnabled = kBirthdayEligibleVenueCategories.contains(selected);
+          _birthdayNotificationsEnabled = kBirthdayEligibleVenueCategories
+              .contains(selected);
         }
       });
     }
   }
 
-  Future<void> _pickPhoto() =>
-      pickPhoto((file) => setState(() => _photo = file), aspectRatio: _photoAspectRatio);
+  Future<void> _pickPhoto() => pickPhoto(
+    (file) => setState(() => _photo = file),
+    aspectRatio: _photoAspectRatio,
+  );
 
   Future<void> _submit() async {
     if (!mounted) return;
@@ -297,7 +306,12 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
     if (result == null) return;
 
     if (!mounted) return;
-    await presentEpointCheckout(context, checkoutUrl: result.checkoutUrl, paymentId: result.paymentId, feeAmount: result.feeAmount);
+    await presentEpointCheckout(
+      context,
+      checkoutUrl: result.checkoutUrl,
+      paymentId: result.paymentId,
+      feeAmount: result.feeAmount,
+    );
 
     if (!mounted) return;
     Navigator.pop(context);
@@ -367,7 +381,9 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
 
     if (success) {
       if (sentForReReview) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.venueSentForReReviewNotice)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.venueSentForReReviewNotice)));
       }
       Navigator.pop(context);
     }
@@ -524,7 +540,9 @@ class _CreateVenueScreenState extends ConsumerState<CreateVenueScreen>
                     width: double.infinity,
                     height: 52,
                     child: ElevatedButton(
-                      onPressed: _submitting || (!_isEditing && !_offerAccepted) ? null : _submit,
+                      onPressed: _submitting || (!_isEditing && !_offerAccepted)
+                          ? null
+                          : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         disabledBackgroundColor: AppColors.primary.withValues(
@@ -626,10 +644,7 @@ class _AudienceRadiusSelector extends StatelessWidget {
   final DiscoverRadiusSelection value;
   final ValueChanged<DiscoverRadiusSelection> onChanged;
 
-  const _AudienceRadiusSelector({
-    required this.value,
-    required this.onChanged,
-  });
+  const _AudienceRadiusSelector({required this.value, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -682,7 +697,7 @@ class _AudienceRadiusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
@@ -724,7 +739,7 @@ class _AudienceRadiusMoreChip extends StatelessWidget {
     final loc = AppLocalizations.of(context);
     final color = selected ? ChatLightColors.contourLine : ChatLightColors.ink;
 
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -768,10 +783,8 @@ void _showMoreAudienceRadiusSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (_) => _MoreAudienceRadiusPanel(
-      value: value,
-      onSelected: onSelected,
-    ),
+    builder: (_) =>
+        _MoreAudienceRadiusPanel(value: value, onSelected: onSelected),
   );
 }
 
@@ -859,17 +872,27 @@ class _BirthdayNotificationsToggle extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  const _BirthdayNotificationsToggle({required this.value, required this.onChanged});
+  const _BirthdayNotificationsToggle({
+    required this.value,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadii.input)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadii.input),
+      ),
       child: Row(
         children: [
-          const Icon(Icons.cake_outlined, size: 20, color: ChatLightColors.inkSoft),
+          const Icon(
+            Icons.cake_outlined,
+            size: 20,
+            color: ChatLightColors.inkSoft,
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -877,17 +900,28 @@ class _BirthdayNotificationsToggle extends StatelessWidget {
               children: [
                 Text(
                   loc.venueBirthdayNotificationsTitle,
-                  style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w600,
+                    color: ChatLightColors.ink,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   loc.venueBirthdayNotificationsHint,
-                  style: const TextStyle(fontSize: 12, color: ChatLightColors.inkSoft),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: ChatLightColors.inkSoft,
+                  ),
                 ),
               ],
             ),
           ),
-          Switch(value: value, onChanged: onChanged, activeThumbColor: AppColors.primary),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeThumbColor: AppColors.primary,
+          ),
         ],
       ),
     );
@@ -1045,7 +1079,7 @@ class _CategoryField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GestureDetector(
+        Pressable(
           onTap: onTap,
           child: Container(
             padding: const EdgeInsets.all(14),
@@ -1156,145 +1190,154 @@ class _CategoryPickerSheetState extends State<_CategoryPickerSheet> {
         .toList();
 
     return Container(
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       child: SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 14),
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: ChatLightColors.inkFaint.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                loc.venueCategoryPickerTitle,
+                style: const TextStyle(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w700,
+                  color: ChatLightColors.ink,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
                 decoration: BoxDecoration(
-                  color: ChatLightColors.inkFaint.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(2),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppRadii.input),
+                  border: Border.all(
+                    color: ChatLightColors.inkFaint.withValues(alpha: 0.18),
+                  ),
                 ),
-              ),
-            ),
-            Text(
-              loc.venueCategoryPickerTitle,
-              style: const TextStyle(
-                fontSize: 16.5,
-                fontWeight: FontWeight.w700,
-                color: ChatLightColors.ink,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(AppRadii.input),
-                border: Border.all(
-                  color: ChatLightColors.inkFaint.withValues(alpha: 0.18),
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              child: Row(
-                children: [
-                  Icon(Icons.search, size: 18, color: ChatLightColors.inkSoft),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      autofocus: false,
-                      onChanged: (v) => setState(() => _query = v),
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        color: ChatLightColors.ink,
-                      ),
-                      decoration: InputDecoration(
-                        hintText: loc.venueCategorySearchHint,
-                        hintStyle: TextStyle(
-                          color: ChatLightColors.inkFaint,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.search,
+                      size: 18,
+                      color: ChatLightColors.inkSoft,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextField(
+                        autofocus: false,
+                        onChanged: (v) => setState(() => _query = v),
+                        style: const TextStyle(
                           fontSize: 14.5,
+                          color: ChatLightColors.ink,
                         ),
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        errorBorder: InputBorder.none,
-                        focusedErrorBorder: InputBorder.none,
-                        disabledBorder: InputBorder.none,
-                        isDense: true,
-                        filled: false,
-                        contentPadding: const EdgeInsets.symmetric(
-                          vertical: 11,
+                        decoration: InputDecoration(
+                          hintText: loc.venueCategorySearchHint,
+                          hintStyle: TextStyle(
+                            color: ChatLightColors.inkFaint,
+                            fontSize: 14.5,
+                          ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          errorBorder: InputBorder.none,
+                          focusedErrorBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          isDense: true,
+                          filled: false,
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 11,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Flexible(
-              child: ListView.builder(
-                shrinkWrap: true,
-                padding: const EdgeInsets.only(top: 4, bottom: 4),
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final category = categories[index];
-                  final isSelected = category == widget.selected;
-                  return Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: () => Navigator.pop(context, category),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 11,
-                        ),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppColors.primary.withValues(alpha: 0.14)
-                                    : ChatLightColors.cardSurface,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Icon(
-                                venueCategoryIcon(category),
-                                size: 18,
-                                color: isSelected
-                                    ? AppColors.primary
-                                    : ChatLightColors.ink,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                venueCategoryLabel(loc, category),
-                                style: const TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w600,
-                                  color: ChatLightColors.ink,
+              const SizedBox(height: 8),
+              Flexible(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.only(top: 4, bottom: 4),
+                  itemCount: categories.length,
+                  itemBuilder: (context, index) {
+                    final category = categories[index];
+                    final isSelected = category == widget.selected;
+                    return Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => Navigator.pop(context, category),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 11,
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: isSelected
+                                      ? AppColors.primary.withValues(
+                                          alpha: 0.14,
+                                        )
+                                      : ChatLightColors.cardSurface,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  venueCategoryIcon(category),
+                                  size: 18,
+                                  color: isSelected
+                                      ? AppColors.primary
+                                      : ChatLightColors.ink,
                                 ),
                               ),
-                            ),
-                            if (isSelected)
-                              const Icon(
-                                Icons.check,
-                                size: 18,
-                                color: AppColors.primary,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  venueCategoryLabel(loc, category),
+                                  style: const TextStyle(
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: ChatLightColors.ink,
+                                  ),
+                                ),
                               ),
-                          ],
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check,
+                                  size: 18,
+                                  color: AppColors.primary,
+                                ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
@@ -1317,7 +1360,7 @@ class _LocationPickerField extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.lg),
@@ -1500,7 +1543,7 @@ class _VenuePhotoPicker extends StatelessWidget {
     final hasExisting = file == null && (existingUrl?.isNotEmpty ?? false);
     final hasAnyPhoto = file != null || hasExisting;
 
-    return GestureDetector(
+    return Pressable(
       onTap: onPick,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -1565,7 +1608,7 @@ class _VenuePhotoPicker extends StatelessWidget {
       alignment: Alignment.topRight,
       child: Padding(
         padding: const EdgeInsets.all(AppSpacing.sm),
-        child: GestureDetector(
+        child: Pressable(
           onTap: onRemove,
           child: Container(
             padding: const EdgeInsets.all(5),

@@ -55,7 +55,8 @@ List<OfferFieldError> _missingFields({
   if (photo == null && !hasExistingPhoto) missing.add(OfferFieldError.photo);
   if (title.trim().isEmpty) missing.add(OfferFieldError.title);
   if (category == null) missing.add(OfferFieldError.category);
-  if (requireVenue && (venueId == null || venueId.isEmpty)) missing.add(OfferFieldError.venue);
+  if (requireVenue && (venueId == null || venueId.isEmpty))
+    missing.add(OfferFieldError.venue);
   if (offerType == null) missing.add(OfferFieldError.offerType);
   const typesWithDiscountValue = {
     OfferType.discount,
@@ -67,7 +68,8 @@ List<OfferFieldError> _missingFields({
   if (typesWithDiscountValue.contains(offerType) && discountValue == null) {
     missing.add(OfferFieldError.discountValue);
   }
-  if (offerType == OfferType.happyHour && (activeHours == null || activeDays.isEmpty)) {
+  if (offerType == OfferType.happyHour &&
+      (activeHours == null || activeDays.isEmpty)) {
     missing.add(OfferFieldError.activeHours);
   }
   if (startDate == null || endDate == null || endDate.isBefore(startDate)) {
@@ -129,7 +131,9 @@ ValidatedOfferFields validateOfferFields({
     description: description.trim(),
     category: category!,
     offerType: offerType!,
-    discountValue: typesWithDiscountValue.contains(offerType) ? discountValue : null,
+    discountValue: typesWithDiscountValue.contains(offerType)
+        ? discountValue
+        : null,
     startDate: startDate!,
     endDate: endDate!,
     activeHours: isHappyHour ? activeHours : null,
@@ -205,9 +209,15 @@ class CreateOfferUseCase {
       terms: terms,
       activeHours: fields.activeHours,
       activeDays: fields.activeDays,
-      birthdayMatchId: fields.offerType == OfferType.birthday ? birthdayMatchId : null,
-      targetUserIds: fields.offerType == OfferType.birthday ? targetUserIds : const [],
-      personalMessage: fields.offerType == OfferType.birthday ? personalMessage : null,
+      birthdayMatchId: fields.offerType == OfferType.birthday
+          ? birthdayMatchId
+          : null,
+      targetUserIds: fields.offerType == OfferType.birthday
+          ? targetUserIds
+          : const [],
+      personalMessage: fields.offerType == OfferType.birthday
+          ? personalMessage
+          : null,
       onUploadProgress: onUploadProgress,
       onUploadTaskReady: onUploadTaskReady,
     );

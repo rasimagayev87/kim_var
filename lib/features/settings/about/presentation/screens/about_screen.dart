@@ -22,7 +22,11 @@ class AboutScreen extends ConsumerWidget {
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.white),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: AppColors.white,
+          ),
         ),
         title: Text(loc.settingsAboutRowTitle),
       ),
@@ -36,11 +40,22 @@ class AboutScreen extends ConsumerWidget {
                   GlowLogo(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(24),
-                      child: Image.asset('assets/icon.png', width: 84, height: 84, fit: BoxFit.cover),
+                      child: Image.asset(
+                        'assets/icon.png',
+                        width: 84,
+                        height: 84,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Text('PeakPin', style: AppTextStyles.h1.copyWith(fontSize: 22, fontWeight: FontWeight.w800)),
+                  Text(
+                    'PeakPin',
+                    style: AppTextStyles.h1.copyWith(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   SettingsPill(label: versionAsync.valueOrNull ?? ''),
                 ],
@@ -57,7 +72,10 @@ class AboutScreen extends ConsumerWidget {
                 SettingsMenuRow(
                   icon: Icons.share_outlined,
                   title: loc.aboutSocialMediaTitle,
-                  trailing: SettingsPill(label: loc.aboutSocialMediaComingSoonLabel, color: AppColors.textMuted),
+                  trailing: SettingsPill(
+                    label: loc.aboutSocialMediaComingSoonLabel,
+                    color: AppColors.textMuted,
+                  ),
                 ),
               ],
             ),
@@ -66,7 +84,10 @@ class AboutScreen extends ConsumerWidget {
               child: Text(
                 loc.aboutCopyrightText,
                 textAlign: TextAlign.center,
-                style: AppTextStyles.caption.copyWith(fontSize: 12, color: AppColors.textMuted),
+                style: AppTextStyles.caption.copyWith(
+                  fontSize: 12,
+                  color: AppColors.textMuted,
+                ),
               ),
             ),
           ],
@@ -79,7 +100,9 @@ class AboutScreen extends ConsumerWidget {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (_) {
         return SafeArea(
           top: false,
@@ -89,14 +112,28 @@ class AboutScreen extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(loc.aboutWhatsNewTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+                Text(
+                  loc.aboutWhatsNewTitle,
+                  style: AppTextStyles.cardTitle.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
                 const SizedBox(height: 14),
                 Text(
                   loc.aboutChangelogV1Title,
-                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700, color: AppColors.white),
+                  style: AppTextStyles.body.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.white,
+                  ),
                 ),
                 const SizedBox(height: 6),
-                Text(loc.aboutChangelogV1Body, style: AppTextStyles.caption.copyWith(fontSize: 13.5, height: 1.6)),
+                Text(
+                  loc.aboutChangelogV1Body,
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 13.5,
+                    height: 1.6,
+                  ),
+                ),
               ],
             ),
           ),

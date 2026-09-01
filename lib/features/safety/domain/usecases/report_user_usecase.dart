@@ -12,7 +12,8 @@ class ReportUserUseCase {
     String? chatId,
   }) {
     final trimmedReason = reason.trim();
-    if (trimmedReason.isEmpty || reporterId == reportedId) return Future.value();
+    if (trimmedReason.isEmpty || reporterId == reportedId)
+      return Future.value();
     return _repository.reportUser(
       reporterId: reporterId,
       reportedId: reportedId,

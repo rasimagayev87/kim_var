@@ -32,6 +32,7 @@ enum NotificationType {
   /// feature would just need its own Cloud Function producer, nothing
   /// client-side.
   mention,
+
   /// RETIRED — the per-listing "new offer nearby" fan-out was replaced
   /// by the daily digest (`dailyOffersDigest`). Nothing sends this any
   /// more; it stays in the enum so notifications already in users'

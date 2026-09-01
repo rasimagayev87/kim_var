@@ -24,14 +24,24 @@ class LiveFeedSeatsSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final venuesAsync = ref.watch(nearbyVenuesProvider);
-    final eligibleCategories = ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
+    final eligibleCategories =
+        ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
 
     return venuesAsync.when(
       data: (venues) {
-        final withSeats = venues
-            .where((v) => (v.venue.availableSeats ?? 0) > 0 && eligibleCategories.contains(v.venue.category))
-            .toList()
-          ..sort((a, b) => (b.venue.seatsUpdatedAt ?? DateTime(0)).compareTo(a.venue.seatsUpdatedAt ?? DateTime(0)));
+        final withSeats =
+            venues
+                .where(
+                  (v) =>
+                      (v.venue.availableSeats ?? 0) > 0 &&
+                      eligibleCategories.contains(v.venue.category),
+                )
+                .toList()
+              ..sort(
+                (a, b) => (b.venue.seatsUpdatedAt ?? DateTime(0)).compareTo(
+                  a.venue.seatsUpdatedAt ?? DateTime(0),
+                ),
+              );
         if (withSeats.isEmpty) return const SizedBox.shrink();
         final latest = withSeats.take(3).toList();
 
@@ -44,7 +54,12 @@ class LiveFeedSeatsSection extends ConsumerWidget {
                 icon: Icons.event_seat_outlined,
                 iconColor: AppColors.cyanDark,
                 title: loc.liveFeedSectionSeatsNow,
-                onSeeAll: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LiveFeedAllSeatsScreen())),
+                onSeeAll: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LiveFeedAllSeatsScreen(),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -55,7 +70,10 @@ class LiveFeedSeatsSection extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: latest.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 10),
-                itemBuilder: (context, index) => LiveFeedSeatCard(venue: latest[index].venue, width: _kCardWidth),
+                itemBuilder: (context, index) => LiveFeedSeatCard(
+                  venue: latest[index].venue,
+                  width: _kCardWidth,
+                ),
               ),
             ),
           ],

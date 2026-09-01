@@ -24,7 +24,8 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final cards = ref.watch(savedCardsProvider).valueOrNull ?? const <SavedCard>[];
+    final cards =
+        ref.watch(savedCardsProvider).valueOrNull ?? const <SavedCard>[];
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -46,27 +47,40 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
                   title: loc.paymentHistoryRowTitle,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const PaymentHistoryScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const PaymentHistoryScreen(),
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 24),
-            Text(loc.myCardsTitle, style: AppTextStyles.sectionTitle.copyWith(fontSize: 17)),
+            Text(
+              loc.myCardsTitle,
+              style: AppTextStyles.sectionTitle.copyWith(fontSize: 17),
+            ),
             const SizedBox(height: 12),
             if (cards.isEmpty)
               _EmptyCardsState(loading: _addingCard, onAddCard: _openAddCard)
             else ...[
               SettingsGroup(
                 children: [
-                  for (final card in cards) SavedCardRow(card: card, onTap: () => _showCardOptions(card)),
+                  for (final card in cards)
+                    SavedCardRow(
+                      card: card,
+                      onTap: () => _showCardOptions(card),
+                    ),
                 ],
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: _addingCard ? null : _openAddCard,
                 icon: _addingCard
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Icon(Icons.add, size: 18),
                 label: Text(loc.addCardButton),
               ),
@@ -82,12 +96,21 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
     final loc = AppLocalizations.of(context);
     setState(() => _addingCard = true);
     try {
-      final checkoutUrl = await ref.read(savedCardRepositoryProvider).startCardRegistration();
+      final checkoutUrl = await ref
+          .read(savedCardRepositoryProvider)
+          .startCardRegistration();
       if (!mounted) return;
-      await Navigator.push(context, MaterialPageRoute(builder: (_) => EpointCardCheckoutScreen(checkoutUrl: checkoutUrl)));
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => EpointCardCheckoutScreen(checkoutUrl: checkoutUrl),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
     } finally {
       if (mounted) setState(() => _addingCard = false);
     }
@@ -98,7 +121,9 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) => SafeArea(
         top: false,
         child: Column(
@@ -107,8 +132,14 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
             const SizedBox(height: 8),
             if (!card.isDefault)
               ListTile(
-                leading: const Icon(Icons.check_circle_outline, color: AppColors.primary),
-                title: Text(loc.cardOptionsSetDefault, style: AppTextStyles.body.copyWith(fontSize: 15)),
+                leading: const Icon(
+                  Icons.check_circle_outline,
+                  color: AppColors.primary,
+                ),
+                title: Text(
+                  loc.cardOptionsSetDefault,
+                  style: AppTextStyles.body.copyWith(fontSize: 15),
+                ),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   _setDefault(card);
@@ -116,7 +147,13 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
               ),
             ListTile(
               leading: const Icon(Icons.delete_outline, color: AppColors.error),
-              title: Text(loc.cardOptionsDelete, style: AppTextStyles.body.copyWith(fontSize: 15, color: AppColors.error)),
+              title: Text(
+                loc.cardOptionsDelete,
+                style: AppTextStyles.body.copyWith(
+                  fontSize: 15,
+                  color: AppColors.error,
+                ),
+              ),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _confirmDelete(card);
@@ -135,7 +172,9 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
       await ref.read(savedCardRepositoryProvider).setDefaultCard(card.id);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
     }
   }
 
@@ -145,10 +184,16 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
-        title: Text(loc.cardOptionsDelete, style: const TextStyle(fontWeight: FontWeight.w700)),
+        title: Text(
+          loc.cardOptionsDelete,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
         content: Text(loc.cardDeleteConfirmMessage),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -163,7 +208,9 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
       await ref.read(savedCardRepositoryProvider).deleteCard(card.id);
     } catch (_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
     }
   }
 }
@@ -179,10 +226,17 @@ class _EmptyCardsState extends StatelessWidget {
     final loc = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-      decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Column(
         children: [
-          const Icon(Icons.credit_card_outlined, color: AppColors.textMuted, size: 32),
+          const Icon(
+            Icons.credit_card_outlined,
+            color: AppColors.textMuted,
+            size: 32,
+          ),
           const SizedBox(height: 12),
           Text(loc.noCardsMessage, style: AppTextStyles.caption),
           const SizedBox(height: 16),
@@ -192,7 +246,10 @@ class _EmptyCardsState extends StatelessWidget {
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.onAccent,
+                    ),
                   )
                 : const Icon(Icons.add, size: 18, color: AppColors.onAccent),
             label: Text(loc.addCardButton),

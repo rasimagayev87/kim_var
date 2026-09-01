@@ -22,7 +22,11 @@ class FollowButton extends ConsumerWidget {
   final String otherUid;
   final String displayName;
 
-  const FollowButton({super.key, required this.otherUid, required this.displayName});
+  const FollowButton({
+    super.key,
+    required this.otherUid,
+    required this.displayName,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,15 +34,20 @@ class FollowButton extends ConsumerWidget {
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
     if (myUid == null) return const SizedBox.shrink();
 
-    final isFollowing = ref.watch(isFollowingProvider(otherUid)).valueOrNull ?? false;
-    final isPending = ref.watch(isPendingFollowRequestProvider(otherUid)).valueOrNull ?? false;
-    final privacy = ref.watch(otherUserPrivacySettingsProvider(otherUid)).valueOrNull ?? const PrivacySettings();
+    final isFollowing =
+        ref.watch(isFollowingProvider(otherUid)).valueOrNull ?? false;
+    final isPending =
+        ref.watch(isPendingFollowRequestProvider(otherUid)).valueOrNull ??
+        false;
+    final privacy =
+        ref.watch(otherUserPrivacySettingsProvider(otherUid)).valueOrNull ??
+        const PrivacySettings();
 
     final label = isFollowing
         ? loc.followingButton
         : isPending
-            ? loc.followRequestSentLabel
-            : loc.followButton;
+        ? loc.followRequestSentLabel
+        : loc.followButton;
 
     return ProfileActionButton(
       label: label,
@@ -47,32 +56,51 @@ class FollowButton extends ConsumerWidget {
           ? null
           : () async {
               if (isFollowing) {
-                final confirmed = await _confirmUnfollow(context, loc, displayName);
+                final confirmed = await _confirmUnfollow(
+                  context,
+                  loc,
+                  displayName,
+                );
                 if (confirmed != true || !context.mounted) return;
               }
-              final success = await ref.read(followControllerProvider).toggleFollow(
+              final success = await ref
+                  .read(followControllerProvider)
+                  .toggleFollow(
                     otherUid: otherUid,
                     isCurrentlyFollowing: isFollowing,
                     isCurrentlyPending: isPending,
-                    otherAccountIsPrivate: privacy.accountPrivacy == AccountPrivacy.private,
+                    otherAccountIsPrivate:
+                        privacy.accountPrivacy == AccountPrivacy.private,
                   );
               if (!success && context.mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.followErrorMessage)));
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(loc.followErrorMessage)));
               }
             },
     );
   }
 }
 
-Future<bool?> _confirmUnfollow(BuildContext context, AppLocalizations loc, String displayName) {
+Future<bool?> _confirmUnfollow(
+  BuildContext context,
+  AppLocalizations loc,
+  String displayName,
+) {
   return showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
       backgroundColor: Colors.white,
-      title: Text(loc.unfollowButton, style: const TextStyle(fontWeight: FontWeight.w700)),
+      title: Text(
+        loc.unfollowButton,
+        style: const TextStyle(fontWeight: FontWeight.w700),
+      ),
       content: Text(loc.unfollowConfirmMessage(displayName)),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: Text(loc.actionCancel),
+        ),
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, true),
           style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -92,11 +120,18 @@ class ProfileActionButton extends StatelessWidget {
   final bool tonal;
   final VoidCallback? onPressed;
 
-  const ProfileActionButton({super.key, required this.label, required this.tonal, required this.onPressed});
+  const ProfileActionButton({
+    super.key,
+    required this.label,
+    required this.tonal,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final background = tonal ? AppColors.primary.withValues(alpha: 0.12) : AppColors.primary;
+    final background = tonal
+        ? AppColors.primary.withValues(alpha: 0.12)
+        : AppColors.primary;
     final foreground = tonal ? AppColors.primary : AppColors.onAccent;
 
     return Material(
@@ -113,7 +148,11 @@ class ProfileActionButton extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: GoogleFonts.manrope(fontSize: 13.5, fontWeight: FontWeight.w600, color: foreground),
+            style: GoogleFonts.manrope(
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+              color: foreground,
+            ),
           ),
         ),
       ),

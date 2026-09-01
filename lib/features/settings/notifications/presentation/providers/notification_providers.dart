@@ -27,9 +27,10 @@ const Map<String, String> notificationCategoryTopics = {
   'marketing': 'marketing',
 };
 
-final notificationPreferencesRepositoryProvider = Provider<NotificationPreferencesRepository>((ref) {
-  return FirebaseNotificationPreferencesRepository();
-});
+final notificationPreferencesRepositoryProvider =
+    Provider<NotificationPreferencesRepository>((ref) {
+      return FirebaseNotificationPreferencesRepository();
+    });
 
 /// The OS-level permission — separate from [NotificationPreferences],
 /// which is this app's own stored preference and stays "on" regardless
@@ -37,24 +38,28 @@ final notificationPreferencesRepositoryProvider = Provider<NotificationPreferenc
 /// Bildirişlər screen's "denied, go to Settings" banner: a user who
 /// denied the permission once has no other way to discover why push
 /// never arrives, since every in-app toggle still reads as enabled.
-final notificationPermissionStatusProvider = FutureProvider.autoDispose<ph.PermissionStatus>((ref) {
-  return ph.Permission.notification.status;
-});
+final notificationPermissionStatusProvider =
+    FutureProvider.autoDispose<ph.PermissionStatus>((ref) {
+      return ph.Permission.notification.status;
+    });
 
 String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
 
-final notificationPreferencesProvider = StreamProvider.autoDispose<NotificationPreferences>((ref) {
-  // Forces a rebuild on sign-out/sign-in — without it, a quick account
-  // switch can resurrect this provider still bound to the previous
-  // uid before autoDispose's own teardown-triggered disposal fires,
-  // silently showing the PREVIOUS account's notification toggles
-  // under the new session. Same fix pattern as
-  // `chatListControllerProvider`/`_premiumStatusProvider`.
-  ref.watch(authStateProvider);
-  final uid = _currentUid();
-  if (uid == null) return Stream.value(const NotificationPreferences());
-  return ref.watch(notificationPreferencesRepositoryProvider).watchPreferences(uid);
-});
+final notificationPreferencesProvider =
+    StreamProvider.autoDispose<NotificationPreferences>((ref) {
+      // Forces a rebuild on sign-out/sign-in — without it, a quick account
+      // switch can resurrect this provider still bound to the previous
+      // uid before autoDispose's own teardown-triggered disposal fires,
+      // silently showing the PREVIOUS account's notification toggles
+      // under the new session. Same fix pattern as
+      // `chatListControllerProvider`/`_premiumStatusProvider`.
+      ref.watch(authStateProvider);
+      final uid = _currentUid();
+      if (uid == null) return Stream.value(const NotificationPreferences());
+      return ref
+          .watch(notificationPreferencesRepositoryProvider)
+          .watchPreferences(uid);
+    });
 
 /// Every toggle on the Bildirişlər screen goes through here. Category
 /// toggles and the push master toggle keep the on-device FCM topic
@@ -83,7 +88,11 @@ class NotificationPreferencesController {
       }
       return true;
     } catch (e, st) {
-      logError('notification_providers.NotificationPreferencesController.toggleCategory', e, st);
+      logError(
+        'notification_providers.NotificationPreferencesController.toggleCategory',
+        e,
+        st,
+      );
       return false;
     }
   }
@@ -104,7 +113,11 @@ class NotificationPreferencesController {
       }
       return true;
     } catch (e, st) {
-      logError('notification_providers.NotificationPreferencesController.togglePush', e, st);
+      logError(
+        'notification_providers.NotificationPreferencesController.togglePush',
+        e,
+        st,
+      );
       return false;
     }
   }
@@ -113,10 +126,16 @@ class NotificationPreferencesController {
     final uid = _currentUid();
     if (uid == null) return false;
     try {
-      await _ref.read(notificationPreferencesRepositoryProvider).updatePreferences(uid, {'emailEnabled': value});
+      await _ref
+          .read(notificationPreferencesRepositoryProvider)
+          .updatePreferences(uid, {'emailEnabled': value});
       return true;
     } catch (e, st) {
-      logError('notification_providers.NotificationPreferencesController.toggleEmail', e, st);
+      logError(
+        'notification_providers.NotificationPreferencesController.toggleEmail',
+        e,
+        st,
+      );
       return false;
     }
   }
@@ -149,7 +168,8 @@ class NotificationPreferencesController {
       final repo = _ref.read(notificationPreferencesRepositoryProvider);
       final prefs = await repo.watchPreferences(uid).first;
       for (final entry in notificationCategoryTopics.entries) {
-        final shouldSubscribe = prefs.pushEnabled && prefs.categoryValue(entry.key);
+        final shouldSubscribe =
+            prefs.pushEnabled && prefs.categoryValue(entry.key);
         if (shouldSubscribe) {
           await repo.subscribeToTopic(entry.value);
         } else {
@@ -158,7 +178,11 @@ class NotificationPreferencesController {
       }
       await _registerFcmToken(uid);
     } catch (e, st) {
-      logError('notification_providers.NotificationPreferencesController.syncSubscriptions', e, st);
+      logError(
+        'notification_providers.NotificationPreferencesController.syncSubscriptions',
+        e,
+        st,
+      );
     }
   }
 
@@ -189,7 +213,11 @@ class NotificationPreferencesController {
           .httpsCallable('registerFcmToken', options: callableOptions())
           .call<Map<String, dynamic>>({'token': token});
     } catch (e, st) {
-      logError('notification_providers.NotificationPreferencesController._addToken', e, st);
+      logError(
+        'notification_providers.NotificationPreferencesController._addToken',
+        e,
+        st,
+      );
     }
   }
 
@@ -212,11 +240,16 @@ class NotificationPreferencesController {
           .httpsCallable('unregisterFcmToken', options: callableOptions())
           .call<Map<String, dynamic>>({'token': token});
     } catch (e, st) {
-      logError('notification_providers.NotificationPreferencesController.unregisterFcmToken', e, st);
+      logError(
+        'notification_providers.NotificationPreferencesController.unregisterFcmToken',
+        e,
+        st,
+      );
     }
   }
 }
 
-final notificationPreferencesControllerProvider = Provider<NotificationPreferencesController>((ref) {
-  return NotificationPreferencesController(ref);
-});
+final notificationPreferencesControllerProvider =
+    Provider<NotificationPreferencesController>((ref) {
+      return NotificationPreferencesController(ref);
+    });

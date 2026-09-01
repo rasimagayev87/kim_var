@@ -6,7 +6,9 @@ import '../../data/repositories/firebase_support_repository.dart';
 import '../../domain/entities/support_message.dart';
 import '../../domain/repositories/support_repository.dart';
 
-final supportRepositoryProvider = Provider<SupportRepository>((ref) => FirebaseSupportRepository());
+final supportRepositoryProvider = Provider<SupportRepository>(
+  (ref) => FirebaseSupportRepository(),
+);
 
 class SupportController {
   SupportController(this._ref);
@@ -17,7 +19,9 @@ class SupportController {
     final uid = fb.FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return false;
     try {
-      await _ref.read(supportRepositoryProvider).sendMessage(uid: uid, type: type, message: message);
+      await _ref
+          .read(supportRepositoryProvider)
+          .sendMessage(uid: uid, type: type, message: message);
       return true;
     } catch (e, st) {
       logError('support_providers.SupportController.sendMessage', e, st);
@@ -26,4 +30,6 @@ class SupportController {
   }
 }
 
-final supportControllerProvider = Provider<SupportController>((ref) => SupportController(ref));
+final supportControllerProvider = Provider<SupportController>(
+  (ref) => SupportController(ref),
+);

@@ -6,7 +6,8 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../venues/domain/entities/venue.dart';
 import '../../../venues/presentation/providers/venue_providers.dart';
-import '../../../venues/presentation/screens/create_venue_screen.dart' show venueCategoryLabel;
+import '../../../venues/presentation/screens/create_venue_screen.dart'
+    show venueCategoryLabel;
 import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../providers/birthday_feed_providers.dart';
 import '../screens/birthday_opportunities_screen.dart';
@@ -53,7 +54,9 @@ class LiveFeedBirthdaySection extends ConsumerWidget {
                 title: loc.birthdaySectionTitle,
                 onSeeAll: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const BirthdayOpportunitiesScreen()),
+                  MaterialPageRoute(
+                    builder: (_) => const BirthdayOpportunitiesScreen(),
+                  ),
                 ),
               ),
             ),
@@ -61,7 +64,11 @@ class LiveFeedBirthdaySection extends ConsumerWidget {
               padding: const EdgeInsets.only(left: 20, top: 2),
               child: Text(
                 loc.birthdaySectionSubtitle,
-                style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: ChatLightColors.inkSoft),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: ChatLightColors.inkSoft,
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -72,7 +79,8 @@ class LiveFeedBirthdaySection extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: ids.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, index) => BirthdayVenueCard(venueId: ids[index], width: _kCardWidth),
+                itemBuilder: (context, index) =>
+                    BirthdayVenueCard(venueId: ids[index], width: _kCardWidth),
               ),
             ),
             // The gap to the next section belongs to THIS widget, not
@@ -116,7 +124,9 @@ class BirthdayVenueCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(18),
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => VenueProfileScreen(venueId: venueId)),
+            MaterialPageRoute(
+              builder: (_) => VenueProfileScreen(venueId: venueId),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,7 +135,9 @@ class BirthdayVenueCard extends ConsumerWidget {
               AspectRatio(
                 aspectRatio: 1.3,
                 child: ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(18),
+                  ),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
@@ -133,13 +145,19 @@ class BirthdayVenueCard extends ConsumerWidget {
                           ? AppImage(venue.photoUrl!, fit: BoxFit.cover)
                           : Container(
                               color: ChatLightColors.cardSurface,
-                              child: Icon(venueCategoryIcon(venue.category), color: ChatLightColors.inkSoft),
+                              child: Icon(
+                                venueCategoryIcon(venue.category),
+                                color: ChatLightColors.inkSoft,
+                              ),
                             ),
                       Positioned(
                         top: 8,
                         left: 8,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: kBirthdayAccent,
                             borderRadius: BorderRadius.circular(999),
@@ -164,14 +182,22 @@ class BirthdayVenueCard extends ConsumerWidget {
                       venue.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: ChatLightColors.ink),
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w800,
+                        color: ChatLightColors.ink,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       venueCategoryLabel(loc, venue.category),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: ChatLightColors.inkSoft),
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w600,
+                        color: ChatLightColors.inkSoft,
+                      ),
                     ),
                   ],
                 ),

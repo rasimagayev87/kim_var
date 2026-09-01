@@ -38,9 +38,15 @@ class _DeleteAccountRowState extends ConsumerState<DeleteAccountRow> {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
         title: Text(title, style: AppTextStyles.cardTitle),
-        content: Text(message, style: AppTextStyles.body.copyWith(fontSize: 14.5)),
+        content: Text(
+          message,
+          style: AppTextStyles.body.copyWith(fontSize: 14.5),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -74,7 +80,9 @@ class _DeleteAccountRowState extends ConsumerState<DeleteAccountRow> {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (_) => const _TypeToConfirmSheet(),
     );
     if (typedConfirm != true || !mounted) return;
@@ -101,7 +109,9 @@ class _DeleteAccountRowState extends ConsumerState<DeleteAccountRow> {
         context: context,
         isScrollControlled: true,
         backgroundColor: AppColors.surface,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
         builder: (_) => const ReauthSheet(),
       );
       if (reauthed == true && mounted) {
@@ -111,7 +121,9 @@ class _DeleteAccountRowState extends ConsumerState<DeleteAccountRow> {
       logError('delete_account_row', e, st);
       if (!mounted) return;
       setState(() => _busy = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.deleteAccountErrorMessage)));
     }
   }
 
@@ -127,7 +139,14 @@ class _DeleteAccountRowState extends ConsumerState<DeleteAccountRow> {
       titleColor: AppColors.error,
       onTap: _busy ? null : _startFlow,
       trailing: _busy
-          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.error))
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.error,
+              ),
+            )
           : null,
     );
   }
@@ -163,14 +182,27 @@ class _TypeToConfirmSheetState extends State<_TypeToConfirmSheet> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(loc.deleteAccountFinalConfirmTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              loc.deleteAccountFinalConfirmTitle,
+              style: AppTextStyles.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text(loc.accountDeleteConfirmWordLabel, style: AppTextStyles.caption.copyWith(height: 1.4)),
+            Text(
+              loc.accountDeleteConfirmWordLabel,
+              style: AppTextStyles.caption.copyWith(height: 1.4),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: _controller,
@@ -178,7 +210,8 @@ class _TypeToConfirmSheetState extends State<_TypeToConfirmSheet> {
               textCapitalization: TextCapitalization.characters,
               style: AppTextStyles.body.copyWith(fontSize: 15),
               decoration: InputDecoration(hintText: expected),
-              onChanged: (value) => setState(() => _matches = value.trim() == expected),
+              onChanged: (value) =>
+                  setState(() => _matches = value.trim() == expected),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -192,4 +225,3 @@ class _TypeToConfirmSheetState extends State<_TypeToConfirmSheet> {
     );
   }
 }
-

@@ -16,7 +16,9 @@ abstract class OfferRemoteDatasource {
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> watchOffer(String offerId);
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchOffersByOwner(String ownerId);
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchOffersByOwner(
+    String ownerId,
+  );
 
   /// Backs Offer Details' "Digər aktiv təkliflər" — every active offer
   /// at [venueId], the caller (repository) excludes the one currently
@@ -31,7 +33,8 @@ abstract class OfferRemoteDatasource {
   /// field per query, and the geohash range GeoFlutterFire itself
   /// needs already claims that slot, so expiry is filtered
   /// client-side by the repository after this returns.
-  Future<List<(DocumentSnapshot<Map<String, dynamic>> doc, double distanceKm)>> queryWithinRadius({
+  Future<List<(DocumentSnapshot<Map<String, dynamic>> doc, double distanceKm)>>
+  queryWithinRadius({
     required double lat,
     required double lng,
     required double radiusKm,
@@ -39,10 +42,16 @@ abstract class OfferRemoteDatasource {
   });
 
   /// Backs "Ölkə üzrə" — mirrors `VenueRemoteDatasource.queryByCountry`.
-  Future<QuerySnapshot<Map<String, dynamic>>> queryByCountry(String country, {String? category});
+  Future<QuerySnapshot<Map<String, dynamic>>> queryByCountry(
+    String country, {
+    String? category,
+  });
 
   /// Backs "Dünya üzrə" — mirrors `VenueRemoteDatasource.queryAllActive`.
-  Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({required int limit, String? category});
+  Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({
+    required int limit,
+    String? category,
+  });
 
   /// [ownerId] is now part of the Storage path (Düzəliş Prompt 3 / K-6,
   /// `offer_photos/{ownerId}/{offerId}.jpg`) — must equal the caller's

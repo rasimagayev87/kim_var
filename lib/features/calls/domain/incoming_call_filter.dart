@@ -34,6 +34,7 @@ bool shouldSurfaceIncomingCall({
 }) {
   if (status != 'ringing' && status != 'accepted') return false;
   if (status == 'accepted' && hasAnswer) return false;
-  if (createdAt != null && now.difference(createdAt) > kIncomingCallMaxAge) return false;
+  if (createdAt != null && now.difference(createdAt) > kIncomingCallMaxAge)
+    return false;
   return true;
 }

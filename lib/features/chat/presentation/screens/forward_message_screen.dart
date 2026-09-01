@@ -23,7 +23,8 @@ class ForwardMessageScreen extends ConsumerStatefulWidget {
   const ForwardMessageScreen({super.key, required this.message});
 
   @override
-  ConsumerState<ForwardMessageScreen> createState() => _ForwardMessageScreenState();
+  ConsumerState<ForwardMessageScreen> createState() =>
+      _ForwardMessageScreenState();
 }
 
 class _ForwardMessageScreenState extends ConsumerState<ForwardMessageScreen> {
@@ -44,7 +45,9 @@ class _ForwardMessageScreenState extends ConsumerState<ForwardMessageScreen> {
     if (_selected.isEmpty || _sending) return;
     setState(() => _sending = true);
 
-    final success = await ref.read(chatControllerProvider.notifier).forwardMessage(
+    final success = await ref
+        .read(chatControllerProvider.notifier)
+        .forwardMessage(
           message: widget.message,
           targetOtherUids: _selected.toList(),
         );
@@ -53,10 +56,14 @@ class _ForwardMessageScreenState extends ConsumerState<ForwardMessageScreen> {
     final loc = AppLocalizations.of(context);
     if (success) {
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatForwardSuccessMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.chatForwardSuccessMessage)));
     } else {
       setState(() => _sending = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatRequestActionErrorMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.chatRequestActionErrorMessage)),
+      );
     }
   }
 
@@ -64,7 +71,9 @@ class _ForwardMessageScreenState extends ConsumerState<ForwardMessageScreen> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
-    final chatsAsync = myUid == null ? const AsyncValue<List<Chat>>.data([]) : ref.watch(chatsProvider);
+    final chatsAsync = myUid == null
+        ? const AsyncValue<List<Chat>>.data([])
+        : ref.watch(chatsProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -72,17 +81,30 @@ class _ForwardMessageScreenState extends ConsumerState<ForwardMessageScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: ChatLightColors.ink,
-        title: Text(loc.chatForwardTitle, style: const TextStyle(color: ChatLightColors.ink)),
+        title: Text(
+          loc.chatForwardTitle,
+          style: const TextStyle(color: ChatLightColors.ink),
+        ),
       ),
       body: myUid == null
           ? const SizedBox.shrink()
           : chatsAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-              error: (e, _) => Center(child: Text('$e', style: const TextStyle(color: ChatLightColors.inkSoft))),
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              ),
+              error: (e, _) => Center(
+                child: Text(
+                  '$e',
+                  style: const TextStyle(color: ChatLightColors.inkSoft),
+                ),
+              ),
               data: (chats) {
                 if (chats.isEmpty) {
                   return Center(
-                    child: Text(loc.chatForwardEmptyMessage, style: const TextStyle(color: ChatLightColors.inkFaint)),
+                    child: Text(
+                      loc.chatForwardEmptyMessage,
+                      style: const TextStyle(color: ChatLightColors.inkFaint),
+                    ),
                   );
                 }
                 return ListView.builder(
@@ -106,12 +128,17 @@ class _ForwardMessageScreenState extends ConsumerState<ForwardMessageScreen> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 child: ElevatedButton(
                   onPressed: _sending ? null : _send,
-                  style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 50)),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                  ),
                   child: _sending
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.onAccent,
+                          ),
                         )
                       : Text(loc.chatForwardSendButton(_selected.length)),
                 ),
@@ -126,7 +153,11 @@ class _ForwardTargetRow extends ConsumerWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _ForwardTargetRow({required this.otherUid, required this.selected, required this.onTap});
+  const _ForwardTargetRow({
+    required this.otherUid,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -139,10 +170,20 @@ class _ForwardTargetRow extends ConsumerWidget {
       leading: CircleAvatar(
         radius: 22,
         backgroundColor: ChatLightColors.cardSurface,
-        backgroundImage: peer?.photoUrl != null ? NetworkImage(peer!.photoUrl!) : null,
-        child: peer?.photoUrl == null ? const Icon(Icons.person, color: ChatLightColors.inkFaint) : null,
+        backgroundImage: peer?.photoUrl != null
+            ? NetworkImage(peer!.photoUrl!)
+            : null,
+        child: peer?.photoUrl == null
+            ? const Icon(Icons.person, color: ChatLightColors.inkFaint)
+            : null,
       ),
-      title: Text(name, style: const TextStyle(color: ChatLightColors.ink, fontWeight: FontWeight.w600)),
+      title: Text(
+        name,
+        style: const TextStyle(
+          color: ChatLightColors.ink,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       trailing: Icon(
         selected ? Icons.check_circle : Icons.circle_outlined,
         color: selected ? AppColors.primary : ChatLightColors.inkFaint,

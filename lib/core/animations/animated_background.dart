@@ -62,11 +62,7 @@ class _BackgroundPainter extends CustomPainter {
           AppColors.backgroundDark,
           AppColors.background,
         ],
-        stops: [
-          0,
-          .5 + (.08 * sin(t * pi)),
-          1,
-        ],
+        stops: [0, .5 + (.08 * sin(t * pi)), 1],
       ).createShader(rect);
 
     canvas.drawRect(rect, gradient);
@@ -77,19 +73,13 @@ class _BackgroundPainter extends CustomPainter {
     glow.color = AppColors.textMuted.withOpacity(0.16);
 
     canvas.drawCircle(
-      Offset(
-        size.width * (.18 + .06 * sin(t * pi * 2)),
-        size.height * .28,
-      ),
+      Offset(size.width * (.18 + .06 * sin(t * pi * 2)), size.height * .28),
       170,
       glow,
     );
 
     canvas.drawCircle(
-      Offset(
-        size.width * (.82 - .05 * sin(t * pi * 2)),
-        size.height * .74,
-      ),
+      Offset(size.width * (.82 - .05 * sin(t * pi * 2)), size.height * .74),
       210,
       glow,
     );

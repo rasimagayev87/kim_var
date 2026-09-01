@@ -19,8 +19,8 @@ import '../../../../core/utils/callables.dart';
 /// Firestore first.
 final profileControllerProvider =
     StateNotifierProvider<ProfileController, UserProfile>((ref) {
-  return ProfileController();
-});
+      return ProfileController();
+    });
 
 /// Single source of truth for "does the current user currently have
 /// business access" — wraps [UserProfile.hasBusinessAccess] so every
@@ -51,14 +51,17 @@ class ProfileController extends StateNotifier<UserProfile> {
   // purged on first read so a device that already had this app
   // installed doesn't keep a stale plaintext copy sitting in
   // SharedPreferences forever after the upgrade.
-  static const _legacyKeyBirthDate = 'profile_cache_birth_date_legacy_plaintext';
+  static const _legacyKeyBirthDate =
+      'profile_cache_birth_date_legacy_plaintext';
   static const _legacyKeyEmail = 'profile_cache_email_legacy_plaintext';
 
   final FirebaseFirestore _firestore;
   final fb.FirebaseAuth _auth;
   final FlutterSecureStorage _secureStorage;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _publicSubscription;
-  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _privateSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  _publicSubscription;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>?
+  _privateSubscription;
   Map<String, dynamic>? _latestPublicData;
   Map<String, dynamic>? _latestPrivateData;
 
@@ -69,11 +72,11 @@ class ProfileController extends StateNotifier<UserProfile> {
     fb.FirebaseAuth? auth,
     FlutterSecureStorage? secureStorage,
     FirebaseFunctions? functions,
-  })  : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? fb.FirebaseAuth.instance,
-        _secureStorage = secureStorage ?? const FlutterSecureStorage(),
-        _functions = functions ?? FirebaseFunctions.instance,
-        super(const UserProfile()) {
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _auth = auth ?? fb.FirebaseAuth.instance,
+       _secureStorage = secureStorage ?? const FlutterSecureStorage(),
+       _functions = functions ?? FirebaseFunctions.instance,
+       super(const UserProfile()) {
     _init();
   }
 
@@ -98,16 +101,20 @@ class ProfileController extends StateNotifier<UserProfile> {
       // document's snapshot arrives second (usually milliseconds), the
       // same kind of transient a single listener already had before
       // its own first snapshot arrived.
-      _publicSubscription =
-          _firestore.collection('users').doc(user.uid).snapshots().listen((doc) {
-        _latestPublicData = doc.data();
-        _emit();
-      });
-      _privateSubscription =
-          privateDataRef(user.uid, firestore: _firestore).snapshots().listen((doc) {
-        _latestPrivateData = doc.data();
-        _emit();
-      });
+      _publicSubscription = _firestore
+          .collection('users')
+          .doc(user.uid)
+          .snapshots()
+          .listen((doc) {
+            _latestPublicData = doc.data();
+            _emit();
+          });
+      _privateSubscription = privateDataRef(user.uid, firestore: _firestore)
+          .snapshots()
+          .listen((doc) {
+            _latestPrivateData = doc.data();
+            _emit();
+          });
     });
   }
 
@@ -124,7 +131,10 @@ class ProfileController extends StateNotifier<UserProfile> {
     super.dispose();
   }
 
-  UserProfile _fromDocData(Map<String, dynamic>? publicData, Map<String, dynamic>? privateData) {
+  UserProfile _fromDocData(
+    Map<String, dynamic>? publicData,
+    Map<String, dynamic>? privateData,
+  ) {
     if (publicData == null) return const UserProfile();
     return UserProfile(
       username: publicData['username'] as String?,
@@ -152,7 +162,8 @@ class ProfileController extends StateNotifier<UserProfile> {
 
     // One-time purge of the pre-Prompt-4 plaintext copies, if any
     // survive from before this device's app update.
-    if (prefs.containsKey(_legacyKeyBirthDate) || prefs.containsKey(_legacyKeyEmail)) {
+    if (prefs.containsKey(_legacyKeyBirthDate) ||
+        prefs.containsKey(_legacyKeyEmail)) {
       await prefs.remove(_legacyKeyBirthDate);
       await prefs.remove(_legacyKeyEmail);
     }
@@ -186,10 +197,13 @@ class ProfileController extends StateNotifier<UserProfile> {
         value: profile.birthDate!.millisecondsSinceEpoch.toString(),
       );
     }
-    if (profile.gender != null) await prefs.setString(_keyGender, profile.gender!);
-    if (profile.country != null) await prefs.setString(_keyCountry, profile.country!);
+    if (profile.gender != null)
+      await prefs.setString(_keyGender, profile.gender!);
+    if (profile.country != null)
+      await prefs.setString(_keyCountry, profile.country!);
     if (profile.city != null) await prefs.setString(_keyCity, profile.city!);
-    if (profile.email != null) await _secureStorage.write(key: _secureKeyEmail, value: profile.email!);
+    if (profile.email != null)
+      await _secureStorage.write(key: _secureKeyEmail, value: profile.email!);
   }
 
   /// Writes the "Şəxsi məlumatlar" fields through `updateProfileDetails`
@@ -231,17 +245,20 @@ class ProfileController extends StateNotifier<UserProfile> {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
 
-    await _functions.httpsCallable('updateProfileDetails', options: callableOptions()).call<Map<String, dynamic>>({
-      if (firstName != null) 'firstName': firstName,
-      if (lastName != null) 'lastName': lastName,
-      if (username != null) 'username': username,
-      if (birthDate != null) 'birthDateMs': birthDate.millisecondsSinceEpoch,
-      if (bio != null) 'bio': bio,
-      if (gender != null) 'gender': gender,
-      if (country != null) 'country': country,
-      if (city != null) 'city': city,
-      if (phoneNumber != null) 'phoneNumber': phoneNumber,
-    });
+    await _functions
+        .httpsCallable('updateProfileDetails', options: callableOptions())
+        .call<Map<String, dynamic>>({
+          if (firstName != null) 'firstName': firstName,
+          if (lastName != null) 'lastName': lastName,
+          if (username != null) 'username': username,
+          if (birthDate != null)
+            'birthDateMs': birthDate.millisecondsSinceEpoch,
+          if (bio != null) 'bio': bio,
+          if (gender != null) 'gender': gender,
+          if (country != null) 'country': country,
+          if (city != null) 'city': city,
+          if (phoneNumber != null) 'phoneNumber': phoneNumber,
+        });
     // `state` updates automatically via the live Firestore listeners above.
   }
 
@@ -252,13 +269,10 @@ class ProfileController extends StateNotifier<UserProfile> {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
 
-    await _firestore.collection('users').doc(uid).set(
-      {
-        'photoUrl': photoUrl,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    await _firestore.collection('users').doc(uid).set({
+      'photoUrl': photoUrl,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
     // `state` updates automatically via the live Firestore listener above.
   }
 
@@ -272,13 +286,10 @@ class ProfileController extends StateNotifier<UserProfile> {
     if (uid == null) return false;
 
     try {
-      await _firestore.collection('users').doc(uid).set(
-        {
-          'businessStatus': value,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      await _firestore.collection('users').doc(uid).set({
+        'businessStatus': value,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
       return true;
     } catch (_) {
       return false;

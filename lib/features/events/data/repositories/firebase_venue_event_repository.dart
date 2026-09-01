@@ -19,14 +19,17 @@ import '../../domain/repositories/venue_event_repository.dart';
 const _kEventGeoField = 'position';
 
 class FirebaseVenueEventRepository implements VenueEventRepository {
-  FirebaseVenueEventRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+  FirebaseVenueEventRepository({
+    FirebaseFirestore? firestore,
+    FirebaseStorage? storage,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _storage = storage ?? FirebaseStorage.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
-  CollectionReference<Map<String, dynamic>> get _events => _firestore.collection('venueEvents');
+  CollectionReference<Map<String, dynamic>> get _events =>
+      _firestore.collection('venueEvents');
 
   /// See `FirebaseVenueRepository._safeVenue`'s doc comment — same
   /// per-document isolation, applied here for `VenueEvent`.
@@ -34,7 +37,11 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
     try {
       return VenueEvent.fromFirestore(id, data);
     } catch (e, st) {
-      logError('firebase_venue_event_repository.VenueEvent.fromFirestore($id)', e, st);
+      logError(
+        'firebase_venue_event_repository.VenueEvent.fromFirestore($id)',
+        e,
+        st,
+      );
       return null;
     }
   }
@@ -70,11 +77,15 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
       final storageRef = _storage.ref('event_covers/$ownerId/${ref.id}.jpg');
       // GPS EXIF strip (Düzəliş Prompt 3 / C#43).
       final stripped = await stripExifIfImage(coverImage);
-      final task = storageRef.putFile(stripped, SettableMetadata(contentType: 'image/jpeg'));
+      final task = storageRef.putFile(
+        stripped,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
       onUploadTaskReady?.call(task.cancel);
       if (onUploadProgress != null) {
         task.snapshotEvents.listen((snapshot) {
-          if (snapshot.totalBytes > 0) onUploadProgress(snapshot.bytesTransferred / snapshot.totalBytes);
+          if (snapshot.totalBytes > 0)
+            onUploadProgress(snapshot.bytesTransferred / snapshot.totalBytes);
         });
       }
       await task;
@@ -104,7 +115,9 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
 
   @override
   Future<void> cancelEvent(String eventId) {
-    return _events.doc(eventId).update({'status': VenueEventStatus.cancelled.name});
+    return _events.doc(eventId).update({
+      'status': VenueEventStatus.cancelled.name,
+    });
   }
 
   @override
@@ -132,14 +145,20 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
       // Same path convention as create — reusing the event's own id
       // means a re-upload just overwrites the old file, no separate
       // delete step needed.
-      final storageRef = _storage.ref('event_covers/${fb.FirebaseAuth.instance.currentUser!.uid}/$eventId.jpg');
+      final storageRef = _storage.ref(
+        'event_covers/${fb.FirebaseAuth.instance.currentUser!.uid}/$eventId.jpg',
+      );
       // GPS EXIF strip (Düzəliş Prompt 3 / C#43).
       final stripped = await stripExifIfImage(coverImage);
-      final task = storageRef.putFile(stripped, SettableMetadata(contentType: 'image/jpeg'));
+      final task = storageRef.putFile(
+        stripped,
+        SettableMetadata(contentType: 'image/jpeg'),
+      );
       onUploadTaskReady?.call(task.cancel);
       if (onUploadProgress != null) {
         task.snapshotEvents.listen((snapshot) {
-          if (snapshot.totalBytes > 0) onUploadProgress(snapshot.bytesTransferred / snapshot.totalBytes);
+          if (snapshot.totalBytes > 0)
+            onUploadProgress(snapshot.bytesTransferred / snapshot.totalBytes);
         });
       }
       await task;
@@ -157,7 +176,11 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
   }
 
   @override
-  Future<void> reportEvent({required String eventId, required String reportedBy, required String reason}) {
+  Future<void> reportEvent({
+    required String eventId,
+    required String reportedBy,
+    required String reason,
+  }) {
     return _firestore.collection('eventReports').add({
       'eventId': eventId,
       'reportedBy': reportedBy,
@@ -181,12 +204,20 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
         .where('venueId', isEqualTo: venueId)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => _safeEvent(d.id, d.data())).whereType<VenueEvent>().toList());
+        .map(
+          (snap) => snap.docs
+              .map((d) => _safeEvent(d.id, d.data()))
+              .whereType<VenueEvent>()
+              .toList(),
+        );
   }
 
   @override
   Future<bool> hasAnyEvent(String venueId) async {
-    final snap = await _events.where('venueId', isEqualTo: venueId).limit(1).get();
+    final snap = await _events
+        .where('venueId', isEqualTo: venueId)
+        .limit(1)
+        .get();
     return snap.docs.isNotEmpty;
   }
 
@@ -194,10 +225,17 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
   Future<VenueEvent?> fetchTodayEventForVenue(String venueId) async {
     final snap = await _events
         .where('venueId', isEqualTo: venueId)
-        .where('status', whereIn: [VenueEventStatus.upcoming.name, VenueEventStatus.live.name])
+        .where(
+          'status',
+          whereIn: [VenueEventStatus.upcoming.name, VenueEventStatus.live.name],
+        )
         .get();
     final events =
-        snap.docs.map((d) => _safeEvent(d.id, d.data())).whereType<VenueEvent>().where((e) => e.isToday).toList()
+        snap.docs
+            .map((d) => _safeEvent(d.id, d.data()))
+            .whereType<VenueEvent>()
+            .where((e) => e.isToday)
+            .toList()
           ..sort((a, b) => a.startAt.compareTo(b.startAt));
     return events.isEmpty ? null : events.first;
   }
@@ -216,17 +254,26 @@ class FirebaseVenueEventRepository implements VenueEventRepository {
       field: _kEventGeoField,
       geopointFrom: (data) => data[_kEventGeoField]['geopoint'] as GeoPoint,
       queryBuilder: (query) {
-        var q = query.where('status', whereIn: [VenueEventStatus.upcoming.name, VenueEventStatus.live.name]);
-        if (category != null) q = q.where('venueCategory', isEqualTo: category.name);
+        var q = query.where(
+          'status',
+          whereIn: [VenueEventStatus.upcoming.name, VenueEventStatus.live.name],
+        );
+        if (category != null)
+          q = q.where('venueCategory', isEqualTo: category.name);
         return q;
       },
       strictMode: true,
     );
     return results
-        .map((r) => (
-              event: _safeEvent(r.documentSnapshot.id, r.documentSnapshot.data()!),
-              distanceMeters: r.distanceFromCenterInKm * 1000,
-            ))
+        .map(
+          (r) => (
+            event: _safeEvent(
+              r.documentSnapshot.id,
+              r.documentSnapshot.data()!,
+            ),
+            distanceMeters: r.distanceFromCenterInKm * 1000,
+          ),
+        )
         .where((r) => r.event != null)
         .map((r) => (event: r.event!, distanceMeters: r.distanceMeters))
         .toList();

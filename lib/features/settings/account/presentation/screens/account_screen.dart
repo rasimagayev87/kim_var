@@ -40,18 +40,24 @@ class AccountScreen extends ConsumerWidget {
                   title: loc.accountPersonalInfoTitle,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const EditProfileScreen(),
+                    ),
                   ),
                 ),
                 SettingsMenuRow(
                   icon: Icons.phone_outlined,
                   title: loc.accountPhoneRowTitle,
-                  subtitle: phone != null ? _formatPhone(phone) : loc.accountPhoneUnsetValue,
+                  subtitle: phone != null
+                      ? _formatPhone(phone)
+                      : loc.accountPhoneUnsetValue,
                 ),
                 SettingsMenuRow(
                   icon: Icons.email_outlined,
                   title: loc.accountEmailRowTitle,
-                  subtitle: (email == null || email.isEmpty) ? loc.accountEmailEmptyValue : email,
+                  subtitle: (email == null || email.isEmpty)
+                      ? loc.accountEmailEmptyValue
+                      : email,
                   onTap: () => _openChangeEmail(context, email),
                 ),
               ],
@@ -73,17 +79,24 @@ class AccountScreen extends ConsumerWidget {
     return '+994 ${rest.substring(0, 2)} ${rest.substring(2, 5)} ${rest.substring(5, 7)} ${rest.substring(7, 9)}';
   }
 
-  Future<void> _openChangeEmail(BuildContext context, String? currentEmail) async {
+  Future<void> _openChangeEmail(
+    BuildContext context,
+    String? currentEmail,
+  ) async {
     final loc = AppLocalizations.of(context);
     final updated = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (_) => ChangeEmailSheet(currentEmail: currentEmail),
     );
     if (updated == true && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.accountEmailUpdatedNotice)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.accountEmailUpdatedNotice)));
     }
   }
 }

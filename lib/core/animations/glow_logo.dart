@@ -5,10 +5,7 @@ import '../theme/app_colors.dart';
 class GlowLogo extends StatefulWidget {
   final Widget child;
 
-  const GlowLogo({
-    super.key,
-    required this.child,
-  });
+  const GlowLogo({super.key, required this.child});
 
   @override
   State<GlowLogo> createState() => _GlowLogoState();

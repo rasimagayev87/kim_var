@@ -8,6 +8,8 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../app_config/presentation/providers/app_config_providers.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Shown from `MyVenuesScreen`'s overdue-subscription "Ödə" button when
 /// the remote `businessOfferVersion` has moved past the venue's stored
 /// `offerAcceptedVersion` — unlike `checkAndShowConsentDialogIfNeeded`'s
@@ -28,10 +30,12 @@ class _BusinessOfferReacceptDialog extends StatefulWidget {
   const _BusinessOfferReacceptDialog();
 
   @override
-  State<_BusinessOfferReacceptDialog> createState() => _BusinessOfferReacceptDialogState();
+  State<_BusinessOfferReacceptDialog> createState() =>
+      _BusinessOfferReacceptDialogState();
 }
 
-class _BusinessOfferReacceptDialogState extends State<_BusinessOfferReacceptDialog> {
+class _BusinessOfferReacceptDialogState
+    extends State<_BusinessOfferReacceptDialog> {
   bool _accepted = false;
 
   @override
@@ -41,12 +45,18 @@ class _BusinessOfferReacceptDialogState extends State<_BusinessOfferReacceptDial
     return AlertDialog(
       backgroundColor: AppColors.surface,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: Text(loc.businessOfferReacceptSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontSize: 17)),
+      title: Text(
+        loc.businessOfferReacceptSheetTitle,
+        style: AppTextStyles.cardTitle.copyWith(fontSize: 17),
+      ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          BusinessOfferConsentRow(value: _accepted, onChanged: (value) => setState(() => _accepted = value)),
+          BusinessOfferConsentRow(
+            value: _accepted,
+            onChanged: (value) => setState(() => _accepted = value),
+          ),
         ],
       ),
       actions: [
@@ -75,7 +85,11 @@ class BusinessOfferConsentRow extends ConsumerWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  const BusinessOfferConsentRow({super.key, required this.value, required this.onChanged});
+  const BusinessOfferConsentRow({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -86,7 +100,10 @@ class BusinessOfferConsentRow extends ConsumerWidget {
       fontWeight: FontWeight.w700,
       decoration: TextDecoration.underline,
     );
-    final textStyle = AppTextStyles.caption.copyWith(color: AppColors.textSecondary, height: 1.4);
+    final textStyle = AppTextStyles.caption.copyWith(
+      color: AppColors.textSecondary,
+      height: 1.4,
+    );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -102,8 +119,7 @@ class BusinessOfferConsentRow extends ConsumerWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
+          child: Pressable(
             onTap: () => onChanged(!value),
             child: Text.rich(
               TextSpan(
@@ -114,8 +130,10 @@ class BusinessOfferConsentRow extends ConsumerWidget {
                     text: loc.legalBusinessOfferTitle,
                     style: linkStyle,
                     recognizer: TapGestureRecognizer()
-                      ..onTap = () =>
-                          launchUrl(Uri.parse(config.urlBusinessOffer), mode: LaunchMode.externalApplication),
+                      ..onTap = () => launchUrl(
+                        Uri.parse(config.urlBusinessOffer),
+                        mode: LaunchMode.externalApplication,
+                      ),
                   ),
                   TextSpan(text: loc.businessOfferConsentSuffix),
                 ],

@@ -25,7 +25,11 @@ class SettingsGroup extends StatelessWidget {
               if (i < children.length - 1)
                 const Padding(
                   padding: EdgeInsets.only(left: 66),
-                  child: Divider(height: 1, thickness: 1, color: AppColors.divider),
+                  child: Divider(
+                    height: 1,
+                    thickness: 1,
+                    color: AppColors.divider,
+                  ),
                 ),
             ],
           ],
@@ -73,7 +77,10 @@ class SettingsMenuRow extends StatelessWidget {
             Container(
               width: 34,
               height: 34,
-              decoration: BoxDecoration(color: AppColors.backgroundDark, borderRadius: BorderRadius.circular(11)),
+              decoration: BoxDecoration(
+                color: AppColors.backgroundDark,
+                borderRadius: BorderRadius.circular(11),
+              ),
               child: Icon(icon, color: resolvedColor, size: 18),
             ),
             const SizedBox(width: 12),
@@ -83,7 +90,11 @@ class SettingsMenuRow extends StatelessWidget {
                 children: [
                   Text(
                     title,
-                    style: AppTextStyles.body.copyWith(fontSize: 15.5, fontWeight: FontWeight.w600, color: titleColor ?? AppColors.white),
+                    style: AppTextStyles.body.copyWith(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                      color: titleColor ?? AppColors.white,
+                    ),
                   ),
                   if (subtitle != null) ...[
                     const SizedBox(height: 2),
@@ -100,7 +111,12 @@ class SettingsMenuRow extends StatelessWidget {
             if (trailing != null) ...[trailing!, const SizedBox(width: 6)],
             // No chevron on a row with no tap action — showing one
             // would imply navigation that doesn't actually happen.
-            if (onTap != null) const Icon(Icons.chevron_right_outlined, color: AppColors.textMuted, size: 20),
+            if (onTap != null)
+              const Icon(
+                Icons.chevron_right_outlined,
+                color: AppColors.textMuted,
+                size: 20,
+              ),
           ],
         ),
       ),
@@ -160,7 +176,10 @@ class SettingsToggleRow extends StatelessWidget {
               Container(
                 width: 34,
                 height: 34,
-                decoration: BoxDecoration(color: AppColors.backgroundDark, borderRadius: BorderRadius.circular(11)),
+                decoration: BoxDecoration(
+                  color: AppColors.backgroundDark,
+                  borderRadius: BorderRadius.circular(11),
+                ),
                 child: Icon(icon, color: resolvedColor, size: 18),
               ),
               const SizedBox(width: 12),
@@ -168,7 +187,13 @@ class SettingsToggleRow extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(title, style: AppTextStyles.body.copyWith(fontSize: 15.5, fontWeight: FontWeight.w600)),
+                    Text(
+                      title,
+                      style: AppTextStyles.body.copyWith(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     if (subtitle != null) ...[
                       const SizedBox(height: 2),
                       Text(
@@ -182,7 +207,11 @@ class SettingsToggleRow extends StatelessWidget {
                 ),
               ),
               if (badge != null) ...[badge!, const SizedBox(width: 6)],
-              Switch(value: value, onChanged: onChanged, activeThumbColor: AppColors.primary),
+              Switch(
+                value: value,
+                onChanged: onChanged,
+                activeThumbColor: AppColors.primary,
+              ),
             ],
           ),
         ),
@@ -195,14 +224,28 @@ class SettingsPill extends StatelessWidget {
   final String label;
   final Color color;
 
-  const SettingsPill({super.key, required this.label, this.color = AppColors.primary});
+  const SettingsPill({
+    super.key,
+    required this.label,
+    this.color = AppColors.primary,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)),
-      child: Text(label, style: AppTextStyles.caption.copyWith(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: AppTextStyles.caption.copyWith(
+          fontSize: 12,
+          color: color,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }

@@ -14,6 +14,8 @@ import '../widgets/comments_sheet.dart';
 import '../widgets/post_owner_menu_button.dart';
 import '../widgets/post_video_player.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Single-post view opened by tapping a card in the profile feed.
 /// Owner-only "..." menu (top-right) offers editing the caption — the
 /// only field a post can be edited after sharing — or deleting it.
@@ -29,13 +31,18 @@ class PostDetailScreen extends ConsumerWidget {
     final post = postAsync.valueOrNull;
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
     final isOwner = post != null && myUid != null && post.userId == myUid;
-    final isLiked = ref.watch(isPostLikedByMeProvider(postId)).valueOrNull ?? false;
+    final isLiked =
+        ref.watch(isPostLikedByMeProvider(postId)).valueOrNull ?? false;
 
     Future<void> onLikeTap() async {
       if (!context.mounted) return;
-      final ok = await ref.read(postControllerProvider).toggleLike(postId, !isLiked);
+      final ok = await ref
+          .read(postControllerProvider)
+          .toggleLike(postId, !isLiked);
       if (!ok && context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.postLikeErrorMessage)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.postLikeErrorMessage)));
       }
     }
 
@@ -45,12 +52,18 @@ class PostDetailScreen extends ConsumerWidget {
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.white),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: AppColors.white,
+          ),
         ),
         actions: [if (isOwner) PostOwnerMenuButton(post: post)],
       ),
       body: post == null
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            )
           : SafeArea(
               child: ListView(
                 children: [
@@ -60,7 +73,8 @@ class PostDetailScreen extends ConsumerWidget {
                         ? AppImage(
                             post.mediaUrl,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const PhotoPlaceholderPattern(),
+                            errorBuilder: (_, _, _) =>
+                                const PhotoPlaceholderPattern(),
                           )
                         : PostVideoThumbnail(videoUrl: post.mediaUrl),
                   ),
@@ -71,37 +85,60 @@ class PostDetailScreen extends ConsumerWidget {
                       children: [
                         Row(
                           children: [
-                            GestureDetector(
+                            Pressable(
                               onTap: onLikeTap,
                               child: Icon(
-                                isLiked ? Icons.favorite : Icons.favorite_border,
+                                isLiked
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
                                 size: 22,
-                                color: isLiked ? Colors.redAccent : AppColors.textSecondary,
+                                color: isLiked
+                                    ? Colors.redAccent
+                                    : AppColors.textSecondary,
                               ),
                             ),
                             const SizedBox(width: 6),
                             Text(
                               '${post.likesCount}',
-                              style: AppTextStyles.body.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
+                              style: AppTextStyles.body.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                             const SizedBox(width: 20),
-                            GestureDetector(
+                            Pressable(
                               onTap: () => showCommentsSheet(context, postId),
-                              child: const Icon(Icons.mode_comment_outlined, size: 21, color: AppColors.textSecondary),
+                              child: const Icon(
+                                Icons.mode_comment_outlined,
+                                size: 21,
+                                color: AppColors.textSecondary,
+                              ),
                             ),
                             const SizedBox(width: 6),
                             Text(
                               '${post.commentsCount}',
-                              style: AppTextStyles.body.copyWith(fontSize: 14, fontWeight: FontWeight.w600),
+                              style: AppTextStyles.body.copyWith(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ),
                         const SizedBox(height: 10),
                         if (post.caption.isNotEmpty) ...[
-                          Text(post.caption, style: AppTextStyles.body.copyWith(fontSize: 15, height: 1.5)),
+                          Text(
+                            post.caption,
+                            style: AppTextStyles.body.copyWith(
+                              fontSize: 15,
+                              height: 1.5,
+                            ),
+                          ),
                           const SizedBox(height: 8),
                         ],
-                        Text(formatRelativeTime(post.createdAt, loc), style: AppTextStyles.caption.copyWith(fontSize: 12)),
+                        Text(
+                          formatRelativeTime(post.createdAt, loc),
+                          style: AppTextStyles.caption.copyWith(fontSize: 12),
+                        ),
                       ],
                     ),
                   ),

@@ -42,7 +42,9 @@ class FirebasePostRepository implements PostRepository {
     // `stripExifIfImage` fails open to the original file on a
     // non-image decode anyway, but skipping the attempt for video
     // avoids decoding a large file pointlessly.
-    final uploadFile = type == PostMediaType.video ? file : await stripExifIfImage(file);
+    final uploadFile = type == PostMediaType.video
+        ? file
+        : await stripExifIfImage(file);
     final task = storageRef.putFile(
       uploadFile,
       SettableMetadata(contentType: contentType),
@@ -79,8 +81,14 @@ class FirebasePostRepository implements PostRepository {
   }
 
   @override
-  Stream<List<Post>> watchUserPosts(String userId, {required bool isOwnProfile}) {
-    Query<Map<String, dynamic>> query = _posts.where('userId', isEqualTo: userId);
+  Stream<List<Post>> watchUserPosts(
+    String userId, {
+    required bool isOwnProfile,
+  }) {
+    Query<Map<String, dynamic>> query = _posts.where(
+      'userId',
+      isEqualTo: userId,
+    );
     if (!isOwnProfile) {
       query = query.where('authorIsPublic', isEqualTo: true);
     }
@@ -92,9 +100,10 @@ class FirebasePostRepository implements PostRepository {
 
   @override
   Stream<List<Post>> watchPublicVideoFeed({required int limit}) {
-    return _publicVideoQuery().limit(limit).snapshots().map(
-          (snap) => snap.docs.map((d) => _fromDoc(d.id, d.data())).toList(),
-        );
+    return _publicVideoQuery()
+        .limit(limit)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => _fromDoc(d.id, d.data())).toList());
   }
 
   @override

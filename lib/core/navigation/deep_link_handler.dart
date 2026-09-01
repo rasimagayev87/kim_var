@@ -23,9 +23,12 @@ final navigatorKey = GlobalKey<NavigatorState>();
 /// [AppLinks] buffers the launch link until a listener is attached.
 void startDeepLinkListener() {
   final appLinks = AppLinks();
-  appLinks.uriLinkStream.listen(_handleUri, onError: (e, st) {
-    logError('deep_link_handler.startDeepLinkListener', e, st);
-  });
+  appLinks.uriLinkStream.listen(
+    _handleUri,
+    onError: (e, st) {
+      logError('deep_link_handler.startDeepLinkListener', e, st);
+    },
+  );
 }
 
 void _handleUri(Uri uri) {
@@ -61,7 +64,9 @@ void _handleUri(Uri uri) {
   // to be open when the link arrived.
   final navigator = navigatorKey.currentState;
   if (navigator != null && navigator.mounted) {
-    navigator.pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+    navigator.pushReplacement(
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+    );
   }
 }
 
@@ -74,7 +79,10 @@ void _handleUri(Uri uri) {
 /// screen worth showing for "this username doesn't exist".
 Future<void> _openProfileByUsername(String username) async {
   try {
-    final reservation = await FirebaseFirestore.instance.collection('usernames').doc(username.toLowerCase()).get();
+    final reservation = await FirebaseFirestore.instance
+        .collection('usernames')
+        .doc(username.toLowerCase())
+        .get();
     final uid = reservation.data()?['uid'] as String?;
     if (uid == null) return;
     navigatorKey.currentState?.push(
@@ -94,14 +102,17 @@ Future<void> _openProfileByUsername(String username) async {
 /// (deferred deep link), or immediately if the app was already
 /// installed. Call once from `main()`, after [FlutterBranchSdk.init].
 void startBranchDeepLinkListener() {
-  FlutterBranchSdk.listSession().listen((data) {
-    if (data['+clicked_branch_link'] != true) return;
-    final postId = data['postId'] as String?;
-    if (postId == null || postId.isEmpty) return;
-    navigatorKey.currentState?.push(
-      MaterialPageRoute(builder: (_) => PostDetailScreen(postId: postId)),
-    );
-  }, onError: (e, st) {
-    logError('deep_link_handler.startBranchDeepLinkListener', e, st);
-  });
+  FlutterBranchSdk.listSession().listen(
+    (data) {
+      if (data['+clicked_branch_link'] != true) return;
+      final postId = data['postId'] as String?;
+      if (postId == null || postId.isEmpty) return;
+      navigatorKey.currentState?.push(
+        MaterialPageRoute(builder: (_) => PostDetailScreen(postId: postId)),
+      );
+    },
+    onError: (e, st) {
+      logError('deep_link_handler.startBranchDeepLinkListener', e, st);
+    },
+  );
 }

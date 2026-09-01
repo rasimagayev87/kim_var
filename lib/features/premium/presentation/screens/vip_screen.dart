@@ -16,8 +16,10 @@ import '../providers/vip_purchase_listener.dart';
 
 // Apple's and Google's own documented "manage subscriptions" deep
 // links — not app-specific, standard for every app on each platform.
-const _kAppleManageSubscriptionsUrl = 'https://apps.apple.com/account/subscriptions';
-const _kGoogleManageSubscriptionsUrl = 'https://play.google.com/store/account/subscriptions';
+const _kAppleManageSubscriptionsUrl =
+    'https://apps.apple.com/account/subscriptions';
+const _kGoogleManageSubscriptionsUrl =
+    'https://play.google.com/store/account/subscriptions';
 
 class VipScreen extends ConsumerStatefulWidget {
   const VipScreen({super.key});
@@ -37,9 +39,14 @@ class _VipScreenState extends ConsumerState<VipScreen> {
     final loc = AppLocalizations.of(context);
     final isPremium = ref.watch(isPremiumProvider);
     final featuresAsync = ref.watch(vipFeaturesProvider);
-    final features = (featuresAsync.valueOrNull?.isNotEmpty ?? false) ? featuresAsync.valueOrNull! : _defaultFeatures(loc);
-    final products = ref.watch(vipProductsProvider).valueOrNull ?? const <ProductDetails>[];
-    final selectedSku = kVipPackages.firstWhere((p) => p.period == _selected).skuId;
+    final features = (featuresAsync.valueOrNull?.isNotEmpty ?? false)
+        ? featuresAsync.valueOrNull!
+        : _defaultFeatures(loc);
+    final products =
+        ref.watch(vipProductsProvider).valueOrNull ?? const <ProductDetails>[];
+    final selectedSku = kVipPackages
+        .firstWhere((p) => p.period == _selected)
+        .skuId;
     ProductDetails? selectedProduct;
     for (final p in products) {
       if (p.id == selectedSku) {
@@ -54,7 +61,11 @@ class _VipScreenState extends ConsumerState<VipScreen> {
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.white),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: AppColors.white,
+          ),
         ),
         title: Text(loc.settingsVipRowTitle),
       ),
@@ -69,30 +80,48 @@ class _VipScreenState extends ConsumerState<VipScreen> {
                     child: Container(
                       width: 76,
                       height: 76,
-                      decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.card),
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: AppColors.card,
+                      ),
                       alignment: Alignment.center,
                       child: const Text('👑', style: TextStyle(fontSize: 36)),
                     ),
                   ),
                   const SizedBox(height: 14),
-                  Text(loc.vipHeaderTitle, style: AppTextStyles.h1.copyWith(fontSize: 22, fontWeight: FontWeight.w800)),
+                  Text(
+                    loc.vipHeaderTitle,
+                    style: AppTextStyles.h1.copyWith(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     loc.vipHeaderSubtitle,
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.caption.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 24),
             if (isPremium) ...[
-              _CurrentPackageCard(onManage: () => _openManageSubscription(context, loc)),
+              _CurrentPackageCard(
+                onManage: () => _openManageSubscription(context, loc),
+              ),
               const SizedBox(height: 20),
             ],
             for (final feature in features) _VipFeatureRow(feature: feature),
             const SizedBox(height: 24),
-            Text(loc.vipChoosePackageTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              loc.vipChoosePackageTitle,
+              style: AppTextStyles.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -100,7 +129,8 @@ class _VipScreenState extends ConsumerState<VipScreen> {
                   child: _PackagePill(
                     label: loc.vipPeriodMonthly,
                     selected: _selected == VipBillingPeriod.monthly,
-                    onTap: () => setState(() => _selected = VipBillingPeriod.monthly),
+                    onTap: () =>
+                        setState(() => _selected = VipBillingPeriod.monthly),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -108,7 +138,8 @@ class _VipScreenState extends ConsumerState<VipScreen> {
                   child: _PackagePill(
                     label: loc.vipPeriodQuarterly,
                     selected: _selected == VipBillingPeriod.quarterly,
-                    onTap: () => setState(() => _selected = VipBillingPeriod.quarterly),
+                    onTap: () =>
+                        setState(() => _selected = VipBillingPeriod.quarterly),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -117,16 +148,22 @@ class _VipScreenState extends ConsumerState<VipScreen> {
                     label: loc.vipPeriodYearly,
                     badge: loc.vipBestValueBadge,
                     selected: _selected == VipBillingPeriod.yearly,
-                    onTap: () => setState(() => _selected = VipBillingPeriod.yearly),
+                    onTap: () =>
+                        setState(() => _selected = VipBillingPeriod.yearly),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              selectedProduct != null ? loc.vipPriceLabel(selectedProduct.price) : loc.vipPriceUnavailableNote,
+              selectedProduct != null
+                  ? loc.vipPriceLabel(selectedProduct.price)
+                  : loc.vipPriceUnavailableNote,
               textAlign: TextAlign.center,
-              style: AppTextStyles.caption.copyWith(fontSize: 12, color: AppColors.textMuted),
+              style: AppTextStyles.caption.copyWith(
+                fontSize: 12,
+                color: AppColors.textMuted,
+              ),
             ),
             const SizedBox(height: 16),
             SizedBox(
@@ -136,7 +173,9 @@ class _VipScreenState extends ConsumerState<VipScreen> {
                   backgroundColor: AppColors.gold,
                   foregroundColor: const Color(0xFF2B1D00),
                   padding: const EdgeInsets.symmetric(vertical: 15),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
                 onPressed: (isPremium || selectedProduct == null || _purchasing)
                     ? null
@@ -145,11 +184,19 @@ class _VipScreenState extends ConsumerState<VipScreen> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2.2, color: Color(0xFF2B1D00)),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.2,
+                          color: Color(0xFF2B1D00),
+                        ),
                       )
                     : Text(
-                        isPremium ? loc.vipAlreadySubscribedButton : loc.vipSubscribeButton,
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15.5),
+                        isPremium
+                            ? loc.vipAlreadySubscribedButton
+                            : loc.vipSubscribeButton,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15.5,
+                        ),
                       ),
               ),
             ),
@@ -161,11 +208,17 @@ class _VipScreenState extends ConsumerState<VipScreen> {
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textSecondary),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.textSecondary,
+                        ),
                       )
                     : Text(
                         loc.vipRestorePurchasesButton,
-                        style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
               ),
             ),
@@ -215,17 +268,39 @@ class _VipScreenState extends ConsumerState<VipScreen> {
   }
 
   void _openManageSubscription(BuildContext context, AppLocalizations loc) {
-    final url = Theme.of(context).platform == TargetPlatform.iOS ? _kAppleManageSubscriptionsUrl : _kGoogleManageSubscriptionsUrl;
+    final url = Theme.of(context).platform == TargetPlatform.iOS
+        ? _kAppleManageSubscriptionsUrl
+        : _kGoogleManageSubscriptionsUrl;
     launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
   }
 
   List<VipFeature> _defaultFeatures(AppLocalizations loc) => [
-        VipFeature(icon: Icons.visibility_off_outlined, title: loc.vipFeatureGhostTitle, description: loc.vipFeatureGhostDescription),
-        VipFeature(icon: Icons.radar_outlined, title: loc.vipFeatureRadiusTitle, description: loc.vipFeatureRadiusDescription),
-        VipFeature(icon: Icons.tune_outlined, title: loc.vipFeatureFilterTitle, description: loc.vipFeatureFilterDescription),
-        VipFeature(icon: Icons.explore_off_outlined, title: loc.vipFeatureIncognitoTitle, description: loc.vipFeatureIncognitoDescription),
-        VipFeature(icon: Icons.bolt_outlined, title: loc.vipFeaturePriorityTitle, description: loc.vipFeaturePriorityDescription),
-      ];
+    VipFeature(
+      icon: Icons.visibility_off_outlined,
+      title: loc.vipFeatureGhostTitle,
+      description: loc.vipFeatureGhostDescription,
+    ),
+    VipFeature(
+      icon: Icons.radar_outlined,
+      title: loc.vipFeatureRadiusTitle,
+      description: loc.vipFeatureRadiusDescription,
+    ),
+    VipFeature(
+      icon: Icons.tune_outlined,
+      title: loc.vipFeatureFilterTitle,
+      description: loc.vipFeatureFilterDescription,
+    ),
+    VipFeature(
+      icon: Icons.explore_off_outlined,
+      title: loc.vipFeatureIncognitoTitle,
+      description: loc.vipFeatureIncognitoDescription,
+    ),
+    VipFeature(
+      icon: Icons.bolt_outlined,
+      title: loc.vipFeaturePriorityTitle,
+      description: loc.vipFeaturePriorityDescription,
+    ),
+  ];
 }
 
 class _VipFeatureRow extends StatelessWidget {
@@ -243,7 +318,10 @@ class _VipFeatureRow extends StatelessWidget {
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: AppColors.gold.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Icon(feature.icon, color: AppColors.gold, size: 20),
           ),
           const SizedBox(width: 14),
@@ -251,9 +329,21 @@ class _VipFeatureRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(feature.title, style: AppTextStyles.body.copyWith(fontSize: 15, fontWeight: FontWeight.w600)),
+                Text(
+                  feature.title,
+                  style: AppTextStyles.body.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 2),
-                Text(feature.description, style: AppTextStyles.caption.copyWith(fontSize: 12.5, height: 1.4)),
+                Text(
+                  feature.description,
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 12.5,
+                    height: 1.4,
+                  ),
+                ),
               ],
             ),
           ),
@@ -269,7 +359,12 @@ class _PackagePill extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _PackagePill({required this.label, this.badge, required this.selected, required this.onTap});
+  const _PackagePill({
+    required this.label,
+    this.badge,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -279,9 +374,13 @@ class _PackagePill extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
-          color: selected ? AppColors.gold.withValues(alpha: 0.16) : AppColors.card,
+          color: selected
+              ? AppColors.gold.withValues(alpha: 0.16)
+              : AppColors.card,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? AppColors.gold : AppColors.divider),
+          border: Border.all(
+            color: selected ? AppColors.gold : AppColors.divider,
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -289,8 +388,18 @@ class _PackagePill extends StatelessWidget {
             if (badge != null) ...[
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: AppColors.gold, borderRadius: BorderRadius.circular(8)),
-                child: Text(badge!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: Color(0xFF2B1D00))),
+                decoration: BoxDecoration(
+                  color: AppColors.gold,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  badge!,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF2B1D00),
+                  ),
+                ),
               ),
               const SizedBox(height: 6),
             ],
@@ -358,13 +467,17 @@ class _CurrentPackageCard extends ConsumerWidget {
                   expiresAt == null
                       ? loc.vipCurrentPackageTitle
                       : '${loc.vipCurrentPackageTitle} · ${_planLabel(loc, expiresAt)}',
-                  style: AppTextStyles.body.copyWith(fontWeight: FontWeight.w700),
+                  style: AppTextStyles.body.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   expiresAt == null
                       ? loc.vipCurrentPackageActiveLabel
-                      : loc.vipCurrentPackageExpiresLabel(DateFormat('dd.MM.yyyy').format(expiresAt)),
+                      : loc.vipCurrentPackageExpiresLabel(
+                          DateFormat('dd.MM.yyyy').format(expiresAt),
+                        ),
                   style: AppTextStyles.caption.copyWith(fontSize: 12.5),
                 ),
               ],
@@ -372,7 +485,13 @@ class _CurrentPackageCard extends ConsumerWidget {
           ),
           TextButton(
             onPressed: onManage,
-            child: Text(loc.vipManageButton, style: const TextStyle(color: AppColors.gold, fontWeight: FontWeight.w700)),
+            child: Text(
+              loc.vipManageButton,
+              style: const TextStyle(
+                color: AppColors.gold,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),

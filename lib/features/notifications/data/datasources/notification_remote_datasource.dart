@@ -15,7 +15,10 @@ abstract class NotificationRemoteDatasource {
   /// Realtime first page, newest first — see
   /// [FirebaseNotificationRepository] for how this is merged with
   /// [fetchMoreNotifications]'s older, non-realtime pages.
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchNotifications(String uid, {required int limit});
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchNotifications(
+    String uid, {
+    required int limit,
+  });
 
   Future<QuerySnapshot<Map<String, dynamic>>> fetchMoreNotifications(
     String uid, {

@@ -11,5 +11,7 @@ String formatDistance(AppLocalizations loc, double meters, DistanceUnit unit) {
     final miles = meters / 1609.344;
     return loc.distanceMilesAway(miles.toStringAsFixed(miles < 10 ? 1 : 0));
   }
-  return meters < 1000 ? loc.distanceMetersAway(meters.round()) : loc.distanceKmAway((meters / 1000).toStringAsFixed(1));
+  return meters < 1000
+      ? loc.distanceMetersAway(meters.round())
+      : loc.distanceKmAway((meters / 1000).toStringAsFixed(1));
 }

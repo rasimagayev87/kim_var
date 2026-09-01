@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import '../../../venues/domain/entities/venue.dart' show TimestampConverter, NullableTimestampConverter;
+import '../../../venues/domain/entities/venue.dart'
+    show TimestampConverter, NullableTimestampConverter;
 
 part 'waitlist_entry.freezed.dart';
 part 'waitlist_entry.g.dart';
@@ -11,12 +12,16 @@ part 'waitlist_entry.g.dart';
 /// entry to.
 enum WaitlistEntryStatus { waiting, called, seated, cancelled, noShow }
 
-class WaitlistEntryStatusConverter implements JsonConverter<WaitlistEntryStatus, String?> {
+class WaitlistEntryStatusConverter
+    implements JsonConverter<WaitlistEntryStatus, String?> {
   const WaitlistEntryStatusConverter();
 
   @override
   WaitlistEntryStatus fromJson(String? json) =>
-      WaitlistEntryStatus.values.firstWhere((s) => s.name == json, orElse: () => WaitlistEntryStatus.waiting);
+      WaitlistEntryStatus.values.firstWhere(
+        (s) => s.name == json,
+        orElse: () => WaitlistEntryStatus.waiting,
+      );
 
   @override
   String toJson(WaitlistEntryStatus status) => status.name;
@@ -47,7 +52,9 @@ class WaitlistEntry with _$WaitlistEntry {
     /// provided, same "omit rather than store blank" convention as
     /// `Venue.country`/`VenueSocialLinks` fields elsewhere.
     String? note,
-    @WaitlistEntryStatusConverter() @Default(WaitlistEntryStatus.waiting) WaitlistEntryStatus status,
+    @WaitlistEntryStatusConverter()
+    @Default(WaitlistEntryStatus.waiting)
+    WaitlistEntryStatus status,
     @TimestampConverter() required DateTime joinedAt,
     @NullableTimestampConverter() DateTime? calledAt,
 
@@ -65,9 +72,14 @@ class WaitlistEntry with _$WaitlistEntry {
     int? queuePosition,
   }) = _WaitlistEntry;
 
-  factory WaitlistEntry.fromJson(Map<String, dynamic> json) => _$WaitlistEntryFromJson(json);
+  factory WaitlistEntry.fromJson(Map<String, dynamic> json) =>
+      _$WaitlistEntryFromJson(json);
 
-  factory WaitlistEntry.fromFirestore(String id, String venueId, Map<String, dynamic> data) {
+  factory WaitlistEntry.fromFirestore(
+    String id,
+    String venueId,
+    Map<String, dynamic> data,
+  ) {
     return WaitlistEntry.fromJson({...data, 'id': id, 'venueId': venueId});
   }
 }

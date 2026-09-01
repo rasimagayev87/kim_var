@@ -11,11 +11,19 @@ import '../entities/app_config.dart';
 /// contract, since gating an update on unreliable input would be worse
 /// than not gating it at all.
 class CheckUpdateStatusUseCase {
-  UpdateStatus call({required AppConfig config, required String installedVersion}) {
-    final minSupported = Platform.isIOS ? config.minSupportedVersionIos : config.minSupportedVersionAndroid;
-    final latest = Platform.isIOS ? config.latestVersionIos : config.latestVersionAndroid;
+  UpdateStatus call({
+    required AppConfig config,
+    required String installedVersion,
+  }) {
+    final minSupported = Platform.isIOS
+        ? config.minSupportedVersionIos
+        : config.minSupportedVersionAndroid;
+    final latest = Platform.isIOS
+        ? config.latestVersionIos
+        : config.latestVersionAndroid;
 
-    if (config.forceUpdateEnabled && compareVersions(installedVersion, minSupported) < 0) {
+    if (config.forceUpdateEnabled &&
+        compareVersions(installedVersion, minSupported) < 0) {
       return UpdateStatus.forceUpdateRequired;
     }
     if (compareVersions(installedVersion, latest) < 0) {

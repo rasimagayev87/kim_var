@@ -48,7 +48,10 @@ String maskSensitive(String input) {
 
   // Firebase uids and document ids: 20+ chars of mixed-case alphanumerics.
   // Runs LAST so it cannot swallow the more specific forms above.
-  out = out.replaceAll(RegExp(r'\b(?=[\w-]*[a-z])(?=[\w-]*[A-Z0-9])[\w-]{20,}\b'), '[id]');
+  out = out.replaceAll(
+    RegExp(r'\b(?=[\w-]*[a-z])(?=[\w-]*[A-Z0-9])[\w-]{20,}\b'),
+    '[id]',
+  );
 
   return out;
 }
@@ -66,7 +69,9 @@ String maskSensitive(String input) {
 /// lands in the same `logcat`.
 void logTrace(String context, [String detail = '']) {
   if (kReleaseMode) {
-    debugPrint('PEAKPIN_TRACE $context${detail.isEmpty ? '' : ': ${maskSensitive(detail)}'}');
+    debugPrint(
+      'PEAKPIN_TRACE $context${detail.isEmpty ? '' : ': ${maskSensitive(detail)}'}',
+    );
   } else {
     developer.log(detail, name: 'peakpin.trace.$context');
   }
@@ -116,7 +121,8 @@ void logError(String context, Object error, [StackTrace? stackTrace]) {
 /// rules that haven't been deployed yet, so it deserves a clearer message
 /// than a generic "something went wrong".
 bool isPermissionDeniedError(Object error) {
-  return error is FirebaseException && errorCodeIs(error.code, 'permission-denied');
+  return error is FirebaseException &&
+      errorCodeIs(error.code, 'permission-denied');
 }
 
 /// Compares a Firebase error code without letting the device's locale
@@ -139,7 +145,8 @@ bool isPermissionDeniedError(Object error) {
 /// comparing; everything else is already lowercase ASCII in Firebase's
 /// code vocabulary.
 bool errorCodeIs(String code, String expected) {
-  String fold(String v) => v.replaceAll('ı', 'i').replaceAll('İ', 'i').toLowerCase();
+  String fold(String v) =>
+      v.replaceAll('ı', 'i').replaceAll('İ', 'i').toLowerCase();
   return fold(code) == fold(expected);
 }
 
@@ -149,5 +156,6 @@ bool errorCodeIs(String code, String expected) {
 /// from its local cache instead of throwing when the device is offline.
 bool isOfflineError(Object error) {
   return error is FirebaseException &&
-      (errorCodeIs(error.code, 'unavailable') || errorCodeIs(error.code, 'network-request-failed'));
+      (errorCodeIs(error.code, 'unavailable') ||
+          errorCodeIs(error.code, 'network-request-failed'));
 }

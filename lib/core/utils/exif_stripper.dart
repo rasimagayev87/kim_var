@@ -32,7 +32,8 @@ Future<File> stripExifIfImage(File file) async {
 
     final stripped = img.encodeJpg(decoded, quality: 90);
     final tempDir = await getTemporaryDirectory();
-    final outPath = '${tempDir.path}/exif_stripped_${DateTime.now().microsecondsSinceEpoch}.jpg';
+    final outPath =
+        '${tempDir.path}/exif_stripped_${DateTime.now().microsecondsSinceEpoch}.jpg';
     return File(outPath)..writeAsBytesSync(stripped);
   } catch (e, st) {
     logError('exif_stripper.stripExifIfImage', e, st);

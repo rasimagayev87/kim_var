@@ -7,24 +7,31 @@ import '../../domain/entities/public_profile.dart';
 /// app shows someone ELSE's profile (discover card stack, chat header),
 /// as opposed to `profileControllerProvider`, which is always the
 /// signed-in user's own.
-final publicProfileProvider = StreamProvider.family<PublicProfile?, String>((ref, uid) {
-  return FirebaseFirestore.instance.collection('users').doc(uid).snapshots().map((doc) {
-    final data = doc.data();
-    if (data == null) return null;
+final publicProfileProvider = StreamProvider.family<PublicProfile?, String>((
+  ref,
+  uid,
+) {
+  return FirebaseFirestore.instance
+      .collection('users')
+      .doc(uid)
+      .snapshots()
+      .map((doc) {
+        final data = doc.data();
+        if (data == null) return null;
 
-    final firstName = data['firstName'] as String? ?? '';
-    final lastName = data['lastName'] as String? ?? '';
+        final firstName = data['firstName'] as String? ?? '';
+        final lastName = data['lastName'] as String? ?? '';
 
-    return PublicProfile(
-      id: uid,
-      name: '$firstName $lastName'.trim(),
-      username: data['username'] as String?,
-      photoUrl: data['photoUrl'] as String?,
-      bio: data['bio'] as String? ?? '',
-      online: data['online'] as bool? ?? false,
-      lastSeen: (data['lastSeen'] as Timestamp?)?.toDate(),
-      identityVerified: data['identityVerified'] as bool? ?? false,
-      premium: data['premium'] as bool? ?? false,
-    );
-  });
+        return PublicProfile(
+          id: uid,
+          name: '$firstName $lastName'.trim(),
+          username: data['username'] as String?,
+          photoUrl: data['photoUrl'] as String?,
+          bio: data['bio'] as String? ?? '',
+          online: data['online'] as bool? ?? false,
+          lastSeen: (data['lastSeen'] as Timestamp?)?.toDate(),
+          identityVerified: data['identityVerified'] as bool? ?? false,
+          premium: data['premium'] as bool? ?? false,
+        );
+      });
 });

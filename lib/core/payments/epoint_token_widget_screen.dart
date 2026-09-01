@@ -26,7 +26,8 @@ class EpointTokenWidgetScreen extends StatefulWidget {
   const EpointTokenWidgetScreen({super.key, required this.widgetUrl});
 
   @override
-  State<EpointTokenWidgetScreen> createState() => _EpointTokenWidgetScreenState();
+  State<EpointTokenWidgetScreen> createState() =>
+      _EpointTokenWidgetScreenState();
 }
 
 class _EpointTokenWidgetScreenState extends State<EpointTokenWidgetScreen> {
@@ -38,7 +39,10 @@ class _EpointTokenWidgetScreenState extends State<EpointTokenWidgetScreen> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..addJavaScriptChannel('PeakPinBridge', onMessageReceived: _onBridgeMessage)
+      ..addJavaScriptChannel(
+        'PeakPinBridge',
+        onMessageReceived: _onBridgeMessage,
+      )
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (_) {
@@ -88,7 +92,13 @@ class _EpointTokenWidgetScreenState extends State<EpointTokenWidgetScreen> {
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
-          if (_loading) const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
+          if (_loading)
+            const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: AppColors.primary,
+              ),
+            ),
         ],
       ),
     );

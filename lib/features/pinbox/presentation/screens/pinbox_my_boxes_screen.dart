@@ -12,6 +12,8 @@ import '../providers/pinbox_providers.dart';
 import 'create_pinbox_screen.dart';
 import 'pinbox_ticket_screen.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// PinBox Faza 11 — replaces the Faza 2 "coming soon" stub. Two
 /// sections: "Aldıqlarım" (every user's own [PinBoxOrder]s, always
 /// shown first) and "Yaratdıqlarım" (the signed-in user's own [PinBox]
@@ -24,12 +26,17 @@ class PinBoxMyBoxesScreen extends ConsumerStatefulWidget {
   const PinBoxMyBoxesScreen({super.key, required this.eligibleVenues});
 
   @override
-  ConsumerState<PinBoxMyBoxesScreen> createState() => _PinBoxMyBoxesScreenState();
+  ConsumerState<PinBoxMyBoxesScreen> createState() =>
+      _PinBoxMyBoxesScreenState();
 }
 
-class _PinBoxMyBoxesScreenState extends ConsumerState<PinBoxMyBoxesScreen> with SingleTickerProviderStateMixin {
+class _PinBoxMyBoxesScreenState extends ConsumerState<PinBoxMyBoxesScreen>
+    with SingleTickerProviderStateMixin {
   late final bool _showCreated = widget.eligibleVenues.isNotEmpty;
-  late final TabController _tabController = TabController(length: _showCreated ? 2 : 1, vsync: this);
+  late final TabController _tabController = TabController(
+    length: _showCreated ? 2 : 1,
+    vsync: this,
+  );
 
   @override
   void dispose() {
@@ -50,11 +57,19 @@ class _PinBoxMyBoxesScreenState extends ConsumerState<PinBoxMyBoxesScreen> with 
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: ChatLightColors.ink,
+          ),
         ),
         title: Text(
           loc.pinboxMyBoxesTitle,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: ChatLightColors.ink,
+          ),
         ),
         bottom: _showCreated
             ? TabBar(
@@ -92,14 +107,27 @@ class _MyOrdersList extends ConsumerWidget {
     final ordersAsync = ref.watch(myPinBoxOrdersProvider);
 
     return ordersAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-      error: (error, _) => Center(child: Text('$error', style: const TextStyle(color: ChatLightColors.inkSoft))),
+      loading: () => const Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2.4,
+          color: AppColors.primary,
+        ),
+      ),
+      error: (error, _) => Center(
+        child: Text(
+          '$error',
+          style: const TextStyle(color: ChatLightColors.inkSoft),
+        ),
+      ),
       data: (orders) {
         if (orders.isEmpty) {
           return Center(
             child: Text(
               loc.pinboxMyOrdersEmptyMessage,
-              style: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 14),
+              style: const TextStyle(
+                color: ChatLightColors.inkFaint,
+                fontSize: 14,
+              ),
             ),
           );
         }
@@ -130,11 +158,26 @@ class _OrderCard extends ConsumerWidget {
       data: (pinbox) {
         if (pinbox == null) return const SizedBox.shrink();
         final (statusLabel, statusColor) = switch (order.status) {
-          PinBoxOrderStatus.awaitingPayment => (loc.pinboxOrderStatusAwaitingPayment, AppColors.gold),
-          PinBoxOrderStatus.reserved => (loc.pinboxOrderStatusReserved, AppColors.primary),
-          PinBoxOrderStatus.paymentFailed => (loc.pinboxOrderStatusPaymentFailed, AppColors.error),
-          PinBoxOrderStatus.completed => (loc.pinboxOrderStatusCompleted, AppColors.gold),
-          PinBoxOrderStatus.noShow => (loc.pinboxOrderStatusNoShow, ChatLightColors.inkFaint),
+          PinBoxOrderStatus.awaitingPayment => (
+            loc.pinboxOrderStatusAwaitingPayment,
+            AppColors.gold,
+          ),
+          PinBoxOrderStatus.reserved => (
+            loc.pinboxOrderStatusReserved,
+            AppColors.primary,
+          ),
+          PinBoxOrderStatus.paymentFailed => (
+            loc.pinboxOrderStatusPaymentFailed,
+            AppColors.error,
+          ),
+          PinBoxOrderStatus.completed => (
+            loc.pinboxOrderStatusCompleted,
+            AppColors.gold,
+          ),
+          PinBoxOrderStatus.noShow => (
+            loc.pinboxOrderStatusNoShow,
+            ChatLightColors.inkFaint,
+          ),
         };
 
         // The status is written by an HOURLY sweep (`expirePinBoxOrders`),
@@ -148,14 +191,20 @@ class _OrderCard extends ConsumerWidget {
         // why "Ready for pickup" stayed on screen after the window
         // ended.
         final windowClosed = pinbox.pickupWindowEnd.isBefore(DateTime.now());
-        final isNotCollected = order.status == PinBoxOrderStatus.noShow ||
+        final isNotCollected =
+            order.status == PinBoxOrderStatus.noShow ||
             (order.status == PinBoxOrderStatus.reserved && windowClosed);
         final (effectiveLabel, effectiveColor) = isNotCollected
             ? (loc.pinboxOrderStatusNoShow, ChatLightColors.inkFaint)
             : (statusLabel, statusColor);
 
-        return GestureDetector(
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PinBoxTicketScreen(orderId: order.id))),
+        return Pressable(
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => PinBoxTicketScreen(orderId: order.id),
+            ),
+          ),
           // Dimmed as a whole, so an uncollected order is distinct in
           // the LIST and not only once its chip is read. A finished
           // order should not compete visually with one still waiting to
@@ -163,60 +212,91 @@ class _OrderCard extends ConsumerWidget {
           child: Opacity(
             opacity: isNotCollected ? 0.55 : 1,
             child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
-                  child: SizedBox(
-                    width: 64,
-                    height: 64,
-                    child: pinbox.imageUrl != null
-                        ? AppImage(pinbox.imageUrl!, thumbnail: true, fit: BoxFit.cover)
-                        : Container(
-                            color: ChatLightColors.cardSurface,
-                            alignment: Alignment.center,
-                            child: const Icon(Icons.inventory_2_outlined, color: ChatLightColors.inkSoft),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: SizedBox(
+                      width: 64,
+                      height: 64,
+                      child: pinbox.imageUrl != null
+                          ? AppImage(
+                              pinbox.imageUrl!,
+                              thumbnail: true,
+                              fit: BoxFit.cover,
+                            )
+                          : Container(
+                              color: ChatLightColors.cardSurface,
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.inventory_2_outlined,
+                                color: ChatLightColors.inkSoft,
+                              ),
+                            ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          pinbox.venueName,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: ChatLightColors.ink,
                           ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        pinbox.venueName,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        loc.pinboxTicketItemLabel(pinbox.title, order.quantity),
-                        style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: effectiveColor.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(999),
                         ),
-                        child: Text(
-                          effectiveLabel,
-                          style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: effectiveColor),
+                        const SizedBox(height: 2),
+                        Text(
+                          loc.pinboxTicketItemLabel(
+                            pinbox.title,
+                            order.quantity,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: ChatLightColors.inkSoft,
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: effectiveColor.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            effectiveLabel,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: effectiveColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                Text(
-                  '${order.amountPaid.toStringAsFixed(2)} AZN',
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
-                ),
-              ],
-            ),
+                  Text(
+                    '${order.amountPaid.toStringAsFixed(2)} AZN',
+                    style: const TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w700,
+                      color: ChatLightColors.ink,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -234,14 +314,27 @@ class _MyListingsList extends ConsumerWidget {
     final pinboxesAsync = ref.watch(myPinBoxesProvider);
 
     return pinboxesAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-      error: (error, _) => Center(child: Text('$error', style: const TextStyle(color: ChatLightColors.inkSoft))),
+      loading: () => const Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2.4,
+          color: AppColors.primary,
+        ),
+      ),
+      error: (error, _) => Center(
+        child: Text(
+          '$error',
+          style: const TextStyle(color: ChatLightColors.inkSoft),
+        ),
+      ),
       data: (pinboxes) {
         if (pinboxes.isEmpty) {
           return Center(
             child: Text(
               loc.pinboxMyListingsEmptyMessage,
-              style: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 14),
+              style: const TextStyle(
+                color: ChatLightColors.inkFaint,
+                fontSize: 14,
+              ),
             ),
           );
         }
@@ -308,7 +401,8 @@ class _ListingCard extends ConsumerWidget {
   /// doc comment on this exact gap), so a box that never sold out
   /// stays `'active'` in Firestore forever after its window ends. This
   /// derives the real-time answer instead of trusting the stale field.
-  bool get _isPastPickupWindow => pinbox.pickupWindowEnd.isBefore(DateTime.now());
+  bool get _isPastPickupWindow =>
+      pinbox.pickupWindowEnd.isBefore(DateTime.now());
 
   Future<void> _openMenu(BuildContext context, WidgetRef ref) async {
     final loc = AppLocalizations.of(context);
@@ -318,11 +412,16 @@ class _ListingCard extends ConsumerWidget {
     // that's how `resubmitPinBox` (see `create_pinbox_screen.dart`)
     // gets back to review after a fix, so this only ever excludes the
     // two genuinely-final states.
-    final canEdit = pinbox.status != 'soldOut' && pinbox.status != 'expired' && !_isPastPickupWindow;
+    final canEdit =
+        pinbox.status != 'soldOut' &&
+        pinbox.status != 'expired' &&
+        !_isPastPickupWindow;
     final action = await showModalBottomSheet<_ListingCardAction>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -330,14 +429,31 @@ class _ListingCard extends ConsumerWidget {
             const SizedBox(height: 8),
             if (canEdit)
               ListTile(
-                leading: const Icon(Icons.edit_outlined, color: ChatLightColors.ink),
-                title: Text(loc.pinboxEditTitle, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
-                onTap: () => Navigator.pop(sheetContext, _ListingCardAction.edit),
+                leading: const Icon(
+                  Icons.edit_outlined,
+                  color: ChatLightColors.ink,
+                ),
+                title: Text(
+                  loc.pinboxEditTitle,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: ChatLightColors.ink,
+                  ),
+                ),
+                onTap: () =>
+                    Navigator.pop(sheetContext, _ListingCardAction.edit),
               ),
             ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
-              title: Text(loc.pinboxDeleteMenuOption, style: const TextStyle(fontSize: 15, color: AppColors.error)),
-              onTap: () => Navigator.pop(sheetContext, _ListingCardAction.delete),
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+              ),
+              title: Text(
+                loc.pinboxDeleteMenuOption,
+                style: const TextStyle(fontSize: 15, color: AppColors.error),
+              ),
+              onTap: () =>
+                  Navigator.pop(sheetContext, _ListingCardAction.delete),
             ),
             const SizedBox(height: 8),
           ],
@@ -348,7 +464,12 @@ class _ListingCard extends ConsumerWidget {
     if (!context.mounted || action == null) return;
 
     if (action == _ListingCardAction.edit) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => CreatePinBoxScreen(existingPinBox: pinbox)));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CreatePinBoxScreen(existingPinBox: pinbox),
+        ),
+      );
     } else {
       _confirmDelete(context, ref);
     }
@@ -360,13 +481,26 @@ class _ListingCard extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
-        title: Text(loc.pinboxDeleteMenuOption, style: const TextStyle(color: ChatLightColors.ink, fontWeight: FontWeight.w700)),
+        title: Text(
+          loc.pinboxDeleteMenuOption,
+          style: const TextStyle(
+            color: ChatLightColors.ink,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         content: Text(
           loc.pinboxDeleteConfirmMessage,
-          style: const TextStyle(color: ChatLightColors.inkSoft, fontSize: 14.5, height: 1.4),
+          style: const TextStyle(
+            color: ChatLightColors.inkSoft,
+            fontSize: 14.5,
+            height: 1.4,
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -378,16 +512,22 @@ class _ListingCard extends ConsumerWidget {
 
     if (confirmed != true || !context.mounted) return;
 
-    final success = await ref.read(pinboxControllerProvider).deletePinBox(
+    final success = await ref
+        .read(pinboxControllerProvider)
+        .deletePinBox(
           pinbox.id,
           onError: () {
             if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.offerGenericErrorMessage)),
+            );
           },
         );
 
     if (success && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.pinboxDeletedNotice)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.pinboxDeletedNotice)));
     }
   }
 
@@ -395,12 +535,18 @@ class _ListingCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final (statusLabel, statusColor) = switch (pinbox.status) {
-      'active' when _isPastPickupWindow => (loc.pinboxListingStatusExpired, ChatLightColors.inkFaint),
+      'active' when _isPastPickupWindow => (
+        loc.pinboxListingStatusExpired,
+        ChatLightColors.inkFaint,
+      ),
       'active' => (loc.pinboxListingStatusActive, AppColors.primary),
       'soldOut' => (loc.pinboxListingStatusSoldOut, AppColors.gold),
       'expired' => (loc.pinboxListingStatusExpired, ChatLightColors.inkFaint),
       'rejected' => (loc.pinboxListingStatusRejected, AppColors.error),
-      'needs_revision' => (loc.pinboxListingStatusNeedsRevision, AppColors.gold),
+      'needs_revision' => (
+        loc.pinboxListingStatusNeedsRevision,
+        AppColors.gold,
+      ),
       _ => (loc.pinboxListingStatusPending, AppColors.gold),
     };
     final sold = pinbox.stockTotal - pinbox.stockRemaining;
@@ -424,11 +570,18 @@ class _ListingCard extends ConsumerWidget {
                         width: 64,
                         height: 64,
                         child: pinbox.imageUrl != null
-                            ? AppImage(pinbox.imageUrl!, thumbnail: true, fit: BoxFit.cover)
+                            ? AppImage(
+                                pinbox.imageUrl!,
+                                thumbnail: true,
+                                fit: BoxFit.cover,
+                              )
                             : Container(
                                 color: ChatLightColors.cardSurface,
                                 alignment: Alignment.center,
-                                child: const Icon(Icons.inventory_2_outlined, color: ChatLightColors.inkSoft),
+                                child: const Icon(
+                                  Icons.inventory_2_outlined,
+                                  color: ChatLightColors.inkSoft,
+                                ),
                               ),
                       ),
                     ),
@@ -441,7 +594,11 @@ class _ListingCard extends ConsumerWidget {
                             padding: const EdgeInsets.only(right: 28),
                             child: Text(
                               pinbox.title,
-                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: ChatLightColors.ink,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -449,26 +606,40 @@ class _ListingCard extends ConsumerWidget {
                           const SizedBox(height: 2),
                           Text(
                             loc.pinboxSoldCountLabel(sold, pinbox.stockTotal),
-                            style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: ChatLightColors.inkSoft,
+                            ),
                           ),
                           const SizedBox(height: 6),
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: statusColor.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                                 child: Text(
                                   statusLabel,
-                                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: statusColor),
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: statusColor,
+                                  ),
                                 ),
                               ),
                               const Spacer(),
                               Text(
                                 '${pinbox.pinboxPrice.toStringAsFixed(2)} AZN',
-                                style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                                style: const TextStyle(
+                                  fontSize: 13.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: ChatLightColors.ink,
+                                ),
                               ),
                             ],
                           ),
@@ -489,7 +660,11 @@ class _ListingCard extends ConsumerWidget {
                     onTap: () => _openMenu(context, ref),
                     child: const Padding(
                       padding: EdgeInsets.all(6),
-                      child: Icon(Icons.more_vert_outlined, size: 18, color: ChatLightColors.inkSoft),
+                      child: Icon(
+                        Icons.more_vert_outlined,
+                        size: 18,
+                        color: ChatLightColors.inkSoft,
+                      ),
                     ),
                   ),
                 ),
@@ -499,7 +674,12 @@ class _ListingCard extends ConsumerWidget {
           if (pinbox.status == 'needs_revision')
             _PinboxNeedsRevisionBanner(
               reviewNote: pinbox.reviewNote,
-              onEdit: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreatePinBoxScreen(existingPinBox: pinbox))),
+              onEdit: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => CreatePinBoxScreen(existingPinBox: pinbox),
+                ),
+              ),
             ),
         ],
       ),
@@ -514,7 +694,10 @@ class _PinboxNeedsRevisionBanner extends StatelessWidget {
   final String? reviewNote;
   final VoidCallback onEdit;
 
-  const _PinboxNeedsRevisionBanner({required this.reviewNote, required this.onEdit});
+  const _PinboxNeedsRevisionBanner({
+    required this.reviewNote,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -538,9 +721,19 @@ class _PinboxNeedsRevisionBanner extends StatelessWidget {
                   children: [
                     TextSpan(
                       text: '${loc.moderationReviewNotePrefix}: ',
-                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: ChatLightColors.ink,
+                      ),
                     ),
-                    TextSpan(text: reviewNote, style: const TextStyle(fontSize: 12, color: ChatLightColors.inkSoft)),
+                    TextSpan(
+                      text: reviewNote,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: ChatLightColors.inkSoft,
+                      ),
+                    ),
                   ],
                 ),
                 maxLines: 3,
@@ -551,7 +744,11 @@ class _PinboxNeedsRevisionBanner extends StatelessWidget {
             Expanded(
               child: Text(
                 loc.moderationStatusNeedsRevision,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: ChatLightColors.ink,
+                ),
               ),
             ),
           const SizedBox(width: 8),
@@ -562,7 +759,13 @@ class _PinboxNeedsRevisionBanner extends StatelessWidget {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: Text(loc.pinboxEditTitle, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+            child: Text(
+              loc.pinboxEditTitle,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ),
         ],
       ),

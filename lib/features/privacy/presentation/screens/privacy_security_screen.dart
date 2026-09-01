@@ -11,13 +11,16 @@ import '../../../auth/domain/entities/app_user.dart' show LoginProvider;
 import '../../../auth/presentation/widgets/country_dial_code.dart';
 import '../../../location/presentation/providers/location_providers.dart';
 import '../../../premium/presentation/providers/premium_providers.dart';
-import '../../../profile/domain/entities/user_profile.dart' show kBusinessStatusActive, kBusinessStatusNone;
+import '../../../profile/domain/entities/user_profile.dart'
+    show kBusinessStatusActive, kBusinessStatusNone;
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../safety/presentation/screens/blocked_users_screen.dart';
 import '../../domain/entities/privacy_settings.dart';
 import '../providers/privacy_providers.dart';
 import 'active_devices_screen.dart';
 import 'export_data_screen.dart';
+
+import '../../../../core/widgets/pressable.dart';
 
 class PrivacySecurityScreen extends ConsumerWidget {
   const PrivacySecurityScreen({super.key});
@@ -29,7 +32,9 @@ class PrivacySecurityScreen extends ConsumerWidget {
     final settings = settingsAsync.valueOrNull ?? const PrivacySettings();
     final isPremium = ref.watch(isPremiumProvider);
     final controller = ref.read(privacySettingsControllerProvider);
-    final businessStatus = ref.watch(profileControllerProvider).businessStatus ?? kBusinessStatusActive;
+    final businessStatus =
+        ref.watch(profileControllerProvider).businessStatus ??
+        kBusinessStatusActive;
 
     void showError() {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -49,7 +54,11 @@ class PrivacySecurityScreen extends ConsumerWidget {
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.white),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: AppColors.white,
+          ),
         ),
         title: Text(loc.privacySecurityTitle),
       ),
@@ -63,7 +72,9 @@ class PrivacySecurityScreen extends ConsumerWidget {
                   icon: Icons.lock_outline,
                   title: loc.privacyAccountPrivacyTitle,
                   subtitle: loc.privacyAccountPrivacySubtitle,
-                  trailing: SettingsPill(label: _accountPrivacyLabel(loc, settings.accountPrivacy)),
+                  trailing: SettingsPill(
+                    label: _accountPrivacyLabel(loc, settings.accountPrivacy),
+                  ),
                   onTap: () => _showAccountPrivacySheet(
                     context: context,
                     loc: loc,
@@ -88,7 +99,10 @@ class PrivacySecurityScreen extends ConsumerWidget {
                     settings: settings,
                     isPremium: isPremium,
                     onSelected: (mode, km) async {
-                      final ok = await controller.updateVisibilityRadius(mode, radiusKm: km);
+                      final ok = await controller.updateVisibilityRadius(
+                        mode,
+                        radiusKm: km,
+                      );
                       if (!ok && context.mounted) showError();
                     },
                   ),
@@ -99,7 +113,10 @@ class PrivacySecurityScreen extends ConsumerWidget {
                   title: loc.privacyGhostModeTitle,
                   subtitle: loc.privacyGhostModeDescription,
                   value: settings.ghostModeEnabled,
-                  badge: const SettingsPill(label: 'VIP', color: AppColors.gold),
+                  badge: const SettingsPill(
+                    label: 'VIP',
+                    color: AppColors.gold,
+                  ),
                   onChanged: (v) async {
                     if (v && !isPremium) {
                       showPremiumUpsellSheet(
@@ -119,7 +136,10 @@ class PrivacySecurityScreen extends ConsumerWidget {
                   title: loc.privacyIncognitoBrowsingTitle,
                   subtitle: loc.privacyIncognitoBrowsingDescription,
                   value: settings.incognitoBrowsingEnabled,
-                  badge: const SettingsPill(label: 'VIP', color: AppColors.gold),
+                  badge: const SettingsPill(
+                    label: 'VIP',
+                    color: AppColors.gold,
+                  ),
                   onChanged: (v) async {
                     if (v && !isPremium) {
                       showPremiumUpsellSheet(
@@ -166,13 +186,17 @@ class PrivacySecurityScreen extends ConsumerWidget {
                   icon: Icons.storefront_outlined,
                   title: loc.sectionBusinessStatusTitle,
                   subtitle: loc.sectionBusinessStatusSubtitle,
-                  trailing: SettingsPill(label: _businessStatusLabel(loc, businessStatus)),
+                  trailing: SettingsPill(
+                    label: _businessStatusLabel(loc, businessStatus),
+                  ),
                   onTap: () => _showBusinessStatusSheet(
                     context: context,
                     loc: loc,
                     current: businessStatus,
                     onSelected: (v) async {
-                      final ok = await ref.read(profileControllerProvider.notifier).updateBusinessStatus(v);
+                      final ok = await ref
+                          .read(profileControllerProvider.notifier)
+                          .updateBusinessStatus(v);
                       if (!ok && context.mounted) showError();
                     },
                   ),
@@ -195,7 +219,9 @@ class PrivacySecurityScreen extends ConsumerWidget {
                 SettingsMenuRow(
                   icon: Icons.forum_outlined,
                   title: loc.privacyWhoCanMessageTitle,
-                  trailing: SettingsPill(label: _whoCanMessageLabel(loc, settings.whoCanMessageMe)),
+                  trailing: SettingsPill(
+                    label: _whoCanMessageLabel(loc, settings.whoCanMessageMe),
+                  ),
                   onTap: () => _showWhoCanMessageSheet(
                     context: context,
                     loc: loc,
@@ -217,7 +243,9 @@ class PrivacySecurityScreen extends ConsumerWidget {
                   title: loc.blockedUsersTitle,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const BlockedUsersScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const BlockedUsersScreen(),
+                    ),
                   ),
                 ),
                 SettingsMenuRow(
@@ -226,7 +254,9 @@ class PrivacySecurityScreen extends ConsumerWidget {
                   subtitle: loc.privacyActiveDevicesSubtitle,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const ActiveDevicesScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const ActiveDevicesScreen(),
+                    ),
                   ),
                 ),
               ],
@@ -259,7 +289,9 @@ class PrivacySecurityScreen extends ConsumerWidget {
         return loc.privacyRadiusWorldLabel;
       case VisibilityRadiusMode.distance:
         final km = settings.visibilityRadiusKm ?? 1.0;
-        return km >= 1 ? '${km.toStringAsFixed(0)} km' : '${(km * 1000).toStringAsFixed(0)} m';
+        return km >= 1
+            ? '${km.toStringAsFixed(0)} km'
+            : '${(km * 1000).toStringAsFixed(0)} m';
     }
   }
 
@@ -273,7 +305,9 @@ class PrivacySecurityScreen extends ConsumerWidget {
   }
 
   String _businessStatusLabel(AppLocalizations loc, String v) {
-    return v == kBusinessStatusNone ? loc.businessStatusNoneLabel : loc.businessStatusActiveLabel;
+    return v == kBusinessStatusNone
+        ? loc.businessStatusNoneLabel
+        : loc.businessStatusActiveLabel;
   }
 
   String _whoCanMessageLabel(AppLocalizations loc, WhoCanMessageMe v) {
@@ -333,7 +367,10 @@ class PrivacySecurityScreen extends ConsumerWidget {
       current: current,
       options: [
         _Option(WhoCanMessageMe.everyone, loc.privacyMessagePermEveryone),
-        _Option(WhoCanMessageMe.followersOnly, loc.privacyMessagePermFollowersOnly),
+        _Option(
+          WhoCanMessageMe.followersOnly,
+          loc.privacyMessagePermFollowersOnly,
+        ),
       ],
       onSelected: (value, _) => onSelected(value),
     );
@@ -348,8 +385,14 @@ class PrivacySecurityScreen extends ConsumerWidget {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => _RadiusSheetContent(settings: settings, isPremium: isPremium, onSelected: onSelected),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => _RadiusSheetContent(
+        settings: settings,
+        isPremium: isPremium,
+        onSelected: onSelected,
+      ),
     );
   }
 }
@@ -375,7 +418,9 @@ void _showOptionsSheet<T>({
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.surface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (sheetContext) {
       return SafeArea(
         top: false,
@@ -388,18 +433,36 @@ void _showOptionsSheet<T>({
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(title, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+                  child: Text(
+                    title,
+                    style: AppTextStyles.cardTitle.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
               for (final option in options)
                 ListTile(
-                  title: Text(option.label, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
-                  leading: Icon(
-                    option.value == current ? Icons.radio_button_checked : Icons.radio_button_off,
-                    color: option.value == current ? AppColors.primary : AppColors.textMuted,
+                  title: Text(
+                    option.label,
+                    style: AppTextStyles.body.copyWith(fontSize: 15.5),
                   ),
-                  trailing: option.locked ? const Icon(Icons.workspace_premium_rounded, color: AppColors.gold, size: 20) : null,
+                  leading: Icon(
+                    option.value == current
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
+                    color: option.value == current
+                        ? AppColors.primary
+                        : AppColors.textMuted,
+                  ),
+                  trailing: option.locked
+                      ? const Icon(
+                          Icons.workspace_premium_rounded,
+                          color: AppColors.gold,
+                          size: 20,
+                        )
+                      : null,
                   onTap: () {
                     Navigator.pop(sheetContext);
                     onSelected(option.value, option.locked);
@@ -423,17 +486,23 @@ class _RadiusSheetContent extends ConsumerStatefulWidget {
   final bool isPremium;
   final void Function(VisibilityRadiusMode mode, double? km) onSelected;
 
-  const _RadiusSheetContent({required this.settings, required this.isPremium, required this.onSelected});
+  const _RadiusSheetContent({
+    required this.settings,
+    required this.isPremium,
+    required this.onSelected,
+  });
 
   @override
-  ConsumerState<_RadiusSheetContent> createState() => _RadiusSheetContentState();
+  ConsumerState<_RadiusSheetContent> createState() =>
+      _RadiusSheetContentState();
 }
 
 class _RadiusSheetContentState extends ConsumerState<_RadiusSheetContent> {
   bool _expanded = false;
 
   bool _isSelectedKm(double km) =>
-      widget.settings.visibilityRadiusMode == VisibilityRadiusMode.distance && widget.settings.visibilityRadiusKm == km;
+      widget.settings.visibilityRadiusMode == VisibilityRadiusMode.distance &&
+      widget.settings.visibilityRadiusKm == km;
 
   void _pick(VisibilityRadiusMode mode, {double? km}) {
     Navigator.pop(context);
@@ -442,7 +511,11 @@ class _RadiusSheetContentState extends ConsumerState<_RadiusSheetContent> {
 
   void _handleLockedTap() {
     final loc = AppLocalizations.of(context);
-    showPremiumUpsellSheet(context, title: loc.premiumUpsellRadiusTitle, message: loc.premiumUpsellRadiusMessage);
+    showPremiumUpsellSheet(
+      context,
+      title: loc.premiumUpsellRadiusTitle,
+      message: loc.premiumUpsellRadiusMessage,
+    );
   }
 
   @override
@@ -459,7 +532,12 @@ class _RadiusSheetContentState extends ConsumerState<_RadiusSheetContent> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(loc.privacyRadiusTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              loc.privacyRadiusTitle,
+              style: AppTextStyles.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -470,7 +548,10 @@ class _RadiusSheetContentState extends ConsumerState<_RadiusSheetContent> {
                       km: kDefaultRadiusOptionsKm[i],
                       selected: _isSelectedKm(kDefaultRadiusOptionsKm[i]),
                       locked: false,
-                      onTap: () => _pick(VisibilityRadiusMode.distance, km: kDefaultRadiusOptionsKm[i]),
+                      onTap: () => _pick(
+                        VisibilityRadiusMode.distance,
+                        km: kDefaultRadiusOptionsKm[i],
+                      ),
                     ),
                   ),
                 ],
@@ -489,7 +570,10 @@ class _RadiusSheetContentState extends ConsumerState<_RadiusSheetContent> {
                         km: kExtraRadiusOptionsKm[i],
                         selected: _isSelectedKm(kExtraRadiusOptionsKm[i]),
                         locked: false,
-                        onTap: () => _pick(VisibilityRadiusMode.distance, km: kExtraRadiusOptionsKm[i]),
+                        onTap: () => _pick(
+                          VisibilityRadiusMode.distance,
+                          km: kExtraRadiusOptionsKm[i],
+                        ),
                       ),
                     ),
                   ],
@@ -500,7 +584,9 @@ class _RadiusSheetContentState extends ConsumerState<_RadiusSheetContent> {
                 children: [
                   Expanded(
                     child: _SpecialRadiusPill(
-                      selected: widget.settings.visibilityRadiusMode == VisibilityRadiusMode.country,
+                      selected:
+                          widget.settings.visibilityRadiusMode ==
+                          VisibilityRadiusMode.country,
                       locked: !widget.isPremium,
                       onTap: () {
                         if (!widget.isPremium) {
@@ -510,14 +596,23 @@ class _RadiusSheetContentState extends ConsumerState<_RadiusSheetContent> {
                         _pick(VisibilityRadiusMode.country);
                       },
                       child: countryFlag != null
-                          ? Text(countryFlag, style: const TextStyle(fontSize: 20))
-                          : const Icon(Icons.flag_outlined, color: AppColors.textSecondary, size: 20),
+                          ? Text(
+                              countryFlag,
+                              style: const TextStyle(fontSize: 20),
+                            )
+                          : const Icon(
+                              Icons.flag_outlined,
+                              color: AppColors.textSecondary,
+                              size: 20,
+                            ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: _SpecialRadiusPill(
-                      selected: widget.settings.visibilityRadiusMode == VisibilityRadiusMode.world,
+                      selected:
+                          widget.settings.visibilityRadiusMode ==
+                          VisibilityRadiusMode.world,
                       locked: !widget.isPremium,
                       onTap: () {
                         if (!widget.isPremium) {
@@ -526,7 +621,11 @@ class _RadiusSheetContentState extends ConsumerState<_RadiusSheetContent> {
                         }
                         _pick(VisibilityRadiusMode.world);
                       },
-                      child: const Icon(Icons.public_outlined, color: AppColors.textSecondary, size: 20),
+                      child: const Icon(
+                        Icons.public_outlined,
+                        color: AppColors.textSecondary,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ],
@@ -550,7 +649,7 @@ class _MoreRadiusToggle extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: double.infinity,
@@ -565,10 +664,17 @@ class _MoreRadiusToggle extends StatelessWidget {
           children: [
             Text(
               loc.radiusMoreButtonLabel,
-              style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700, color: AppColors.textSecondary),
+              style: AppTextStyles.caption.copyWith(
+                fontWeight: FontWeight.w700,
+                color: AppColors.textSecondary,
+              ),
             ),
             const SizedBox(width: 2),
-            const Icon(Icons.keyboard_arrow_down_outlined, size: 16, color: AppColors.textSecondary),
+            const Icon(
+              Icons.keyboard_arrow_down_outlined,
+              size: 16,
+              color: AppColors.textSecondary,
+            ),
           ],
         ),
       ),
@@ -594,7 +700,7 @@ class _SpecialRadiusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: double.infinity,
@@ -602,7 +708,13 @@ class _SpecialRadiusPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? AppColors.primary : AppColors.backgroundDark,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? AppColors.primary : (locked ? AppColors.gold.withValues(alpha: 0.35) : AppColors.divider)),
+          border: Border.all(
+            color: selected
+                ? AppColors.primary
+                : (locked
+                      ? AppColors.gold.withValues(alpha: 0.35)
+                      : AppColors.divider),
+          ),
         ),
         child: Stack(
           alignment: Alignment.center,
@@ -612,7 +724,11 @@ class _SpecialRadiusPill extends StatelessWidget {
               const Positioned(
                 top: -2,
                 right: 8,
-                child: Icon(Icons.workspace_premium_outlined, size: 12, color: AppColors.gold),
+                child: Icon(
+                  Icons.workspace_premium_outlined,
+                  size: 12,
+                  color: AppColors.gold,
+                ),
               ),
           ],
         ),
@@ -627,13 +743,20 @@ class _RadiusPill extends StatelessWidget {
   final bool locked;
   final VoidCallback onTap;
 
-  const _RadiusPill({required this.km, required this.selected, required this.locked, required this.onTap});
+  const _RadiusPill({
+    required this.km,
+    required this.selected,
+    required this.locked,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final label = km >= 1 ? '${km.toStringAsFixed(0)} km' : '${(km * 1000).toStringAsFixed(0)} m';
+    final label = km >= 1
+        ? '${km.toStringAsFixed(0)} km'
+        : '${(km * 1000).toStringAsFixed(0)} m';
 
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
@@ -641,20 +764,32 @@ class _RadiusPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? AppColors.primary : AppColors.backgroundDark,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? AppColors.primary : (locked ? AppColors.gold.withValues(alpha: 0.35) : AppColors.divider)),
+          border: Border.all(
+            color: selected
+                ? AppColors.primary
+                : (locked
+                      ? AppColors.gold.withValues(alpha: 0.35)
+                      : AppColors.divider),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (locked) ...[
-              const Icon(Icons.workspace_premium_rounded, size: 13, color: AppColors.gold),
+              const Icon(
+                Icons.workspace_premium_rounded,
+                size: 13,
+                color: AppColors.gold,
+              ),
               const SizedBox(width: 4),
             ],
             Text(
               label,
               style: AppTextStyles.caption.copyWith(
                 fontWeight: FontWeight.w700,
-                color: selected ? AppColors.onAccent : (locked ? AppColors.white : AppColors.textSecondary),
+                color: selected
+                    ? AppColors.onAccent
+                    : (locked ? AppColors.white : AppColors.textSecondary),
               ),
             ),
           ],
@@ -689,13 +824,17 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
 
   Future<void> _afterReauth() async {
     final loc = AppLocalizations.of(context);
-    final ok = await ref.read(privacySettingsControllerProvider).updateTwoFactorEnabled(true);
+    final ok = await ref
+        .read(privacySettingsControllerProvider)
+        .updateTwoFactorEnabled(true);
     if (!mounted) return;
     if (ok) {
       Navigator.pop(context);
     } else {
       setState(() => _busy = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.privacySettingUpdateErrorMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.privacySettingUpdateErrorMessage)),
+      );
     }
   }
 
@@ -704,7 +843,9 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
     setState(() => _busy = false);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)),
+    );
   }
 
   Future<void> _reauthApple() async {
@@ -730,7 +871,9 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
   Future<void> _reauthPassword() async {
     setState(() => _busy = true);
     try {
-      await ref.read(accountControllerProvider).reauthenticateWithPassword(_passwordController.text);
+      await ref
+          .read(accountControllerProvider)
+          .reauthenticateWithPassword(_passwordController.text);
       await _afterReauth();
     } catch (e, st) {
       _fail(e, st, 'privacy_security_screen.twoFactor.reauthPassword');
@@ -740,18 +883,25 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
   Future<void> _disable() async {
     setState(() => _disabling = true);
     final loc = AppLocalizations.of(context);
-    final ok = await ref.read(privacySettingsControllerProvider).updateTwoFactorEnabled(false);
+    final ok = await ref
+        .read(privacySettingsControllerProvider)
+        .updateTwoFactorEnabled(false);
     if (!mounted) return;
     if (ok) {
       Navigator.pop(context);
     } else {
       setState(() => _disabling = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.privacySettingUpdateErrorMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.privacySettingUpdateErrorMessage)),
+      );
     }
   }
 
-  Widget _spinner() =>
-      const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent));
+  Widget _spinner() => const SizedBox(
+    width: 20,
+    height: 20,
+    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -761,35 +911,60 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.currentlyEnabled ? loc.privacyTwoFactorTitle : loc.privacyTwoFactorActivateTitle,
-              style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700),
+              widget.currentlyEnabled
+                  ? loc.privacyTwoFactorTitle
+                  : loc.privacyTwoFactorActivateTitle,
+              style: AppTextStyles.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
             const SizedBox(height: 8),
-            Text(loc.privacyTwoFactorHelperText, style: AppTextStyles.caption.copyWith(height: 1.4)),
+            Text(
+              loc.privacyTwoFactorHelperText,
+              style: AppTextStyles.caption.copyWith(height: 1.4),
+            ),
             const SizedBox(height: 16),
             if (widget.currentlyEnabled)
               ElevatedButton(
                 onPressed: _disabling ? null : _disable,
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.error),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.error,
+                ),
                 child: _disabling
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
                     : Text(loc.privacyTwoFactorDisableButton),
               )
             else if (provider == LoginProvider.apple)
               ElevatedButton(
                 onPressed: _busy ? null : _reauthApple,
-                child: _busy ? _spinner() : Text(loc.deleteAccountReauthAppleButton),
+                child: _busy
+                    ? _spinner()
+                    : Text(loc.deleteAccountReauthAppleButton),
               )
             else if (provider == LoginProvider.google)
               ElevatedButton(
                 onPressed: _busy ? null : _reauthGoogle,
-                child: _busy ? _spinner() : Text(loc.deleteAccountReauthGoogleButton),
+                child: _busy
+                    ? _spinner()
+                    : Text(loc.deleteAccountReauthGoogleButton),
               )
             else ...[
               TextField(
@@ -800,7 +975,9 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: _busy ? null : _reauthPassword,
-                child: _busy ? _spinner() : Text(loc.deleteAccountReauthEmailButton),
+                child: _busy
+                    ? _spinner()
+                    : Text(loc.deleteAccountReauthEmailButton),
               ),
             ],
           ],
@@ -811,7 +988,10 @@ class _TwoFactorSheetState extends ConsumerState<_TwoFactorSheet> {
 }
 
 /// "Ad günündə yaxın məkanlardan bildiriş alacaqsan" + confirm.
-Future<bool> _confirmBirthdayOptIn(BuildContext context, AppLocalizations loc) async {
+Future<bool> _confirmBirthdayOptIn(
+  BuildContext context,
+  AppLocalizations loc,
+) async {
   final confirmed = await showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
@@ -825,7 +1005,10 @@ Future<bool> _confirmBirthdayOptIn(BuildContext context, AppLocalizations loc) a
         style: const TextStyle(fontSize: 14.5),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: Text(loc.actionCancel),
+        ),
         TextButton(
           onPressed: () => Navigator.pop(dialogContext, true),
           child: Text(loc.privacyBirthdayOptInDialogConfirm),

@@ -10,28 +10,37 @@ import '../../data/repositories/firebase_review_repository.dart';
 import '../../domain/entities/review.dart';
 import '../../domain/repositories/review_repository.dart';
 
-final reviewRepositoryProvider = Provider<ReviewRepository>((ref) => FirebaseReviewRepository());
+final reviewRepositoryProvider = Provider<ReviewRepository>(
+  (ref) => FirebaseReviewRepository(),
+);
 
 String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
 
-final venueReviewsProvider = StreamProvider.autoDispose.family<List<Review>, String>((ref, venueId) {
-  return ref.watch(reviewRepositoryProvider).watchVenueReviews(venueId);
-});
+final venueReviewsProvider = StreamProvider.autoDispose
+    .family<List<Review>, String>((ref, venueId) {
+      return ref.watch(reviewRepositoryProvider).watchVenueReviews(venueId);
+    });
 
-final myReviewForVenueProvider = StreamProvider.autoDispose.family<Review?, String>((ref, venueId) {
-  final uid = _currentUid();
-  if (uid == null) return Stream.value(null);
-  return ref.watch(reviewRepositoryProvider).watchMyReview(venueId: venueId, userId: uid);
-});
+final myReviewForVenueProvider = StreamProvider.autoDispose
+    .family<Review?, String>((ref, venueId) {
+      final uid = _currentUid();
+      if (uid == null) return Stream.value(null);
+      return ref
+          .watch(reviewRepositoryProvider)
+          .watchMyReview(venueId: venueId, userId: uid);
+    });
 
 /// Non-null only once the signed-in user has a `seated` waitlist entry
 /// at this venue — the "Rəy yaz" button's eligibility gate, and the
 /// entry it hands `ReviewController.submit` as proof of visit.
-final verifiedVisitProvider = StreamProvider.autoDispose.family<WaitlistEntry?, String>((ref, venueId) {
-  final uid = _currentUid();
-  if (uid == null) return Stream.value(null);
-  return ref.watch(waitlistRepositoryProvider).watchMyLatestSeatedEntry(venueId: venueId, userId: uid);
-});
+final verifiedVisitProvider = StreamProvider.autoDispose
+    .family<WaitlistEntry?, String>((ref, venueId) {
+      final uid = _currentUid();
+      if (uid == null) return Stream.value(null);
+      return ref
+          .watch(waitlistRepositoryProvider)
+          .watchMyLatestSeatedEntry(venueId: venueId, userId: uid);
+    });
 
 class ReviewController {
   ReviewController(this._ref);
@@ -48,7 +57,9 @@ class ReviewController {
     if (uid == null) return false;
     if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
-      await _ref.read(reviewRepositoryProvider).submitReview(
+      await _ref
+          .read(reviewRepositoryProvider)
+          .submitReview(
             venueId: venueId,
             userId: uid,
             rating: rating,
@@ -62,10 +73,15 @@ class ReviewController {
     }
   }
 
-  Future<bool> submitOwnerReply({required String reviewId, required String text}) async {
+  Future<bool> submitOwnerReply({
+    required String reviewId,
+    required String text,
+  }) async {
     if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
-      await _ref.read(reviewRepositoryProvider).submitOwnerReply(reviewId: reviewId, text: text);
+      await _ref
+          .read(reviewRepositoryProvider)
+          .submitOwnerReply(reviewId: reviewId, text: text);
       return true;
     } catch (e, st) {
       logError('review_providers.ReviewController.submitOwnerReply', e, st);
@@ -73,11 +89,17 @@ class ReviewController {
     }
   }
 
-  Future<bool> report({required String reviewId, required String venueId, required String reason}) async {
+  Future<bool> report({
+    required String reviewId,
+    required String venueId,
+    required String reason,
+  }) async {
     final uid = _currentUid();
     if (uid == null) return false;
     try {
-      await _ref.read(reviewRepositoryProvider).reportReview(
+      await _ref
+          .read(reviewRepositoryProvider)
+          .reportReview(
             reviewId: reviewId,
             venueId: venueId,
             reporterId: uid,
@@ -91,4 +113,6 @@ class ReviewController {
   }
 }
 
-final reviewControllerProvider = Provider<ReviewController>((ref) => ReviewController(ref));
+final reviewControllerProvider = Provider<ReviewController>(
+  (ref) => ReviewController(ref),
+);

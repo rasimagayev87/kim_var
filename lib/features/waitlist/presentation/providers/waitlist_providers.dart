@@ -9,7 +9,9 @@ import '../../data/repositories/firebase_waitlist_repository.dart';
 import '../../domain/entities/waitlist_entry.dart';
 import '../../domain/repositories/waitlist_repository.dart';
 
-final waitlistRepositoryProvider = Provider<WaitlistRepository>((ref) => FirebaseWaitlistRepository());
+final waitlistRepositoryProvider = Provider<WaitlistRepository>(
+  (ref) => FirebaseWaitlistRepository(),
+);
 
 /// Which venue categories may turn on the waitlist feature — and, per
 /// explicit product decision, the seat-availability counter too (see
@@ -22,11 +24,21 @@ final waitlistRepositoryProvider = Provider<WaitlistRepository>((ref) => Firebas
 /// config-doc pattern as `eventCategoryConfigProvider` (NOT the
 /// hardcoded `kBirthdayEligibleVenueCategories` style). Fails closed:
 /// any read error or missing/malformed doc resolves to an empty set.
-final waitlistCategoryConfigProvider = FutureProvider<Set<VenueCategory>>((ref) async {
+final waitlistCategoryConfigProvider = FutureProvider<Set<VenueCategory>>((
+  ref,
+) async {
   try {
-    final snap = await FirebaseFirestore.instance.collection('config').doc('waitlistCategories').get();
-    final raw = (snap.data()?['enabledCategories'] as List?)?.cast<String>() ?? const [];
-    return raw.map((name) => VenueCategory.values.where((c) => c.name == name)).expand((it) => it).toSet();
+    final snap = await FirebaseFirestore.instance
+        .collection('config')
+        .doc('waitlistCategories')
+        .get();
+    final raw =
+        (snap.data()?['enabledCategories'] as List?)?.cast<String>() ??
+        const [];
+    return raw
+        .map((name) => VenueCategory.values.where((c) => c.name == name))
+        .expand((it) => it)
+        .toSet();
   } catch (e, st) {
     logError('waitlist_providers.waitlistCategoryConfigProvider', e, st);
     return const {};
@@ -35,16 +47,20 @@ final waitlistCategoryConfigProvider = FutureProvider<Set<VenueCategory>>((ref) 
 
 /// The signed-in user's own active entry in [venueId]'s waitlist, if
 /// any — powers the live "sıra nömrəniz" display on `VenueProfileScreen`.
-final myWaitlistEntryProvider = StreamProvider.autoDispose.family<WaitlistEntry?, String>((ref, venueId) {
-  final uid = fb.FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return Stream.value(null);
-  return ref.watch(waitlistRepositoryProvider).watchMyEntry(venueId: venueId, userId: uid);
-});
+final myWaitlistEntryProvider = StreamProvider.autoDispose
+    .family<WaitlistEntry?, String>((ref, venueId) {
+      final uid = fb.FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return Stream.value(null);
+      return ref
+          .watch(waitlistRepositoryProvider)
+          .watchMyEntry(venueId: venueId, userId: uid);
+    });
 
 /// Owner-only "Növbə" list — every `waiting` entry, queue order.
-final venueWaitingListProvider = StreamProvider.autoDispose.family<List<WaitlistEntry>, String>((ref, venueId) {
-  return ref.watch(waitlistRepositoryProvider).watchWaitingList(venueId);
-});
+final venueWaitingListProvider = StreamProvider.autoDispose
+    .family<List<WaitlistEntry>, String>((ref, venueId) {
+      return ref.watch(waitlistRepositoryProvider).watchWaitingList(venueId);
+    });
 
 /// [alreadyWaiting] is the one failure the UI needs to tell apart from
 /// a generic error — the `joinWaitlist` Cloud Function's own
@@ -67,7 +83,9 @@ class WaitlistController {
     final uid = fb.FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return WaitlistJoinOutcome.error;
     try {
-      await _ref.read(waitlistRepositoryProvider).joinWaitlist(
+      await _ref
+          .read(waitlistRepositoryProvider)
+          .joinWaitlist(
             venueId: venueId,
             partySize: partySize,
             phoneNumber: phoneNumber,
@@ -85,22 +103,45 @@ class WaitlistController {
   }
 
   Future<bool> cancel({required String venueId, required String entryId}) =>
-      _run(() => _ref.read(waitlistRepositoryProvider).cancelEntry(venueId: venueId, entryId: entryId));
+      _run(
+        () => _ref
+            .read(waitlistRepositoryProvider)
+            .cancelEntry(venueId: venueId, entryId: entryId),
+      );
 
-  Future<bool> call({required String venueId, required String entryId}) =>
-      _run(() => _ref.read(waitlistRepositoryProvider).callEntry(venueId: venueId, entryId: entryId));
+  Future<bool> call({required String venueId, required String entryId}) => _run(
+    () => _ref
+        .read(waitlistRepositoryProvider)
+        .callEntry(venueId: venueId, entryId: entryId),
+  );
 
   Future<bool> markSeated({required String venueId, required String entryId}) =>
-      _run(() => _ref.read(waitlistRepositoryProvider).markSeated(venueId: venueId, entryId: entryId));
+      _run(
+        () => _ref
+            .read(waitlistRepositoryProvider)
+            .markSeated(venueId: venueId, entryId: entryId),
+      );
 
   Future<bool> markNoShow({required String venueId, required String entryId}) =>
-      _run(() => _ref.read(waitlistRepositoryProvider).markNoShow(venueId: venueId, entryId: entryId));
+      _run(
+        () => _ref
+            .read(waitlistRepositoryProvider)
+            .markNoShow(venueId: venueId, entryId: entryId),
+      );
 
   Future<bool> remove({required String venueId, required String entryId}) =>
-      _run(() => _ref.read(waitlistRepositoryProvider).removeEntry(venueId: venueId, entryId: entryId));
+      _run(
+        () => _ref
+            .read(waitlistRepositoryProvider)
+            .removeEntry(venueId: venueId, entryId: entryId),
+      );
 
   Future<bool> setEnabled({required String venueId, required bool enabled}) =>
-      _run(() => _ref.read(waitlistRepositoryProvider).setWaitlistEnabled(venueId: venueId, enabled: enabled));
+      _run(
+        () => _ref
+            .read(waitlistRepositoryProvider)
+            .setWaitlistEnabled(venueId: venueId, enabled: enabled),
+      );
 
   Future<bool> _run(Future<void> Function() action) async {
     try {
@@ -113,4 +154,6 @@ class WaitlistController {
   }
 }
 
-final waitlistControllerProvider = Provider<WaitlistController>((ref) => WaitlistController(ref));
+final waitlistControllerProvider = Provider<WaitlistController>(
+  (ref) => WaitlistController(ref),
+);

@@ -5,7 +5,8 @@ int calculateAge(DateTime birthDate) {
   final now = DateTime.now();
   var age = now.year - birthDate.year;
   final hadBirthdayThisYear =
-      now.month > birthDate.month || (now.month == birthDate.month && now.day >= birthDate.day);
+      now.month > birthDate.month ||
+      (now.month == birthDate.month && now.day >= birthDate.day);
   if (!hadBirthdayThisYear) age--;
   return age;
 }

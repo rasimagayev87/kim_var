@@ -3,7 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/repositories/venue_follow_repository.dart';
 
 class FirebaseVenueFollowRepository implements VenueFollowRepository {
-  FirebaseVenueFollowRepository({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirebaseVenueFollowRepository({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -11,7 +12,10 @@ class FirebaseVenueFollowRepository implements VenueFollowRepository {
       _firestore.collection('venues').doc(venueId).collection('followers');
 
   @override
-  Stream<bool> watchIsFollowing({required String venueId, required String uid}) {
+  Stream<bool> watchIsFollowing({
+    required String venueId,
+    required String uid,
+  }) {
     return _followers(venueId).doc(uid).snapshots().map((doc) => doc.exists);
   }
 
@@ -26,15 +30,17 @@ class FirebaseVenueFollowRepository implements VenueFollowRepository {
         .collectionGroup('followers')
         .where('userId', isEqualTo: uid)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => d.reference.parent.parent!.id).toList());
+        .map(
+          (snap) =>
+              snap.docs.map((d) => d.reference.parent.parent!.id).toList(),
+        );
   }
 
   @override
   Future<void> follow({required String venueId, required String uid}) {
-    return _followers(venueId).doc(uid).set({
-      'userId': uid,
-      'followedAt': FieldValue.serverTimestamp(),
-    });
+    return _followers(
+      venueId,
+    ).doc(uid).set({'userId': uid, 'followedAt': FieldValue.serverTimestamp()});
   }
 
   @override

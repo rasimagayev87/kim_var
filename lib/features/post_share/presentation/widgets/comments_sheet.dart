@@ -11,6 +11,8 @@ import '../../../profile/presentation/screens/user_profile_screen.dart';
 import '../../domain/entities/post_comment.dart';
 import '../providers/post_providers.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 void showCommentsSheet(BuildContext context, String postId) {
   showModalBottomSheet<void>(
     context: context,
@@ -209,7 +211,7 @@ class _CommentsSheetState extends ConsumerState<_CommentsSheet> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      GestureDetector(
+                      Pressable(
                         onTap: _cancelComposeMode,
                         child: const Icon(
                           Icons.close,
@@ -408,7 +410,7 @@ class _CommentRow extends ConsumerWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GestureDetector(
+            Pressable(
               onTap: openCommenterProfile,
               child: CircleAvatar(
                 radius: isReply ? 14 : 16,
@@ -430,7 +432,7 @@ class _CommentRow extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
+                  Pressable(
                     onTap: openCommenterProfile,
                     child: Row(
                       children: [
@@ -484,7 +486,7 @@ class _CommentRow extends ConsumerWidget {
                         const SizedBox(width: 12),
                       ],
                       if (onReply != null)
-                        GestureDetector(
+                        Pressable(
                           onTap: () => onReply!(comment),
                           child: Text(
                             loc.postReplyAction,
@@ -500,7 +502,7 @@ class _CommentRow extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 8),
-            GestureDetector(
+            Pressable(
               onTap: onLikeTap,
               child: Icon(
                 isLiked ? Icons.favorite : Icons.favorite_border,

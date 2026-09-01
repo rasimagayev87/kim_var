@@ -10,11 +10,16 @@ import '../../../../app_config/presentation/providers/app_config_providers.dart'
 
 void showContactUsSheet(BuildContext context) {
   final loc = AppLocalizations.of(context);
-  final supportEmail = ProviderScope.containerOf(context, listen: false).read(appConfigProvider).supportEmail;
+  final supportEmail = ProviderScope.containerOf(
+    context,
+    listen: false,
+  ).read(appConfigProvider).supportEmail;
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.surface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (sheetContext) {
       return SafeArea(
         top: false,
@@ -24,25 +29,51 @@ void showContactUsSheet(BuildContext context) {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(loc.contactUsSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+              Text(
+                loc.contactUsSheetTitle,
+                style: AppTextStyles.cardTitle.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
               const SizedBox(height: 14),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.card,
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 child: Row(
                   children: [
-                    const Icon(Icons.email_outlined, color: AppColors.textSecondary, size: 20),
+                    const Icon(
+                      Icons.email_outlined,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
                     const SizedBox(width: 10),
                     Expanded(
-                      child: Text(supportEmail, style: AppTextStyles.body.copyWith(fontSize: 15)),
+                      child: Text(
+                        supportEmail,
+                        style: AppTextStyles.body.copyWith(fontSize: 15),
+                      ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.copy_outlined, size: 18, color: AppColors.textMuted),
+                      icon: const Icon(
+                        Icons.copy_outlined,
+                        size: 18,
+                        color: AppColors.textMuted,
+                      ),
                       onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: supportEmail));
+                        await Clipboard.setData(
+                          ClipboardData(text: supportEmail),
+                        );
                         if (sheetContext.mounted) {
                           ScaffoldMessenger.of(sheetContext).showSnackBar(
-                            SnackBar(content: Text(loc.contactUsEmailCopiedNotice)),
+                            SnackBar(
+                              content: Text(loc.contactUsEmailCopiedNotice),
+                            ),
                           );
                         }
                       },
@@ -58,9 +89,12 @@ void showContactUsSheet(BuildContext context) {
                     backgroundColor: AppColors.primary,
                     foregroundColor: AppColors.onAccent,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
-                  onPressed: () => launchUrl(Uri(scheme: 'mailto', path: supportEmail)),
+                  onPressed: () =>
+                      launchUrl(Uri(scheme: 'mailto', path: supportEmail)),
                   icon: const Icon(Icons.send_outlined, size: 18),
                   label: Text(loc.contactUsSendEmailButton),
                 ),

@@ -40,13 +40,17 @@ class BirthdayFeed {
 /// shortcut: it also reads birth dates from 1987, when the offset was
 /// different — see `functions/src/birthday.ts`.)
 String bakuDateKeyNow([DateTime? now]) {
-  final baku = (now ?? DateTime.now().toUtc()).toUtc().add(const Duration(hours: 4));
+  final baku = (now ?? DateTime.now().toUtc()).toUtc().add(
+    const Duration(hours: 4),
+  );
   final month = baku.month.toString().padLeft(2, '0');
   final day = baku.day.toString().padLeft(2, '0');
   return '${baku.year}-$month-$day';
 }
 
-final myBirthdayFeedProvider = FutureProvider.autoDispose<BirthdayFeed?>((ref) async {
+final myBirthdayFeedProvider = FutureProvider.autoDispose<BirthdayFeed?>((
+  ref,
+) async {
   final uid = fb.FirebaseAuth.instance.currentUser?.uid;
   if (uid == null) return null;
 
@@ -60,12 +64,15 @@ final myBirthdayFeedProvider = FutureProvider.autoDispose<BirthdayFeed?>((ref) a
   final data = snap.data();
   if (data == null) return null;
 
-  final venueIds = (data['venueIds'] as List<dynamic>? ?? const []).map((v) => v.toString()).toList();
+  final venueIds = (data['venueIds'] as List<dynamic>? ?? const [])
+      .map((v) => v.toString())
+      .toList();
   if (venueIds.isEmpty) return null;
 
   return BirthdayFeed(
     venueIds: venueIds,
-    highlightVenueIds:
-        (data['highlightVenueIds'] as List<dynamic>? ?? const []).map((v) => v.toString()).toList(),
+    highlightVenueIds: (data['highlightVenueIds'] as List<dynamic>? ?? const [])
+        .map((v) => v.toString())
+        .toList(),
   );
 });

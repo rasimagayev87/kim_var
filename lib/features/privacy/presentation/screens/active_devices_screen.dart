@@ -33,9 +33,12 @@ class ActiveDevicesScreen extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                   itemCount: sessions.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) => _DeviceRow(session: sessions[index]),
+                  itemBuilder: (context, index) =>
+                      _DeviceRow(session: sessions[index]),
                 ),
-          loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
           error: (_, _) => _EmptyState(loc: loc),
         ),
       ),
@@ -56,9 +59,17 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.devices_outlined, color: AppColors.textMuted, size: 42),
+            const Icon(
+              Icons.devices_outlined,
+              color: AppColors.textMuted,
+              size: 42,
+            ),
             const SizedBox(height: 16),
-            Text(loc.activeDevicesEmptyMessage, style: AppTextStyles.caption, textAlign: TextAlign.center),
+            Text(
+              loc.activeDevicesEmptyMessage,
+              style: AppTextStyles.caption,
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -95,10 +106,19 @@ class _DeviceRowState extends ConsumerState<_DeviceRow> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: Text(loc.signOutDeviceConfirmTitle, style: AppTextStyles.cardTitle),
-        content: Text(loc.signOutDeviceConfirmMessage, style: AppTextStyles.body.copyWith(fontSize: 14.5, height: 1.4)),
+        title: Text(
+          loc.signOutDeviceConfirmTitle,
+          style: AppTextStyles.cardTitle,
+        ),
+        content: Text(
+          loc.signOutDeviceConfirmMessage,
+          style: AppTextStyles.body.copyWith(fontSize: 14.5, height: 1.4),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -110,12 +130,16 @@ class _DeviceRowState extends ConsumerState<_DeviceRow> {
     if (confirmed != true || !mounted) return;
 
     setState(() => _signingOut = true);
-    final success = await ref.read(deviceSessionControllerProvider).removeSession(widget.session.id);
+    final success = await ref
+        .read(deviceSessionControllerProvider)
+        .removeSession(widget.session.id);
     if (!mounted) return;
     setState(() => _signingOut = false);
 
     if (!success) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.signOutDeviceErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.signOutDeviceErrorMessage)));
     }
   }
 
@@ -126,14 +150,24 @@ class _DeviceRowState extends ConsumerState<_DeviceRow> {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Row(
         children: [
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: AppColors.backgroundDark, borderRadius: BorderRadius.circular(12)),
-            child: Icon(_platformIcon, color: AppColors.textSecondary, size: 20),
+            decoration: BoxDecoration(
+              color: AppColors.backgroundDark,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              _platformIcon,
+              color: AppColors.textSecondary,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -144,19 +178,34 @@ class _DeviceRowState extends ConsumerState<_DeviceRow> {
                   children: [
                     Flexible(
                       child: Text(
-                        session.deviceName.isEmpty ? session.platform : session.deviceName,
-                        style: AppTextStyles.body.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
+                        session.deviceName.isEmpty
+                            ? session.platform
+                            : session.deviceName,
+                        style: AppTextStyles.body.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     if (session.isCurrentDevice) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                         child: Text(
                           loc.thisDeviceLabel,
-                          style: AppTextStyles.caption.copyWith(fontSize: 10.5, color: AppColors.primary, fontWeight: FontWeight.w600),
+                          style: AppTextStyles.caption.copyWith(
+                            fontSize: 10.5,
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ],
@@ -172,11 +221,23 @@ class _DeviceRowState extends ConsumerState<_DeviceRow> {
           ),
           if (!session.isCurrentDevice)
             _signingOut
-                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.error))
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.error,
+                    ),
+                  )
                 : TextButton(
                     onPressed: _confirmSignOut,
-                    style: TextButton.styleFrom(foregroundColor: AppColors.error),
-                    child: Text(loc.signOutDeviceButton, style: const TextStyle(fontSize: 13)),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                    ),
+                    child: Text(
+                      loc.signOutDeviceButton,
+                      style: const TextStyle(fontSize: 13),
+                    ),
                   ),
         ],
       ),

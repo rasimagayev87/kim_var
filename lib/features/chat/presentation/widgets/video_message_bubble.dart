@@ -5,6 +5,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/chat_message.dart';
 import 'fullscreen_media_viewer.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// In-bubble video preview: shows the clip's first frame with a play
 /// glyph on top; tapping opens [FullscreenMediaViewer] for real playback.
 /// Deliberately doesn't autoplay inline — keeps the message list light
@@ -24,7 +26,9 @@ class _VideoMessageBubbleState extends State<VideoMessageBubble> {
   @override
   void initState() {
     super.initState();
-    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.videoUrl),
+    );
     _controller = controller;
     controller.initialize().then((_) {
       if (mounted) setState(() {});
@@ -41,11 +45,14 @@ class _VideoMessageBubbleState extends State<VideoMessageBubble> {
   Widget build(BuildContext context) {
     final controller = _controller;
 
-    return GestureDetector(
+    return Pressable(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => FullscreenMediaViewer(mediaUrl: widget.videoUrl, type: MessageType.video),
+          builder: (_) => FullscreenMediaViewer(
+            mediaUrl: widget.videoUrl,
+            type: MessageType.video,
+          ),
         ),
       ),
       child: ClipRRect(
@@ -71,8 +78,15 @@ class _VideoMessageBubbleState extends State<VideoMessageBubble> {
               Container(
                 width: 44,
                 height: 44,
-                decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
-                child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 28),
+                decoration: const BoxDecoration(
+                  color: Colors.black45,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 28,
+                ),
               ),
             ],
           ),

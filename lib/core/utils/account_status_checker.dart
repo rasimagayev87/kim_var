@@ -23,7 +23,10 @@ import 'app_logger.dart';
 /// Returns `true` if the account was confirmed gone/disabled — the
 /// caller should stop whatever timer/subscription triggered the write
 /// (no point retrying a write that will never succeed again).
-Future<bool> handleWritePermissionDenied(Object error, {fb.FirebaseAuth? auth}) async {
+Future<bool> handleWritePermissionDenied(
+  Object error, {
+  fb.FirebaseAuth? auth,
+}) async {
   if (!isPermissionDeniedError(error)) return false;
 
   final firebaseAuth = auth ?? fb.FirebaseAuth.instance;
@@ -60,7 +63,10 @@ Future<bool> handleWritePermissionDenied(Object error, {fb.FirebaseAuth? auth}) 
       if (freshContext == null || !freshContext.mounted) return;
       final loc = AppLocalizations.of(freshContext);
       ScaffoldMessenger.of(freshContext).showSnackBar(
-        SnackBar(content: Text(loc.accountDisabledMessage), duration: const Duration(seconds: 6)),
+        SnackBar(
+          content: Text(loc.accountDisabledMessage),
+          duration: const Duration(seconds: 6),
+        ),
       );
     });
   }

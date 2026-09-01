@@ -21,7 +21,9 @@ class EventReportButton extends ConsumerWidget {
     final reason = await showModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) => SafeArea(
         top: false,
         child: Column(
@@ -34,7 +36,11 @@ class EventReportButton extends ConsumerWidget {
                 alignment: Alignment.centerLeft,
                 child: Text(
                   loc.eventReportSheetTitle,
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: ChatLightColors.ink,
+                  ),
                 ),
               ),
             ),
@@ -61,10 +67,16 @@ class EventReportButton extends ConsumerWidget {
     final uid = fb.FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final ok = await ref.read(venueEventControllerProvider).reportEvent(eventId: eventId, reportedBy: uid, reason: reason);
+    final ok = await ref
+        .read(venueEventControllerProvider)
+        .reportEvent(eventId: eventId, reportedBy: uid, reason: reason);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? loc.eventReportSubmittedMessage : loc.eventReportErrorMessage)),
+      SnackBar(
+        content: Text(
+          ok ? loc.eventReportSubmittedMessage : loc.eventReportErrorMessage,
+        ),
+      ),
     );
   }
 
@@ -73,8 +85,18 @@ class EventReportButton extends ConsumerWidget {
     final loc = AppLocalizations.of(context);
     return TextButton.icon(
       onPressed: () => _report(context, ref),
-      icon: Icon(Icons.flag_outlined, size: 16, color: color ?? ChatLightColors.inkFaint),
-      label: Text(loc.eventReportButton, style: TextStyle(fontSize: 12.5, color: color ?? ChatLightColors.inkFaint)),
+      icon: Icon(
+        Icons.flag_outlined,
+        size: 16,
+        color: color ?? ChatLightColors.inkFaint,
+      ),
+      label: Text(
+        loc.eventReportButton,
+        style: TextStyle(
+          fontSize: 12.5,
+          color: color ?? ChatLightColors.inkFaint,
+        ),
+      ),
     );
   }
 }

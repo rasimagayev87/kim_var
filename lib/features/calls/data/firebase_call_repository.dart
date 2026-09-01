@@ -26,16 +26,21 @@ import '../../../core/utils/callables.dart';
 /// maps below exist mainly to make cleanup on end/decline unambiguous
 /// rather than to support real concurrency.
 class FirebaseCallRepository implements CallRepository {
-  FirebaseCallRepository({FirebaseFirestore? firestore, FirebaseFunctions? functions, SafetyRepository? safetyRepository})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _functions = functions ?? FirebaseFunctions.instance,
-        _safetyRepository = safetyRepository ?? FirebaseSafetyRepository(firestore: firestore);
+  FirebaseCallRepository({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+    SafetyRepository? safetyRepository,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _functions = functions ?? FirebaseFunctions.instance,
+       _safetyRepository =
+           safetyRepository ?? FirebaseSafetyRepository(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
   final SafetyRepository _safetyRepository;
 
-  CollectionReference<Map<String, dynamic>> get _calls => _firestore.collection('calls');
+  CollectionReference<Map<String, dynamic>> get _calls =>
+      _firestore.collection('calls');
 
   String? get _myUid => fb.FirebaseAuth.instance.currentUser?.uid;
 
@@ -53,7 +58,9 @@ class FirebaseCallRepository implements CallRepository {
 
   Future<List<Map<String, dynamic>>> _iceServers() async {
     try {
-      final result = await _functions.httpsCallable('getTurnCredentials', options: callableOptions()).call<Map<String, dynamic>>();
+      final result = await _functions
+          .httpsCallable('getTurnCredentials', options: callableOptions())
+          .call<Map<String, dynamic>>();
       final raw = (result.data['iceServers'] as List).cast<dynamic>();
       return raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
     } catch (e, st) {
@@ -67,10 +74,16 @@ class FirebaseCallRepository implements CallRepository {
   }
 
   StreamController<MediaStream?> _localController(String callId) =>
-      _localStreamControllers.putIfAbsent(callId, () => StreamController<MediaStream?>.broadcast());
+      _localStreamControllers.putIfAbsent(
+        callId,
+        () => StreamController<MediaStream?>.broadcast(),
+      );
 
   StreamController<MediaStream?> _remoteController(String callId) =>
-      _remoteStreamControllers.putIfAbsent(callId, () => StreamController<MediaStream?>.broadcast());
+      _remoteStreamControllers.putIfAbsent(
+        callId,
+        () => StreamController<MediaStream?>.broadcast(),
+      );
 
   Future<MediaStream> _openLocalStream(String callId, CallType type) async {
     final stream = await navigator.mediaDevices.getUserMedia({
@@ -102,7 +115,11 @@ class FirebaseCallRepository implements CallRepository {
     _subscriptions.putIfAbsent(callId, () => []).add(sub);
   }
 
-  void _listenForRemoteCandidates(String callId, RTCPeerConnection pc, CollectionReference<Map<String, dynamic>> source) {
+  void _listenForRemoteCandidates(
+    String callId,
+    RTCPeerConnection pc,
+    CollectionReference<Map<String, dynamic>> source,
+  ) {
     _addSub(
       callId,
       source.snapshots().listen((snap) {
@@ -110,14 +127,23 @@ class FirebaseCallRepository implements CallRepository {
           if (change.type != DocumentChangeType.added) continue;
           final d = change.doc.data();
           if (d == null) continue;
-          pc.addCandidate(RTCIceCandidate(d['candidate'] as String?, d['sdpMid'] as String?, d['sdpMLineIndex'] as int?));
+          pc.addCandidate(
+            RTCIceCandidate(
+              d['candidate'] as String?,
+              d['sdpMid'] as String?,
+              d['sdpMLineIndex'] as int?,
+            ),
+          );
         }
       }),
     );
   }
 
   @override
-  Future<CallSession> startCall({required String receiverId, required CallType type}) async {
+  Future<CallSession> startCall({
+    required String receiverId,
+    required CallType type,
+  }) async {
     final uid = _myUid;
     if (uid == null) throw StateError('startCall requires a signed-in user');
 
@@ -164,10 +190,19 @@ class FirebaseCallRepository implements CallRepository {
         final answer = data?['answer'] as Map<String, dynamic>?;
         if (answer == null) return;
         if (await pc.getRemoteDescription() != null) return;
-        await pc.setRemoteDescription(RTCSessionDescription(answer['sdp'] as String?, answer['type'] as String?));
+        await pc.setRemoteDescription(
+          RTCSessionDescription(
+            answer['sdp'] as String?,
+            answer['type'] as String?,
+          ),
+        );
       }),
     );
-    _listenForRemoteCandidates(callId, pc, callDoc.collection('answerCandidates'));
+    _listenForRemoteCandidates(
+      callId,
+      pc,
+      callDoc.collection('answerCandidates'),
+    );
 
     return CallSession(
       id: callId,
@@ -216,7 +251,9 @@ class FirebaseCallRepository implements CallRepository {
     final answerCandidates = callDoc.collection('answerCandidates');
     pc.onIceCandidate = (candidate) => answerCandidates.add(candidate.toMap());
 
-    await pc.setRemoteDescription(RTCSessionDescription(offer['sdp'] as String?, offer['type'] as String?));
+    await pc.setRemoteDescription(
+      RTCSessionDescription(offer['sdp'] as String?, offer['type'] as String?),
+    );
     final answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
 
@@ -227,7 +264,9 @@ class FirebaseCallRepository implements CallRepository {
     // whichever landed last while the other device sat with a live
     // PeerConnection and no path to it. The `answer == null` read makes
     // the second writer lose cleanly and tear its own connection down.
-    final won = await FirebaseFirestore.instance.runTransaction<bool>((tx) async {
+    final won = await FirebaseFirestore.instance.runTransaction<bool>((
+      tx,
+    ) async {
       final fresh = await tx.get(callDoc);
       final data = fresh.data();
       if (data == null) return false;
@@ -248,7 +287,11 @@ class FirebaseCallRepository implements CallRepository {
       return;
     }
 
-    _listenForRemoteCandidates(callId, pc, callDoc.collection('offerCandidates'));
+    _listenForRemoteCandidates(
+      callId,
+      pc,
+      callDoc.collection('offerCandidates'),
+    );
   }
 
   @override
@@ -260,7 +303,10 @@ class FirebaseCallRepository implements CallRepository {
   @override
   Future<void> endCall(String callId) async {
     try {
-      await _calls.doc(callId).update({'status': 'ended', 'endedAt': FieldValue.serverTimestamp()});
+      await _calls.doc(callId).update({
+        'status': 'ended',
+        'endedAt': FieldValue.serverTimestamp(),
+      });
     } catch (e, st) {
       // The other side may have already deleted/ended it first — losing
       // this race isn't worth surfacing an error over, cleanup below
@@ -271,7 +317,9 @@ class FirebaseCallRepository implements CallRepository {
   }
 
   Future<void> _cleanup(String callId) async {
-    for (final sub in _subscriptions.remove(callId) ?? const <StreamSubscription<dynamic>>[]) {
+    for (final sub
+        in _subscriptions.remove(callId) ??
+            const <StreamSubscription<dynamic>>[]) {
       await sub.cancel();
     }
     await _peerConnections.remove(callId)?.close();
@@ -340,7 +388,10 @@ class FirebaseCallRepository implements CallRepository {
 
   @override
   Stream<CallSession?> watchCall(String callId) {
-    return _calls.doc(callId).snapshots().map((d) => d.exists ? _sessionFromDoc(d) : null);
+    return _calls
+        .doc(callId)
+        .snapshots()
+        .map((d) => d.exists ? _sessionFromDoc(d) : null);
   }
 
   // `_openLocalStream`/`pc.onTrack` fire (and `.add()` to these broadcast
@@ -389,7 +440,8 @@ class FirebaseCallRepository implements CallRepository {
   }
 
   @override
-  Future<void> setSpeakerphoneOn(String callId, bool enabled) => Helper.setSpeakerphoneOn(enabled);
+  Future<void> setSpeakerphoneOn(String callId, bool enabled) =>
+      Helper.setSpeakerphoneOn(enabled);
 
   @override
   Future<int?> getDataUsageBytes(String callId) async {

@@ -7,6 +7,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_image.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Compact play/pause + progress + duration player embedded directly in
 /// a voice-message bubble. Colors are passed in rather than hardcoded so
 /// the same widget reads correctly on both the "mine" (filled green) and
@@ -92,7 +94,11 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
   Widget _fallbackAvatar() {
     return ColoredBox(
       color: AppColors.divider,
-      child: const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 20),
+      child: const Icon(
+        Icons.person_outline,
+        color: AppColors.textSecondary,
+        size: 20,
+      ),
     );
   }
 
@@ -113,7 +119,7 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
       width: 200,
       child: Row(
         children: [
-          GestureDetector(
+          Pressable(
             onTap: _toggle,
             child: SizedBox(
               width: 34,
@@ -135,9 +141,14 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
                   // on top of the avatar photo — purely visual, doesn't
                   // touch the play/pause/duration logic above.
                   DecoratedBox(
-                    decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.32), shape: BoxShape.circle),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.32),
+                      shape: BoxShape.circle,
+                    ),
                     child: Icon(
-                      _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      _isPlaying
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
                       color: Colors.white,
                       size: 18,
                     ),
@@ -158,13 +169,18 @@ class _AudioMessagePlayerState extends State<AudioMessagePlayer> {
                     value: progress,
                     minHeight: 4,
                     backgroundColor: widget.trackColor,
-                    valueColor: AlwaysStoppedAnimation<Color>(widget.accentColor),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      widget.accentColor,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _format(label),
-                  style: AppTextStyles.caption.copyWith(fontSize: 10.5, color: widget.labelColor),
+                  style: AppTextStyles.caption.copyWith(
+                    fontSize: 10.5,
+                    color: widget.labelColor,
+                  ),
                 ),
               ],
             ),

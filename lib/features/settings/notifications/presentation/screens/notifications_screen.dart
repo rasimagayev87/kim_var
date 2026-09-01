@@ -17,14 +17,17 @@ class NotificationsScreen extends ConsumerWidget {
     final prefsAsync = ref.watch(notificationPreferencesProvider);
     final prefs = prefsAsync.valueOrNull ?? const NotificationPreferences();
     final controller = ref.read(notificationPreferencesControllerProvider);
-    final permissionStatus = ref.watch(notificationPermissionStatusProvider).valueOrNull;
-    final permissionDenied = permissionStatus == ph.PermissionStatus.denied ||
+    final permissionStatus = ref
+        .watch(notificationPermissionStatusProvider)
+        .valueOrNull;
+    final permissionDenied =
+        permissionStatus == ph.PermissionStatus.denied ||
         permissionStatus == ph.PermissionStatus.permanentlyDenied;
 
     void showError() {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.notifUpdateErrorMessage)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.notifUpdateErrorMessage)));
     }
 
     Future<void> onCategoryChanged(String key, bool value) async {
@@ -38,7 +41,11 @@ class NotificationsScreen extends ConsumerWidget {
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.white),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: AppColors.white,
+          ),
         ),
         title: Text(loc.notificationsScreenTitle),
       ),
@@ -159,7 +166,11 @@ class _PermissionDeniedBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.notifications_off_outlined, color: AppColors.error, size: 20),
+          const Icon(
+            Icons.notifications_off_outlined,
+            color: AppColors.error,
+            size: 20,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -167,22 +178,39 @@ class _PermissionDeniedBanner extends StatelessWidget {
               children: [
                 Text(
                   loc.notifPermissionDeniedTitle,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.white),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.white,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   loc.notifPermissionDeniedMessage,
-                  style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                    height: 1.4,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 TextButton(
                   onPressed: onOpenSettings,
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     backgroundColor: AppColors.error.withValues(alpha: 0.15),
                     foregroundColor: AppColors.error,
                   ),
-                  child: Text(loc.notifOpenSettingsButton, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    loc.notifOpenSettingsButton,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ],
             ),

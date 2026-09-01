@@ -29,7 +29,11 @@ class HelpScreen extends StatelessWidget {
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.white),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: AppColors.white,
+          ),
         ),
         title: Text(loc.helpScreenTitle),
       ),
@@ -37,10 +41,18 @@ class HelpScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           children: [
-            Text(loc.helpFaqSectionTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              loc.helpFaqSectionTitle,
+              style: AppTextStyles.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 10),
             SettingsGroup(
-              children: [for (final (question, answer) in faqs) _FaqTile(question: question, answer: answer)],
+              children: [
+                for (final (question, answer) in faqs)
+                  _FaqTile(question: question, answer: answer),
+              ],
             ),
             const SizedBox(height: 16),
             SettingsGroup(
@@ -56,13 +68,19 @@ class HelpScreen extends StatelessWidget {
                   iconColor: AppColors.error,
                   title: loc.helpReportProblemRowTitle,
                   subtitle: loc.helpReportProblemRowSubtitle,
-                  onTap: () => showSupportMessageSheet(context, SupportMessageType.problem),
+                  onTap: () => showSupportMessageSheet(
+                    context,
+                    SupportMessageType.problem,
+                  ),
                 ),
                 SettingsMenuRow(
                   icon: Icons.lightbulb_outline,
                   title: loc.helpSendSuggestionRowTitle,
                   subtitle: loc.helpSendSuggestionRowSubtitle,
-                  onTap: () => showSupportMessageSheet(context, SupportMessageType.suggestion),
+                  onTap: () => showSupportMessageSheet(
+                    context,
+                    SupportMessageType.suggestion,
+                  ),
                 ),
               ],
             ),
@@ -100,13 +118,20 @@ class _FaqTileState extends State<_FaqTile> {
                 Expanded(
                   child: Text(
                     widget.question,
-                    style: AppTextStyles.body.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
+                    style: AppTextStyles.body.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
                 AnimatedRotation(
                   turns: _expanded ? 0.5 : 0,
                   duration: const Duration(milliseconds: 200),
-                  child: const Icon(Icons.keyboard_arrow_down, color: AppColors.textMuted, size: 20),
+                  child: const Icon(
+                    Icons.keyboard_arrow_down,
+                    color: AppColors.textMuted,
+                    size: 20,
+                  ),
                 ),
               ],
             ),
@@ -117,7 +142,10 @@ class _FaqTileState extends State<_FaqTile> {
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
                         widget.answer,
-                        style: AppTextStyles.caption.copyWith(fontSize: 13.5, height: 1.5),
+                        style: AppTextStyles.caption.copyWith(
+                          fontSize: 13.5,
+                          height: 1.5,
+                        ),
                       ),
                     )
                   : const SizedBox.shrink(),

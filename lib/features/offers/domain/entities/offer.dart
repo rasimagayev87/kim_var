@@ -1,7 +1,11 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../../venues/domain/entities/venue.dart'
-    show VenueCategory, VenueCategoryConverter, TimestampConverter, NullableTimestampConverter;
+    show
+        VenueCategory,
+        VenueCategoryConverter,
+        TimestampConverter,
+        NullableTimestampConverter;
 
 part 'offer.freezed.dart';
 part 'offer.g.dart';
@@ -28,14 +32,24 @@ part 'offer.g.dart';
 /// [Offer.birthdayMatchId]/[Offer.targetUserIds] and reuses
 /// [Offer.startDate]/[endDate] for the (non-editable, from that
 /// screen) validity window rather than a second set of date fields.
-enum OfferType { discount, gift, buyOneGetOne, fixedPrice, happyHour, firstVisit, birthday }
+enum OfferType {
+  discount,
+  gift,
+  buyOneGetOne,
+  fixedPrice,
+  happyHour,
+  firstVisit,
+  birthday,
+}
 
 class OfferTypeConverter implements JsonConverter<OfferType, String?> {
   const OfferTypeConverter();
 
   @override
-  OfferType fromJson(String? json) =>
-      OfferType.values.firstWhere((t) => t.name == json, orElse: () => OfferType.discount);
+  OfferType fromJson(String? json) => OfferType.values.firstWhere(
+    (t) => t.name == json,
+    orElse: () => OfferType.discount,
+  );
 
   @override
   String toJson(OfferType type) => type.name;
@@ -63,11 +77,13 @@ class ActiveHours {
   }
 }
 
-class ActiveHoursConverter implements JsonConverter<ActiveHours?, Map<String, dynamic>?> {
+class ActiveHoursConverter
+    implements JsonConverter<ActiveHours?, Map<String, dynamic>?> {
   const ActiveHoursConverter();
 
   @override
-  ActiveHours? fromJson(Map<String, dynamic>? json) => ActiveHours.fromMap(json);
+  ActiveHours? fromJson(Map<String, dynamic>? json) =>
+      ActiveHours.fromMap(json);
 
   @override
   Map<String, dynamic>? toJson(ActiveHours? hours) => hours?.toMap();
@@ -220,7 +236,8 @@ class Offer with _$Offer {
 
   bool get isExpired => DateTime.now().isAfter(endDate);
 
-  bool get isBoosted => boostedUntil != null && DateTime.now().isBefore(boostedUntil!);
+  bool get isBoosted =>
+      boostedUntil != null && DateTime.now().isBefore(boostedUntil!);
 
   bool isOwnedBy(String uid) => ownerId == uid;
 }

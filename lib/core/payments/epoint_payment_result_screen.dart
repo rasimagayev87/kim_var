@@ -31,19 +31,38 @@ class EpointPaymentResultScreen extends StatelessWidget {
               Container(
                 width: 96,
                 height: 96,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: accent.withValues(alpha: 0.12)),
-                child: Icon(success ? Icons.check_rounded : Icons.close_rounded, color: accent, size: 48),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: accent.withValues(alpha: 0.12),
+                ),
+                child: Icon(
+                  success ? Icons.check_rounded : Icons.close_rounded,
+                  color: accent,
+                  size: 48,
+                ),
               ),
               const SizedBox(height: 24),
               Text(
-                success ? loc.epointResultSuccessTitle : loc.epointResultErrorTitle,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: Color(0xFF1B2528)),
+                success
+                    ? loc.epointResultSuccessTitle
+                    : loc.epointResultErrorTitle,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1B2528),
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                success ? loc.epointResultSuccessMessage : loc.epointResultErrorMessage,
-                style: const TextStyle(fontSize: 14, color: Color(0xFF5B6B70), height: 1.4),
+                success
+                    ? loc.epointResultSuccessMessage
+                    : loc.epointResultErrorMessage,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF5B6B70),
+                  height: 1.4,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
@@ -55,12 +74,18 @@ class EpointPaymentResultScreen extends StatelessWidget {
                     backgroundColor: AppColors.primary,
                     foregroundColor: AppColors.onAccent,
                     elevation: 0,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
                   onPressed: () => Navigator.pop(context),
                   child: Text(
                     loc.epointResultCloseButton,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.onAccent),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.onAccent,
+                    ),
                   ),
                 ),
               ),

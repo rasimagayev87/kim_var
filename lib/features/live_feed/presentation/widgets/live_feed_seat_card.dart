@@ -33,7 +33,12 @@ class LiveFeedSeatCard extends StatelessWidget {
         elevation: 0,
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
-          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VenueProfileScreen(venueId: venue.id))),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => VenueProfileScreen(venueId: venue.id),
+            ),
+          ),
           child: Padding(
             padding: const EdgeInsets.all(10),
             child: Row(
@@ -43,8 +48,19 @@ class LiveFeedSeatCard extends StatelessWidget {
                     width: 40,
                     height: 40,
                     child: venue.photoUrl != null
-                        ? AppImage(venue.photoUrl!, thumbnail: true, fit: BoxFit.cover)
-                        : Container(color: ChatLightColors.cardSurface, child: const Icon(Icons.storefront_outlined, color: ChatLightColors.inkSoft, size: 18)),
+                        ? AppImage(
+                            venue.photoUrl!,
+                            thumbnail: true,
+                            fit: BoxFit.cover,
+                          )
+                        : Container(
+                            color: ChatLightColors.cardSurface,
+                            child: const Icon(
+                              Icons.storefront_outlined,
+                              color: ChatLightColors.inkSoft,
+                              size: 18,
+                            ),
+                          ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -57,14 +73,22 @@ class LiveFeedSeatCard extends StatelessWidget {
                         venue.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: ChatLightColors.ink,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         loc.seatsAvailableLabel(seats),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primary),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ],
                   ),
@@ -72,8 +96,15 @@ class LiveFeedSeatCard extends StatelessWidget {
                 const SizedBox(width: 6),
                 Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: const BoxDecoration(color: ChatLightColors.cardSurface, shape: BoxShape.circle),
-                  child: const Icon(Icons.person_outline, size: 14, color: ChatLightColors.inkSoft),
+                  decoration: const BoxDecoration(
+                    color: ChatLightColors.cardSurface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.person_outline,
+                    size: 14,
+                    color: ChatLightColors.inkSoft,
+                  ),
                 ),
               ],
             ),

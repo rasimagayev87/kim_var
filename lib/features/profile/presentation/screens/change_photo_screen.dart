@@ -11,6 +11,8 @@ import '../providers/photo_upload_provider.dart';
 import '../providers/profile_providers.dart';
 import '../storage_failure_messages.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Settings → "Profil şəklini dəyiş" — split out of the old combined
 /// edit-profile screen, which no longer has a photo section (the new
 /// "Şəxsi məlumatlar" screen matches an exact 8-field design spec
@@ -59,9 +61,14 @@ class _ChangePhotoScreenState extends ConsumerState<ChangePhotoScreen> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final photoUploadState = ref.watch(photoUploadControllerProvider);
-    final profilePhotoUrl = ref.watch(profileControllerProvider.select((p) => p.photoUrl));
+    final profilePhotoUrl = ref.watch(
+      profileControllerProvider.select((p) => p.photoUrl),
+    );
 
-    ref.listen<PhotoUploadState>(photoUploadControllerProvider, (previous, next) {
+    ref.listen<PhotoUploadState>(photoUploadControllerProvider, (
+      previous,
+      next,
+    ) {
       if (next.status == PhotoUploadStatus.error) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -100,13 +107,25 @@ class _ChangePhotoScreenState extends ConsumerState<ChangePhotoScreen> {
                       color: AppColors.surface,
                       border: Border.all(color: AppColors.divider, width: 2),
                       image: _pickedPhotoFile != null
-                          ? DecorationImage(image: FileImage(_pickedPhotoFile!), fit: BoxFit.cover)
+                          ? DecorationImage(
+                              image: FileImage(_pickedPhotoFile!),
+                              fit: BoxFit.cover,
+                            )
                           : (!_photoRemoved && profilePhotoUrl != null
-                              ? DecorationImage(image: NetworkImage(profilePhotoUrl), fit: BoxFit.cover)
-                              : null),
+                                ? DecorationImage(
+                                    image: NetworkImage(profilePhotoUrl),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null),
                     ),
-                    child: (_pickedPhotoFile == null && (_photoRemoved || profilePhotoUrl == null))
-                        ? const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 56)
+                    child:
+                        (_pickedPhotoFile == null &&
+                            (_photoRemoved || profilePhotoUrl == null))
+                        ? const Icon(
+                            Icons.person_outline,
+                            color: AppColors.textSecondary,
+                            size: 56,
+                          )
                         : null,
                   ),
                   if (photoUploadState.isLoading)
@@ -123,7 +142,9 @@ class _ChangePhotoScreenState extends ConsumerState<ChangePhotoScreen> {
                             child: CircularProgressIndicator(
                               strokeWidth: 3,
                               color: AppColors.primary,
-                              value: photoUploadState.progress > 0 ? photoUploadState.progress : null,
+                              value: photoUploadState.progress > 0
+                                  ? photoUploadState.progress
+                                  : null,
                             ),
                           ),
                         ),
@@ -132,17 +153,26 @@ class _ChangePhotoScreenState extends ConsumerState<ChangePhotoScreen> {
                   Positioned(
                     right: 4,
                     bottom: 4,
-                    child: GestureDetector(
+                    child: Pressable(
                       onTap: photoUploadState.isLoading ? null : _pickPhoto,
                       child: Container(
                         width: 38,
                         height: 38,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: photoUploadState.isLoading ? AppColors.divider : AppColors.primary,
-                          border: Border.all(color: AppColors.background, width: 3),
+                          color: photoUploadState.isLoading
+                              ? AppColors.divider
+                              : AppColors.primary,
+                          border: Border.all(
+                            color: AppColors.background,
+                            width: 3,
+                          ),
                         ),
-                        child: const Icon(Icons.camera_alt_outlined, size: 18, color: AppColors.onAccent),
+                        child: const Icon(
+                          Icons.camera_alt_outlined,
+                          size: 18,
+                          color: AppColors.onAccent,
+                        ),
                       ),
                     ),
                   ),
@@ -151,10 +181,15 @@ class _ChangePhotoScreenState extends ConsumerState<ChangePhotoScreen> {
               const SizedBox(height: 16),
               if (photoUploadState.isLoading)
                 Text(
-                  loc.uploadingProgress((photoUploadState.progress * 100).clamp(0, 100).toStringAsFixed(0)),
+                  loc.uploadingProgress(
+                    (photoUploadState.progress * 100)
+                        .clamp(0, 100)
+                        .toStringAsFixed(0),
+                  ),
                   style: AppTextStyles.caption,
                 )
-              else if (_pickedPhotoFile != null || (!_photoRemoved && profilePhotoUrl != null))
+              else if (_pickedPhotoFile != null ||
+                  (!_photoRemoved && profilePhotoUrl != null))
                 TextButton(
                   onPressed: _removePhoto,
                   child: Text(loc.removePhotoButton),

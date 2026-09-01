@@ -24,7 +24,9 @@ Future<void> showSeatCountEditorSheet(BuildContext context, Venue venue) {
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (_) => _SeatCountEditorSheet(venue: venue),
   );
 }
@@ -35,7 +37,8 @@ class _SeatCountEditorSheet extends ConsumerStatefulWidget {
   const _SeatCountEditorSheet({required this.venue});
 
   @override
-  ConsumerState<_SeatCountEditorSheet> createState() => _SeatCountEditorSheetState();
+  ConsumerState<_SeatCountEditorSheet> createState() =>
+      _SeatCountEditorSheetState();
 }
 
 class _SeatCountEditorSheetState extends ConsumerState<_SeatCountEditorSheet> {
@@ -46,16 +49,17 @@ class _SeatCountEditorSheetState extends ConsumerState<_SeatCountEditorSheet> {
   Future<void> _save() async {
     setState(() => _saving = true);
     final loc = AppLocalizations.of(context);
-    final ok = await ref.read(venueControllerProvider).updateAvailableSeats(
-          venueId: widget.venue.id,
-          availableSeats: _seats,
-        );
+    final ok = await ref
+        .read(venueControllerProvider)
+        .updateAvailableSeats(venueId: widget.venue.id, availableSeats: _seats);
     if (!mounted) return;
     if (ok) {
       Navigator.pop(context);
     } else {
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.venueGenericErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.venueGenericErrorMessage)));
     }
   }
 
@@ -66,16 +70,29 @@ class _SeatCountEditorSheetState extends ConsumerState<_SeatCountEditorSheet> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(loc.seatsSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              loc.seatsSheetTitle,
+              style: AppTextStyles.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 6),
             Text(
               loc.seatsSheetSubtitle,
-              style: AppTextStyles.caption.copyWith(color: ChatLightColors.inkSoft, height: 1.4),
+              style: AppTextStyles.caption.copyWith(
+                color: ChatLightColors.inkSoft,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 20),
             if (!_activated)
@@ -89,19 +106,27 @@ class _SeatCountEditorSheetState extends ConsumerState<_SeatCountEditorSheet> {
                 children: [
                   _StepperButton(
                     icon: Icons.remove,
-                    onTap: _seats > _kMinSeats ? () => setState(() => _seats--) : null,
+                    onTap: _seats > _kMinSeats
+                        ? () => setState(() => _seats--)
+                        : null,
                   ),
                   SizedBox(
                     width: 90,
                     child: Text(
                       '$_seats',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: ChatLightColors.ink),
+                      style: const TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w800,
+                        color: ChatLightColors.ink,
+                      ),
                     ),
                   ),
                   _StepperButton(
                     icon: Icons.add,
-                    onTap: _seats < _kMaxSeats ? () => setState(() => _seats++) : null,
+                    onTap: _seats < _kMaxSeats
+                        ? () => setState(() => _seats++)
+                        : null,
                   ),
                 ],
               ),
@@ -112,7 +137,10 @@ class _SeatCountEditorSheetState extends ConsumerState<_SeatCountEditorSheet> {
                     ? const SizedBox(
                         width: 20,
                         height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.onAccent,
+                        ),
                       )
                     : Text(loc.saveButton),
               ),
@@ -134,14 +162,20 @@ class _StepperButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onTap != null;
     return Material(
-      color: enabled ? AppColors.primary.withValues(alpha: 0.12) : ChatLightColors.cardSurface,
+      color: enabled
+          ? AppColors.primary.withValues(alpha: 0.12)
+          : ChatLightColors.cardSurface,
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(14),
-          child: Icon(icon, size: 22, color: enabled ? AppColors.primary : ChatLightColors.inkFaint),
+          child: Icon(
+            icon,
+            size: 22,
+            color: enabled ? AppColors.primary : ChatLightColors.inkFaint,
+          ),
         ),
       ),
     );

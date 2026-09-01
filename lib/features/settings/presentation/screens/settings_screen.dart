@@ -30,6 +30,8 @@ import '../../notifications/presentation/screens/notifications_screen.dart';
 import '../../payments/presentation/screens/payments_screen.dart';
 import '../providers/app_version_provider.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
 
@@ -45,7 +47,10 @@ class SettingsScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
           children: [
-            Text(loc.settingsTitle, style: AppTextStyles.pageTitle.copyWith(fontSize: 30)),
+            Text(
+              loc.settingsTitle,
+              style: AppTextStyles.pageTitle.copyWith(fontSize: 30),
+            ),
             const SizedBox(height: 20),
             const _ProfileSummaryCard(),
             const SizedBox(height: 20),
@@ -66,7 +71,9 @@ class SettingsScreen extends ConsumerWidget {
                   subtitle: loc.settingsChangePhotoRowSubtitle,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const ChangePhotoScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const ChangePhotoScreen(),
+                    ),
                   ),
                 ),
                 SettingsMenuRow(
@@ -75,7 +82,9 @@ class SettingsScreen extends ConsumerWidget {
                   subtitle: loc.settingsPrivacyRowSubtitle,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const PrivacySecurityScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const PrivacySecurityScreen(),
+                    ),
                   ),
                 ),
                 SettingsMenuRow(
@@ -84,7 +93,9 @@ class SettingsScreen extends ConsumerWidget {
                   subtitle: loc.settingsNotificationsRowSubtitle,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const NotificationsScreen(),
+                    ),
                   ),
                 ),
                 _LanguageMenuRow(),
@@ -99,11 +110,17 @@ class SettingsScreen extends ConsumerWidget {
                   iconColor: AppColors.gold,
                   title: loc.settingsVipRowTitle,
                   subtitle: loc.settingsVipRowSubtitle,
-                  trailing: isPremium ? SettingsPill(label: loc.settingsVipActiveLabel) : null,
+                  trailing: isPremium
+                      ? SettingsPill(label: loc.settingsVipActiveLabel)
+                      : null,
                   // Existing subscribers can always reach this screen to
                   // manage what they already have — only *starting a new*
                   // purchase is what `FeatureFlag.vipPurchase` gates.
-                  onTap: !isPremium && !ref.watch(featureFlagProvider(FeatureFlag.vipPurchase))
+                  onTap:
+                      !isPremium &&
+                          !ref.watch(
+                            featureFlagProvider(FeatureFlag.vipPurchase),
+                          )
                       ? null
                       : () => Navigator.push(
                           context,
@@ -116,7 +133,9 @@ class SettingsScreen extends ConsumerWidget {
                   subtitle: loc.settingsMapRowSubtitle,
                   onTap: () => Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (_) => const MapLocationScreen()),
+                    MaterialPageRoute(
+                      builder: (_) => const MapLocationScreen(),
+                    ),
                   ),
                 ),
                 SettingsMenuRow(
@@ -181,11 +200,13 @@ class _ProfileSummaryCard extends ConsumerWidget {
     final profile = ref.watch(profileControllerProvider);
     final isPremium = ref.watch(isPremiumProvider);
 
-    final displayName = profile.name.isEmpty ? loc.profileNamePlaceholder : profile.name;
+    final displayName = profile.name.isEmpty
+        ? loc.profileNamePlaceholder
+        : profile.name;
     final handle = profile.username != null ? '@${profile.username}' : '';
     final locationText = _formatLocation(profile.city, profile.country);
 
-    return GestureDetector(
+    return Pressable(
       onTap: () => Navigator.pop(context),
       child: Container(
         clipBehavior: Clip.antiAlias,
@@ -202,7 +223,10 @@ class _ProfileSummaryCard extends ConsumerWidget {
             Positioned(
               right: -10,
               bottom: -10,
-              child: CustomPaint(size: const Size(160, 110), painter: _WavePainter()),
+              child: CustomPaint(
+                size: const Size(160, 110),
+                painter: _WavePainter(),
+              ),
             ),
             Padding(
               padding: const EdgeInsets.all(16),
@@ -215,27 +239,42 @@ class _ProfileSummaryCard extends ConsumerWidget {
                       CircleAvatar(
                         radius: 34,
                         backgroundColor: AppColors.card,
-                        backgroundImage: profile.photoUrl != null ? NetworkImage(profile.photoUrl!) : null,
+                        backgroundImage: profile.photoUrl != null
+                            ? NetworkImage(profile.photoUrl!)
+                            : null,
                         child: profile.photoUrl == null
-                            ? const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 30)
+                            ? const Icon(
+                                Icons.person_outline,
+                                color: AppColors.textSecondary,
+                                size: 30,
+                              )
                             : null,
                       ),
                       Positioned(
                         bottom: -2,
                         right: -2,
-                        child: GestureDetector(
+                        child: Pressable(
                           onTap: () => Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const EditProfileScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => const EditProfileScreen(),
+                            ),
                           ),
                           child: Container(
                             padding: const EdgeInsets.all(6),
                             decoration: BoxDecoration(
                               color: AppColors.primary,
                               shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.background, width: 2),
+                              border: Border.all(
+                                color: AppColors.background,
+                                width: 2,
+                              ),
                             ),
-                            child: const Icon(Icons.edit_outlined, color: AppColors.onAccent, size: 13),
+                            child: const Icon(
+                              Icons.edit_outlined,
+                              color: AppColors.onAccent,
+                              size: 13,
+                            ),
                           ),
                         ),
                       ),
@@ -251,23 +290,36 @@ class _ProfileSummaryCard extends ConsumerWidget {
                             Flexible(
                               child: Text(
                                 displayName,
-                                style: AppTextStyles.cardTitle.copyWith(fontSize: 17, fontWeight: FontWeight.w700),
+                                style: AppTextStyles.cardTitle.copyWith(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w700,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                             if (isPremium) ...[
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: AppColors.gold.withValues(alpha: 0.18),
                                   borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(color: AppColors.gold.withValues(alpha: 0.4)),
+                                  border: Border.all(
+                                    color: AppColors.gold.withValues(
+                                      alpha: 0.4,
+                                    ),
+                                  ),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Text('👑', style: TextStyle(fontSize: 11)),
+                                    const Text(
+                                      '👑',
+                                      style: TextStyle(fontSize: 11),
+                                    ),
                                     const SizedBox(width: 3),
                                     Text(
                                       loc.settingsVipBadgeLabel,
@@ -285,22 +337,41 @@ class _ProfileSummaryCard extends ConsumerWidget {
                         ),
                         if (handle.isNotEmpty) ...[
                           const SizedBox(height: 3),
-                          Text(handle, style: AppTextStyles.caption.copyWith(fontSize: 13, color: AppColors.textSecondary)),
+                          Text(
+                            handle,
+                            style: AppTextStyles.caption.copyWith(
+                              fontSize: 13,
+                              color: AppColors.textSecondary,
+                            ),
+                          ),
                         ],
                         if (locationText != null) ...[
                           const SizedBox(height: 4),
                           Row(
                             children: [
-                              const Icon(Icons.location_on_outlined, size: 13, color: AppColors.textSecondary),
+                              const Icon(
+                                Icons.location_on_outlined,
+                                size: 13,
+                                color: AppColors.textSecondary,
+                              ),
                               const SizedBox(width: 3),
-                              Text(locationText, style: AppTextStyles.caption.copyWith(fontSize: 12.5)),
+                              Text(
+                                locationText,
+                                style: AppTextStyles.caption.copyWith(
+                                  fontSize: 12.5,
+                                ),
+                              ),
                             ],
                           ),
                         ],
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right_outlined, color: AppColors.textMuted, size: 22),
+                  const Icon(
+                    Icons.chevron_right_outlined,
+                    color: AppColors.textMuted,
+                    size: 22,
+                  ),
                 ],
               ),
             ),
@@ -405,16 +476,18 @@ class _LogoutRowState extends ConsumerState<_LogoutRow> {
     setState(() => _loggingOut = true);
 
     try {
-      await ref.read(presenceControllerProvider).setOfflineNow().timeout(
-            _presenceWriteTimeout,
-            onTimeout: () {},
-          );
+      await ref
+          .read(presenceControllerProvider)
+          .setOfflineNow()
+          .timeout(_presenceWriteTimeout, onTimeout: () {});
     } catch (_) {
       // Non-fatal — sign-out must proceed even if the presence write failed.
     }
 
     try {
-      await ref.read(notificationPreferencesControllerProvider).unregisterFcmToken();
+      await ref
+          .read(notificationPreferencesControllerProvider)
+          .unregisterFcmToken();
     } catch (_) {
       // Non-fatal — same reasoning as the presence write above.
     }
@@ -452,13 +525,23 @@ class _LogoutRowState extends ConsumerState<_LogoutRow> {
             Container(
               width: 34,
               height: 34,
-              decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(11)),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(11),
+              ),
               child: _loggingOut
                   ? const Padding(
                       padding: EdgeInsets.all(8),
-                      child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.error),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.2,
+                        color: AppColors.error,
+                      ),
                     )
-                  : const Icon(Icons.logout_outlined, color: AppColors.error, size: 18),
+                  : const Icon(
+                      Icons.logout_outlined,
+                      color: AppColors.error,
+                      size: 18,
+                    ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -467,10 +550,17 @@ class _LogoutRowState extends ConsumerState<_LogoutRow> {
                 children: [
                   Text(
                     loc.settingsLogoutRowTitle,
-                    style: AppTextStyles.body.copyWith(fontSize: 15.5, fontWeight: FontWeight.w600, color: AppColors.error),
+                    style: AppTextStyles.body.copyWith(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.error,
+                    ),
                   ),
                   const SizedBox(height: 2),
-                  Text(loc.settingsLogoutRowSubtitle, style: AppTextStyles.caption.copyWith(fontSize: 12.5)),
+                  Text(
+                    loc.settingsLogoutRowSubtitle,
+                    style: AppTextStyles.caption.copyWith(fontSize: 12.5),
+                  ),
                 ],
               ),
             ),

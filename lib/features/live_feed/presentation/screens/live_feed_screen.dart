@@ -38,7 +38,8 @@ class LiveFeedScreen extends ConsumerStatefulWidget {
   ConsumerState<LiveFeedScreen> createState() => _LiveFeedScreenState();
 }
 
-class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBindingObserver {
+class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
@@ -62,7 +63,8 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
     final controller = ref.read(liveFeedControllerProvider.notifier);
     if (state == AppLifecycleState.resumed) {
       controller.start();
-    } else if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+    } else if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
       controller.stop();
     }
   }
@@ -81,11 +83,26 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
   Future<void> _openItem(LiveFeedItem item) async {
     switch (item.targetType) {
       case 'venue':
-        await Navigator.push(context, MaterialPageRoute(builder: (_) => VenueProfileScreen(venueId: item.targetId)));
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VenueProfileScreen(venueId: item.targetId),
+          ),
+        );
       case 'offer':
-        await Navigator.push(context, MaterialPageRoute(builder: (_) => OfferDetailsScreen(offerId: item.targetId)));
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => OfferDetailsScreen(offerId: item.targetId),
+          ),
+        );
       case 'event':
-        await Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailsScreen(eventId: item.targetId)));
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EventDetailsScreen(eventId: item.targetId),
+          ),
+        );
       case 'pinbox':
         // No standalone PinBox details screen exists — Checkout doubles
         // as the detail view everywhere else PinBox is tapped from (see
@@ -94,7 +111,12 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
         // and lands on the same screen.
         final pinbox = await ref.read(pinboxByIdProvider(item.targetId).future);
         if (!mounted || pinbox == null) return;
-        await Navigator.push(context, MaterialPageRoute(builder: (_) => PinBoxCheckoutScreen(pinbox: pinbox)));
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => PinBoxCheckoutScreen(pinbox: pinbox),
+          ),
+        );
     }
   }
 
@@ -104,7 +126,8 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
   /// a value that isn't a real, selectable option anywhere else in the
   /// app.
   List<DiscoverRadiusSelection> _radiusCycle(bool isPremium) => [
-    for (final km in [...kDefaultRadiusOptionsKm, ...kExtraRadiusOptionsKm]) DiscoverRadiusSelection.distance(km),
+    for (final km in [...kDefaultRadiusOptionsKm, ...kExtraRadiusOptionsKm])
+      DiscoverRadiusSelection.distance(km),
     if (isPremium) const DiscoverRadiusSelection.country(),
     if (isPremium) const DiscoverRadiusSelection.world(),
   ];
@@ -126,7 +149,9 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
     final loc = AppLocalizations.of(context);
     final label = switch (next.mode) {
       DiscoverRadiusMode.distance =>
-        next.km! < 1 ? '${(next.km! * 1000).round()} m' : '${next.km!.toStringAsFixed(0)} km',
+        next.km! < 1
+            ? '${(next.km! * 1000).round()} m'
+            : '${next.km!.toStringAsFixed(0)} km',
       DiscoverRadiusMode.country => loc.privacyRadiusCountryLabel,
       DiscoverRadiusMode.world => loc.privacyRadiusWorldLabel,
     };
@@ -145,8 +170,10 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
     // the one day the server DID publish something specifically for
     // them — the campaigns are there, the screen just never gets to the
     // section that shows them.
-    final hasBirthdayFeed = ref.watch(myBirthdayFeedProvider).valueOrNull?.isEmpty == false;
-    final isEmpty = (itemsAsync.valueOrNull?.isEmpty ?? false) && !hasBirthdayFeed;
+    final hasBirthdayFeed =
+        ref.watch(myBirthdayFeedProvider).valueOrNull?.isEmpty == false;
+    final isEmpty =
+        (itemsAsync.valueOrNull?.isEmpty ?? false) && !hasBirthdayFeed;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -160,21 +187,32 @@ class _LiveFeedScreenState extends ConsumerState<LiveFeedScreen> with WidgetsBin
                 children: [
                   Text(
                     loc.liveFeedTitle,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.white),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.white,
+                    ),
                   ),
                   const Spacer(),
-                  const Icon(Icons.location_on_outlined, size: 20, color: AppColors.primary),
+                  const Icon(
+                    Icons.location_on_outlined,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
                 ],
               ),
             ),
             itemsAsync.when(
-              data: (items) => LiveFeedTicker(items: items, onOpenItem: _openItem),
+              data: (items) =>
+                  LiveFeedTicker(items: items, onOpenItem: _openItem),
               loading: () => const SizedBox.shrink(),
               error: (_, _) => const SizedBox.shrink(),
             ),
             Expanded(
               child: isEmpty
-                  ? _LiveFeedEmptyState(onIncreaseRadius: () => _increaseRadius(context, ref))
+                  ? _LiveFeedEmptyState(
+                      onIncreaseRadius: () => _increaseRadius(context, ref),
+                    )
                   : const SingleChildScrollView(
                       padding: EdgeInsets.only(bottom: 24),
                       child: Column(
@@ -231,19 +269,30 @@ class _LiveFeedEmptyState extends StatelessWidget {
                 color: AppColors.primary.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.sensors_off_rounded, color: AppColors.primary, size: 30),
+              child: const Icon(
+                Icons.sensors_off_rounded,
+                color: AppColors.primary,
+                size: 30,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
               loc.liveFeedEmptyMessage,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.5),
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 16),
             TextButton(
               onPressed: onIncreaseRadius,
               style: TextButton.styleFrom(foregroundColor: AppColors.primary),
-              child: Text(loc.liveFeedIncreaseRadiusButton, style: const TextStyle(fontWeight: FontWeight.w700)),
+              child: Text(
+                loc.liveFeedIncreaseRadiusButton,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
           ],
         ),
@@ -251,4 +300,3 @@ class _LiveFeedEmptyState extends StatelessWidget {
     );
   }
 }
-

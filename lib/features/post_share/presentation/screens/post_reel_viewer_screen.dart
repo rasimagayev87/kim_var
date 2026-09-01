@@ -5,6 +5,8 @@ import '../../domain/entities/post.dart';
 import '../widgets/post_owner_menu_button.dart';
 import '../widgets/post_reel_item.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Full-screen, swipe-through-vertically viewer over a list of posts —
 /// the same [PostReelItem] Lent (the "Lent" tab) uses, just fed a
 /// user's own post list instead of the cross-user feed. Pushed from a
@@ -16,7 +18,11 @@ class PostReelViewerScreen extends StatefulWidget {
   final List<Post> posts;
   final int initialIndex;
 
-  const PostReelViewerScreen({super.key, required this.posts, required this.initialIndex});
+  const PostReelViewerScreen({
+    super.key,
+    required this.posts,
+    required this.initialIndex,
+  });
 
   @override
   State<PostReelViewerScreen> createState() => _PostReelViewerScreenState();
@@ -89,20 +95,25 @@ class _ReelViewerTopBar extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
         child: Row(
           children: [
-            GestureDetector(
+            Pressable(
               onTap: onBack,
               child: Container(
                 padding: const EdgeInsets.all(9),
-                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.35), shape: BoxShape.circle),
-                child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_back,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
             const Spacer(),
-            if (showMuteButton) MuteToggleButton(muted: muted, onTap: onToggleMute),
-            if (ownerMenu != null) ...[
-              const SizedBox(width: 4),
-              ownerMenu!,
-            ],
+            if (showMuteButton)
+              MuteToggleButton(muted: muted, onTap: onToggleMute),
+            if (ownerMenu != null) ...[const SizedBox(width: 4), ownerMenu!],
           ],
         ),
       ),

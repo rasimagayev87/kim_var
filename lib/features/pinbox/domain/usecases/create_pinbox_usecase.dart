@@ -28,8 +28,11 @@ List<PinBoxFieldError> _missingFields({
       pinboxPrice >= originalPrice) {
     missing.add(PinBoxFieldError.price);
   }
-  if (stockTotal == null || stockTotal <= 0) missing.add(PinBoxFieldError.stock);
-  if (pickupWindowStart == null || pickupWindowEnd == null || !pickupWindowEnd.isAfter(pickupWindowStart)) {
+  if (stockTotal == null || stockTotal <= 0)
+    missing.add(PinBoxFieldError.stock);
+  if (pickupWindowStart == null ||
+      pickupWindowEnd == null ||
+      !pickupWindowEnd.isAfter(pickupWindowStart)) {
     missing.add(PinBoxFieldError.pickupWindow);
   }
   return missing;

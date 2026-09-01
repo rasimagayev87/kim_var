@@ -38,7 +38,9 @@ class _ReauthSheetState extends ConsumerState<ReauthSheet> {
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
     setState(() => _busy = false);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(loc.deleteAccountReauthFailedMessage)),
+    );
   }
 
   Future<void> _reauthApple() async {
@@ -66,7 +68,9 @@ class _ReauthSheetState extends ConsumerState<ReauthSheet> {
   Future<void> _reauthPassword() async {
     setState(() => _busy = true);
     try {
-      await ref.read(accountControllerProvider).reauthenticateWithPassword(_passwordController.text);
+      await ref
+          .read(accountControllerProvider)
+          .reauthenticateWithPassword(_passwordController.text);
       if (!mounted) return;
       Navigator.pop(context, true);
     } catch (e, st) {
@@ -74,8 +78,11 @@ class _ReauthSheetState extends ConsumerState<ReauthSheet> {
     }
   }
 
-  Widget _spinner() =>
-      const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent));
+  Widget _spinner() => const SizedBox(
+    width: 20,
+    height: 20,
+    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -85,24 +92,41 @@ class _ReauthSheetState extends ConsumerState<ReauthSheet> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(loc.deleteAccountReauthTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              loc.deleteAccountReauthTitle,
+              style: AppTextStyles.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 8),
-            Text(loc.deleteAccountReauthMessage, style: AppTextStyles.caption.copyWith(height: 1.4)),
+            Text(
+              loc.deleteAccountReauthMessage,
+              style: AppTextStyles.caption.copyWith(height: 1.4),
+            ),
             const SizedBox(height: 16),
             if (provider == LoginProvider.apple)
               ElevatedButton(
                 onPressed: _busy ? null : _reauthApple,
-                child: _busy ? _spinner() : Text(loc.deleteAccountReauthAppleButton),
+                child: _busy
+                    ? _spinner()
+                    : Text(loc.deleteAccountReauthAppleButton),
               )
             else if (provider == LoginProvider.google)
               ElevatedButton(
                 onPressed: _busy ? null : _reauthGoogle,
-                child: _busy ? _spinner() : Text(loc.deleteAccountReauthGoogleButton),
+                child: _busy
+                    ? _spinner()
+                    : Text(loc.deleteAccountReauthGoogleButton),
               )
             else ...[
               TextField(
@@ -113,7 +137,9 @@ class _ReauthSheetState extends ConsumerState<ReauthSheet> {
               const SizedBox(height: 12),
               ElevatedButton(
                 onPressed: _busy ? null : _reauthPassword,
-                child: _busy ? _spinner() : Text(loc.deleteAccountReauthEmailButton),
+                child: _busy
+                    ? _spinner()
+                    : Text(loc.deleteAccountReauthEmailButton),
               ),
             ],
           ],

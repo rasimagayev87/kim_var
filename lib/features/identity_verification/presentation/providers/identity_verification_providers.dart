@@ -9,25 +9,28 @@ import '../../data/repositories/firebase_identity_verification_repository.dart';
 import '../../domain/entities/identity_verification_request.dart';
 import '../../domain/repositories/identity_verification_repository.dart';
 
-final identityVerificationRepositoryProvider = Provider<IdentityVerificationRepository>((ref) {
-  return FirebaseIdentityVerificationRepository();
-});
+final identityVerificationRepositoryProvider =
+    Provider<IdentityVerificationRepository>((ref) {
+      return FirebaseIdentityVerificationRepository();
+    });
 
 /// The signed-in user's own most recent request — `null` (no data yet,
 /// not loading) means they've never submitted one. autoDispose since
 /// this only matters while [IdentityVerificationScreen] is open.
 final latestIdentityVerificationRequestProvider =
     StreamProvider.autoDispose<IdentityVerificationRequest?>((ref) {
-  // Forces a rebuild on sign-out/sign-in instead of relying on
-  // autoDispose's own (timing-dependent) teardown — without this, a
-  // quick account switch can resurrect this provider still bound to
-  // the previous uid, hitting `identityVerifications where
-  // userId==oldUid` under the new session's auth: permission-denied.
-  ref.watch(authStateProvider);
-  final uid = fb.FirebaseAuth.instance.currentUser?.uid;
-  if (uid == null) return Stream.value(null);
-  return ref.watch(identityVerificationRepositoryProvider).watchLatestRequest(uid);
-});
+      // Forces a rebuild on sign-out/sign-in instead of relying on
+      // autoDispose's own (timing-dependent) teardown — without this, a
+      // quick account switch can resurrect this provider still bound to
+      // the previous uid, hitting `identityVerifications where
+      // userId==oldUid` under the new session's auth: permission-denied.
+      ref.watch(authStateProvider);
+      final uid = fb.FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return Stream.value(null);
+      return ref
+          .watch(identityVerificationRepositoryProvider)
+          .watchLatestRequest(uid);
+    });
 
 enum IdentityVerificationSubmitStatus { idle, loading, success, error }
 
@@ -44,40 +47,65 @@ class IdentityVerificationSubmitState {
     this.errorMessage,
   });
 
-  const IdentityVerificationSubmitState.idle() : this._(status: IdentityVerificationSubmitStatus.idle);
+  const IdentityVerificationSubmitState.idle()
+    : this._(status: IdentityVerificationSubmitStatus.idle);
 
   const IdentityVerificationSubmitState.loading([double progress = 0])
-      : this._(status: IdentityVerificationSubmitStatus.loading, progress: progress);
+    : this._(
+        status: IdentityVerificationSubmitStatus.loading,
+        progress: progress,
+      );
 
   const IdentityVerificationSubmitState.success()
-      : this._(status: IdentityVerificationSubmitStatus.success, progress: 1);
+    : this._(status: IdentityVerificationSubmitStatus.success, progress: 1);
 
-  const IdentityVerificationSubmitState.error(StorageFailure type, String message)
-      : this._(status: IdentityVerificationSubmitStatus.error, failureType: type, errorMessage: message);
+  const IdentityVerificationSubmitState.error(
+    StorageFailure type,
+    String message,
+  ) : this._(
+        status: IdentityVerificationSubmitStatus.error,
+        failureType: type,
+        errorMessage: message,
+      );
 
   bool get isLoading => status == IdentityVerificationSubmitStatus.loading;
 }
 
-final identityVerificationSubmitControllerProvider = StateNotifierProvider.autoDispose<
-    IdentityVerificationSubmitController, IdentityVerificationSubmitState>((ref) {
-  return IdentityVerificationSubmitController(ref.watch(identityVerificationRepositoryProvider));
-});
+final identityVerificationSubmitControllerProvider =
+    StateNotifierProvider.autoDispose<
+      IdentityVerificationSubmitController,
+      IdentityVerificationSubmitState
+    >((ref) {
+      return IdentityVerificationSubmitController(
+        ref.watch(identityVerificationRepositoryProvider),
+      );
+    });
 
-class IdentityVerificationSubmitController extends StateNotifier<IdentityVerificationSubmitState> {
+class IdentityVerificationSubmitController
+    extends StateNotifier<IdentityVerificationSubmitState> {
   final IdentityVerificationRepository _repository;
   final fb.FirebaseAuth _auth;
 
-  IdentityVerificationSubmitController(this._repository, {fb.FirebaseAuth? auth})
-      : _auth = auth ?? fb.FirebaseAuth.instance,
-        super(const IdentityVerificationSubmitState.idle());
+  IdentityVerificationSubmitController(
+    this._repository, {
+    fb.FirebaseAuth? auth,
+  }) : _auth = auth ?? fb.FirebaseAuth.instance,
+       super(const IdentityVerificationSubmitState.idle());
 
   /// Returns true on success — the caller clears its picked-image
   /// state only then, so a failed submit leaves the 3 pictures in
   /// place for the user to just retry instead of re-picking everything.
-  Future<bool> submit({required File idFront, required File idBack, required File selfieWithId}) async {
+  Future<bool> submit({
+    required File idFront,
+    required File idBack,
+    required File selfieWithId,
+  }) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
-      state = const IdentityVerificationSubmitState.error(StorageFailure.unauthenticated, 'İstifadəçi daxil olmayıb.');
+      state = const IdentityVerificationSubmitState.error(
+        StorageFailure.unauthenticated,
+        'İstifadəçi daxil olmayıb.',
+      );
       return false;
     }
 
@@ -101,7 +129,10 @@ class IdentityVerificationSubmitController extends StateNotifier<IdentityVerific
       return false;
     } catch (e) {
       if (!mounted) return false;
-      state = IdentityVerificationSubmitState.error(StorageFailure.unknown, 'Gözlənilməz xəta: $e');
+      state = IdentityVerificationSubmitState.error(
+        StorageFailure.unknown,
+        'Gözlənilməz xəta: $e',
+      );
       return false;
     }
   }

@@ -24,7 +24,10 @@ class LocalizedNotificationText {
 /// case (old notifications intentionally stay in their original
 /// Azerbaijani, per the "don't migrate history" decision — only new
 /// ones render per-locale).
-LocalizedNotificationText? localizeNotification(AppNotification notification, AppLocalizations loc) {
+LocalizedNotificationText? localizeNotification(
+  AppNotification notification,
+  AppLocalizations loc,
+) {
   final params = notification.metadata;
   if (params == null) return null;
 
@@ -46,25 +49,39 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       // The title is just the follower's name — already carried on
       // the top-level senderName field, no need to duplicate it into
       // params.
-      return LocalizedNotificationText(title: notification.senderName ?? '', body: loc.notifNewFollowerBody);
+      return LocalizedNotificationText(
+        title: notification.senderName ?? '',
+        body: loc.notifNewFollowerBody,
+      );
 
     // "Hesab gizliliyi" — a follow request against a `private`
     // account (see `onFollowCreated`), and its own approval (see
     // `onFollowUpdated`). Same senderName-as-title shape as
     // [newFollower].
     case NotificationType.followRequest:
-      return LocalizedNotificationText(title: notification.senderName ?? '', body: loc.notifFollowRequestBody);
+      return LocalizedNotificationText(
+        title: notification.senderName ?? '',
+        body: loc.notifFollowRequestBody,
+      );
     case NotificationType.followAccepted:
-      return LocalizedNotificationText(title: notification.senderName ?? '', body: loc.notifFollowAcceptedBody);
+      return LocalizedNotificationText(
+        title: notification.senderName ?? '',
+        body: loc.notifFollowAcceptedBody,
+      );
 
     case NotificationType.likePost:
-      return LocalizedNotificationText(title: notification.senderName ?? '', body: loc.notifLikePostBody);
+      return LocalizedNotificationText(
+        title: notification.senderName ?? '',
+        body: loc.notifLikePostBody,
+      );
 
     case NotificationType.venuePeakHour:
       final venueName = str('venueName');
       return LocalizedNotificationText(
         title: loc.notifVenuePeakHourTitle,
-        body: venueName.isEmpty ? loc.notifVenuePeakHourBodyGeneric : loc.notifVenuePeakHourBody(venueName),
+        body: venueName.isEmpty
+            ? loc.notifVenuePeakHourBodyGeneric
+            : loc.notifVenuePeakHourBody(venueName),
       );
 
     case NotificationType.reviewPrompt:
@@ -104,14 +121,18 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       final venueName = str('venueName');
       return LocalizedNotificationText(
         title: loc.notifVenueAddedTitle,
-        body: venueName.isEmpty ? loc.notifVenueAddedBodyGeneric : loc.notifVenueAddedBody(venueName),
+        body: venueName.isEmpty
+            ? loc.notifVenueAddedBodyGeneric
+            : loc.notifVenueAddedBody(venueName),
       );
 
     case NotificationType.venueVerified:
       final venueName = str('venueName');
       return LocalizedNotificationText(
         title: loc.notifVenueVerifiedTitle,
-        body: venueName.isEmpty ? loc.notifVenueVerifiedBodyGeneric : loc.notifVenueVerifiedBody(venueName),
+        body: venueName.isEmpty
+            ? loc.notifVenueVerifiedBodyGeneric
+            : loc.notifVenueVerifiedBody(venueName),
       );
 
     case NotificationType.venueSubscriptionDue:
@@ -128,7 +149,9 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       final name = str('name');
       return LocalizedNotificationText(
         title: loc.notifOfferPaymentConfirmedTitle,
-        body: name.isEmpty ? loc.notifOfferPaymentConfirmedBodyGeneric : loc.notifOfferPaymentConfirmedBody(name),
+        body: name.isEmpty
+            ? loc.notifOfferPaymentConfirmedBodyGeneric
+            : loc.notifOfferPaymentConfirmedBody(name),
       );
 
     case NotificationType.offerBoosted:
@@ -136,21 +159,27 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       final hours = intVal('hours');
       return LocalizedNotificationText(
         title: loc.notifOfferBoostedTitle,
-        body: name.isEmpty ? loc.notifOfferBoostedBodyGeneric(hours) : loc.notifOfferBoostedBody(name, hours),
+        body: name.isEmpty
+            ? loc.notifOfferBoostedBodyGeneric(hours)
+            : loc.notifOfferBoostedBody(name, hours),
       );
 
     case NotificationType.venuePaymentConfirmed:
       final name = str('name');
       return LocalizedNotificationText(
         title: loc.notifVenuePaymentConfirmedTitle,
-        body: name.isEmpty ? loc.notifVenuePaymentConfirmedBodyGeneric : loc.notifVenuePaymentConfirmedBody(name),
+        body: name.isEmpty
+            ? loc.notifVenuePaymentConfirmedBodyGeneric
+            : loc.notifVenuePaymentConfirmedBody(name),
       );
 
     case NotificationType.venueSubscriptionRenewed:
       final name = str('name');
       return LocalizedNotificationText(
         title: loc.notifVenueSubscriptionRenewedTitle,
-        body: name.isEmpty ? loc.notifVenueSubscriptionRenewedBodyGeneric : loc.notifVenueSubscriptionRenewedBody(name),
+        body: name.isEmpty
+            ? loc.notifVenueSubscriptionRenewedBodyGeneric
+            : loc.notifVenueSubscriptionRenewedBody(name),
       );
 
     case NotificationType.venuePremiumActivated:
@@ -158,7 +187,9 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       final months = intVal('months');
       return LocalizedNotificationText(
         title: loc.notifVenuePremiumActivatedTitle,
-        body: name.isEmpty ? loc.notifVenuePremiumActivatedBodyGeneric(months) : loc.notifVenuePremiumActivatedBody(name, months),
+        body: name.isEmpty
+            ? loc.notifVenuePremiumActivatedBodyGeneric(months)
+            : loc.notifVenuePremiumActivatedBody(name, months),
       );
 
     case NotificationType.venueWaitlistJoined:
@@ -185,7 +216,9 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       final title = str('title');
       return LocalizedNotificationText(
         title: loc.notifPinboxOrderConfirmedTitle,
-        body: title.isEmpty ? loc.notifPinboxOrderConfirmedBodyGeneric : loc.notifPinboxOrderConfirmedBody(title),
+        body: title.isEmpty
+            ? loc.notifPinboxOrderConfirmedBodyGeneric
+            : loc.notifPinboxOrderConfirmedBody(title),
       );
 
     case NotificationType.paymentFailed:
@@ -193,7 +226,9 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       final reason = str('reason');
       return LocalizedNotificationText(
         title: loc.notifPaymentFailedTitle,
-        body: name.isEmpty ? reason : loc.notifPaymentFailedBodyWithName(name, reason),
+        body: name.isEmpty
+            ? reason
+            : loc.notifPaymentFailedBodyWithName(name, reason),
       );
 
     case NotificationType.venueApproved:
@@ -216,7 +251,9 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       );
       return LocalizedNotificationText(
         title: loc.notifVenueNeedsRevisionTitle,
-        body: body + (boolVal('hasPayment') ? loc.notifRevisionPaymentSuffix : ''),
+        body:
+            body +
+            (boolVal('hasPayment') ? loc.notifRevisionPaymentSuffix : ''),
       );
 
     case NotificationType.offerNeedsRevision:
@@ -227,7 +264,9 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       );
       return LocalizedNotificationText(
         title: loc.notifOfferNeedsRevisionTitle,
-        body: body + (boolVal('hasPayment') ? loc.notifRevisionPaymentSuffix : ''),
+        body:
+            body +
+            (boolVal('hasPayment') ? loc.notifRevisionPaymentSuffix : ''),
       );
 
     case NotificationType.venueRejected:
@@ -256,7 +295,9 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       final pinboxTitle = str('pinboxTitle');
       return LocalizedNotificationText(
         title: loc.notifPinboxAddedTitle,
-        body: pinboxTitle.isEmpty ? loc.notifPinboxAddedBodyGeneric : loc.notifPinboxAddedBody(pinboxTitle),
+        body: pinboxTitle.isEmpty
+            ? loc.notifPinboxAddedBodyGeneric
+            : loc.notifPinboxAddedBody(pinboxTitle),
       );
 
     case NotificationType.pinboxApproved:
@@ -272,7 +313,10 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         noNote: loc.notifPinboxNeedsRevisionBodyNoNote,
       );
       // No `hasPayment` suffix — same reasoning as pinboxRejected below.
-      return LocalizedNotificationText(title: loc.notifPinboxNeedsRevisionTitle, body: body);
+      return LocalizedNotificationText(
+        title: loc.notifPinboxNeedsRevisionTitle,
+        body: body,
+      );
 
     case NotificationType.pinboxRejected:
       final body = bodyWithOptionalNote(
@@ -283,12 +327,17 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       // No `hasPayment` suffix — PinBox has no flat listing fee (see
       // `PinBox`'s own doc comment), so `moderationStatusNotification`
       // always passes `hasPayment: false` for this kind.
-      return LocalizedNotificationText(title: loc.notifPinboxRejectedTitle, body: body);
+      return LocalizedNotificationText(
+        title: loc.notifPinboxRejectedTitle,
+        body: body,
+      );
 
     case NotificationType.pinboxNearby:
       final venueName = str('venueName');
       return LocalizedNotificationText(
-        title: venueName.isEmpty ? loc.notifPinboxNearbyTitleGeneric : loc.notifPinboxNearbyTitle(venueName),
+        title: venueName.isEmpty
+            ? loc.notifPinboxNearbyTitleGeneric
+            : loc.notifPinboxNearbyTitle(venueName),
         // The box's own title is raw owner content, never translated —
         // only the surrounding "X yaxınlığınızda" shell above is, same
         // reasoning as NotificationType.venueOffer.
@@ -301,14 +350,18 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       final venueName = str('venueName');
       return LocalizedNotificationText(
         title: loc.notifBirthdayOfferTitle,
-        body: venueName.isEmpty ? loc.notifBirthdayOfferBodyGeneric : loc.notifBirthdayOfferBody(venueName),
+        body: venueName.isEmpty
+            ? loc.notifBirthdayOfferBodyGeneric
+            : loc.notifBirthdayOfferBody(venueName),
       );
 
     case NotificationType.pinboxNoShow:
       final boxTitle = str('title');
       return LocalizedNotificationText(
         title: loc.notifPinboxNoShowTitle,
-        body: boxTitle.isEmpty ? loc.notifPinboxNoShowBodyGeneric : loc.notifPinboxNoShowBody(boxTitle),
+        body: boxTitle.isEmpty
+            ? loc.notifPinboxNoShowBodyGeneric
+            : loc.notifPinboxNoShowBody(boxTitle),
       );
 
     case NotificationType.eventApproved:
@@ -332,10 +385,11 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       // already picked one per category. Joined here rather than
       // server-side so the conjunction ("və" / "and" / "и") follows the
       // reader's language instead of the sender's.
-      final names = (notification.metadata?['venueNames'] as List<dynamic>? ?? const [])
-          .map((n) => n.toString())
-          .where((n) => n.isNotEmpty)
-          .toList();
+      final names =
+          (notification.metadata?['venueNames'] as List<dynamic>? ?? const [])
+              .map((n) => n.toString())
+              .where((n) => n.isNotEmpty)
+              .toList();
       return LocalizedNotificationText(
         title: loc.notifBirthdayVenuesTitle,
         body: names.isEmpty
@@ -372,20 +426,26 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       final venueName = str('venueName');
       return LocalizedNotificationText(
         title: loc.notifWaitlistCalledTitle,
-        body: venueName.isEmpty ? loc.notifWaitlistCalledBodyGeneric : loc.notifWaitlistCalledBody(venueName),
+        body: venueName.isEmpty
+            ? loc.notifWaitlistCalledBodyGeneric
+            : loc.notifWaitlistCalledBody(venueName),
       );
 
     case NotificationType.waitlistDisabled:
       final venueName = str('venueName');
       return LocalizedNotificationText(
         title: loc.notifWaitlistDisabledTitle,
-        body: venueName.isEmpty ? loc.notifWaitlistDisabledBodyGeneric : loc.notifWaitlistDisabledBody(venueName),
+        body: venueName.isEmpty
+            ? loc.notifWaitlistDisabledBodyGeneric
+            : loc.notifWaitlistDisabledBody(venueName),
       );
 
     case NotificationType.venueEvent:
       final venueName = str('venueName');
       return LocalizedNotificationText(
-        title: venueName.isEmpty ? loc.notifVenueEventTitleGeneric : loc.notifVenueEventTitle(venueName),
+        title: venueName.isEmpty
+            ? loc.notifVenueEventTitleGeneric
+            : loc.notifVenueEventTitle(venueName),
         // The event's own title is raw owner content, never translated —
         // only the surrounding "X-də bu axşam" shell above is (mirrors
         // NotificationType.venueOffer's identical reasoning).
@@ -395,14 +455,19 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
     case NotificationType.venueOffer:
       final venueName = str('venueName');
       return LocalizedNotificationText(
-        title: venueName.isEmpty ? loc.notifVenueOfferTitleGeneric : loc.notifVenueOfferTitle(venueName),
+        title: venueName.isEmpty
+            ? loc.notifVenueOfferTitleGeneric
+            : loc.notifVenueOfferTitle(venueName),
         // The offer's own title is raw user content, never translated —
         // only the surrounding "X yaxınlığınızda" shell above is.
         body: str('offerTitle'),
       );
 
     case NotificationType.vipGranted:
-      return LocalizedNotificationText(title: loc.notifVipGrantedTitle, body: loc.notifVipGrantedBody);
+      return LocalizedNotificationText(
+        title: loc.notifVipGrantedTitle,
+        body: loc.notifVipGrantedBody,
+      );
 
     case NotificationType.identityVerificationApproved:
       return LocalizedNotificationText(
@@ -416,9 +481,13 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       // notifyNearbyUsersOfNewOffer/...NewEvent in
       // functions/src/index.ts) — whichever of these two params keys
       // is present tells which one it was; the other is always empty.
-      final postTitle = str('offerTitle').isNotEmpty ? str('offerTitle') : str('eventTitle');
+      final postTitle = str('offerTitle').isNotEmpty
+          ? str('offerTitle')
+          : str('eventTitle');
       return LocalizedNotificationText(
-        title: venueName.isEmpty ? loc.notifProductionPostTitleGeneric : loc.notifProductionPostTitle(venueName),
+        title: venueName.isEmpty
+            ? loc.notifProductionPostTitleGeneric
+            : loc.notifProductionPostTitle(venueName),
         body: postTitle,
       );
 
@@ -426,7 +495,9 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
       final note = str('note');
       return LocalizedNotificationText(
         title: loc.notifIdentityVerificationRejectedTitle,
-        body: note.isEmpty ? loc.notifIdentityVerificationRejectedBodyNoNote : loc.notifIdentityVerificationRejectedBodyWithNote(note),
+        body: note.isEmpty
+            ? loc.notifIdentityVerificationRejectedBodyNoNote
+            : loc.notifIdentityVerificationRejectedBodyWithNote(note),
       );
 
     case NotificationType.security:
@@ -434,16 +505,23 @@ LocalizedNotificationText? localizeNotification(AppNotification notification, Ap
         final newEmail = str('newEmail');
         return LocalizedNotificationText(
           title: loc.notifSecurityEmailChangedTitle,
-          body: newEmail.isEmpty ? loc.notifSecurityEmailChangedBodyGeneric : loc.notifSecurityEmailChangedBody(newEmail),
+          body: newEmail.isEmpty
+              ? loc.notifSecurityEmailChangedBodyGeneric
+              : loc.notifSecurityEmailChangedBody(newEmail),
         );
       }
-      return LocalizedNotificationText(title: loc.notifSecurityNewDeviceTitle, body: loc.notifSecurityNewDeviceBody);
+      return LocalizedNotificationText(
+        title: loc.notifSecurityNewDeviceTitle,
+        body: loc.notifSecurityNewDeviceBody,
+      );
 
     case NotificationType.warning:
       final reason = str('reason');
       return LocalizedNotificationText(
         title: loc.notifWarningTitle,
-        body: reason.isEmpty ? loc.notifWarningBodyGeneric : loc.notifWarningBody(reason),
+        body: reason.isEmpty
+            ? loc.notifWarningBodyGeneric
+            : loc.notifWarningBody(reason),
       );
 
     // `promotion`/`announcement`/`system` are admin-authored broadcasts

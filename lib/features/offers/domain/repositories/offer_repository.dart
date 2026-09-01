@@ -57,7 +57,8 @@ abstract class OfferRepository {
   /// Epoint attempt failed or was abandoned — same `payments` doc, a
   /// fresh checkout URL. Throws if the offer isn't actually awaiting
   /// payment (already paid, or never needed to be).
-  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryOfferPayment(String offerId);
+  Future<({String checkoutUrl, double feeAmount, String paymentId})>
+  retryOfferPayment(String offerId);
 
   /// Returns whether the edit sent the offer back into moderation — the
   /// `updateOffer` Cloud Function's own diff-based decision (see its
@@ -92,7 +93,10 @@ abstract class OfferRepository {
 
   /// Active, non-expired offers at [venueId] other than [excludeOfferId]
   /// — backs Offer Details' "Digər aktiv təkliflər".
-  Future<List<Offer>> fetchOtherActiveOffersForVenue(String venueId, {required String excludeOfferId});
+  Future<List<Offer>> fetchOtherActiveOffersForVenue(
+    String venueId, {
+    required String excludeOfferId,
+  });
 
   /// Active, non-expired offers within [radiusKm] of ([lat], [lng]),
   /// optionally narrowed to one [category], sorted nearest-first.
@@ -107,15 +111,25 @@ abstract class OfferRepository {
   });
 
   /// Backs "Ölkə üzrə" — mirrors `VenueRepository.fetchVenuesByCountry`.
-  Future<List<Offer>> fetchOffersByCountry(String country, {VenueCategory? category});
+  Future<List<Offer>> fetchOffersByCountry(
+    String country, {
+    VenueCategory? category,
+  });
 
   /// Backs "Dünya üzrə" — mirrors `VenueRepository.fetchAllActiveVenues`.
-  Future<List<Offer>> fetchAllActiveOffers({int limit, VenueCategory? category});
+  Future<List<Offer>> fetchAllActiveOffers({
+    int limit,
+    VenueCategory? category,
+  });
 
   /// Realtime set of offer ids [uid] has favorited.
   Stream<Set<String>> watchFavoriteOfferIds(String uid);
 
-  Future<void> setFavorite({required String uid, required String offerId, required bool isFavorite});
+  Future<void> setFavorite({
+    required String uid,
+    required String offerId,
+    required bool isFavorite,
+  });
 
   /// Moves a `needs_revision` offer back to `pending` after the owner
   /// has edited it — mirrors `VenueRepository.resubmitVenue`.
@@ -125,14 +139,17 @@ abstract class OfferRepository {
   /// çək" tiers — `Offer.boostedUntil` is set only by `epointWebhook`
   /// (functions/src/index.ts) once the charge is confirmed, never
   /// directly from here (see firestore.rules' offers update rule).
-  Future<({String checkoutUrl, double feeAmount, String paymentId})> createBoostCheckout(String offerId, int hours);
+  Future<({String checkoutUrl, double feeAmount, String paymentId})>
+  createBoostCheckout(String offerId, int hours);
 
   /// Backs the `birthday_match` push's deep link
   /// (`notification_navigation.dart`) — reads the venue + matched uids
   /// a `computeBirthdayMatches` run wrote, so `CreateOfferScreen` can
   /// pre-fill `preselectedVenueId`/`birthdayTargetUserIds`. Null if the
   /// match doc doesn't exist (e.g. already deleted/pruned).
-  Future<({String venueId, List<String> matchedUserIds})?> fetchBirthdayMatch(String matchId);
+  Future<({String venueId, List<String> matchedUserIds})?> fetchBirthdayMatch(
+    String matchId,
+  );
 
   /// Whether [uid] has already activated this `OfferType.firstVisit`
   /// offer — backs Offer Details' "Aktivləşdir"/"İstifadə edilib"

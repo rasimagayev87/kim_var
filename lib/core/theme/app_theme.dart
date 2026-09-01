@@ -35,10 +35,7 @@ class AppTheme {
       bodySmall: AppTextStyles.caption,
       labelLarge: AppTextStyles.button,
       labelSmall: AppTextStyles.caption,
-    ).apply(
-      bodyColor: AppColors.white,
-      displayColor: AppColors.white,
-    ),
+    ).apply(bodyColor: AppColors.white, displayColor: AppColors.white),
 
     // Kills the stock Material ripple/highlight so buttons, list rows and
     // nav items rely on our own state styling instead of the default
@@ -96,10 +93,7 @@ class AppTheme {
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
         foregroundColor: AppColors.white,
-        side: const BorderSide(
-          color: AppColors.divider,
-          width: 1.2,
-        ),
+        side: const BorderSide(color: AppColors.divider, width: 1.2),
         minimumSize: const Size(double.infinity, 56),
         textStyle: AppTextStyles.button,
         shape: RoundedRectangleBorder(
@@ -143,18 +137,12 @@ class AppTheme {
       // Focus state — one of the whitelisted accent contexts.
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadii.input),
-        borderSide: const BorderSide(
-          color: AppColors.primary,
-          width: 1.5,
-        ),
+        borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
       ),
 
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadii.input),
-        borderSide: const BorderSide(
-          color: AppColors.error,
-          width: 1.2,
-        ),
+        borderSide: const BorderSide(color: AppColors.error, width: 1.2),
       ),
 
       contentPadding: const EdgeInsets.symmetric(
@@ -171,7 +159,9 @@ class AppTheme {
     // Active switch — one of the whitelisted accent contexts.
     switchTheme: SwitchThemeData(
       thumbColor: WidgetStateProperty.resolveWith(
-        (states) => states.contains(WidgetState.selected) ? AppColors.primary : AppColors.textMuted,
+        (states) => states.contains(WidgetState.selected)
+            ? AppColors.primary
+            : AppColors.textMuted,
       ),
       trackColor: WidgetStateProperty.resolveWith(
         (states) => states.contains(WidgetState.selected)

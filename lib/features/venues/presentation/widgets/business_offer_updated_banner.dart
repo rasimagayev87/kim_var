@@ -9,6 +9,8 @@ import '../../../app_config/presentation/providers/app_config_providers.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../domain/entities/venue.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 const _kDismissedVersionPrefix = 'business_offer_banner_dismissed_';
 
 /// Non-blocking "oferta yeniləndi" notice on `MyVenuesScreen` — shown
@@ -27,10 +29,12 @@ class BusinessOfferUpdatedBanner extends ConsumerStatefulWidget {
   const BusinessOfferUpdatedBanner({super.key, required this.venues});
 
   @override
-  ConsumerState<BusinessOfferUpdatedBanner> createState() => _BusinessOfferUpdatedBannerState();
+  ConsumerState<BusinessOfferUpdatedBanner> createState() =>
+      _BusinessOfferUpdatedBannerState();
 }
 
-class _BusinessOfferUpdatedBannerState extends ConsumerState<BusinessOfferUpdatedBanner> {
+class _BusinessOfferUpdatedBannerState
+    extends ConsumerState<BusinessOfferUpdatedBanner> {
   String? _dismissedVersion;
   bool _loaded = false;
 
@@ -41,7 +45,9 @@ class _BusinessOfferUpdatedBannerState extends ConsumerState<BusinessOfferUpdate
       if (!mounted) return;
       final currentVersion = ref.read(appConfigProvider).businessOfferVersion;
       setState(() {
-        _dismissedVersion = prefs.getString('$_kDismissedVersionPrefix$currentVersion');
+        _dismissedVersion = prefs.getString(
+          '$_kDismissedVersionPrefix$currentVersion',
+        );
         _loaded = true;
       });
     });
@@ -59,30 +65,54 @@ class _BusinessOfferUpdatedBannerState extends ConsumerState<BusinessOfferUpdate
     final config = ref.watch(appConfigProvider);
 
     final anyVenueOutOfDate = widget.venues.any(
-      (v) => v.offerAcceptedVersion != null && v.offerAcceptedVersion != config.businessOfferVersion,
+      (v) =>
+          v.offerAcceptedVersion != null &&
+          v.offerAcceptedVersion != config.businessOfferVersion,
     );
-    final shouldShow = _loaded && anyVenueOutOfDate && config.businessOfferVersion != _dismissedVersion;
+    final shouldShow =
+        _loaded &&
+        anyVenueOutOfDate &&
+        config.businessOfferVersion != _dismissedVersion;
     if (!shouldShow) return const SizedBox.shrink();
 
     return Container(
       margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         children: [
-          const Icon(Icons.campaign_outlined, size: 18, color: AppColors.primary),
+          const Icon(
+            Icons.campaign_outlined,
+            size: 18,
+            color: AppColors.primary,
+          ),
           const SizedBox(width: 8),
           Expanded(
-            child: GestureDetector(
-              onTap: () => launchUrl(Uri.parse(config.urlBusinessOffer), mode: LaunchMode.externalApplication),
+            child: Pressable(
+              onTap: () => launchUrl(
+                Uri.parse(config.urlBusinessOffer),
+                mode: LaunchMode.externalApplication,
+              ),
               child: Text(
-                loc.businessOfferUpdatedBannerMessage(config.businessOfferEffectiveDate),
-                style: const TextStyle(fontSize: 12.5, color: ChatLightColors.ink),
+                loc.businessOfferUpdatedBannerMessage(
+                  config.businessOfferEffectiveDate,
+                ),
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  color: ChatLightColors.ink,
+                ),
               ),
             ),
           ),
           IconButton(
-            icon: const Icon(Icons.close_rounded, size: 18, color: ChatLightColors.inkSoft),
+            icon: const Icon(
+              Icons.close_rounded,
+              size: 18,
+              color: ChatLightColors.inkSoft,
+            ),
             tooltip: loc.businessOfferUpdatedBannerDismiss,
             onPressed: () => _dismiss(config.businessOfferVersion),
           ),

@@ -14,8 +14,8 @@ final authStateProvider = StreamProvider<AppUser?>((ref) {
 
 final authControllerProvider =
     StateNotifierProvider<AuthController, AsyncValue<AppUser?>>((ref) {
-  return AuthController(ref.watch(authRepositoryProvider));
-});
+      return AuthController(ref.watch(authRepositoryProvider));
+    });
 
 class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
   final AuthRepository _repository;
@@ -34,11 +34,15 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     return _repository.isUsernameAvailable(username);
   }
 
-  Future<(AppUser, bool)> _runSignIn(Future<(AppUser, bool)> Function() signIn) async {
+  Future<(AppUser, bool)> _runSignIn(
+    Future<(AppUser, bool)> Function() signIn,
+  ) async {
     state = const AsyncValue.loading();
     try {
       final result = await signIn();
-      state = result.$2 ? const AsyncValue.data(null) : AsyncValue.data(result.$1);
+      state = result.$2
+          ? const AsyncValue.data(null)
+          : AsyncValue.data(result.$1);
       return result;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
@@ -46,16 +50,28 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     }
   }
 
-  Future<(AppUser, bool)> signInWithApple() => _runSignIn(_repository.signInWithApple);
+  Future<(AppUser, bool)> signInWithApple() =>
+      _runSignIn(_repository.signInWithApple);
 
-  Future<(AppUser, bool)> signInWithGoogle() => _runSignIn(_repository.signInWithGoogle);
+  Future<(AppUser, bool)> signInWithGoogle() =>
+      _runSignIn(_repository.signInWithGoogle);
 
-  Future<(AppUser, bool)> signInWithEmailPassword(String email, String password) {
-    return _runSignIn(() => _repository.signInWithEmailPassword(email, password));
+  Future<(AppUser, bool)> signInWithEmailPassword(
+    String email,
+    String password,
+  ) {
+    return _runSignIn(
+      () => _repository.signInWithEmailPassword(email, password),
+    );
   }
 
-  Future<(AppUser, bool)> registerWithEmailPassword(String email, String password) {
-    return _runSignIn(() => _repository.registerWithEmailPassword(email, password));
+  Future<(AppUser, bool)> registerWithEmailPassword(
+    String email,
+    String password,
+  ) {
+    return _runSignIn(
+      () => _repository.registerWithEmailPassword(email, password),
+    );
   }
 
   Future<void> sendPasswordResetEmail(String email) {
@@ -130,5 +146,4 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     await _repository.signOut();
     state = const AsyncValue.data(null);
   }
-
 }

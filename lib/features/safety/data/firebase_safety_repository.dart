@@ -10,11 +10,12 @@ import '../../../../core/utils/app_logger.dart';
 /// collection — keeps a user's block list a single read/write.
 class FirebaseSafetyRepository implements SafetyRepository {
   FirebaseSafetyRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> get _users => _firestore.collection('users');
+  CollectionReference<Map<String, dynamic>> get _users =>
+      _firestore.collection('users');
 
   @override
   Future<void> blockUser({required String myUid, required String blockedUid}) {
@@ -24,7 +25,10 @@ class FirebaseSafetyRepository implements SafetyRepository {
   }
 
   @override
-  Future<void> unblockUser({required String myUid, required String blockedUid}) {
+  Future<void> unblockUser({
+    required String myUid,
+    required String blockedUid,
+  }) {
     return _users.doc(myUid).update({
       'blockedUsers': FieldValue.arrayRemove([blockedUid]),
     });
@@ -42,9 +46,16 @@ class FirebaseSafetyRepository implements SafetyRepository {
   @override
   Future<bool> isBlockedPair(String uidA, String uidB) async {
     try {
-      final results = await Future.wait([_users.doc(uidA).get(), _users.doc(uidB).get()]);
-      final aBlocked = (results[0].data()?['blockedUsers'] as List?)?.cast<String>() ?? const [];
-      final bBlocked = (results[1].data()?['blockedUsers'] as List?)?.cast<String>() ?? const [];
+      final results = await Future.wait([
+        _users.doc(uidA).get(),
+        _users.doc(uidB).get(),
+      ]);
+      final aBlocked =
+          (results[0].data()?['blockedUsers'] as List?)?.cast<String>() ??
+          const [];
+      final bBlocked =
+          (results[1].data()?['blockedUsers'] as List?)?.cast<String>() ??
+          const [];
       return aBlocked.contains(uidB) || bBlocked.contains(uidA);
     } on FirebaseException catch (e) {
       if (errorCodeIs(e.code, 'permission-denied')) return true;
@@ -54,8 +65,13 @@ class FirebaseSafetyRepository implements SafetyRepository {
 
   @override
   Stream<Set<String>> watchBlockedUserIds(String myUid) {
-    return _users.doc(myUid).snapshots().map(
-          (doc) => (doc.data()?['blockedUsers'] as List?)?.cast<String>().toSet() ?? const {},
+    return _users
+        .doc(myUid)
+        .snapshots()
+        .map(
+          (doc) =>
+              (doc.data()?['blockedUsers'] as List?)?.cast<String>().toSet() ??
+              const {},
         );
   }
 
@@ -78,7 +94,9 @@ class FirebaseSafetyRepository implements SafetyRepository {
       // write-only from the client, see firestore.rules).
       'status': 'pending',
     });
-    batch.update(_users.doc(reportedId), {'reportedCount': FieldValue.increment(1)});
+    batch.update(_users.doc(reportedId), {
+      'reportedCount': FieldValue.increment(1),
+    });
     await batch.commit();
   }
 }

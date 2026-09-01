@@ -37,8 +37,11 @@ class WaitlistStatusSection extends ConsumerWidget {
     final entry = ref.watch(myWaitlistEntryProvider(venue.id)).valueOrNull;
 
     if (entry == null) {
-      final eligibleCategories = ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
-      final waitlistFeatureEnabled = ref.watch(featureFlagProvider(FeatureFlag.waitlist));
+      final eligibleCategories =
+          ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
+      final waitlistFeatureEnabled = ref.watch(
+        featureFlagProvider(FeatureFlag.waitlist),
+      );
       final capabilities = venue.category.capabilities;
       if (!waitlistFeatureEnabled ||
           !venue.waitlistEnabled ||
@@ -85,9 +88,15 @@ class _MyEntryCard extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
-        content: Text(loc.waitlistLeaveConfirmMessage, style: const TextStyle(color: ChatLightColors.ink, fontSize: 14.5)),
+        content: Text(
+          loc.waitlistLeaveConfirmMessage,
+          style: const TextStyle(color: ChatLightColors.ink, fontSize: 14.5),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -98,9 +107,13 @@ class _MyEntryCard extends ConsumerWidget {
     );
     if (confirmed != true) return;
 
-    final ok = await ref.read(waitlistControllerProvider).cancel(venueId: venueId, entryId: entry.id);
+    final ok = await ref
+        .read(waitlistControllerProvider)
+        .cancel(venueId: venueId, entryId: entry.id);
     if (ok || !context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.waitlistGenericErrorMessage)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(loc.waitlistGenericErrorMessage)));
   }
 
   @override
@@ -112,9 +125,13 @@ class _MyEntryCard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: isCalled ? AppColors.primary.withValues(alpha: 0.1) : ChatLightColors.cardSurface,
+        color: isCalled
+            ? AppColors.primary.withValues(alpha: 0.1)
+            : ChatLightColors.cardSurface,
         borderRadius: BorderRadius.circular(16),
-        border: isCalled ? Border.all(color: AppColors.primary.withValues(alpha: 0.3)) : null,
+        border: isCalled
+            ? Border.all(color: AppColors.primary.withValues(alpha: 0.3))
+            : null,
       ),
       child: Row(
         children: [
@@ -123,16 +140,34 @@ class _MyEntryCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (isCalled)
-                  Text(loc.waitlistCalledBanner, style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: color))
+                  Text(
+                    loc.waitlistCalledBanner,
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
+                  )
                 else ...[
                   Text(
                     loc.waitlistMyPositionLabel(entry.queuePosition ?? '—'),
-                    style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: color),
+                    style: TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: color,
+                    ),
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    (entry.queuePosition ?? 1) <= 1 ? loc.waitlistFrontOfLineLabel : loc.waitlistAheadOfYouLabel((entry.queuePosition ?? 1) - 1),
-                    style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
+                    (entry.queuePosition ?? 1) <= 1
+                        ? loc.waitlistFrontOfLineLabel
+                        : loc.waitlistAheadOfYouLabel(
+                            (entry.queuePosition ?? 1) - 1,
+                          ),
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: ChatLightColors.inkSoft,
+                    ),
                   ),
                 ],
               ],
@@ -141,7 +176,10 @@ class _MyEntryCard extends ConsumerWidget {
           TextButton(
             onPressed: () => _leave(context, ref),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
-            child: Text(loc.waitlistLeaveButton, style: const TextStyle(fontSize: 13)),
+            child: Text(
+              loc.waitlistLeaveButton,
+              style: const TextStyle(fontSize: 13),
+            ),
           ),
         ],
       ),

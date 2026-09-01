@@ -32,7 +32,9 @@ bool ensureWritableOrWarn(AppConfig config) {
   if (context == null || !context.mounted) return false;
 
   final loc = AppLocalizations.of(context);
-  final message = config.readOnlyMessage.isNotEmpty ? config.readOnlyMessage : loc.readOnlyModeDefaultMessage;
+  final message = config.readOnlyMessage.isNotEmpty
+      ? config.readOnlyMessage
+      : loc.readOnlyModeDefaultMessage;
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   return false;
 }

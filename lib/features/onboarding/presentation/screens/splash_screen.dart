@@ -55,7 +55,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     // which already routes to Onboarding vs Home based on the
     // sign-in result's `isNewUser`) — not something this splash check
     // should short-circuit into.
-    final destination = user != null ? const HomeScreen() : const WelcomeScreen();
+    final destination = user != null
+        ? const HomeScreen()
+        : const WelcomeScreen();
     _push(destination);
   }
 
@@ -80,8 +82,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) => _tryNavigate());
 
-    return const Scaffold(
-      body: AnimatedBackground(),
-    );
+    return const Scaffold(body: AnimatedBackground());
   }
 }

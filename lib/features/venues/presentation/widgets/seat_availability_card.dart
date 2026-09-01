@@ -33,7 +33,8 @@ class SeatAvailabilityCard extends ConsumerStatefulWidget {
   const SeatAvailabilityCard({super.key, required this.venue});
 
   @override
-  ConsumerState<SeatAvailabilityCard> createState() => _SeatAvailabilityCardState();
+  ConsumerState<SeatAvailabilityCard> createState() =>
+      _SeatAvailabilityCardState();
 }
 
 class _SeatAvailabilityCardState extends ConsumerState<SeatAvailabilityCard> {
@@ -61,9 +62,12 @@ class _SeatAvailabilityCardState extends ConsumerState<SeatAvailabilityCard> {
     final level = widget.venue.seatAvailabilityLevel;
     if (level == null) return const SizedBox.shrink();
 
-    if (!widget.venue.category.capabilities.canUseWaitlist) return const SizedBox.shrink();
-    final eligibleCategories = ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
-    if (!eligibleCategories.contains(widget.venue.category)) return const SizedBox.shrink();
+    if (!widget.venue.category.capabilities.canUseWaitlist)
+      return const SizedBox.shrink();
+    final eligibleCategories =
+        ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
+    if (!eligibleCategories.contains(widget.venue.category))
+      return const SizedBox.shrink();
 
     final loc = AppLocalizations.of(context);
     final seats = widget.venue.availableSeats!;
@@ -73,8 +77,16 @@ class _SeatAvailabilityCardState extends ConsumerState<SeatAvailabilityCard> {
     // Unicode glyph), but the card's own chrome follows the app's
     // palette like everywhere else.
     final (color, emoji, label) = switch (level) {
-      SeatAvailabilityLevel.plenty => (AppColors.primary, '🟢', loc.seatsAvailableLabel(seats)),
-      SeatAvailabilityLevel.low => (AppColors.gold, '🟡', loc.seatsLowLabel(seats)),
+      SeatAvailabilityLevel.plenty => (
+        AppColors.primary,
+        '🟢',
+        loc.seatsAvailableLabel(seats),
+      ),
+      SeatAvailabilityLevel.low => (
+        AppColors.gold,
+        '🟡',
+        loc.seatsLowLabel(seats),
+      ),
       SeatAvailabilityLevel.full => (AppColors.error, '🔴', loc.seatsFullLabel),
     };
 
@@ -93,7 +105,14 @@ class _SeatAvailabilityCardState extends ConsumerState<SeatAvailabilityCard> {
             children: [
               Text(emoji, style: const TextStyle(fontSize: 16)),
               const SizedBox(width: 8),
-              Text(label, style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+              ),
             ],
           ),
         ),
@@ -102,8 +121,13 @@ class _SeatAvailabilityCardState extends ConsumerState<SeatAvailabilityCard> {
           Padding(
             padding: const EdgeInsets.only(left: 4),
             child: Text(
-              loc.seatsUpdatedAgoLabel(formatRelativeTime(widget.venue.seatsUpdatedAt!, loc)),
-              style: const TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+              loc.seatsUpdatedAgoLabel(
+                formatRelativeTime(widget.venue.seatsUpdatedAt!, loc),
+              ),
+              style: const TextStyle(
+                fontSize: 11.5,
+                color: ChatLightColors.inkFaint,
+              ),
             ),
           ),
         ],

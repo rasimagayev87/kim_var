@@ -18,7 +18,8 @@ final Map<String, dynamic> _defaults = {
   'min_supported_version_ios': '1.0.0',
   'latest_version_android': '1.0.0',
   'latest_version_ios': '1.0.0',
-  'update_store_url_android': 'https://play.google.com/store/apps/details?id=com.peakpin.app',
+  'update_store_url_android':
+      'https://play.google.com/store/apps/details?id=com.peakpin.app',
   'update_store_url_ios': 'https://apps.apple.com/app/id0000000000',
   'soft_update_interval_hours': 72,
   'maintenance_mode_enabled': false,
@@ -62,7 +63,8 @@ final Map<String, dynamic> _defaults = {
   'url_business_offer': 'https://peakpin.app/business-offer.html',
   'business_offer_version': '1.0',
   'business_offer_effective_date': '2026-08-28',
-  'url_child_safety_standards': 'https://peakpin.app/child-safety-standards.html',
+  'url_child_safety_standards':
+      'https://peakpin.app/child-safety-standards.html',
   'support_email': 'support@peakpin.app',
   'privacy_email': 'privacy@peakpin.app',
   'support_phone': '',
@@ -88,12 +90,15 @@ class RemoteConfigDataSource {
       await _remoteConfig.setConfigSettings(
         RemoteConfigSettings(
           fetchTimeout: const Duration(seconds: 10),
-          minimumFetchInterval: kDebugMode ? Duration.zero : const Duration(hours: 1),
+          minimumFetchInterval: kDebugMode
+              ? Duration.zero
+              : const Duration(hours: 1),
         ),
       );
       await _remoteConfig.setDefaults(_defaults);
 
-      final isFirstEverFetch = _remoteConfig.lastFetchTime.millisecondsSinceEpoch == 0;
+      final isFirstEverFetch =
+          _remoteConfig.lastFetchTime.millisecondsSinceEpoch == 0;
       if (isFirstEverFetch) {
         try {
           await _remoteConfig.fetchAndActivate().timeout(

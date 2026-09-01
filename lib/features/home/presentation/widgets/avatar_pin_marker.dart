@@ -48,9 +48,15 @@ class AvatarPinMarker {
 
     // Border ring, then the photo clipped to the inner circle.
     canvas.drawCircle(center, circleRadius + s * 0.045, borderPaint);
-    canvas.drawCircle(center, circleRadius, Paint()..color = const Color(0xFFFFFFFF));
+    canvas.drawCircle(
+      center,
+      circleRadius,
+      Paint()..color = const Color(0xFFFFFFFF),
+    );
     canvas.save();
-    canvas.clipPath(Path()..addOval(Rect.fromCircle(center: center, radius: circleRadius)));
+    canvas.clipPath(
+      Path()..addOval(Rect.fromCircle(center: center, radius: circleRadius)),
+    );
     paintImage(
       canvas: canvas,
       rect: Rect.fromCircle(center: center, radius: circleRadius),
@@ -62,7 +68,10 @@ class AvatarPinMarker {
     final picture = recorder.endRecording();
     final rendered = await picture.toImage(s.ceil(), totalHeight.ceil());
     final bytes = await rendered.toByteData(format: ui.ImageByteFormat.png);
-    return BitmapDescriptor.bytes(bytes!.buffer.asUint8List(), imagePixelRatio: scale);
+    return BitmapDescriptor.bytes(
+      bytes!.buffer.asUint8List(),
+      imagePixelRatio: scale,
+    );
   }
 
   static Future<ui.Image> _loadNetworkImage(String url) {

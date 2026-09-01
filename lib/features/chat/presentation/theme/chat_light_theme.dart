@@ -30,4 +30,3 @@ class ChatLightColors {
   static const onlineDot = AppColors.cyanLight;
   static const contourLine = Color(0xFF0E3B36);
 }
-

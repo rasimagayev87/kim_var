@@ -28,8 +28,12 @@ class FirebaseAppConfigRepository implements AppConfigRepository {
 
     return AppConfig(
       forceUpdateEnabled: _dataSource.getBool('force_update_enabled'),
-      minSupportedVersionAndroid: _dataSource.getString('min_supported_version_android'),
-      minSupportedVersionIos: _dataSource.getString('min_supported_version_ios'),
+      minSupportedVersionAndroid: _dataSource.getString(
+        'min_supported_version_android',
+      ),
+      minSupportedVersionIos: _dataSource.getString(
+        'min_supported_version_ios',
+      ),
       latestVersionAndroid: _dataSource.getString('latest_version_android'),
       latestVersionIos: _dataSource.getString('latest_version_ios'),
       updateStoreUrlAndroid: _dataSource.getString('update_store_url_android'),
@@ -44,28 +48,44 @@ class FirebaseAppConfigRepository implements AppConfigRepository {
       announcementMessage: localized('announcement_message'),
       announcementActionUrl: _dataSource.getString('announcement_action_url'),
       featureFlags: {
-        FeatureFlag.venueSubmission: _dataSource.getBool('feature_venue_submission_enabled'),
+        FeatureFlag.venueSubmission: _dataSource.getBool(
+          'feature_venue_submission_enabled',
+        ),
         FeatureFlag.offers: _dataSource.getBool('feature_offers_enabled'),
         FeatureFlag.indiTab: _dataSource.getBool('feature_indi_tab_enabled'),
         FeatureFlag.calls: _dataSource.getBool('feature_calls_enabled'),
         FeatureFlag.stories: _dataSource.getBool('feature_stories_enabled'),
-        FeatureFlag.vipPurchase: _dataSource.getBool('feature_vip_purchase_enabled'),
-        FeatureFlag.boostPayment: _dataSource.getBool('feature_boost_payment_enabled'),
+        FeatureFlag.vipPurchase: _dataSource.getBool(
+          'feature_vip_purchase_enabled',
+        ),
+        FeatureFlag.boostPayment: _dataSource.getBool(
+          'feature_boost_payment_enabled',
+        ),
         FeatureFlag.waitlist: _dataSource.getBool('feature_waitlist_enabled'),
-        FeatureFlag.newsAgency: _dataSource.getBool('feature_news_agency_enabled'),
-        FeatureFlag.mediaUpload: _dataSource.getBool('feature_media_upload_enabled'),
+        FeatureFlag.newsAgency: _dataSource.getBool(
+          'feature_news_agency_enabled',
+        ),
+        FeatureFlag.mediaUpload: _dataSource.getBool(
+          'feature_media_upload_enabled',
+        ),
       },
       urlPrivacyPolicy: _dataSource.getString('url_privacy_policy'),
       urlTermsOfService: _dataSource.getString('url_terms_of_service'),
       urlCommunityGuidelines: _dataSource.getString('url_community_guidelines'),
       urlBusinessOffer: _dataSource.getString('url_business_offer'),
       businessOfferVersion: _dataSource.getString('business_offer_version'),
-      businessOfferEffectiveDate: _dataSource.getString('business_offer_effective_date'),
-      urlChildSafetyStandards: _dataSource.getString('url_child_safety_standards'),
+      businessOfferEffectiveDate: _dataSource.getString(
+        'business_offer_effective_date',
+      ),
+      urlChildSafetyStandards: _dataSource.getString(
+        'url_child_safety_standards',
+      ),
       supportEmail: _dataSource.getString('support_email'),
       privacyEmail: _dataSource.getString('privacy_email'),
       supportPhone: _dataSource.getString('support_phone'),
-      radiusOptionsKm: _parseRadiusOptions(_dataSource.getString('radius_options_json')),
+      radiusOptionsKm: _parseRadiusOptions(
+        _dataSource.getString('radius_options_json'),
+      ),
       vipRadiusThresholdM: _dataSource.getDouble('vip_radius_threshold_m'),
       nearbyRefreshSeconds: _dataSource.getInt('nearby_refresh_seconds'),
       socialInstagramUrl: _dataSource.getString('social_instagram_url'),

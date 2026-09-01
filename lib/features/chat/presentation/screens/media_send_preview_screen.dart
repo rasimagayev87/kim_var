@@ -7,6 +7,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/chat_message.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 enum MediaPreviewAction { send, retake }
 
 /// Full-screen review step shown after picking (gallery) or capturing
@@ -83,14 +85,22 @@ class _MediaSendPreviewScreenState extends State<MediaSendPreviewScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context, widget.allowRetake ? MediaPreviewAction.retake : null),
-                      child: Text(widget.allowRetake ? loc.chatRetakeButton : loc.actionCancel),
+                      onPressed: () => Navigator.pop(
+                        context,
+                        widget.allowRetake ? MediaPreviewAction.retake : null,
+                      ),
+                      child: Text(
+                        widget.allowRetake
+                            ? loc.chatRetakeButton
+                            : loc.actionCancel,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pop(context, MediaPreviewAction.send),
+                      onPressed: () =>
+                          Navigator.pop(context, MediaPreviewAction.send),
                       child: Text(loc.chatSendButton),
                     ),
                   ),
@@ -105,14 +115,18 @@ class _MediaSendPreviewScreenState extends State<MediaSendPreviewScreen> {
 
   Widget _buildPreview() {
     if (widget.type == MessageType.image) {
-      return InteractiveViewer(minScale: 1, maxScale: 4, child: Image.file(widget.file));
+      return InteractiveViewer(
+        minScale: 1,
+        maxScale: 4,
+        child: Image.file(widget.file),
+      );
     }
 
     final controller = _controller;
     if (controller == null || !controller.value.isInitialized) {
       return const CircularProgressIndicator(color: AppColors.primary);
     }
-    return GestureDetector(
+    return Pressable(
       onTap: () => setState(() {
         controller.value.isPlaying ? controller.pause() : controller.play();
       }),
@@ -125,7 +139,11 @@ class _MediaSendPreviewScreenState extends State<MediaSendPreviewScreen> {
             AnimatedOpacity(
               opacity: controller.value.isPlaying ? 0 : 1,
               duration: const Duration(milliseconds: 200),
-              child: const Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 64),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white70,
+                size: 64,
+              ),
             ),
           ],
         ),

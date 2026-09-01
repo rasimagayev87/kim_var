@@ -150,7 +150,7 @@ class _ChatHeader extends StatelessWidget {
                 ),
               ),
               Expanded(
-                child: GestureDetector(
+                child: Pressable(
                   onTap: onTapProfile,
                   child: Row(
                     children: [
@@ -1060,7 +1060,7 @@ class _OngoingCallBanner extends ConsumerWidget {
     }
     final loc = AppLocalizations.of(context);
 
-    return GestureDetector(
+    return Pressable(
       onTap: () {
         ref.read(activeCallControllerProvider.notifier).restore();
         Navigator.push(
@@ -1384,7 +1384,7 @@ class _MessageBubble extends ConsumerWidget {
 
   Widget _buildContent(BuildContext context, WidgetRef ref, Color textColor) {
     if (message.isImage && message.mediaUrl != null) {
-      return GestureDetector(
+      return Pressable(
         onTap: () => Navigator.push(
           context,
           MaterialPageRoute(
@@ -2533,7 +2533,7 @@ class _RecordingInfoState extends State<_RecordingInfo>
             style: AppTextStyles.body.copyWith(fontSize: 14.5),
           ),
           const Spacer(),
-          GestureDetector(
+          Pressable(
             onTap: widget.onFinish,
             child: Container(
               padding: const EdgeInsets.symmetric(

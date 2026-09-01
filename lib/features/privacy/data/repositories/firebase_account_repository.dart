@@ -18,10 +18,10 @@ class FirebaseAccountRepository implements AccountRepository {
     FirebaseFirestore? firestore,
     FirebaseFunctions? functions,
     GoogleSignIn? googleSignIn,
-  })  : _auth = auth ?? fb.FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance,
-        _functions = functions ?? FirebaseFunctions.instance,
-        _googleSignIn = googleSignIn ?? GoogleSignIn();
+  }) : _auth = auth ?? fb.FirebaseAuth.instance,
+       _firestore = firestore ?? FirebaseFirestore.instance,
+       _functions = functions ?? FirebaseFunctions.instance,
+       _googleSignIn = googleSignIn ?? GoogleSignIn();
 
   final fb.FirebaseAuth _auth;
   final FirebaseFirestore _firestore;
@@ -43,13 +43,17 @@ class FirebaseAccountRepository implements AccountRepository {
     if (user == null) return;
 
     final lastSignIn = user.metadata.lastSignInTime;
-    final isFresh = lastSignIn != null && DateTime.now().difference(lastSignIn) < _freshSignInWindow;
+    final isFresh =
+        lastSignIn != null &&
+        DateTime.now().difference(lastSignIn) < _freshSignInWindow;
     if (!isFresh) {
       throw const ReauthenticationRequiredException();
     }
 
     try {
-      await _functions.httpsCallable('deleteAccount', options: callableOptions()).call<Map<String, dynamic>>();
+      await _functions
+          .httpsCallable('deleteAccount', options: callableOptions())
+          .call<Map<String, dynamic>>();
     } on FirebaseFunctionsException catch (e) {
       if (e.code == 'failed-precondition') {
         throw const ReauthenticationRequiredException();
@@ -83,10 +87,25 @@ class FirebaseAccountRepository implements AccountRepository {
       privateDataRef(uid, firestore: _firestore).get(),
       _firestore.collection('posts').where('userId', isEqualTo: uid).get(),
       _firestore.collection('reviews').where('userId', isEqualTo: uid).get(),
-      _firestore.collection('users').doc(uid).collection('payments').orderBy('createdAt', descending: true).get(),
-      _firestore.collection('savedCards').where('ownerId', isEqualTo: uid).where('status', isEqualTo: 'active').get(),
-      _firestore.collection('follows').where('followerId', isEqualTo: uid).get(),
-      _firestore.collection('follows').where('followeeId', isEqualTo: uid).get(),
+      _firestore
+          .collection('users')
+          .doc(uid)
+          .collection('payments')
+          .orderBy('createdAt', descending: true)
+          .get(),
+      _firestore
+          .collection('savedCards')
+          .where('ownerId', isEqualTo: uid)
+          .where('status', isEqualTo: 'active')
+          .get(),
+      _firestore
+          .collection('follows')
+          .where('followerId', isEqualTo: uid)
+          .get(),
+      _firestore
+          .collection('follows')
+          .where('followeeId', isEqualTo: uid)
+          .get(),
       _firestore
           .collection('users')
           .doc(uid)
@@ -111,17 +130,30 @@ class FirebaseAccountRepository implements AccountRepository {
     // into an owner-only `private/data` subdoc, but a self-export must
     // still include everything, same as before that split existed.
     final export = <String, dynamic>{
-      'profile': {...profileDoc.data() ?? <String, dynamic>{}, ...privateDoc.data() ?? <String, dynamic>{}},
+      'profile': {
+        ...profileDoc.data() ?? <String, dynamic>{},
+        ...privateDoc.data() ?? <String, dynamic>{},
+      },
       'posts': postsSnap.docs.map((d) => d.data()).toList(),
       'reviews': reviewsSnap.docs.map((d) => d.data()).toList(),
       'paymentHistory': paymentsSnap.docs.map((d) => d.data()).toList(),
       // Never the real Epoint card token — only what's already shown
       // in "Kartlarım" itself.
       'savedCards': savedCardsSnap.docs
-          .map((d) => {'cardMask': d.data()['cardMask'], 'cardBrand': d.data()['cardBrand'], 'isDefault': d.data()['isDefault']})
+          .map(
+            (d) => {
+              'cardMask': d.data()['cardMask'],
+              'cardBrand': d.data()['cardBrand'],
+              'isDefault': d.data()['isDefault'],
+            },
+          )
           .toList(),
-      'following': followingSnap.docs.map((d) => d.data()['followeeId']).toList(),
-      'followers': followersSnap.docs.map((d) => d.data()['followerId']).toList(),
+      'following': followingSnap.docs
+          .map((d) => d.data()['followeeId'])
+          .toList(),
+      'followers': followersSnap.docs
+          .map((d) => d.data()['followerId'])
+          .toList(),
       'notifications': notificationsSnap.docs.map((d) => d.data()).toList(),
     };
 
@@ -133,7 +165,10 @@ class FirebaseAccountRepository implements AccountRepository {
   /// `jsonEncode` would otherwise choke on into plain strings.
   dynamic _sanitizeForJson(dynamic value) {
     if (value is Timestamp) return value.toDate().toIso8601String();
-    if (value is Map) return value.map((key, v) => MapEntry(key.toString(), _sanitizeForJson(v)));
+    if (value is Map)
+      return value.map(
+        (key, v) => MapEntry(key.toString(), _sanitizeForJson(v)),
+      );
     if (value is List) return value.map(_sanitizeForJson).toList();
     return value;
   }
@@ -153,10 +188,14 @@ class FirebaseAccountRepository implements AccountRepository {
   @override
   Future<void> reauthenticateWithApple() async {
     final user = _auth.currentUser;
-    if (user == null) throw StateError('Yenidən doğrulama üçün istifadəçi daxil olmayıb.');
+    if (user == null)
+      throw StateError('Yenidən doğrulama üçün istifadəçi daxil olmayıb.');
 
     final appleCredential = await SignInWithApple.getAppleIDCredential(
-      scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
     );
     final oauthCredential = fb.OAuthProvider('apple.com').credential(
       idToken: appleCredential.identityToken,
@@ -171,7 +210,8 @@ class FirebaseAccountRepository implements AccountRepository {
   @override
   Future<void> reauthenticateWithGoogle() async {
     final user = _auth.currentUser;
-    if (user == null) throw StateError('Yenidən doğrulama üçün istifadəçi daxil olmayıb.');
+    if (user == null)
+      throw StateError('Yenidən doğrulama üçün istifadəçi daxil olmayıb.');
 
     final googleAccount = await _googleSignIn.signIn();
     if (googleAccount == null) throw StateError('google-sign-in-cancelled');
@@ -191,17 +231,23 @@ class FirebaseAccountRepository implements AccountRepository {
       throw StateError('Yenidən doğrulama üçün istifadəçi daxil olmayıb.');
     }
 
-    final credential = fb.EmailAuthProvider.credential(email: email, password: password);
+    final credential = fb.EmailAuthProvider.credential(
+      email: email,
+      password: password,
+    );
     await user.reauthenticateWithCredential(credential);
   }
 
   @override
   Future<void> updateEmail(String newEmail) async {
     final user = _auth.currentUser;
-    if (user == null) throw StateError('E-poçt yeniləmək üçün istifadəçi daxil olmayıb.');
+    if (user == null)
+      throw StateError('E-poçt yeniləmək üçün istifadəçi daxil olmayıb.');
 
     final lastSignIn = user.metadata.lastSignInTime;
-    final isFresh = lastSignIn != null && DateTime.now().difference(lastSignIn) < _freshSignInWindow;
+    final isFresh =
+        lastSignIn != null &&
+        DateTime.now().difference(lastSignIn) < _freshSignInWindow;
     if (!isFresh) {
       throw const ReauthenticationRequiredException();
     }
@@ -242,6 +288,8 @@ class FirebaseAccountRepository implements AccountRepository {
     // source that can't be forged. The local `authEmail` read above is
     // kept only as a cheap "is there anything to sync at all" guard.
     if (authEmail.isEmpty) return;
-    await FirebaseFunctions.instance.httpsCallable('syncContactEmail', options: callableOptions()).call<Map<String, dynamic>>();
+    await FirebaseFunctions.instance
+        .httpsCallable('syncContactEmail', options: callableOptions())
+        .call<Map<String, dynamic>>();
   }
 }

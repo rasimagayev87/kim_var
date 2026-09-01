@@ -33,9 +33,12 @@ class PaymentHistoryScreen extends ConsumerWidget {
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
                   itemCount: records.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) => _PaymentHistoryRow(record: records[index]),
+                  itemBuilder: (context, index) =>
+                      _PaymentHistoryRow(record: records[index]),
                 ),
-          loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
           error: (_, _) => _EmptyHistory(loc: loc),
         ),
       ),
@@ -56,9 +59,17 @@ class _EmptyHistory extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.receipt_long_outlined, color: AppColors.textMuted, size: 42),
+            const Icon(
+              Icons.receipt_long_outlined,
+              color: AppColors.textMuted,
+              size: 42,
+            ),
             const SizedBox(height: 16),
-            Text(loc.paymentHistoryEmptyMessage, style: AppTextStyles.caption, textAlign: TextAlign.center),
+            Text(
+              loc.paymentHistoryEmptyMessage,
+              style: AppTextStyles.caption,
+              textAlign: TextAlign.center,
+            ),
           ],
         ),
       ),
@@ -83,25 +94,40 @@ class _PaymentHistoryRow extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Row(
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(record.packageName, style: AppTextStyles.body.copyWith(fontSize: 15, fontWeight: FontWeight.w600)),
+                Text(
+                  record.packageName,
+                  style: AppTextStyles.body.copyWith(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 const SizedBox(height: 4),
                 Row(
                   children: [
                     Text(
                       typeLabel,
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(width: 6),
                     Text('·', style: AppTextStyles.caption),
                     const SizedBox(width: 6),
-                    Text(DateFormat('dd.MM.yyyy').format(record.createdAt), style: AppTextStyles.caption),
+                    Text(
+                      DateFormat('dd.MM.yyyy').format(record.createdAt),
+                      style: AppTextStyles.caption,
+                    ),
                   ],
                 ),
               ],
@@ -109,7 +135,10 @@ class _PaymentHistoryRow extends StatelessWidget {
           ),
           Text(
             '${record.amount.toStringAsFixed(2)} ${record.currency}',
-            style: AppTextStyles.body.copyWith(fontSize: 15, fontWeight: FontWeight.w700),
+            style: AppTextStyles.body.copyWith(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
           ),
         ],
       ),

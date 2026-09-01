@@ -34,18 +34,31 @@ class MyOffersScreen extends ConsumerWidget {
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: ChatLightColors.ink,
+          ),
         ),
         title: Text(
           loc.offerMyOffersTitle,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: ChatLightColors.ink,
+          ),
         ),
       ),
       body: Stack(
         children: [
           SafeArea(
             child: offersAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
+              loading: () => const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: AppColors.primary,
+                ),
+              ),
               error: (error, stackTrace) => FriendlyErrorState(
                 logContext: 'my_offers_screen.myOffersProvider',
                 error: error,
@@ -55,13 +68,16 @@ class MyOffersScreen extends ConsumerWidget {
               data: (allOffers) {
                 // Rejected offers drop out of this list entirely — same
                 // reasoning as MyVenuesScreen's own rejected filter.
-                final offers = allOffers.where((o) => o.status != 'rejected').toList();
+                final offers = allOffers
+                    .where((o) => o.status != 'rejected')
+                    .toList();
                 if (offers.isEmpty) return _EmptyMyOffers(loc: loc, ref: ref);
                 return ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
                   itemCount: offers.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) => _MyOfferCard(offer: offers[index]),
+                  itemBuilder: (context, index) =>
+                      _MyOfferCard(offer: offers[index]),
                 );
               },
             ),
@@ -84,21 +100,39 @@ class _MyOfferCard extends ConsumerWidget {
     final action = await showModalBottomSheet<_MyOfferCardAction>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.edit_outlined, color: ChatLightColors.ink),
-              title: Text(loc.offerEditTitle, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+              leading: const Icon(
+                Icons.edit_outlined,
+                color: ChatLightColors.ink,
+              ),
+              title: Text(
+                loc.offerEditTitle,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: ChatLightColors.ink,
+                ),
+              ),
               onTap: () => Navigator.pop(sheetContext, _MyOfferCardAction.edit),
             ),
             ListTile(
-              leading: const Icon(Icons.delete_outline_rounded, color: AppColors.error),
-              title: Text(loc.offerDeleteMenuOption, style: const TextStyle(fontSize: 15, color: AppColors.error)),
-              onTap: () => Navigator.pop(sheetContext, _MyOfferCardAction.delete),
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: AppColors.error,
+              ),
+              title: Text(
+                loc.offerDeleteMenuOption,
+                style: const TextStyle(fontSize: 15, color: AppColors.error),
+              ),
+              onTap: () =>
+                  Navigator.pop(sheetContext, _MyOfferCardAction.delete),
             ),
             const SizedBox(height: 8),
           ],
@@ -109,7 +143,12 @@ class _MyOfferCard extends ConsumerWidget {
     if (!context.mounted || action == null) return;
 
     if (action == _MyOfferCardAction.edit) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => CreateOfferScreen(existingOffer: offer)));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CreateOfferScreen(existingOffer: offer),
+        ),
+      );
     } else {
       _confirmDelete(context, ref);
     }
@@ -121,13 +160,26 @@ class _MyOfferCard extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
-        title: Text(loc.offerDeleteMenuOption, style: const TextStyle(color: ChatLightColors.ink, fontWeight: FontWeight.w700)),
+        title: Text(
+          loc.offerDeleteMenuOption,
+          style: const TextStyle(
+            color: ChatLightColors.ink,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
         content: Text(
           loc.offerDeleteConfirmMessage,
-          style: const TextStyle(color: ChatLightColors.inkSoft, fontSize: 14.5, height: 1.4),
+          style: const TextStyle(
+            color: ChatLightColors.inkSoft,
+            fontSize: 14.5,
+            height: 1.4,
+          ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -139,16 +191,22 @@ class _MyOfferCard extends ConsumerWidget {
 
     if (confirmed != true || !context.mounted) return;
 
-    final success = await ref.read(offerControllerProvider).deleteOffer(
+    final success = await ref
+        .read(offerControllerProvider)
+        .deleteOffer(
           offer.id,
           onError: () {
             if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.offerGenericErrorMessage)),
+            );
           },
         );
 
     if (success && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerDeletedNotice)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.offerDeletedNotice)));
     }
   }
 
@@ -157,7 +215,10 @@ class _MyOfferCard extends ConsumerWidget {
     final loc = AppLocalizations.of(context);
     final needsRevision = offer.status == 'needs_revision';
     final happyHourInactive =
-        offer.status == 'approved' && !offer.isExpired && offer.offerType == OfferType.happyHour && !offer.happyHourActive;
+        offer.status == 'approved' &&
+        !offer.isExpired &&
+        offer.offerType == OfferType.happyHour &&
+        !offer.happyHourActive;
 
     return Material(
       color: Colors.white,
@@ -178,11 +239,19 @@ class _MyOfferCard extends ConsumerWidget {
                         width: 64,
                         height: 64,
                         child: offer.imageUrl != null
-                            ? AppImage(offer.imageUrl!, thumbnail: true, fit: BoxFit.cover)
+                            ? AppImage(
+                                offer.imageUrl!,
+                                thumbnail: true,
+                                fit: BoxFit.cover,
+                              )
                             : Container(
                                 color: ChatLightColors.cardSurface,
                                 alignment: Alignment.center,
-                                child: Icon(venueCategoryIcon(offer.category), color: ChatLightColors.inkSoft, size: 26),
+                                child: Icon(
+                                  venueCategoryIcon(offer.category),
+                                  color: ChatLightColors.inkSoft,
+                                  size: 26,
+                                ),
                               ),
                       ),
                     ),
@@ -195,7 +264,11 @@ class _MyOfferCard extends ConsumerWidget {
                             padding: const EdgeInsets.only(right: 28),
                             child: Text(
                               offer.title,
-                              style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                              style: const TextStyle(
+                                fontSize: 15.5,
+                                fontWeight: FontWeight.w700,
+                                color: ChatLightColors.ink,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -206,23 +279,37 @@ class _MyOfferCard extends ConsumerWidget {
                               Expanded(
                                 child: Text(
                                   offer.venueName,
-                                  style: const TextStyle(fontSize: 13, color: ChatLightColors.inkSoft),
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: ChatLightColors.inkSoft,
+                                  ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                               const SizedBox(width: 6),
-                              if (offer.status == 'pending' || offer.status == 'awaiting_payment' || needsRevision)
+                              if (offer.status == 'pending' ||
+                                  offer.status == 'awaiting_payment' ||
+                                  needsRevision)
                                 _ModerationStatusBadge(status: offer.status)
                               else
-                                _OfferStatusBadge(isExpired: offer.isExpired, happyHourInactive: happyHourInactive),
+                                _OfferStatusBadge(
+                                  isExpired: offer.isExpired,
+                                  happyHourInactive: happyHourInactive,
+                                ),
                             ],
                           ),
-                          if (happyHourInactive && offer.activeHours != null) ...[
+                          if (happyHourInactive &&
+                              offer.activeHours != null) ...[
                             const SizedBox(height: 4),
                             Text(
-                              loc.offerHappyHourNextActiveLabel(offer.activeHours!.start),
-                              style: const TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+                              loc.offerHappyHourNextActiveLabel(
+                                offer.activeHours!.start,
+                              ),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: ChatLightColors.inkFaint,
+                              ),
                             ),
                           ],
                         ],
@@ -235,9 +322,15 @@ class _MyOfferCard extends ConsumerWidget {
                 _NeedsRevisionBanner(
                   reviewNote: offer.reviewNote,
                   revisionDeadline: offer.revisionDeadline,
-                  onEdit: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreateOfferScreen(existingOffer: offer))),
+                  onEdit: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => CreateOfferScreen(existingOffer: offer),
+                    ),
+                  ),
                 ),
-              if (offer.status == 'awaiting_payment') _AwaitingPaymentBanner(offerId: offer.id),
+              if (offer.status == 'awaiting_payment')
+                _AwaitingPaymentBanner(offerId: offer.id),
             ],
           ),
           Positioned(
@@ -251,7 +344,11 @@ class _MyOfferCard extends ConsumerWidget {
                 onTap: () => _openMenu(context, ref),
                 child: const Padding(
                   padding: EdgeInsets.all(6),
-                  child: Icon(Icons.more_vert_outlined, size: 18, color: ChatLightColors.inkSoft),
+                  child: Icon(
+                    Icons.more_vert_outlined,
+                    size: 18,
+                    color: ChatLightColors.inkSoft,
+                  ),
                 ),
               ),
             ),
@@ -279,31 +376,53 @@ class _EmptyMyOffers extends StatelessWidget {
             Container(
               width: 96,
               height: 96,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
-              child: const Icon(Icons.local_offer_outlined, color: ChatLightColors.inkFaint, size: 42),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white,
+              ),
+              child: const Icon(
+                Icons.local_offer_outlined,
+                color: ChatLightColors.inkFaint,
+                size: 42,
+              ),
             ),
             const SizedBox(height: 24),
             Text(
               loc.offerMyOffersEmptyTitle,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: ChatLightColors.ink,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
             Text(
               loc.offerMyOffersEmptySubtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13.5, color: ChatLightColors.inkFaint, height: 1.5),
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: ChatLightColors.inkFaint,
+                height: 1.5,
+              ),
             ),
             if (ref.read(profileControllerProvider).hasBusinessAccess) ...[
               const SizedBox(height: 24),
               ElevatedButton.icon(
                 onPressed: () async {
                   if (!context.mounted) return;
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateOfferScreen()));
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CreateOfferScreen(),
+                    ),
+                  );
                 },
                 icon: const Icon(Icons.add, color: AppColors.onAccent),
                 label: Text(loc.offerCreateTitle),
-                style: ElevatedButton.styleFrom(minimumSize: const Size(200, 50)),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(200, 50),
+                ),
               ),
             ],
           ],
@@ -323,22 +442,37 @@ class _OfferStatusBadge extends StatelessWidget {
   /// listing itself is still live, just not "on" this minute).
   final bool happyHourInactive;
 
-  const _OfferStatusBadge({required this.isExpired, this.happyHourInactive = false});
+  const _OfferStatusBadge({
+    required this.isExpired,
+    this.happyHourInactive = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final color = (isExpired || happyHourInactive) ? AppColors.textMuted : AppColors.primary;
+    final color = (isExpired || happyHourInactive)
+        ? AppColors.textMuted
+        : AppColors.primary;
     final label = isExpired
         ? loc.offerStatusExpired
         : happyHourInactive
-            ? loc.offerHappyHourInactiveLabel
-            : loc.offerStatusActive;
+        ? loc.offerHappyHourInactiveLabel
+        : loc.offerStatusActive;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
-      child: Text(label, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
+      ),
     );
   }
 }
@@ -358,14 +492,21 @@ class _ModerationStatusBadge extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Text(
         switch (status) {
           'needs_revision' => loc.moderationStatusNeedsRevision,
           'awaiting_payment' => loc.moderationStatusAwaitingPayment,
           _ => loc.moderationStatusPending,
         },
-        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color),
+        style: const TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
     );
   }
@@ -381,10 +522,12 @@ class _AwaitingPaymentBanner extends ConsumerStatefulWidget {
   const _AwaitingPaymentBanner({required this.offerId});
 
   @override
-  ConsumerState<_AwaitingPaymentBanner> createState() => _AwaitingPaymentBannerState();
+  ConsumerState<_AwaitingPaymentBanner> createState() =>
+      _AwaitingPaymentBannerState();
 }
 
-class _AwaitingPaymentBannerState extends ConsumerState<_AwaitingPaymentBanner> {
+class _AwaitingPaymentBannerState
+    extends ConsumerState<_AwaitingPaymentBanner> {
   bool _loading = false;
 
   Future<void> _retry() async {
@@ -392,16 +535,23 @@ class _AwaitingPaymentBannerState extends ConsumerState<_AwaitingPaymentBanner> 
     setState(() => _loading = true);
     final loc = AppLocalizations.of(context);
 
-    final result = await ref.read(offerControllerProvider).retryOfferPayment(widget.offerId);
+    final result = await ref
+        .read(offerControllerProvider)
+        .retryOfferPayment(widget.offerId);
 
     if (!mounted) return;
     setState(() => _loading = false);
 
     if (result == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerRetryPaymentErrorMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.offerRetryPaymentErrorMessage)),
+      );
       return;
     }
-    await launchUrl(Uri.parse(result.checkoutUrl), mode: LaunchMode.externalApplication);
+    await launchUrl(
+      Uri.parse(result.checkoutUrl),
+      mode: LaunchMode.externalApplication,
+    );
   }
 
   @override
@@ -411,21 +561,37 @@ class _AwaitingPaymentBannerState extends ConsumerState<_AwaitingPaymentBanner> 
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: AppColors.gold.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         children: [
           Expanded(
             child: Text(
               loc.offerAwaitingPaymentBannerText,
-              style: const TextStyle(fontSize: 12.5, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 12.5,
+                color: ChatLightColors.ink,
+              ),
             ),
           ),
           const SizedBox(width: 8),
           TextButton(
             onPressed: _loading ? null : _retry,
             child: _loading
-                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2))
-                : Text(loc.offerRetryPaymentButton, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                ? const SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    loc.offerRetryPaymentButton,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
           ),
         ],
       ),
@@ -439,12 +605,19 @@ class _NeedsRevisionBanner extends StatelessWidget {
   final DateTime? revisionDeadline;
   final VoidCallback onEdit;
 
-  const _NeedsRevisionBanner({required this.reviewNote, required this.revisionDeadline, required this.onEdit});
+  const _NeedsRevisionBanner({
+    required this.reviewNote,
+    required this.revisionDeadline,
+    required this.onEdit,
+  });
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final daysLeft = revisionDeadline?.difference(DateTime.now()).inDays.clamp(0, 999);
+    final daysLeft = revisionDeadline
+        ?.difference(DateTime.now())
+        .inDays
+        .clamp(0, 999);
 
     return Container(
       margin: const EdgeInsets.fromLTRB(14, 0, 14, 14),
@@ -467,11 +640,18 @@ class _NeedsRevisionBanner extends StatelessWidget {
                       children: [
                         TextSpan(
                           text: '${loc.moderationReviewNotePrefix}: ',
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: ChatLightColors.ink,
+                          ),
                         ),
                         TextSpan(
                           text: reviewNote,
-                          style: const TextStyle(fontSize: 12, color: ChatLightColors.inkSoft),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: ChatLightColors.inkSoft,
+                          ),
                         ),
                       ],
                     ),
@@ -483,18 +663,31 @@ class _NeedsRevisionBanner extends StatelessWidget {
                 Expanded(
                   child: Text(
                     loc.moderationStatusNeedsRevision,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: ChatLightColors.ink,
+                    ),
                   ),
                 ),
               const SizedBox(width: 8),
               TextButton(
                 onPressed: onEdit,
                 style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   minimumSize: Size.zero,
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: Text(loc.offerEditTitle, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                child: Text(
+                  loc.offerEditTitle,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),
@@ -502,7 +695,11 @@ class _NeedsRevisionBanner extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               loc.venueRevisionDaysLeft(daysLeft),
-              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.error),
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.error,
+              ),
             ),
           ],
         ],

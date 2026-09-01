@@ -10,6 +10,8 @@ import '../../domain/entities/venue_event.dart';
 import '../providers/venue_event_providers.dart';
 import 'create_event_screen.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Owner-only "Tədbirlər" screen — reached from `MyVenuesScreen`'s
 /// 3-dot menu. Upcoming/Live/Ended tabs over the same live
 /// [venueEventsByVenueProvider] stream (client-side filtered by tab,
@@ -21,11 +23,16 @@ class MyVenueEventsScreen extends ConsumerStatefulWidget {
   const MyVenueEventsScreen({super.key, required this.venue});
 
   @override
-  ConsumerState<MyVenueEventsScreen> createState() => _MyVenueEventsScreenState();
+  ConsumerState<MyVenueEventsScreen> createState() =>
+      _MyVenueEventsScreenState();
 }
 
-class _MyVenueEventsScreenState extends ConsumerState<MyVenueEventsScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 3, vsync: this);
+class _MyVenueEventsScreenState extends ConsumerState<MyVenueEventsScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController = TabController(
+    length: 3,
+    vsync: this,
+  );
 
   @override
   void dispose() {
@@ -47,11 +54,19 @@ class _MyVenueEventsScreenState extends ConsumerState<MyVenueEventsScreen> with 
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: ChatLightColors.ink,
+          ),
         ),
         title: Text(
           loc.eventMyEventsTitle,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: ChatLightColors.ink,
+          ),
         ),
         // No "+" here anymore — event creation now starts exclusively
         // from Kəşf et → Fürsətlər's "+" chooser sheet (see
@@ -73,8 +88,18 @@ class _MyVenueEventsScreenState extends ConsumerState<MyVenueEventsScreen> with 
       ),
       body: SafeArea(
         child: eventsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-          error: (error, _) => Center(child: Text('$error', style: const TextStyle(color: ChatLightColors.inkSoft))),
+          loading: () => const Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2.4,
+              color: AppColors.primary,
+            ),
+          ),
+          error: (error, _) => Center(
+            child: Text(
+              '$error',
+              style: const TextStyle(color: ChatLightColors.inkSoft),
+            ),
+          ),
           data: (events) => TabBarView(
             controller: _tabController,
             children: [
@@ -86,17 +111,28 @@ class _MyVenueEventsScreenState extends ConsumerState<MyVenueEventsScreen> with 
               _EventList(
                 venue: widget.venue,
                 events: events
-                    .where((e) => e.status == VenueEventStatus.pending || e.status == VenueEventStatus.upcoming)
+                    .where(
+                      (e) =>
+                          e.status == VenueEventStatus.pending ||
+                          e.status == VenueEventStatus.upcoming,
+                    )
                     .toList(),
               ),
-              _EventList(venue: widget.venue, events: events.where((e) => e.status == VenueEventStatus.live).toList()),
               _EventList(
                 venue: widget.venue,
                 events: events
-                    .where((e) =>
-                        e.status == VenueEventStatus.ended ||
-                        e.status == VenueEventStatus.cancelled ||
-                        e.status == VenueEventStatus.rejected)
+                    .where((e) => e.status == VenueEventStatus.live)
+                    .toList(),
+              ),
+              _EventList(
+                venue: widget.venue,
+                events: events
+                    .where(
+                      (e) =>
+                          e.status == VenueEventStatus.ended ||
+                          e.status == VenueEventStatus.cancelled ||
+                          e.status == VenueEventStatus.rejected,
+                    )
                     .toList(),
               ),
             ],
@@ -117,13 +153,19 @@ class _EventList extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     if (events.isEmpty) {
-      return Center(child: Text(loc.eventEmptyListMessage, style: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 14)));
+      return Center(
+        child: Text(
+          loc.eventEmptyListMessage,
+          style: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 14),
+        ),
+      );
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       itemCount: events.length,
       separatorBuilder: (_, _) => const SizedBox(height: 12),
-      itemBuilder: (context, index) => _EventCard(venue: venue, event: events[index]),
+      itemBuilder: (context, index) =>
+          _EventCard(venue: venue, event: events[index]),
     );
   }
 }
@@ -140,9 +182,15 @@ class _EventCard extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
-        content: Text(loc.eventCancelConfirmMessage, style: const TextStyle(color: ChatLightColors.ink, fontSize: 14.5)),
+        content: Text(
+          loc.eventCancelConfirmMessage,
+          style: const TextStyle(color: ChatLightColors.ink, fontSize: 14.5),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -170,11 +218,16 @@ class _EventCard extends ConsumerWidget {
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
         content: Text(
-          isLive ? loc.eventDeleteLiveConfirmMessage : loc.eventDeleteConfirmMessage,
+          isLive
+              ? loc.eventDeleteLiveConfirmMessage
+              : loc.eventDeleteConfirmMessage,
           style: const TextStyle(color: ChatLightColors.ink, fontSize: 14.5),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -188,7 +241,12 @@ class _EventCard extends ConsumerWidget {
   }
 
   void _openEdit(BuildContext context) {
-    Navigator.push(context, MaterialPageRoute(builder: (_) => CreateEventScreen(venue: venue, existingEvent: event)));
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CreateEventScreen(venue: venue, existingEvent: event),
+      ),
+    );
   }
 
   @override
@@ -198,13 +256,17 @@ class _EventCard extends ConsumerWidget {
     // ended/cancelled event is history, not something to change.
     // A `pending` event stays editable — the owner can fix it while it
     // waits for review (firestore.rules allows the same three states).
-    final canEdit = event.status == VenueEventStatus.pending ||
+    final canEdit =
+        event.status == VenueEventStatus.pending ||
         event.status == VenueEventStatus.upcoming ||
         event.status == VenueEventStatus.live;
 
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -214,8 +276,18 @@ class _EventCard extends ConsumerWidget {
               width: 64,
               height: 64,
               child: event.coverImageUrl != null
-                  ? AppImage(event.coverImageUrl!, thumbnail: true, fit: BoxFit.cover)
-                  : Container(color: ChatLightColors.cardSurface, child: const Icon(Icons.celebration_outlined, color: ChatLightColors.inkSoft)),
+                  ? AppImage(
+                      event.coverImageUrl!,
+                      thumbnail: true,
+                      fit: BoxFit.cover,
+                    )
+                  : Container(
+                      color: ChatLightColors.cardSurface,
+                      child: const Icon(
+                        Icons.celebration_outlined,
+                        color: ChatLightColors.inkSoft,
+                      ),
+                    ),
             ),
           ),
           const SizedBox(width: 14),
@@ -223,19 +295,33 @@ class _EventCard extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(event.title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ChatLightColors.ink)),
+                Text(
+                  event.title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: ChatLightColors.ink,
+                  ),
+                ),
                 // The owner has to be able to tell a published event
                 // from one still in review — they look identical in the
                 // list otherwise, and "why isn't my event showing?" has
                 // no answer on screen.
-                if (event.status == VenueEventStatus.pending || event.status == VenueEventStatus.rejected) ...[
+                if (event.status == VenueEventStatus.pending ||
+                    event.status == VenueEventStatus.rejected) ...[
                   const SizedBox(height: 4),
-                  _EventStatusChip(status: event.status, reviewNote: event.reviewNote),
+                  _EventStatusChip(
+                    status: event.status,
+                    reviewNote: event.reviewNote,
+                  ),
                 ],
                 const SizedBox(height: 4),
                 Text(
                   '${event.startAt.day.toString().padLeft(2, '0')}.${event.startAt.month.toString().padLeft(2, '0')} · ${event.startAt.hour.toString().padLeft(2, '0')}:${event.startAt.minute.toString().padLeft(2, '0')}',
-                  style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: ChatLightColors.inkSoft,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 // Edit and Cancel stay bound to `canEdit` — neither
@@ -246,20 +332,41 @@ class _EventCard extends ConsumerWidget {
                 Row(
                   children: [
                     if (canEdit) ...[
-                      GestureDetector(
+                      Pressable(
                         onTap: () => _openEdit(context),
-                        child: Text(loc.eventEditButton, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                        child: Text(
+                          loc.eventEditButton,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 16),
-                      GestureDetector(
+                      Pressable(
                         onTap: () => _confirmCancel(context, ref),
-                        child: Text(loc.eventCancelButton, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.error)),
+                        child: Text(
+                          loc.eventCancelButton,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.error,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 16),
                     ],
-                    GestureDetector(
+                    Pressable(
                       onTap: () => _confirmDelete(context, ref),
-                      child: Text(loc.actionDelete, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.error)),
+                      child: Text(
+                        loc.actionDelete,
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.error,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -291,10 +398,17 @@ class _EventStatusChip extends StatelessWidget {
       children: [
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(999),
+          ),
           child: Text(
             isPending ? loc.eventStatusPending : loc.eventStatusRejected,
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
           ),
         ),
         // The reason matters most when the rejection was OUR doing —
@@ -305,7 +419,10 @@ class _EventStatusChip extends StatelessWidget {
             padding: const EdgeInsets.only(top: 3),
             child: Text(
               reviewNote!,
-              style: const TextStyle(fontSize: 11, color: ChatLightColors.inkSoft),
+              style: const TextStyle(
+                fontSize: 11,
+                color: ChatLightColors.inkSoft,
+              ),
             ),
           ),
       ],

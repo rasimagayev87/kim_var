@@ -30,17 +30,25 @@ const vipFeatureIconsByKey = <String, IconData>{
 /// this can legitimately come back empty (store unreachable, or the
 /// subscription products don't exist in App Store Connect/Play Console
 /// yet).
-final vipProductsProvider = FutureProvider.autoDispose<List<ProductDetails>>((ref) => queryVipProducts());
+final vipProductsProvider = FutureProvider.autoDispose<List<ProductDetails>>(
+  (ref) => queryVipProducts(),
+);
 
 final vipFeaturesProvider = StreamProvider.autoDispose<List<VipFeature>>((ref) {
-  return FirebaseFirestore.instance.collection('vipFeatures').orderBy('order').snapshots().map((snap) {
-    return snap.docs.map((d) {
-      final data = d.data();
-      return VipFeature(
-        icon: vipFeatureIconsByKey[data['icon'] as String?] ?? Icons.star_outline,
-        title: data['title'] as String? ?? '',
-        description: data['description'] as String? ?? '',
-      );
-    }).toList();
-  });
+  return FirebaseFirestore.instance
+      .collection('vipFeatures')
+      .orderBy('order')
+      .snapshots()
+      .map((snap) {
+        return snap.docs.map((d) {
+          final data = d.data();
+          return VipFeature(
+            icon:
+                vipFeatureIconsByKey[data['icon'] as String?] ??
+                Icons.star_outline,
+            title: data['title'] as String? ?? '',
+            description: data['description'] as String? ?? '',
+          );
+        }).toList();
+      });
 });

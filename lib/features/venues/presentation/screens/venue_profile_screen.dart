@@ -273,9 +273,14 @@ class _VenueEventsSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final events = (ref.watch(venueEventsByVenueProvider(venueId)).valueOrNull ?? const [])
-        .where((e) => e.status == VenueEventStatus.upcoming || e.status == VenueEventStatus.live)
-        .toList();
+    final events =
+        (ref.watch(venueEventsByVenueProvider(venueId)).valueOrNull ?? const [])
+            .where(
+              (e) =>
+                  e.status == VenueEventStatus.upcoming ||
+                  e.status == VenueEventStatus.live,
+            )
+            .toList();
     if (events.isEmpty) return const SizedBox.shrink();
 
     return Padding(
@@ -285,7 +290,11 @@ class _VenueEventsSection extends ConsumerWidget {
         children: [
           Text(
             loc.eventDetailsSectionTitle,
-            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: ChatLightColors.ink,
+            ),
           ),
           const SizedBox(height: 10),
           for (final event in events) ...[
@@ -311,7 +320,12 @@ class _VenueEventRow extends StatelessWidget {
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailsScreen(eventId: event.id))),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EventDetailsScreen(eventId: event.id),
+          ),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Row(
@@ -322,8 +336,18 @@ class _VenueEventRow extends StatelessWidget {
                   width: 48,
                   height: 48,
                   child: event.coverImageUrl != null
-                      ? AppImage(event.coverImageUrl!, thumbnail: true, fit: BoxFit.cover)
-                      : Container(color: Colors.white, child: const Icon(Icons.celebration_outlined, color: ChatLightColors.inkSoft)),
+                      ? AppImage(
+                          event.coverImageUrl!,
+                          thumbnail: true,
+                          fit: BoxFit.cover,
+                        )
+                      : Container(
+                          color: Colors.white,
+                          child: const Icon(
+                            Icons.celebration_outlined,
+                            color: ChatLightColors.inkSoft,
+                          ),
+                        ),
                 ),
               ),
               const SizedBox(width: 12),
@@ -333,14 +357,21 @@ class _VenueEventRow extends StatelessWidget {
                   children: [
                     Text(
                       event.title,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: ChatLightColors.ink,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${eventCategoryLabel(loc, event.category)} · ${event.status == VenueEventStatus.live ? loc.eventStatusLive : loc.eventStatusUpcoming}',
-                      style: const TextStyle(fontSize: 12, color: ChatLightColors.inkSoft),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: ChatLightColors.inkSoft,
+                      ),
                     ),
                   ],
                 ),
@@ -426,21 +457,30 @@ class _VenueFollowButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isFollowing = ref.watch(isVenueFollowedByMeProvider(venueId)).valueOrNull ?? false;
+    final isFollowing =
+        ref.watch(isVenueFollowedByMeProvider(venueId)).valueOrNull ?? false;
 
     return _OverlayCircleButton(
-      icon: isFollowing ? Icons.notifications_active : Icons.notifications_none_outlined,
+      icon: isFollowing
+          ? Icons.notifications_active
+          : Icons.notifications_none_outlined,
       iconSize: 18,
       iconColor: isFollowing ? AppColors.primary : Colors.white,
-      onTap: () => isFollowing ? _unfollow(context, ref) : _confirmAndFollow(context, ref),
+      onTap: () => isFollowing
+          ? _unfollow(context, ref)
+          : _confirmAndFollow(context, ref),
     );
   }
 
   Future<void> _unfollow(BuildContext context, WidgetRef ref) async {
     final loc = AppLocalizations.of(context);
-    final ok = await ref.read(venueFollowControllerProvider).toggle(venueId: venueId, isCurrentlyFollowing: true);
+    final ok = await ref
+        .read(venueFollowControllerProvider)
+        .toggle(venueId: venueId, isCurrentlyFollowing: true);
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.venueGenericErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.venueGenericErrorMessage)));
     }
   }
 
@@ -450,8 +490,21 @@ class _VenueFollowButton extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
-        title: Text(loc.venueFollowConfirmTitle, style: const TextStyle(color: ChatLightColors.ink, fontWeight: FontWeight.w700, fontSize: 17)),
-        content: Text(loc.venueFollowConfirmMessage, style: const TextStyle(color: ChatLightColors.inkSoft, fontSize: 14.5)),
+        title: Text(
+          loc.venueFollowConfirmTitle,
+          style: const TextStyle(
+            color: ChatLightColors.ink,
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+          ),
+        ),
+        content: Text(
+          loc.venueFollowConfirmMessage,
+          style: const TextStyle(
+            color: ChatLightColors.inkSoft,
+            fontSize: 14.5,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -466,9 +519,13 @@ class _VenueFollowButton extends ConsumerWidget {
     );
     if (confirmed != true || !context.mounted) return;
 
-    final ok = await ref.read(venueFollowControllerProvider).toggle(venueId: venueId, isCurrentlyFollowing: false);
+    final ok = await ref
+        .read(venueFollowControllerProvider)
+        .toggle(venueId: venueId, isCurrentlyFollowing: false);
     if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.venueGenericErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.venueGenericErrorMessage)));
     }
   }
 }
@@ -585,16 +642,20 @@ class _LiveAudienceCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final count = ref.watch(
-      venueAudienceCountProvider((
-        venueId: venue.id,
-        mode: venue.audienceRadiusMode,
-        lat: venue.lat,
-        lng: venue.lng,
-        radiusKm: venue.audienceRadiusKm,
-        country: venue.country,
-      )),
-    ).valueOrNull ?? 0;
+    final count =
+        ref
+            .watch(
+              venueAudienceCountProvider((
+                venueId: venue.id,
+                mode: venue.audienceRadiusMode,
+                lat: venue.lat,
+                lng: venue.lng,
+                radiusKm: venue.audienceRadiusKm,
+                country: venue.country,
+              )),
+            )
+            .valueOrNull ??
+        0;
 
     return Container(
       width: double.infinity,

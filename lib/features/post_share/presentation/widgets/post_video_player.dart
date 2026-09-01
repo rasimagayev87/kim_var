@@ -3,6 +3,8 @@ import 'package:video_player/video_player.dart';
 
 import '../../../../core/theme/app_colors.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Feed-card video: shows the clip's first frame (paused) as a
 /// thumbnail with a play glyph on top; tapping opens a fullscreen
 /// player. Self-contained rather than reusing chat's
@@ -29,7 +31,9 @@ class _PostVideoThumbnailState extends State<PostVideoThumbnail> {
   @override
   void initState() {
     super.initState();
-    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.videoUrl),
+    );
     _controller = controller;
     controller.initialize().then((_) {
       if (mounted) setState(() {});
@@ -46,12 +50,15 @@ class _PostVideoThumbnailState extends State<PostVideoThumbnail> {
   Widget build(BuildContext context) {
     final controller = _controller;
 
-    return GestureDetector(
-      onTap: widget.onTap ??
+    return Pressable(
+      onTap:
+          widget.onTap ??
           () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => _PostVideoFullscreen(videoUrl: widget.videoUrl)),
-              ),
+            context,
+            MaterialPageRoute(
+              builder: (_) => _PostVideoFullscreen(videoUrl: widget.videoUrl),
+            ),
+          ),
       child: Stack(
         fit: StackFit.expand,
         alignment: Alignment.center,
@@ -70,8 +77,15 @@ class _PostVideoThumbnailState extends State<PostVideoThumbnail> {
           Container(
             width: 52,
             height: 52,
-            decoration: const BoxDecoration(color: Colors.black45, shape: BoxShape.circle),
-            child: const Icon(Icons.play_arrow_outlined, color: Colors.white, size: 32),
+            decoration: const BoxDecoration(
+              color: Colors.black45,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.play_arrow_outlined,
+              color: Colors.white,
+              size: 32,
+            ),
           ),
         ],
       ),
@@ -94,7 +108,9 @@ class _PostVideoFullscreenState extends State<_PostVideoFullscreen> {
   @override
   void initState() {
     super.initState();
-    final controller = VideoPlayerController.networkUrl(Uri.parse(widget.videoUrl));
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(widget.videoUrl),
+    );
     _controller = controller;
     controller.initialize().then((_) {
       if (!mounted) return;
@@ -125,9 +141,11 @@ class _PostVideoFullscreenState extends State<_PostVideoFullscreen> {
       body: Center(
         child: controller == null || !controller.value.isInitialized
             ? const CircularProgressIndicator(color: AppColors.primary)
-            : GestureDetector(
+            : Pressable(
                 onTap: () => setState(() {
-                  controller.value.isPlaying ? controller.pause() : controller.play();
+                  controller.value.isPlaying
+                      ? controller.pause()
+                      : controller.play();
                 }),
                 child: AspectRatio(
                   aspectRatio: controller.value.aspectRatio,

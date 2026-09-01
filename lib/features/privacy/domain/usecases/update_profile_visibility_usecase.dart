@@ -9,10 +9,15 @@ class UpdateProfileVisibilityUseCase {
 
   final PrivacySettingsRepository _repository;
 
-  Future<void> call({required String uid, required ProfileVisibility visibility}) {
+  Future<void> call({
+    required String uid,
+    required ProfileVisibility visibility,
+  }) {
     // Flat field on users/{uid} — matches the existing convention there
     // (blockedUsers, premium, online, ...) rather than introducing a
     // nested `privacy` map.
-    return _repository.updateSettings(uid, {'profileVisibility': visibility.name});
+    return _repository.updateSettings(uid, {
+      'profileVisibility': visibility.name,
+    });
   }
 }

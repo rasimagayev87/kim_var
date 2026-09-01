@@ -30,9 +30,12 @@ class LiveFeedPinboxSection extends ConsumerWidget {
         // Re-checking against `DateTime.now()` here (evaluated fresh on
         // every rebuild) is what actually keeps this section honest for as
         // long as the provider stays alive.
-        final active = pinboxes.where((r) => r.pinbox.pickupWindowEnd.isAfter(DateTime.now())).toList();
+        final active = pinboxes
+            .where((r) => r.pinbox.pickupWindowEnd.isAfter(DateTime.now()))
+            .toList();
         if (active.isEmpty) return const SizedBox.shrink();
-        final sorted = [...active]..sort((a, b) => b.pinbox.createdAt.compareTo(a.pinbox.createdAt));
+        final sorted = [...active]
+          ..sort((a, b) => b.pinbox.createdAt.compareTo(a.pinbox.createdAt));
         final latest = sorted.take(3).toList();
 
         return Column(
@@ -44,7 +47,12 @@ class LiveFeedPinboxSection extends ConsumerWidget {
                 icon: Icons.inventory_2_outlined,
                 iconColor: const Color(0xFFFF6B6B),
                 title: loc.liveFeedSectionPinboxListings,
-                onSeeAll: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LiveFeedAllPinboxesScreen())),
+                onSeeAll: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LiveFeedAllPinboxesScreen(),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -61,8 +69,11 @@ class LiveFeedPinboxSection extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: latest.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, index) =>
-                    LiveFeedPinboxCard(pinbox: latest[index].pinbox, distanceMeters: latest[index].distanceMeters, width: _kCardWidth),
+                itemBuilder: (context, index) => LiveFeedPinboxCard(
+                  pinbox: latest[index].pinbox,
+                  distanceMeters: latest[index].distanceMeters,
+                  width: _kCardWidth,
+                ),
               ),
             ),
           ],

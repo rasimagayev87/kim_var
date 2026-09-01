@@ -8,7 +8,11 @@ abstract class NotificationRepository {
   /// pagination pattern.
   Stream<List<AppNotification>> watchNotifications(String uid, {int limit});
 
-  Future<List<AppNotification>> fetchMoreNotifications(String uid, {required DateTime startAfter, int limit});
+  Future<List<AppNotification>> fetchMoreNotifications(
+    String uid, {
+    required DateTime startAfter,
+    int limit,
+  });
 
   Future<void> markRead(String uid, String notificationId);
 

@@ -10,6 +10,8 @@ import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../post_share/domain/entities/post.dart';
 import '../../../post_share/presentation/screens/post_reel_viewer_screen.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// One shared implementation of the profile header's stats row, post
 /// divider and media grid — used identically by `ProfileTab` (own
 /// profile) and `UserProfileScreen` (someone else's), so a profile
@@ -126,7 +128,11 @@ class _StatColumn extends StatelessWidget {
     // same size as the non-tappable [likes] column beside it inside
     // `ProfileStatsRow`'s `IntrinsicHeight`, or the two would end up
     // different heights and throw the row's vertical centering off.
-    return InkWell(borderRadius: BorderRadius.circular(8), onTap: onTap, child: column);
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: column,
+    );
   }
 }
 
@@ -225,7 +231,7 @@ class _PostGridTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(

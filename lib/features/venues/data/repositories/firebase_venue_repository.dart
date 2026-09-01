@@ -74,27 +74,30 @@ class FirebaseVenueRepository implements VenueRepository {
       onTaskReady: onUploadTaskReady,
     );
 
-    final result = await _functions.httpsCallable('submitVenue', options: callableOptions()).call<Map<String, dynamic>>({
-      'venueId': venueId,
-      'name': name,
-      'category': category.name,
-      'photoUrl': photoUrl,
-      'lat': lat,
-      'lng': lng,
-      'address': address,
-      if (country != null) 'country': country,
-      'openingHours': openingHours.toMap(),
-      if (socialLinks != null && !socialLinks.isEmpty) 'socialLinks': socialLinks.toMap(),
-      'audienceRadiusMode': audienceRadiusMode,
-      'audienceRadiusKm': audienceRadiusKm,
-      'birthdayNotificationsEnabled': birthdayNotificationsEnabled,
-      'offerAcceptance': {
-        'version': offerAcceptanceVersion,
-        'documentUrl': offerAcceptanceDocumentUrl,
-        'appVersion': offerAcceptanceAppVersion,
-        'platform': Platform.operatingSystem,
-      },
-    });
+    final result = await _functions
+        .httpsCallable('submitVenue', options: callableOptions())
+        .call<Map<String, dynamic>>({
+          'venueId': venueId,
+          'name': name,
+          'category': category.name,
+          'photoUrl': photoUrl,
+          'lat': lat,
+          'lng': lng,
+          'address': address,
+          if (country != null) 'country': country,
+          'openingHours': openingHours.toMap(),
+          if (socialLinks != null && !socialLinks.isEmpty)
+            'socialLinks': socialLinks.toMap(),
+          'audienceRadiusMode': audienceRadiusMode,
+          'audienceRadiusKm': audienceRadiusKm,
+          'birthdayNotificationsEnabled': birthdayNotificationsEnabled,
+          'offerAcceptance': {
+            'version': offerAcceptanceVersion,
+            'documentUrl': offerAcceptanceDocumentUrl,
+            'appVersion': offerAcceptanceAppVersion,
+            'platform': Platform.operatingSystem,
+          },
+        });
 
     final data = result.data;
     return (
@@ -139,21 +142,24 @@ class FirebaseVenueRepository implements VenueRepository {
       );
     }
 
-    final result = await _functions.httpsCallable('updateVenue', options: callableOptions()).call<Map<String, dynamic>>({
-      'venueId': venueId,
-      'name': name,
-      'category': category.name,
-      if (photoUrl != null) 'photoUrl': photoUrl,
-      'lat': lat,
-      'lng': lng,
-      'address': address,
-      if (country != null) 'country': country,
-      'openingHours': openingHours.toMap(),
-      if (socialLinks != null && !socialLinks.isEmpty) 'socialLinks': socialLinks.toMap(),
-      'audienceRadiusMode': audienceRadiusMode,
-      'audienceRadiusKm': audienceRadiusKm,
-      'birthdayNotificationsEnabled': birthdayNotificationsEnabled,
-    });
+    final result = await _functions
+        .httpsCallable('updateVenue', options: callableOptions())
+        .call<Map<String, dynamic>>({
+          'venueId': venueId,
+          'name': name,
+          'category': category.name,
+          if (photoUrl != null) 'photoUrl': photoUrl,
+          'lat': lat,
+          'lng': lng,
+          'address': address,
+          if (country != null) 'country': country,
+          'openingHours': openingHours.toMap(),
+          if (socialLinks != null && !socialLinks.isEmpty)
+            'socialLinks': socialLinks.toMap(),
+          'audienceRadiusMode': audienceRadiusMode,
+          'audienceRadiusKm': audienceRadiusKm,
+          'birthdayNotificationsEnabled': birthdayNotificationsEnabled,
+        });
 
     return result.data['sentForReReview'] as bool;
   }
@@ -161,16 +167,17 @@ class FirebaseVenueRepository implements VenueRepository {
   @override
   Future<void> deleteVenue(String venueId) async {
     await _datasource.deleteVenue(venueId);
-    await _datasource.deleteVenuePhoto(fb.FirebaseAuth.instance.currentUser!.uid, venueId);
+    await _datasource.deleteVenuePhoto(
+      fb.FirebaseAuth.instance.currentUser!.uid,
+      venueId,
+    );
   }
 
   @override
   Stream<Venue?> watchVenue(String venueId) {
     return _datasource
         .watchVenue(venueId)
-        .map(
-          (doc) => doc.exists ? _safeVenue(doc.id, doc.data()!) : null,
-        );
+        .map((doc) => doc.exists ? _safeVenue(doc.id, doc.data()!) : null);
   }
 
   @override
@@ -192,14 +199,21 @@ class FirebaseVenueRepository implements VenueRepository {
     required double radiusKm,
     VenueCategory? category,
   }) async {
-    final results = await withPermissionRetry(() => _datasource.queryWithinRadius(
-          lat: lat,
-          lng: lng,
-          radiusKm: radiusKm,
-          category: category?.name,
-        ));
+    final results = await withPermissionRetry(
+      () => _datasource.queryWithinRadius(
+        lat: lat,
+        lng: lng,
+        radiusKm: radiusKm,
+        category: category?.name,
+      ),
+    );
     return results
-        .map((r) => (venue: _safeVenue(r.$1.id, r.$1.data()!), distanceMeters: r.$2 * 1000))
+        .map(
+          (r) => (
+            venue: _safeVenue(r.$1.id, r.$1.data()!),
+            distanceMeters: r.$2 * 1000,
+          ),
+        )
         .where((r) => r.venue != null)
         .map((r) => (venue: r.venue!, distanceMeters: r.distanceMeters))
         .toList();
@@ -210,11 +224,13 @@ class FirebaseVenueRepository implements VenueRepository {
     String country, {
     VenueCategory? category,
   }) async {
-    final snap = await withPermissionRetry(() => _datasource.queryByCountry(
-          country,
-          category: category?.name,
-        ));
-    return snap.docs.map((d) => _safeVenue(d.id, d.data())).whereType<Venue>().toList();
+    final snap = await withPermissionRetry(
+      () => _datasource.queryByCountry(country, category: category?.name),
+    );
+    return snap.docs
+        .map((d) => _safeVenue(d.id, d.data()))
+        .whereType<Venue>()
+        .toList();
   }
 
   @override
@@ -222,11 +238,13 @@ class FirebaseVenueRepository implements VenueRepository {
     int limit = 300,
     VenueCategory? category,
   }) async {
-    final snap = await withPermissionRetry(() => _datasource.queryAllActive(
-          limit: limit,
-          category: category?.name,
-        ));
-    return snap.docs.map((d) => _safeVenue(d.id, d.data())).whereType<Venue>().toList();
+    final snap = await withPermissionRetry(
+      () => _datasource.queryAllActive(limit: limit, category: category?.name),
+    );
+    return snap.docs
+        .map((d) => _safeVenue(d.id, d.data()))
+        .whereType<Venue>()
+        .toList();
   }
 
   @override
@@ -260,26 +278,32 @@ class FirebaseVenueRepository implements VenueRepository {
 
   @override
   Future<void> resubmitVenue(String venueId) async {
-    await _functions.httpsCallable('resubmitVenue', options: callableOptions()).call<Map<String, dynamic>>({
-      'venueId': venueId,
-    });
+    await _functions
+        .httpsCallable('resubmitVenue', options: callableOptions())
+        .call<Map<String, dynamic>>({'venueId': venueId});
   }
 
   @override
-  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueSubscriptionPayment(
+  Future<({String checkoutUrl, double feeAmount, String paymentId})>
+  retryVenueSubscriptionPayment(
     String venueId, {
     ({String version, String documentUrl, String appVersion})? offerAcceptance,
   }) async {
-    final result = await _functions.httpsCallable('retryVenueSubscriptionPayment', options: callableOptions()).call<Map<String, dynamic>>({
-      'venueId': venueId,
-      if (offerAcceptance != null)
-        'offerAcceptance': {
-          'version': offerAcceptance.version,
-          'documentUrl': offerAcceptance.documentUrl,
-          'appVersion': offerAcceptance.appVersion,
-          'platform': Platform.operatingSystem,
-        },
-    });
+    final result = await _functions
+        .httpsCallable(
+          'retryVenueSubscriptionPayment',
+          options: callableOptions(),
+        )
+        .call<Map<String, dynamic>>({
+          'venueId': venueId,
+          if (offerAcceptance != null)
+            'offerAcceptance': {
+              'version': offerAcceptance.version,
+              'documentUrl': offerAcceptance.documentUrl,
+              'appVersion': offerAcceptance.appVersion,
+              'platform': Platform.operatingSystem,
+            },
+        });
     final data = result.data;
     return (
       checkoutUrl: data['checkoutUrl'] as String,
@@ -289,10 +313,11 @@ class FirebaseVenueRepository implements VenueRepository {
   }
 
   @override
-  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueCreationPayment(String venueId) async {
-    final result = await _functions.httpsCallable('retryVenueCreationPayment', options: callableOptions()).call<Map<String, dynamic>>({
-      'venueId': venueId,
-    });
+  Future<({String checkoutUrl, double feeAmount, String paymentId})>
+  retryVenueCreationPayment(String venueId) async {
+    final result = await _functions
+        .httpsCallable('retryVenueCreationPayment', options: callableOptions())
+        .call<Map<String, dynamic>>({'venueId': venueId});
     final data = result.data;
     return (
       checkoutUrl: data['checkoutUrl'] as String,
@@ -302,11 +327,11 @@ class FirebaseVenueRepository implements VenueRepository {
   }
 
   @override
-  Future<({String checkoutUrl, double feeAmount, String paymentId})> createVenuePremiumCheckout(String venueId, int months) async {
-    final result = await _functions.httpsCallable('createVenuePremiumCheckout', options: callableOptions()).call<Map<String, dynamic>>({
-      'venueId': venueId,
-      'months': months,
-    });
+  Future<({String checkoutUrl, double feeAmount, String paymentId})>
+  createVenuePremiumCheckout(String venueId, int months) async {
+    final result = await _functions
+        .httpsCallable('createVenuePremiumCheckout', options: callableOptions())
+        .call<Map<String, dynamic>>({'venueId': venueId, 'months': months});
     final data = result.data;
     return (
       checkoutUrl: data['checkoutUrl'] as String,
@@ -317,11 +342,16 @@ class FirebaseVenueRepository implements VenueRepository {
 
   @override
   Future<void> dismissFirstPaymentAnnouncement(String venueId) {
-    return _datasource.updateVenue(venueId, {'firstPaymentAnnouncementPending': false});
+    return _datasource.updateVenue(venueId, {
+      'firstPaymentAnnouncementPending': false,
+    });
   }
 
   @override
-  Future<void> updateAvailableSeats({required String venueId, required int availableSeats}) {
+  Future<void> updateAvailableSeats({
+    required String venueId,
+    required int availableSeats,
+  }) {
     return _datasource.updateVenue(venueId, {
       'availableSeats': availableSeats,
       'seatsUpdatedAt': FieldValue.serverTimestamp(),

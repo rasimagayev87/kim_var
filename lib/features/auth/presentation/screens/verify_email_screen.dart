@@ -46,7 +46,9 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
     });
     final loc = AppLocalizations.of(context);
     try {
-      final verified = await ref.read(authControllerProvider.notifier).reloadAndCheckEmailVerified();
+      final verified = await ref
+          .read(authControllerProvider.notifier)
+          .reloadAndCheckEmailVerified();
       if (!mounted) return;
       if (verified) {
         Navigator.pushAndRemoveUntil(
@@ -74,7 +76,8 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
     if (_resending) return;
     final now = DateTime.now();
     final loc = AppLocalizations.of(context);
-    if (_lastResendAt != null && now.difference(_lastResendAt!) < _resendCooldown) {
+    if (_lastResendAt != null &&
+        now.difference(_lastResendAt!) < _resendCooldown) {
       setState(() => _notice = loc.verifyEmailResendCooldownNotice);
       return;
     }
@@ -125,7 +128,11 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   GlowLogo(
-                    child: Icon(Icons.mark_email_unread_outlined, size: 56, color: AppColors.primary),
+                    child: Icon(
+                      Icons.mark_email_unread_outlined,
+                      size: 56,
+                      color: AppColors.primary,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   Text(
@@ -137,11 +144,19 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                   Text(
                     loc.verifyEmailBody(widget.email),
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.body.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 24),
                   if (_notice != null) ...[
-                    Text(_notice!, textAlign: TextAlign.center, style: AppTextStyles.caption.copyWith(color: AppColors.primary)),
+                    Text(
+                      _notice!,
+                      textAlign: TextAlign.center,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.primary,
+                      ),
+                    ),
                     const SizedBox(height: 16),
                   ],
                   ElevatedButton(
@@ -150,7 +165,12 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2.2, valueColor: AlwaysStoppedAnimation<Color>(AppColors.onAccent)),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppColors.onAccent,
+                              ),
+                            ),
                           )
                         : Text(loc.verifyEmailContinueButton),
                   ),
@@ -183,6 +203,8 @@ class _VerifyEmailScreenState extends ConsumerState<VerifyEmailScreen> {
 /// [VerifyEmailScreen].
 bool needsEmailVerification(fb.User? user) {
   if (user == null || user.emailVerified) return false;
-  final isFederated = user.providerData.any((p) => p.providerId == 'google.com' || p.providerId == 'apple.com');
+  final isFederated = user.providerData.any(
+    (p) => p.providerId == 'google.com' || p.providerId == 'apple.com',
+  );
   return !isFederated;
 }

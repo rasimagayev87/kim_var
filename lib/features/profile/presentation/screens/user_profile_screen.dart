@@ -31,6 +31,8 @@ import '../providers/profile_visitors_providers.dart';
 import '../providers/public_profile_providers.dart';
 import '../widgets/profile_display_widgets.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// The ONE way to view a profile, no matter where the tap came from
 /// (map card, chat header, Lent post author, another profile's story
 /// ring) — a single consistent rule instead of several near-identical
@@ -77,7 +79,9 @@ class UserProfileScreen extends ConsumerWidget {
     // navigation into this screen (see profile_visitors_providers.dart)
     // rather than needing an initState this ConsumerWidget doesn't have.
     ref.watch(recordProfileVisitProvider(uid));
-    ref.watch(presenceTickProvider); // forces re-evaluation of isRecentlyActive as time passes
+    ref.watch(
+      presenceTickProvider,
+    ); // forces re-evaluation of isRecentlyActive as time passes
 
     final profileAsync = ref.watch(publicProfileProvider(uid));
 
@@ -125,10 +129,16 @@ class _ProfileLoadingScaffold extends StatelessWidget {
               alignment: Alignment.topLeft,
               child: IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new,
+                  size: 18,
+                  color: ChatLightColors.ink,
+                ),
               ),
             ),
-            const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+            const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
           ],
         ),
       ),
@@ -157,7 +167,11 @@ class _ProfileNotFoundScaffold extends StatelessWidget {
               alignment: Alignment.topLeft,
               child: IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new,
+                  size: 18,
+                  color: ChatLightColors.ink,
+                ),
               ),
             ),
             Center(
@@ -166,11 +180,19 @@ class _ProfileNotFoundScaffold extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.person_off_outlined, color: ChatLightColors.inkFaint, size: 40),
+                    const Icon(
+                      Icons.person_off_outlined,
+                      color: ChatLightColors.inkFaint,
+                      size: 40,
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       loc.profileNotFoundTitle,
-                      style: GoogleFonts.manrope(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                      style: GoogleFonts.manrope(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: ChatLightColors.ink,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ],
@@ -205,11 +227,15 @@ class _OtherProfileBody extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final displayName = profile.name.isEmpty ? (initialName?.isNotEmpty == true ? initialName! : loc.defaultUserName) : profile.name;
+    final displayName = profile.name.isEmpty
+        ? (initialName?.isNotEmpty == true ? initialName! : loc.defaultUserName)
+        : profile.name;
     final photoUrl = profile.photoUrl ?? initialPhotoUrl;
 
-    final followingCount = ref.watch(followingCountProvider(uid)).valueOrNull ?? 0;
-    final followersCount = ref.watch(followersCountProvider(uid)).valueOrNull ?? 0;
+    final followingCount =
+        ref.watch(followingCountProvider(uid)).valueOrNull ?? 0;
+    final followersCount =
+        ref.watch(followersCountProvider(uid)).valueOrNull ?? 0;
     final likesCount = ref.watch(userTotalPostLikesProvider(uid));
 
     // Post-launch QA — see `_ProfileLoadingScaffold`'s doc comment: this
@@ -219,118 +245,158 @@ class _OtherProfileBody extends ConsumerWidget {
     // but stuck with a yellow double underline.
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: Stack(
-          children: [
-            SafeArea(
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 640),
-                  child: ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
-                    children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: () => Navigator.pop(context),
-                            icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
-                          ),
-                          const Spacer(),
-                          _ProfileMenuButton(uid: uid, chatId: chatId),
-                        ],
-                      ),
-                      Center(
-                        child: _OtherAvatarWithRing(
-                          uid: uid,
-                          photoUrl: photoUrl,
-                          isPrivate: (ref.watch(otherUserPrivacySettingsProvider(uid)).valueOrNull ?? const PrivacySettings())
-                                  .accountPrivacy ==
-                              AccountPrivacy.private,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Center(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
+      body:
+          Stack(
+                children: [
+                  SafeArea(
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 640),
+                        child: ListView(
+                          padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
                           children: [
-                            Flexible(
-                              child: Text(
-                                displayName,
-                                style: GoogleFonts.manrope(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                  color: ChatLightColors.ink,
+                            Row(
+                              children: [
+                                IconButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  icon: const Icon(
+                                    Icons.arrow_back_ios_new,
+                                    size: 18,
+                                    color: ChatLightColors.ink,
+                                  ),
                                 ),
-                                overflow: TextOverflow.ellipsis,
-                                textAlign: TextAlign.center,
+                                const Spacer(),
+                                _ProfileMenuButton(uid: uid, chatId: chatId),
+                              ],
+                            ),
+                            Center(
+                              child: _OtherAvatarWithRing(
+                                uid: uid,
+                                photoUrl: photoUrl,
+                                isPrivate:
+                                    (ref
+                                                .watch(
+                                                  otherUserPrivacySettingsProvider(
+                                                    uid,
+                                                  ),
+                                                )
+                                                .valueOrNull ??
+                                            const PrivacySettings())
+                                        .accountPrivacy ==
+                                    AccountPrivacy.private,
                               ),
                             ),
-                            if (profile.identityVerified || profile.premium) ...[
-                              const SizedBox(width: 6),
-                              VerificationBadges(identityVerified: profile.identityVerified, premium: profile.premium),
-                            ],
-                            if (profile.isRecentlyActive) ...[
-                              const SizedBox(width: 8),
-                              Container(
-                                width: 9,
-                                height: 9,
-                                decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primary),
+                            const SizedBox(height: 14),
+                            Center(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      displayName,
+                                      style: GoogleFonts.manrope(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.w800,
+                                        color: ChatLightColors.ink,
+                                      ),
+                                      overflow: TextOverflow.ellipsis,
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                  if (profile.identityVerified ||
+                                      profile.premium) ...[
+                                    const SizedBox(width: 6),
+                                    VerificationBadges(
+                                      identityVerified:
+                                          profile.identityVerified,
+                                      premium: profile.premium,
+                                    ),
+                                  ],
+                                  if (profile.isRecentlyActive) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      width: 9,
+                                      height: 9,
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: AppColors.primary,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            if ((profile.username ?? '').isNotEmpty) ...[
+                              const SizedBox(height: 3),
+                              Center(
+                                child: Text(
+                                  '@${profile.username}',
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 13.5,
+                                    color: ChatLightColors.inkSoft,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
                               ),
                             ],
+                            const SizedBox(height: 20),
+                            ProfileStatsRow(
+                              following: followingCount,
+                              followers: followersCount,
+                              likes: likesCount,
+                              loc: loc,
+                              onTapFollowing: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => FollowListScreen(
+                                    uid: uid,
+                                    initialTabIndex: 1,
+                                  ),
+                                ),
+                              ),
+                              onTapFollowers: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => FollowListScreen(uid: uid),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _ProfileActionRow(
+                              otherUid: uid,
+                              displayName: displayName,
+                              photoUrl: photoUrl,
+                            ),
+                            if (profile.bio.isNotEmpty) ...[
+                              const SizedBox(height: 24),
+                              Text(
+                                profile.bio,
+                                style: const TextStyle(
+                                  fontSize: 14.5,
+                                  height: 1.5,
+                                  color: ChatLightColors.ink,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 20),
+                            const PostsDivider(),
+                            const SizedBox(height: 14),
+                            _MediaVisibilityGate(uid: uid),
                           ],
                         ),
                       ),
-                      if ((profile.username ?? '').isNotEmpty) ...[
-                        const SizedBox(height: 3),
-                        Center(
-                          child: Text(
-                            '@${profile.username}',
-                            style: GoogleFonts.manrope(
-                              fontSize: 13.5,
-                              color: ChatLightColors.inkSoft,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 20),
-                      ProfileStatsRow(
-                        following: followingCount,
-                        followers: followersCount,
-                        likes: likesCount,
-                        loc: loc,
-                        onTapFollowing: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => FollowListScreen(uid: uid, initialTabIndex: 1)),
-                        ),
-                        onTapFollowers: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => FollowListScreen(uid: uid)),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      _ProfileActionRow(
-                        otherUid: uid,
-                        displayName: displayName,
-                        photoUrl: photoUrl,
-                      ),
-                      if (profile.bio.isNotEmpty) ...[
-                        const SizedBox(height: 24),
-                        Text(profile.bio, style: const TextStyle(fontSize: 14.5, height: 1.5, color: ChatLightColors.ink)),
-                      ],
-                      const SizedBox(height: 20),
-                      const PostsDivider(),
-                      const SizedBox(height: 14),
-                      _MediaVisibilityGate(uid: uid),
-                    ],
+                    ),
                   ),
-                ),
+                ],
+              )
+              .animate()
+              .fadeIn(duration: 240.ms, curve: Curves.easeOut)
+              .slideY(
+                begin: 0.04,
+                end: 0,
+                duration: 240.ms,
+                curve: Curves.easeOut,
               ),
-            ),
-          ],
-        )
-        .animate()
-        .fadeIn(duration: 240.ms, curve: Curves.easeOut)
-        .slideY(begin: 0.04, end: 0, duration: 240.ms, curve: Curves.easeOut),
     );
   }
 }
@@ -362,7 +428,11 @@ class _OwnProfileRoute extends StatelessWidget {
             child: SafeArea(
               child: IconButton(
                 onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+                icon: const Icon(
+                  Icons.arrow_back_ios_new,
+                  size: 18,
+                  color: ChatLightColors.ink,
+                ),
               ),
             ),
           ),
@@ -391,27 +461,40 @@ class _OtherAvatarWithRing extends ConsumerWidget {
   final String? photoUrl;
   final bool isPrivate;
 
-  const _OtherAvatarWithRing({required this.uid, required this.photoUrl, required this.isPrivate});
+  const _OtherAvatarWithRing({
+    required this.uid,
+    required this.photoUrl,
+    required this.isPrivate,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final List<Story> activeStories =
-        isPrivate ? const [] : ref.watch(activeStoriesForUserProvider(uid)).valueOrNull ?? const [];
+    final List<Story> activeStories = isPrivate
+        ? const []
+        : ref.watch(activeStoriesForUserProvider(uid)).valueOrNull ?? const [];
     final hasActiveStory = activeStories.isNotEmpty;
     final heroTag = 'user-profile-avatar-$uid';
 
-    return GestureDetector(
+    return Pressable(
       onTap: isPrivate
           ? null
           : () async {
               if (hasActiveStory) {
                 if (!context.mounted) return;
-                Navigator.push(context, MaterialPageRoute(builder: (_) => StoryViewerScreen(stories: activeStories)));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => StoryViewerScreen(stories: activeStories),
+                  ),
+                );
               } else {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => _ZoomedAvatarScreen(photoUrl: photoUrl, heroTag: heroTag),
+                    builder: (_) => _ZoomedAvatarScreen(
+                      photoUrl: photoUrl,
+                      heroTag: heroTag,
+                    ),
                     fullscreenDialog: true,
                   ),
                 );
@@ -420,14 +503,14 @@ class _OtherAvatarWithRing extends ConsumerWidget {
       onLongPress: isPrivate
           ? null
           : () => _showAvatarMenu(
-                context,
-                ref,
-                uid: uid,
-                photoUrl: photoUrl,
-                heroTag: heroTag,
-                hasActiveStory: hasActiveStory,
-                activeStories: activeStories,
-              ),
+              context,
+              ref,
+              uid: uid,
+              photoUrl: photoUrl,
+              heroTag: heroTag,
+              hasActiveStory: hasActiveStory,
+              activeStories: activeStories,
+            ),
       child: Container(
         width: 128,
         height: 128,
@@ -445,7 +528,10 @@ class _OtherAvatarWithRing extends ConsumerWidget {
         ),
         child: Container(
           padding: const EdgeInsets.all(3),
-          decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white),
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.white,
+          ),
           child: ClipOval(
             child: Hero(
               tag: heroTag,
@@ -472,7 +558,9 @@ class _OtherAvatarWithRing extends ConsumerWidget {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) {
         return SafeArea(
           top: false,
@@ -481,14 +569,26 @@ class _OtherAvatarWithRing extends ConsumerWidget {
             children: [
               const SizedBox(height: 8),
               ListTile(
-                leading: const Icon(Icons.person_outline, color: ChatLightColors.ink),
-                title: Text(loc.avatarMenuViewPhoto, style: const TextStyle(color: ChatLightColors.ink, fontSize: 15)),
+                leading: const Icon(
+                  Icons.person_outline,
+                  color: ChatLightColors.ink,
+                ),
+                title: Text(
+                  loc.avatarMenuViewPhoto,
+                  style: const TextStyle(
+                    color: ChatLightColors.ink,
+                    fontSize: 15,
+                  ),
+                ),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => _ZoomedAvatarScreen(photoUrl: photoUrl, heroTag: heroTag),
+                      builder: (_) => _ZoomedAvatarScreen(
+                        photoUrl: photoUrl,
+                        heroTag: heroTag,
+                      ),
                       fullscreenDialog: true,
                     ),
                   );
@@ -498,11 +598,18 @@ class _OtherAvatarWithRing extends ConsumerWidget {
                 enabled: hasActiveStory,
                 leading: Icon(
                   Icons.auto_awesome_outlined,
-                  color: hasActiveStory ? ChatLightColors.ink : ChatLightColors.inkFaint,
+                  color: hasActiveStory
+                      ? ChatLightColors.ink
+                      : ChatLightColors.inkFaint,
                 ),
                 title: Text(
                   loc.avatarMenuViewStatus,
-                  style: TextStyle(color: hasActiveStory ? ChatLightColors.ink : ChatLightColors.inkFaint, fontSize: 15),
+                  style: TextStyle(
+                    color: hasActiveStory
+                        ? ChatLightColors.ink
+                        : ChatLightColors.inkFaint,
+                    fontSize: 15,
+                  ),
                 ),
                 onTap: hasActiveStory
                     ? () async {
@@ -510,7 +617,10 @@ class _OtherAvatarWithRing extends ConsumerWidget {
                         if (!context.mounted) return;
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => StoryViewerScreen(stories: activeStories)),
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                StoryViewerScreen(stories: activeStories),
+                          ),
                         );
                       }
                     : null,
@@ -535,7 +645,7 @@ class _ZoomedAvatarScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: () => Navigator.pop(context),
       child: Scaffold(
         backgroundColor: Colors.black87,
@@ -548,7 +658,10 @@ class _ZoomedAvatarScreen extends StatelessWidget {
                 height: 280,
                 child: photoUrl != null
                     ? AppImage(photoUrl!, fit: BoxFit.cover)
-                    : const ColoredBox(color: Colors.white, child: PhotoPlaceholderPattern()),
+                    : const ColoredBox(
+                        color: Colors.white,
+                        child: PhotoPlaceholderPattern(),
+                      ),
               ),
             ),
           ),
@@ -575,21 +688,33 @@ class _MediaVisibilityGate extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final privacy = ref.watch(otherUserPrivacySettingsProvider(uid)).valueOrNull ?? const PrivacySettings();
-    final isFollowing = ref.watch(isFollowingProvider(uid)).valueOrNull ?? false;
+    final privacy =
+        ref.watch(otherUserPrivacySettingsProvider(uid)).valueOrNull ??
+        const PrivacySettings();
+    final isFollowing =
+        ref.watch(isFollowingProvider(uid)).valueOrNull ?? false;
 
-    final canView = privacy.accountPrivacy == AccountPrivacy.public || isFollowing;
+    final canView =
+        privacy.accountPrivacy == AccountPrivacy.public || isFollowing;
 
     if (!canView) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 40),
         child: Column(
           children: [
-            const Icon(Icons.lock_outline, color: ChatLightColors.inkFaint, size: 36),
+            const Icon(
+              Icons.lock_outline,
+              color: ChatLightColors.inkFaint,
+              size: 36,
+            ),
             const SizedBox(height: 12),
             Text(
               loc.privacyClosedProfileNotice,
-              style: const TextStyle(fontSize: 13.5, color: ChatLightColors.inkSoft, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: ChatLightColors.inkSoft,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -598,7 +723,8 @@ class _MediaVisibilityGate extends ConsumerWidget {
 
     final postsAsync = ref.watch(userPostsProvider(uid));
     return postsAsync.when(
-      data: (posts) => posts.isEmpty ? const PostFeedEmptyState() : PostGrid(posts: posts),
+      data: (posts) =>
+          posts.isEmpty ? const PostFeedEmptyState() : PostGrid(posts: posts),
       loading: () => const PostGridLoading(),
       error: (_, _) => const PostFeedEmptyState(),
     );
@@ -616,12 +742,17 @@ class _ProfileActionRow extends ConsumerWidget {
   final String displayName;
   final String? photoUrl;
 
-  const _ProfileActionRow({required this.otherUid, required this.displayName, required this.photoUrl});
+  const _ProfileActionRow({
+    required this.otherUid,
+    required this.displayName,
+    required this.photoUrl,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final incomingRequest = ref.watch(incomingFollowRequestProvider(otherUid)).valueOrNull ?? false;
+    final incomingRequest =
+        ref.watch(incomingFollowRequestProvider(otherUid)).valueOrNull ?? false;
 
     final messageButton = Expanded(
       child: ProfileActionButton(
@@ -632,7 +763,11 @@ class _ProfileActionRow extends ConsumerWidget {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ChatConversationScreen(otherUid: otherUid, otherName: displayName, otherPhotoUrl: photoUrl),
+              builder: (_) => ChatConversationScreen(
+                otherUid: otherUid,
+                otherName: displayName,
+                otherPhotoUrl: photoUrl,
+              ),
             ),
           );
         },
@@ -647,9 +782,13 @@ class _ProfileActionRow extends ConsumerWidget {
               label: loc.followRequestAcceptButton,
               tonal: false,
               onPressed: () async {
-                final ok = await ref.read(followControllerProvider).acceptFollowRequest(otherUid);
+                final ok = await ref
+                    .read(followControllerProvider)
+                    .acceptFollowRequest(otherUid);
                 if (!ok && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.followErrorMessage)));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(loc.followErrorMessage)),
+                  );
                 }
               },
             ),
@@ -660,9 +799,13 @@ class _ProfileActionRow extends ConsumerWidget {
               label: loc.followRequestDeclineButton,
               tonal: true,
               onPressed: () async {
-                final ok = await ref.read(followControllerProvider).declineFollowRequest(otherUid);
+                final ok = await ref
+                    .read(followControllerProvider)
+                    .declineFollowRequest(otherUid);
                 if (!ok && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.followErrorMessage)));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(loc.followErrorMessage)),
+                  );
                 }
               },
             ),
@@ -675,7 +818,9 @@ class _ProfileActionRow extends ConsumerWidget {
 
     return Row(
       children: [
-        Expanded(child: FollowButton(otherUid: otherUid, displayName: displayName)),
+        Expanded(
+          child: FollowButton(otherUid: otherUid, displayName: displayName),
+        ),
         const SizedBox(width: 10),
         messageButton,
       ],
@@ -697,7 +842,8 @@ class _ProfileMenuButton extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final blockedIds = ref.watch(blockedUserIdsProvider).valueOrNull ?? const <String>{};
+    final blockedIds =
+        ref.watch(blockedUserIdsProvider).valueOrNull ?? const <String>{};
     final isBlocked = blockedIds.contains(uid);
 
     return PopupMenuButton<_ProfileMenuAction>(
@@ -730,31 +876,47 @@ class _ProfileMenuButton extends ConsumerWidget {
         ),
         PopupMenuItem(
           value: _ProfileMenuAction.report,
-          child: _MenuEntry(icon: Icons.flag_outlined, label: loc.chatMenuReport),
+          child: _MenuEntry(
+            icon: Icons.flag_outlined,
+            label: loc.chatMenuReport,
+          ),
         ),
         if (chatId != null)
           PopupMenuItem(
             value: _ProfileMenuAction.deleteChat,
-            child: _MenuEntry(icon: Icons.delete_outline, label: loc.chatMenuDeleteChat),
+            child: _MenuEntry(
+              icon: Icons.delete_outline,
+              label: loc.chatMenuDeleteChat,
+            ),
           ),
       ],
     );
   }
 
-  Future<void> _handleBlockToggle(BuildContext context, WidgetRef ref, {required bool isBlocked}) async {
+  Future<void> _handleBlockToggle(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool isBlocked,
+  }) async {
     final loc = AppLocalizations.of(context);
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
     if (myUid == null) return;
 
     if (isBlocked) {
       try {
-        await ref.read(unblockUserUseCaseProvider).call(myUid: myUid, blockedUid: uid);
+        await ref
+            .read(unblockUserUseCaseProvider)
+            .call(myUid: myUid, blockedUid: uid);
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatUserUnblockedNotice)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.chatUserUnblockedNotice)));
       } catch (e, st) {
         logError('user_profile_screen.unblock', e, st);
         if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatRequestActionErrorMessage)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.chatRequestActionErrorMessage)),
+        );
       }
       return;
     }
@@ -768,14 +930,20 @@ class _ProfileMenuButton extends ConsumerWidget {
     if (confirmed != true || !context.mounted) return;
 
     try {
-      await ref.read(blockUserUseCaseProvider).call(myUid: myUid, blockedUid: uid);
+      await ref
+          .read(blockUserUseCaseProvider)
+          .call(myUid: myUid, blockedUid: uid);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatUserBlockedNotice)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.chatUserBlockedNotice)));
       Navigator.popUntil(context, (route) => route.isFirst);
     } catch (e, st) {
       logError('user_profile_screen.block', e, st);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatRequestActionErrorMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.chatRequestActionErrorMessage)),
+      );
     }
   }
 
@@ -805,8 +973,21 @@ class _ProfileMenuButton extends ConsumerWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Colors.white,
-        title: Text(title, style: const TextStyle(color: ChatLightColors.ink, fontWeight: FontWeight.w700, fontSize: 17)),
-        content: Text(message, style: const TextStyle(color: ChatLightColors.inkSoft, fontSize: 14.5)),
+        title: Text(
+          title,
+          style: const TextStyle(
+            color: ChatLightColors.ink,
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+          ),
+        ),
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: ChatLightColors.inkSoft,
+            fontSize: 14.5,
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, false),
@@ -828,7 +1009,11 @@ class _MenuEntry extends StatelessWidget {
   final String label;
   final Color color;
 
-  const _MenuEntry({required this.icon, required this.label, this.color = AppColors.error});
+  const _MenuEntry({
+    required this.icon,
+    required this.label,
+    this.color = AppColors.error,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -836,7 +1021,14 @@ class _MenuEntry extends StatelessWidget {
       children: [
         Icon(icon, color: color, size: 19),
         const SizedBox(width: 12),
-        Text(label, style: TextStyle(color: color, fontSize: 14.5, fontWeight: FontWeight.w500)),
+        Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 14.5,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ],
     );
   }

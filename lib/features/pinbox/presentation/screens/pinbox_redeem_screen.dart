@@ -46,7 +46,9 @@ class _PinBoxRedeemScreenState extends ConsumerState<PinBoxRedeemScreen> {
       _lastRedeemed = null;
     });
 
-    final result = await ref.read(pinboxRedeemControllerProvider).redeem(venueId: widget.venue.id, code: code);
+    final result = await ref
+        .read(pinboxRedeemControllerProvider)
+        .redeem(venueId: widget.venue.id, code: code);
     if (!mounted) return;
 
     switch (result.outcome) {
@@ -54,7 +56,10 @@ class _PinBoxRedeemScreenState extends ConsumerState<PinBoxRedeemScreen> {
         setState(() {
           _submitting = false;
           _codeController.clear();
-          _lastRedeemed = (pinboxTitle: result.pinboxTitle!, quantity: result.quantity!);
+          _lastRedeemed = (
+            pinboxTitle: result.pinboxTitle!,
+            quantity: result.quantity!,
+          );
         });
       case PinBoxRedeemOutcome.invalidCode:
         setState(() {
@@ -63,7 +68,9 @@ class _PinBoxRedeemScreenState extends ConsumerState<PinBoxRedeemScreen> {
         });
       case PinBoxRedeemOutcome.error:
         setState(() => _submitting = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.pinboxCheckoutErrorMessage)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(loc.pinboxCheckoutErrorMessage)));
     }
   }
 
@@ -80,11 +87,19 @@ class _PinBoxRedeemScreenState extends ConsumerState<PinBoxRedeemScreen> {
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: ChatLightColors.ink,
+          ),
         ),
         title: Text(
           loc.pinboxRedeemTitle,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: ChatLightColors.ink,
+          ),
         ),
       ),
       body: SafeArea(
@@ -95,7 +110,11 @@ class _PinBoxRedeemScreenState extends ConsumerState<PinBoxRedeemScreen> {
             children: [
               Text(
                 loc.pinboxRedeemSubtitle,
-                style: const TextStyle(fontSize: 13.5, color: ChatLightColors.inkSoft, height: 1.4),
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  color: ChatLightColors.inkSoft,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: AppSpacing.xxl),
               if (_lastRedeemed != null) ...[
@@ -112,8 +131,15 @@ class _PinBoxRedeemScreenState extends ConsumerState<PinBoxRedeemScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          loc.pinboxRedeemSuccessMessage(_lastRedeemed!.pinboxTitle, _lastRedeemed!.quantity),
-                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+                          loc.pinboxRedeemSuccessMessage(
+                            _lastRedeemed!.pinboxTitle,
+                            _lastRedeemed!.quantity,
+                          ),
+                          style: const TextStyle(
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                            color: ChatLightColors.ink,
+                          ),
                         ),
                       ),
                     ],
@@ -125,21 +151,37 @@ class _PinBoxRedeemScreenState extends ConsumerState<PinBoxRedeemScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(AppRadii.input),
-                  border: Border.all(color: _errorText != null ? AppColors.error : ChatLightColors.inkFaint.withValues(alpha: 0.18)),
+                  border: Border.all(
+                    color: _errorText != null
+                        ? AppColors.error
+                        : ChatLightColors.inkFaint.withValues(alpha: 0.18),
+                  ),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 4,
+                ),
                 child: TextField(
                   controller: _codeController,
                   keyboardType: TextInputType.number,
                   maxLength: 6,
                   textAlign: TextAlign.center,
                   autofocus: true,
-                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: ChatLightColors.ink, letterSpacing: 6),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: ChatLightColors.ink,
+                    letterSpacing: 6,
+                  ),
                   cursorColor: AppColors.primary,
                   onSubmitted: (_) => _submit(),
                   decoration: InputDecoration(
                     hintText: loc.pinboxRedeemCodeHint,
-                    hintStyle: TextStyle(color: ChatLightColors.inkFaint, fontSize: 20, letterSpacing: 4),
+                    hintStyle: TextStyle(
+                      color: ChatLightColors.inkFaint,
+                      fontSize: 20,
+                      letterSpacing: 4,
+                    ),
                     border: InputBorder.none,
                     enabledBorder: InputBorder.none,
                     focusedBorder: InputBorder.none,
@@ -151,7 +193,13 @@ class _PinBoxRedeemScreenState extends ConsumerState<PinBoxRedeemScreen> {
               ),
               if (_errorText != null) ...[
                 const SizedBox(height: 6),
-                Text(_errorText!, style: const TextStyle(fontSize: 12.5, color: AppColors.error)),
+                Text(
+                  _errorText!,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.error,
+                  ),
+                ),
               ],
               const SizedBox(height: AppSpacing.xxl),
               SizedBox(
@@ -161,17 +209,27 @@ class _PinBoxRedeemScreenState extends ConsumerState<PinBoxRedeemScreen> {
                   onPressed: _submitting ? null : _submit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
+                    disabledBackgroundColor: AppColors.primary.withValues(
+                      alpha: 0.5,
+                    ),
                     foregroundColor: ChatLightColors.contourLine,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.button)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(AppRadii.button),
+                    ),
                     elevation: 0,
-                    textStyle: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700),
+                    textStyle: const TextStyle(
+                      fontSize: 15.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                   child: _submitting
                       ? const SizedBox(
                           width: 22,
                           height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.4, color: ChatLightColors.contourLine),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            color: ChatLightColors.contourLine,
+                          ),
                         )
                       : Text(loc.pinboxRedeemButtonLabel),
                 ),

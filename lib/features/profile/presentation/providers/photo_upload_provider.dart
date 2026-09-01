@@ -14,22 +14,27 @@ final storageRepositoryProvider = Provider<StorageRepository>((ref) {
   return FirebaseStorageRepository();
 });
 
-final uploadProfilePhotoUseCaseProvider = Provider<UploadProfilePhotoUseCase>((ref) {
+final uploadProfilePhotoUseCaseProvider = Provider<UploadProfilePhotoUseCase>((
+  ref,
+) {
   return UploadProfilePhotoUseCase(ref.watch(storageRepositoryProvider));
 });
 
-final deleteProfilePhotoUseCaseProvider = Provider<DeleteProfilePhotoUseCase>((ref) {
+final deleteProfilePhotoUseCaseProvider = Provider<DeleteProfilePhotoUseCase>((
+  ref,
+) {
   return DeleteProfilePhotoUseCase(ref.watch(storageRepositoryProvider));
 });
 
 final photoUploadControllerProvider =
     StateNotifierProvider<PhotoUploadController, PhotoUploadState>((ref) {
-  return PhotoUploadController(
-    uploadUseCase: ref.watch(uploadProfilePhotoUseCaseProvider),
-    deleteUseCase: ref.watch(deleteProfilePhotoUseCaseProvider),
-    onPhotoUrlChanged: (url) => ref.read(profileControllerProvider.notifier).updatePhotoUrl(url),
-  );
-});
+      return PhotoUploadController(
+        uploadUseCase: ref.watch(uploadProfilePhotoUseCaseProvider),
+        deleteUseCase: ref.watch(deleteProfilePhotoUseCaseProvider),
+        onPhotoUrlChanged: (url) =>
+            ref.read(profileControllerProvider.notifier).updatePhotoUrl(url),
+      );
+    });
 
 enum PhotoUploadStatus { idle, loading, success, error }
 
@@ -51,13 +56,21 @@ class PhotoUploadState {
   const PhotoUploadState.idle() : this._(status: PhotoUploadStatus.idle);
 
   const PhotoUploadState.loading([double progress = 0])
-      : this._(status: PhotoUploadStatus.loading, progress: progress);
+    : this._(status: PhotoUploadStatus.loading, progress: progress);
 
   const PhotoUploadState.success(String photoUrl)
-      : this._(status: PhotoUploadStatus.success, photoUrl: photoUrl, progress: 1);
+    : this._(
+        status: PhotoUploadStatus.success,
+        photoUrl: photoUrl,
+        progress: 1,
+      );
 
   const PhotoUploadState.error(StorageFailure type, String message)
-      : this._(status: PhotoUploadStatus.error, failureType: type, errorMessage: message);
+    : this._(
+        status: PhotoUploadStatus.error,
+        failureType: type,
+        errorMessage: message,
+      );
 
   bool get isLoading => status == PhotoUploadStatus.loading;
 }
@@ -77,16 +90,19 @@ class PhotoUploadController extends StateNotifier<PhotoUploadState> {
     required DeleteProfilePhotoUseCase deleteUseCase,
     required Future<void> Function(String? url) onPhotoUrlChanged,
     fb.FirebaseAuth? auth,
-  })  : _uploadUseCase = uploadUseCase,
-        _deleteUseCase = deleteUseCase,
-        _onPhotoUrlChanged = onPhotoUrlChanged,
-        _auth = auth ?? fb.FirebaseAuth.instance,
-        super(const PhotoUploadState.idle());
+  }) : _uploadUseCase = uploadUseCase,
+       _deleteUseCase = deleteUseCase,
+       _onPhotoUrlChanged = onPhotoUrlChanged,
+       _auth = auth ?? fb.FirebaseAuth.instance,
+       super(const PhotoUploadState.idle());
 
   Future<void> upload(File file) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
-      state = const PhotoUploadState.error(StorageFailure.unauthenticated, 'İstifadəçi daxil olmayıb.');
+      state = const PhotoUploadState.error(
+        StorageFailure.unauthenticated,
+        'İstifadəçi daxil olmayıb.',
+      );
       return;
     }
 
@@ -107,14 +123,20 @@ class PhotoUploadController extends StateNotifier<PhotoUploadState> {
       state = PhotoUploadState.error(e.type, e.message);
     } catch (e) {
       if (!mounted) return;
-      state = PhotoUploadState.error(StorageFailure.unknown, 'Gözlənilməz xəta: $e');
+      state = PhotoUploadState.error(
+        StorageFailure.unknown,
+        'Gözlənilməz xəta: $e',
+      );
     }
   }
 
   Future<void> remove() async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) {
-      state = const PhotoUploadState.error(StorageFailure.unauthenticated, 'İstifadəçi daxil olmayıb.');
+      state = const PhotoUploadState.error(
+        StorageFailure.unauthenticated,
+        'İstifadəçi daxil olmayıb.',
+      );
       return;
     }
 
@@ -129,7 +151,10 @@ class PhotoUploadController extends StateNotifier<PhotoUploadState> {
       state = PhotoUploadState.error(e.type, e.message);
     } catch (e) {
       if (!mounted) return;
-      state = PhotoUploadState.error(StorageFailure.unknown, 'Gözlənilməz xəta: $e');
+      state = PhotoUploadState.error(
+        StorageFailure.unknown,
+        'Gözlənilməz xəta: $e',
+      );
     }
   }
 

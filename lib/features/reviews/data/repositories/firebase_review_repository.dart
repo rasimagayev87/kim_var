@@ -8,11 +8,13 @@ import '../../domain/repositories/review_repository.dart';
 import '../../../../core/utils/callables.dart';
 
 class FirebaseReviewRepository implements ReviewRepository {
-  FirebaseReviewRepository({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirebaseReviewRepository({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> get _reviews => _firestore.collection('reviews');
+  CollectionReference<Map<String, dynamic>> get _reviews =>
+      _firestore.collection('reviews');
 
   String _reviewId(String venueId, String userId) => '${venueId}_$userId';
 
@@ -49,8 +51,13 @@ class FirebaseReviewRepository implements ReviewRepository {
   @override
   Future<List<Review>> fetchVenueReviews(String venueId) async {
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('listVenueReviews', options: callableOptions());
-      final result = await callable.call<Map<String, dynamic>>({'venueId': venueId});
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'listVenueReviews',
+        options: callableOptions(),
+      );
+      final result = await callable.call<Map<String, dynamic>>({
+        'venueId': venueId,
+      });
       final raw = (result.data['reviews'] as List).cast<dynamic>();
       return raw
           .map((e) => _safeReviewFromMap(Map<String, dynamic>.from(e as Map)))
@@ -76,7 +83,10 @@ class FirebaseReviewRepository implements ReviewRepository {
   }
 
   @override
-  Stream<Review?> watchMyReview({required String venueId, required String userId}) {
+  Stream<Review?> watchMyReview({
+    required String venueId,
+    required String userId,
+  }) {
     return _reviews.doc(_reviewId(venueId, userId)).snapshots().map((snap) {
       final data = snap.data();
       if (data == null) return null;
@@ -113,7 +123,10 @@ class FirebaseReviewRepository implements ReviewRepository {
   }
 
   @override
-  Future<void> submitOwnerReply({required String reviewId, required String text}) {
+  Future<void> submitOwnerReply({
+    required String reviewId,
+    required String text,
+  }) {
     return _reviews.doc(reviewId).update({
       'ownerReply': {'text': text, 'repliedAt': FieldValue.serverTimestamp()},
       'updatedAt': FieldValue.serverTimestamp(),

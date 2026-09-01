@@ -19,13 +19,18 @@ class LiveFeedTicker extends StatefulWidget {
   final List<LiveFeedItem> items;
   final Future<void> Function(LiveFeedItem item) onOpenItem;
 
-  const LiveFeedTicker({super.key, required this.items, required this.onOpenItem});
+  const LiveFeedTicker({
+    super.key,
+    required this.items,
+    required this.onOpenItem,
+  });
 
   @override
   State<LiveFeedTicker> createState() => _LiveFeedTickerState();
 }
 
-class _LiveFeedTickerState extends State<LiveFeedTicker> with SingleTickerProviderStateMixin {
+class _LiveFeedTickerState extends State<LiveFeedTicker>
+    with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
   final _scrollController = ScrollController();
 
@@ -52,7 +57,9 @@ class _LiveFeedTickerState extends State<LiveFeedTicker> with SingleTickerProvid
       _lastElapsed = elapsed;
       return;
     }
-    final dt = (elapsed - _lastElapsed).inMicroseconds / Duration.microsecondsPerSecond;
+    final dt =
+        (elapsed - _lastElapsed).inMicroseconds /
+        Duration.microsecondsPerSecond;
     _lastElapsed = elapsed;
 
     final position = _scrollController.position;
@@ -177,7 +184,11 @@ class _TickerItemContentState extends State<_TickerItemContent> {
             children: [
               text,
               const SizedBox(width: 3),
-              const Icon(Icons.chevron_right_rounded, size: 13, color: Colors.white54),
+              const Icon(
+                Icons.chevron_right_rounded,
+                size: 13,
+                color: Colors.white54,
+              ),
             ],
           ),
         ),

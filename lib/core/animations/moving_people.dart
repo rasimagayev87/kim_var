@@ -63,8 +63,7 @@ class _PeoplePainter extends CustomPainter {
       final startRadius = size.width * 0.75;
       final endRadius = 40.0;
 
-      final radius =
-          startRadius - (startRadius - endRadius) * progress;
+      final radius = startRadius - (startRadius - endRadius) * progress;
 
       final x = center.dx + cos(angle) * radius;
       final y = center.dy + sin(angle) * radius;

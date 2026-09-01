@@ -26,10 +26,17 @@ class SavedCardRow extends StatelessWidget {
               width: 40,
               height: 40,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.16), borderRadius: BorderRadius.circular(12)),
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.16),
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Text(
                 _brandLabel(card.brand),
-                style: AppTextStyles.caption.copyWith(fontSize: 9.5, fontWeight: FontWeight.w800, color: color),
+                style: AppTextStyles.caption.copyWith(
+                  fontSize: 9.5,
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                ),
               ),
             ),
             const SizedBox(width: 14),
@@ -39,7 +46,10 @@ class SavedCardRow extends StatelessWidget {
                 children: [
                   Text(
                     '**** **** **** ${card.last4}',
-                    style: AppTextStyles.body.copyWith(fontSize: 15, fontWeight: FontWeight.w600),
+                    style: AppTextStyles.body.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   if (card.expMonth > 0 && card.expYear > 0) ...[
                     const SizedBox(height: 2),
@@ -54,7 +64,11 @@ class SavedCardRow extends StatelessWidget {
             if (card.isDefault)
               const Padding(
                 padding: EdgeInsets.only(right: 8),
-                child: Icon(Icons.check_circle_outline, color: AppColors.primary, size: 18),
+                child: Icon(
+                  Icons.check_circle_outline,
+                  color: AppColors.primary,
+                  size: 18,
+                ),
               ),
             Icon(Icons.credit_card_outlined, color: color, size: 22),
           ],

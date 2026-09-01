@@ -5,5 +5,9 @@ class VipFeature {
   final String title;
   final String description;
 
-  const VipFeature({required this.icon, required this.title, required this.description});
+  const VipFeature({
+    required this.icon,
+    required this.title,
+    required this.description,
+  });
 }

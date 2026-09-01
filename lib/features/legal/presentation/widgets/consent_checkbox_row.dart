@@ -8,6 +8,8 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../app_config/presentation/providers/app_config_providers.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// "I have read and agree to the [Terms of Service] and [Privacy
 /// Policy]" — a controlled checkbox (parent owns [value]) with the two
 /// legal doc names as inline tappable links, opened the exact same way
@@ -25,7 +27,11 @@ class ConsentCheckboxRow extends ConsumerWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
 
-  const ConsentCheckboxRow({super.key, required this.value, required this.onChanged});
+  const ConsentCheckboxRow({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,7 +42,10 @@ class ConsentCheckboxRow extends ConsumerWidget {
       fontWeight: FontWeight.w700,
       decoration: TextDecoration.underline,
     );
-    final textStyle = AppTextStyles.caption.copyWith(color: AppColors.textSecondary, height: 1.4);
+    final textStyle = AppTextStyles.caption.copyWith(
+      color: AppColors.textSecondary,
+      height: 1.4,
+    );
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -52,8 +61,7 @@ class ConsentCheckboxRow extends ConsumerWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
+          child: Pressable(
             onTap: () => onChanged(!value),
             child: Text.rich(
               TextSpan(
@@ -64,8 +72,10 @@ class ConsentCheckboxRow extends ConsumerWidget {
                     text: loc.legalTermsOfServiceTitle,
                     style: linkStyle,
                     recognizer: TapGestureRecognizer()
-                      ..onTap = () =>
-                          launchUrl(Uri.parse(config.urlTermsOfService), mode: LaunchMode.externalApplication),
+                      ..onTap = () => launchUrl(
+                        Uri.parse(config.urlTermsOfService),
+                        mode: LaunchMode.externalApplication,
+                      ),
                   ),
                   TextSpan(text: loc.consentLinkSuffix),
                   TextSpan(text: loc.consentMiddle),
@@ -73,8 +83,10 @@ class ConsentCheckboxRow extends ConsumerWidget {
                     text: loc.legalPrivacyPolicyTitle,
                     style: linkStyle,
                     recognizer: TapGestureRecognizer()
-                      ..onTap = () =>
-                          launchUrl(Uri.parse(config.urlPrivacyPolicy), mode: LaunchMode.externalApplication),
+                      ..onTap = () => launchUrl(
+                        Uri.parse(config.urlPrivacyPolicy),
+                        mode: LaunchMode.externalApplication,
+                      ),
                   ),
                   TextSpan(text: loc.consentLinkSuffix),
                   TextSpan(text: loc.consentSuffix),

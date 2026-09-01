@@ -29,7 +29,9 @@ class FriendlyErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     logError(logContext, error, stackTrace);
     final loc = AppLocalizations.of(context);
-    final message = isPermissionDeniedError(error) ? loc.chatPermissionDeniedMessage : loc.chatLoadErrorMessage;
+    final message = isPermissionDeniedError(error)
+        ? loc.chatPermissionDeniedMessage
+        : loc.chatLoadErrorMessage;
 
     return Center(
       child: Padding(
@@ -37,9 +39,17 @@ class FriendlyErrorState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cloud_off_outlined, color: AppColors.textMuted, size: 36),
+            const Icon(
+              Icons.cloud_off_outlined,
+              color: AppColors.textMuted,
+              size: 36,
+            ),
             const SizedBox(height: 14),
-            Text(message, textAlign: TextAlign.center, style: AppTextStyles.caption.copyWith(height: 1.5)),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.caption.copyWith(height: 1.5),
+            ),
             if (onRetry != null) ...[
               const SizedBox(height: 16),
               TextButton(onPressed: onRetry, child: Text(loc.actionRetry)),

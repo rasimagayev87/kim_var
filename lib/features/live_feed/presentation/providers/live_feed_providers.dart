@@ -28,7 +28,9 @@ import '../../domain/entities/live_feed_item.dart';
 /// [LiveFeedController.stop], called from the screen's lifecycle
 /// hooks in the Faza 2 UI), keeps the steady-state read cost bounded
 /// regardless of how long someone leaves the tab open.
-final liveFeedServiceProvider = Provider<LiveFeedService>((ref) => LiveFeedService());
+final liveFeedServiceProvider = Provider<LiveFeedService>(
+  (ref) => LiveFeedService(),
+);
 
 /// Refresh cadence for everything except the audience section (Tədbir/
 /// Təklif/Boş yer/Doğum günü) — cheap, one geo-query each.
@@ -85,9 +87,12 @@ const liveFeedAudienceStaleAfter = Duration(minutes: 20);
 /// `LiveFeedService`'s per-section doc comments.
 const liveFeedFreshWindow = Duration(hours: 24);
 
-final liveFeedControllerProvider = StateNotifierProvider<LiveFeedController, AsyncValue<List<LiveFeedItem>>>((ref) {
-  return LiveFeedController(ref);
-});
+final liveFeedControllerProvider =
+    StateNotifierProvider<LiveFeedController, AsyncValue<List<LiveFeedItem>>>((
+      ref,
+    ) {
+      return LiveFeedController(ref);
+    });
 
 class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
   LiveFeedController(this._ref) : super(const AsyncValue.loading());
@@ -136,9 +141,14 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
     _venueSnapshotTimer?.cancel();
 
     unawaited(_runFastCycle(alsoRefreshAudience: true));
-    _fastTimer = Timer.periodic(liveFeedPollInterval, (_) => unawaited(_runFastCycle(alsoRefreshAudience: false)));
-    _venueSnapshotTimer =
-        Timer.periodic(liveFeedVenueSnapshotPollInterval, (_) => unawaited(_runVenueSnapshotCycle()));
+    _fastTimer = Timer.periodic(
+      liveFeedPollInterval,
+      (_) => unawaited(_runFastCycle(alsoRefreshAudience: false)),
+    );
+    _venueSnapshotTimer = Timer.periodic(
+      liveFeedVenueSnapshotPollInterval,
+      (_) => unawaited(_runVenueSnapshotCycle()),
+    );
   }
 
   /// Forces an immediate fetch on the current radius/mode without
@@ -171,8 +181,13 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
     // Canlı is inherently a "what's near me right this minute" tab, so
     // Ölkə/Dünya radius modes (which have no real "nearby" concept)
     // simply show nothing rather than something misleading.
-    if (selection.mode != DiscoverRadiusMode.distance || selection.km == null) return null;
-    return (lat: position.latitude, lng: position.longitude, radiusKm: selection.km!);
+    if (selection.mode != DiscoverRadiusMode.distance || selection.km == null)
+      return null;
+    return (
+      lat: position.latitude,
+      lng: position.longitude,
+      radiusKm: selection.km!,
+    );
   }
 
   /// Just the viewer's raw current position, independent of
@@ -196,7 +211,11 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
       var geoItems = <LiveFeedItem>[];
       List<LiveFeedVenueSnapshot>? venues;
       if (params != null) {
-        venues = await service.fetchVenueSnapshots(lat: params.lat, lng: params.lng, radiusKm: params.radiusKm);
+        venues = await service.fetchVenueSnapshots(
+          lat: params.lat,
+          lng: params.lng,
+          radiusKm: params.radiusKm,
+        );
         _lastVenues = venues;
         final categoryByVenueId = {for (final v in venues) v.id: v.category};
         final photoUrlByVenueId = {for (final v in venues) v.id: v.photoUrl};
@@ -218,7 +237,9 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
           // `myBirthdayOfferIdsProvider`. Usually an empty set (a user
           // has a birthday one day a year), so this costs a single
           // empty-collection read on the poll cycle.
-          myBirthdayOfferIds: await _ref.read(myBirthdayOfferIdsProvider.future),
+          myBirthdayOfferIds: await _ref.read(
+            myBirthdayOfferIdsProvider.future,
+          ),
           freshWindow: liveFeedFreshWindow,
           photoUrlByVenueId: photoUrlByVenueId,
         );
@@ -232,7 +253,8 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
       }
 
       var followedItems = <LiveFeedItem>[];
-      final followedVenueIds = _ref.read(myFollowedVenueIdsProvider).valueOrNull ?? const [];
+      final followedVenueIds =
+          _ref.read(myFollowedVenueIdsProvider).valueOrNull ?? const [];
       if (viewerPosition != null && followedVenueIds.isNotEmpty) {
         followedItems = await service.fetchFollowedVenueItems(
           followedVenueIds: followedVenueIds,
@@ -245,7 +267,8 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
       _followedVenueItems = followedItems;
       _emit();
 
-      if (alsoRefreshAudience && venues != null) unawaited(_runAudienceCycle(venues: venues));
+      if (alsoRefreshAudience && venues != null)
+        unawaited(_runAudienceCycle(venues: venues));
     } catch (e, st) {
       logError('live_feed_providers.runFastCycle', e, st);
       if (mounted) state = AsyncValue.error(e, st);
@@ -283,7 +306,12 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
         ...seatItems,
       ];
 
-      _upsertAudienceItems(service.audienceItemsFrom(venues, staleAfter: liveFeedAudienceStaleAfter));
+      _upsertAudienceItems(
+        service.audienceItemsFrom(
+          venues,
+          staleAfter: liveFeedAudienceStaleAfter,
+        ),
+      );
       _emit();
     } catch (e, st) {
       logError('live_feed_providers.runVenueSnapshotCycle', e, st);
@@ -300,11 +328,12 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
     // No fetch of its own any more: "Ətrafınızda" is now a pure
     // derivation from the venue snapshots, exactly like "Boş yer".
     _upsertAudienceItems(
-      _ref.read(liveFeedServiceProvider).audienceItemsFrom(rows, staleAfter: liveFeedAudienceStaleAfter),
+      _ref
+          .read(liveFeedServiceProvider)
+          .audienceItemsFrom(rows, staleAfter: liveFeedAudienceStaleAfter),
     );
     _emit();
   }
-
 
   /// A venue no longer in [fresh] (checkins dropped to 0, or it fell
   /// out of the nearest-30 cutoff) is dropped rather than left stale.
@@ -343,10 +372,15 @@ class LiveFeedController extends StateNotifier<AsyncValue<List<LiveFeedItem>>> {
     // before sorting, rather than trying to keep the two sources from
     // ever overlapping in the first place.
     final byId = <String, LiveFeedItem>{};
-    for (final item in [..._fastItems, ..._followedVenueItems, ..._audienceById.values]) {
+    for (final item in [
+      ..._fastItems,
+      ..._followedVenueItems,
+      ..._audienceById.values,
+    ]) {
       byId[item.id] = item;
     }
-    final merged = byId.values.toList()..sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    final merged = byId.values.toList()
+      ..sort((a, b) => b.timestamp.compareTo(a.timestamp));
     state = AsyncValue.data(merged);
   }
 

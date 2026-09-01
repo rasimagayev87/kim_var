@@ -33,7 +33,9 @@ class BlockedUsersScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: blockedAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
           error: (e, st) => FriendlyErrorState(
             logContext: 'blocked_users_screen.blockedUserIdsProvider',
             error: e,
@@ -47,7 +49,8 @@ class BlockedUsersScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               itemCount: ids.length,
               separatorBuilder: (_, _) => const SizedBox(height: 2),
-              itemBuilder: (context, index) => _BlockedUserTile(uid: ids[index]),
+              itemBuilder: (context, index) =>
+                  _BlockedUserTile(uid: ids[index]),
             );
           },
         ),
@@ -77,9 +80,13 @@ class _BlockedUserTileState extends ConsumerState<_BlockedUserTile> {
     if (myUid == null) return;
 
     try {
-      await ref.read(unblockUserUseCaseProvider).call(myUid: myUid, blockedUid: widget.uid);
+      await ref
+          .read(unblockUserUseCaseProvider)
+          .call(myUid: myUid, blockedUid: widget.uid);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatUserUnblockedNotice)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.chatUserUnblockedNotice)));
       // No need to setState(_unblocking = false) on success — this uid
       // drops out of blockedUserIdsProvider and the tile is removed from
       // the list entirely by the parent's rebuild.
@@ -87,7 +94,9 @@ class _BlockedUserTileState extends ConsumerState<_BlockedUserTile> {
       logError('blocked_users_screen.unblock', e, st);
       if (!mounted) return;
       setState(() => _unblocking = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatRequestActionErrorMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.chatRequestActionErrorMessage)),
+      );
     }
   }
 
@@ -96,7 +105,9 @@ class _BlockedUserTileState extends ConsumerState<_BlockedUserTile> {
     final loc = AppLocalizations.of(context);
     final peerAsync = ref.watch(publicProfileProvider(widget.uid));
     final peer = peerAsync.valueOrNull;
-    final displayName = (peer?.name ?? '').isEmpty ? loc.defaultUserName : peer!.name;
+    final displayName = (peer?.name ?? '').isEmpty
+        ? loc.defaultUserName
+        : peer!.name;
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -105,28 +116,47 @@ class _BlockedUserTileState extends ConsumerState<_BlockedUserTile> {
           CircleAvatar(
             radius: 24,
             backgroundColor: AppColors.card,
-            backgroundImage: peer?.photoUrl != null ? NetworkImage(peer!.photoUrl!) : null,
-            child: peer?.photoUrl == null ? const Icon(Icons.person_outline, color: AppColors.textSecondary) : null,
+            backgroundImage: peer?.photoUrl != null
+                ? NetworkImage(peer!.photoUrl!)
+                : null,
+            child: peer?.photoUrl == null
+                ? const Icon(
+                    Icons.person_outline,
+                    color: AppColors.textSecondary,
+                  )
+                : null,
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Text(
               displayName,
-              style: AppTextStyles.body.copyWith(fontSize: 15.5, fontWeight: FontWeight.w600),
+              style: AppTextStyles.body.copyWith(
+                fontSize: 15.5,
+                fontWeight: FontWeight.w600,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(width: 8),
           OutlinedButton(
             onPressed: _unblocking ? null : _unblock,
-            style: OutlinedButton.styleFrom(minimumSize: const Size(0, 38), padding: const EdgeInsets.symmetric(horizontal: 16)),
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size(0, 38),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
             child: _unblocking
                 ? const SizedBox(
                     width: 16,
                     height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppColors.primary,
+                    ),
                   )
-                : Text(loc.chatMenuUnblock, style: const TextStyle(fontSize: 13)),
+                : Text(
+                    loc.chatMenuUnblock,
+                    style: const TextStyle(fontSize: 13),
+                  ),
           ),
         ],
       ),
@@ -150,8 +180,15 @@ class _EmptyState extends StatelessWidget {
             Container(
               width: 96,
               height: 96,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.surface),
-              child: const Icon(Icons.block_outlined, color: AppColors.textSecondary, size: 40),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.surface,
+              ),
+              child: const Icon(
+                Icons.block_outlined,
+                color: AppColors.textSecondary,
+                size: 40,
+              ),
             ),
             const SizedBox(height: 24),
             Text(loc.blockedUsersEmptyTitle, style: AppTextStyles.cardTitle),

@@ -13,7 +13,14 @@ class UploadProfilePhotoUseCase {
   /// security rule for `profile_photos/{userId}/{fileName}`.
   static const maxFileSizeBytes = 5 * 1024 * 1024;
 
-  static const _allowedExtensions = {'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'};
+  static const _allowedExtensions = {
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+    'heic',
+    'heif',
+  };
 
   Future<String> call({
     required String userId,
@@ -21,19 +28,31 @@ class UploadProfilePhotoUseCase {
     void Function(double progress)? onProgress,
   }) async {
     if (userId.isEmpty) {
-      throw const StorageException(StorageFailure.unauthenticated, 'İstifadəçi daxil olmayıb.');
+      throw const StorageException(
+        StorageFailure.unauthenticated,
+        'İstifadəçi daxil olmayıb.',
+      );
     }
 
     if (!await file.exists()) {
-      throw const StorageException(StorageFailure.uploadFailed, 'Şəkil faylı tapılmadı.');
+      throw const StorageException(
+        StorageFailure.uploadFailed,
+        'Şəkil faylı tapılmadı.',
+      );
     }
 
     final sizeBytes = await file.length();
     if (sizeBytes > maxFileSizeBytes) {
-      throw const StorageException(StorageFailure.fileTooLarge, 'Şəkil 5MB-dan böyük ola bilməz.');
+      throw const StorageException(
+        StorageFailure.fileTooLarge,
+        'Şəkil 5MB-dan böyük ola bilməz.',
+      );
     }
     if (sizeBytes == 0) {
-      throw const StorageException(StorageFailure.uploadFailed, 'Şəkil faylı boşdur.');
+      throw const StorageException(
+        StorageFailure.uploadFailed,
+        'Şəkil faylı boşdur.',
+      );
     }
 
     final extension = file.path.split('.').last.toLowerCase();
@@ -53,7 +72,11 @@ class UploadProfilePhotoUseCase {
     } on StorageException {
       rethrow;
     } catch (e) {
-      throw StorageException(StorageFailure.uploadFailed, 'Şəkil yüklənə bilmədi.', cause: e);
+      throw StorageException(
+        StorageFailure.uploadFailed,
+        'Şəkil yüklənə bilmədi.',
+        cause: e,
+      );
     }
   }
 }

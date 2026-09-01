@@ -25,7 +25,9 @@ class ChangeEmailSheet extends ConsumerStatefulWidget {
 }
 
 class _ChangeEmailSheetState extends ConsumerState<ChangeEmailSheet> {
-  late final _emailController = TextEditingController(text: widget.currentEmail ?? '');
+  late final _emailController = TextEditingController(
+    text: widget.currentEmail ?? '',
+  );
   bool _saving = false;
 
   @override
@@ -38,7 +40,9 @@ class _ChangeEmailSheetState extends ConsumerState<ChangeEmailSheet> {
     final email = _emailController.text.trim();
     final loc = AppLocalizations.of(context);
     if (!_emailPattern.hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.accountEmailInvalidError)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.accountEmailInvalidError)));
       return;
     }
 
@@ -54,7 +58,9 @@ class _ChangeEmailSheetState extends ConsumerState<ChangeEmailSheet> {
         context: context,
         isScrollControlled: true,
         backgroundColor: AppColors.surface,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
         builder: (_) => const ReauthSheet(),
       );
       if (reauthed == true && mounted) await _save();
@@ -62,7 +68,9 @@ class _ChangeEmailSheetState extends ConsumerState<ChangeEmailSheet> {
       logError('change_email_sheet', e, st);
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.deleteAccountErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.deleteAccountErrorMessage)));
     }
   }
 
@@ -73,14 +81,27 @@ class _ChangeEmailSheetState extends ConsumerState<ChangeEmailSheet> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(loc.accountChangeEmailSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              loc.accountChangeEmailSheetTitle,
+              style: AppTextStyles.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 6),
-            Text(loc.accountChangeEmailSheetSubtitle, style: AppTextStyles.caption.copyWith(height: 1.4)),
+            Text(
+              loc.accountChangeEmailSheetSubtitle,
+              style: AppTextStyles.caption.copyWith(height: 1.4),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: _emailController,
@@ -93,7 +114,14 @@ class _ChangeEmailSheetState extends ConsumerState<ChangeEmailSheet> {
             ElevatedButton(
               onPressed: _saving ? null : _save,
               child: _saving
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent))
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.onAccent,
+                      ),
+                    )
                   : Text(loc.eventSaveButton),
             ),
           ],

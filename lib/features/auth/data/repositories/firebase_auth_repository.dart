@@ -28,15 +28,16 @@ class FirebaseAuthRepository implements AuthRepository {
     FirebaseFirestore? firestore,
     FirebaseFunctions? functions,
     GoogleSignIn? googleSignIn,
-  })  : _auth = auth ?? fb.FirebaseAuth.instance,
-        _firestore = firestore ?? FirebaseFirestore.instance,
-        _functions = functions ?? FirebaseFunctions.instance,
-        _googleSignIn = googleSignIn ?? GoogleSignIn();
+  }) : _auth = auth ?? fb.FirebaseAuth.instance,
+       _firestore = firestore ?? FirebaseFirestore.instance,
+       _functions = functions ?? FirebaseFunctions.instance,
+       _googleSignIn = googleSignIn ?? GoogleSignIn();
 
   final _controller = StreamController<AppUser?>.broadcast();
   bool _needsOnboarding = false;
 
-  CollectionReference<Map<String, dynamic>> get _usernames => _firestore.collection('usernames');
+  CollectionReference<Map<String, dynamic>> get _usernames =>
+      _firestore.collection('usernames');
 
   @override
   bool get needsOnboarding => _needsOnboarding;
@@ -89,7 +90,9 @@ class FirebaseAuthRepository implements AuthRepository {
     // `phoneNumber`/`birthDate`/`gender` moved to `users/{uid}/private/
     // data` (Düzəliş Prompt 4) — this is a self-read (the signed-in
     // user's own doc), always allowed.
-    final privateData = (await privateDataRef(user.uid, firestore: _firestore).get()).data() ?? {};
+    final privateData =
+        (await privateDataRef(user.uid, firestore: _firestore).get()).data() ??
+        {};
 
     unawaited(_maybeWriteVersionTelemetry(user.uid, privateData));
 
@@ -116,7 +119,10 @@ class FirebaseAuthRepository implements AuthRepository {
   /// view, planned separately) that the post-launch backward-
   /// compatibility policy depends on to decide when it's safe to drop a
   /// legacy field — best-effort, never surfaced as an error to the caller.
-  Future<void> _maybeWriteVersionTelemetry(String uid, Map<String, dynamic> existingPrivateData) async {
+  Future<void> _maybeWriteVersionTelemetry(
+    String uid,
+    Map<String, dynamic> existingPrivateData,
+  ) async {
     try {
       final info = await PackageInfo.fromPlatform();
       final currentVersion = info.version;
@@ -124,7 +130,9 @@ class FirebaseAuthRepository implements AuthRepository {
       final storedVersion = existingPrivateData['appVersion'] as String?;
       final storedLastSeenAt = existingPrivateData['lastSeenAt'] as Timestamp?;
       final staleByTime =
-          storedLastSeenAt == null || DateTime.now().difference(storedLastSeenAt.toDate()) > const Duration(hours: 24);
+          storedLastSeenAt == null ||
+          DateTime.now().difference(storedLastSeenAt.toDate()) >
+              const Duration(hours: 24);
 
       if (storedVersion == currentVersion && !staleByTime) return;
 
@@ -175,7 +183,10 @@ class FirebaseAuthRepository implements AuthRepository {
   @override
   Future<(AppUser, bool)> signInWithApple() async {
     final appleCredential = await SignInWithApple.getAppleIDCredential(
-      scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+      scopes: [
+        AppleIDAuthorizationScopes.email,
+        AppleIDAuthorizationScopes.fullName,
+      ],
     );
     final oauthCredential = fb.OAuthProvider('apple.com').credential(
       idToken: appleCredential.identityToken,
@@ -201,14 +212,26 @@ class FirebaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<(AppUser, bool)> signInWithEmailPassword(String email, String password) async {
-    final result = await _auth.signInWithEmailAndPassword(email: email.trim(), password: password);
+  Future<(AppUser, bool)> signInWithEmailPassword(
+    String email,
+    String password,
+  ) async {
+    final result = await _auth.signInWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
     return _afterSignIn(result.user!);
   }
 
   @override
-  Future<(AppUser, bool)> registerWithEmailPassword(String email, String password) async {
-    final result = await _auth.createUserWithEmailAndPassword(email: email.trim(), password: password);
+  Future<(AppUser, bool)> registerWithEmailPassword(
+    String email,
+    String password,
+  ) async {
+    final result = await _auth.createUserWithEmailAndPassword(
+      email: email.trim(),
+      password: password,
+    );
     // Best-effort: nothing today actually confirms the typed address is
     // real/owned by this person (Apple/Google sign-in don't have this
     // gap — those emails are already provider-verified). A failed send
@@ -227,7 +250,9 @@ class FirebaseAuthRepository implements AuthRepository {
   Future<void> resendEmailVerification() async {
     final user = _auth.currentUser;
     if (user == null) {
-      throw StateError('E-poçt təsdiqini yenidən göndərmək üçün giriş edilməlidir.');
+      throw StateError(
+        'E-poçt təsdiqini yenidən göndərmək üçün giriş edilməlidir.',
+      );
     }
     await user.sendEmailVerification();
   }
@@ -276,29 +301,32 @@ class FirebaseAuthRepository implements AuthRepository {
     // idempotent — a retried call after a dropped response is a no-op
     // success, not a duplicate-create error.
     try {
-      await _functions.httpsCallable('completeOnboarding', options: callableOptions()).call<Map<String, dynamic>>({
-        'username': normalizedUsername,
-        'firstName': firstName,
-        'lastName': lastName,
-        'birthDateMs': birthDate.millisecondsSinceEpoch,
-        'gender': gender,
-        'country': country,
-        'city': city,
-        'phoneNumber': phoneNumber,
-        'businessStatus': businessStatus,
-        'bio': bio ?? '',
-        // The consent checkbox that gates the sign-in screen's 3
-        // provider buttons (AuthScreen) already confirmed acceptance of
-        // the CURRENT legal doc versions before this session's sign-in
-        // even started — nothing else could have reached this point.
-        'termsVersion': kCurrentTermsVersion,
-        'privacyVersion': kCurrentPrivacyVersion,
-      });
+      await _functions
+          .httpsCallable('completeOnboarding', options: callableOptions())
+          .call<Map<String, dynamic>>({
+            'username': normalizedUsername,
+            'firstName': firstName,
+            'lastName': lastName,
+            'birthDateMs': birthDate.millisecondsSinceEpoch,
+            'gender': gender,
+            'country': country,
+            'city': city,
+            'phoneNumber': phoneNumber,
+            'businessStatus': businessStatus,
+            'bio': bio ?? '',
+            // The consent checkbox that gates the sign-in screen's 3
+            // provider buttons (AuthScreen) already confirmed acceptance of
+            // the CURRENT legal doc versions before this session's sign-in
+            // even started — nothing else could have reached this point.
+            'termsVersion': kCurrentTermsVersion,
+            'privacyVersion': kCurrentPrivacyVersion,
+          });
     } on FirebaseFunctionsException catch (e) {
       if (e.code == 'failed-precondition') {
         throw const UnderageOnboardingException();
       }
-      if (errorCodeIs(e.code, 'permission-denied') && e.message == 'email-not-verified') {
+      if (errorCodeIs(e.code, 'permission-denied') &&
+          e.message == 'email-not-verified') {
         throw const EmailNotVerifiedException();
       }
       rethrow;

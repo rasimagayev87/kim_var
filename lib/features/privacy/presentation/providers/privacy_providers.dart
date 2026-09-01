@@ -24,47 +24,75 @@ import '../../domain/usecases/update_two_factor_enabled_usecase.dart';
 import '../../domain/usecases/update_visibility_radius_usecase.dart';
 import '../../domain/usecases/update_who_can_message_me_usecase.dart';
 
-final privacySettingsRepositoryProvider = Provider<PrivacySettingsRepository>((ref) {
+final privacySettingsRepositoryProvider = Provider<PrivacySettingsRepository>((
+  ref,
+) {
   return FirebasePrivacySettingsRepository();
 });
 
-final updateProfileVisibilityUseCaseProvider = Provider<UpdateProfileVisibilityUseCase>((ref) {
-  return UpdateProfileVisibilityUseCase(ref.watch(privacySettingsRepositoryProvider));
-});
+final updateProfileVisibilityUseCaseProvider =
+    Provider<UpdateProfileVisibilityUseCase>((ref) {
+      return UpdateProfileVisibilityUseCase(
+        ref.watch(privacySettingsRepositoryProvider),
+      );
+    });
 
-final updateAccountPrivacyUseCaseProvider = Provider<UpdateAccountPrivacyUseCase>((ref) {
-  return UpdateAccountPrivacyUseCase(ref.watch(privacySettingsRepositoryProvider));
-});
+final updateAccountPrivacyUseCaseProvider =
+    Provider<UpdateAccountPrivacyUseCase>((ref) {
+      return UpdateAccountPrivacyUseCase(
+        ref.watch(privacySettingsRepositoryProvider),
+      );
+    });
 
-final updateVisibilityRadiusUseCaseProvider = Provider<UpdateVisibilityRadiusUseCase>((ref) {
-  return UpdateVisibilityRadiusUseCase(ref.watch(privacySettingsRepositoryProvider));
-});
+final updateVisibilityRadiusUseCaseProvider =
+    Provider<UpdateVisibilityRadiusUseCase>((ref) {
+      return UpdateVisibilityRadiusUseCase(
+        ref.watch(privacySettingsRepositoryProvider),
+      );
+    });
 
-final updateShowReadReceiptsUseCaseProvider = Provider<UpdateShowReadReceiptsUseCase>((ref) {
-  return UpdateShowReadReceiptsUseCase(ref.watch(privacySettingsRepositoryProvider));
-});
+final updateShowReadReceiptsUseCaseProvider =
+    Provider<UpdateShowReadReceiptsUseCase>((ref) {
+      return UpdateShowReadReceiptsUseCase(
+        ref.watch(privacySettingsRepositoryProvider),
+      );
+    });
 
-final updateWhoCanMessageMeUseCaseProvider = Provider<UpdateWhoCanMessageMeUseCase>((ref) {
-  return UpdateWhoCanMessageMeUseCase(ref.watch(privacySettingsRepositoryProvider));
-});
+final updateWhoCanMessageMeUseCaseProvider =
+    Provider<UpdateWhoCanMessageMeUseCase>((ref) {
+      return UpdateWhoCanMessageMeUseCase(
+        ref.watch(privacySettingsRepositoryProvider),
+      );
+    });
 
-final updateTwoFactorEnabledUseCaseProvider = Provider<UpdateTwoFactorEnabledUseCase>((ref) {
-  return UpdateTwoFactorEnabledUseCase(ref.watch(privacySettingsRepositoryProvider));
-});
+final updateTwoFactorEnabledUseCaseProvider =
+    Provider<UpdateTwoFactorEnabledUseCase>((ref) {
+      return UpdateTwoFactorEnabledUseCase(
+        ref.watch(privacySettingsRepositoryProvider),
+      );
+    });
 
 final updateGhostModeUseCaseProvider = Provider<UpdateGhostModeUseCase>((ref) {
   return UpdateGhostModeUseCase(ref.watch(privacySettingsRepositoryProvider));
 });
 
-final updateBirthdayOffersOptInUseCaseProvider = Provider<UpdateBirthdayOffersOptInUseCase>((ref) {
-  return UpdateBirthdayOffersOptInUseCase(ref.watch(privacySettingsRepositoryProvider));
-});
+final updateBirthdayOffersOptInUseCaseProvider =
+    Provider<UpdateBirthdayOffersOptInUseCase>((ref) {
+      return UpdateBirthdayOffersOptInUseCase(
+        ref.watch(privacySettingsRepositoryProvider),
+      );
+    });
 
-final updateIncognitoBrowsingUseCaseProvider = Provider<UpdateIncognitoBrowsingUseCase>((ref) {
-  return UpdateIncognitoBrowsingUseCase(ref.watch(privacySettingsRepositoryProvider));
-});
+final updateIncognitoBrowsingUseCaseProvider =
+    Provider<UpdateIncognitoBrowsingUseCase>((ref) {
+      return UpdateIncognitoBrowsingUseCase(
+        ref.watch(privacySettingsRepositoryProvider),
+      );
+    });
 
-final accountRepositoryProvider = Provider<AccountRepository>((ref) => FirebaseAccountRepository());
+final accountRepositoryProvider = Provider<AccountRepository>(
+  (ref) => FirebaseAccountRepository(),
+);
 
 final deleteAccountUseCaseProvider = Provider<DeleteAccountUseCase>((ref) {
   return DeleteAccountUseCase(ref.watch(accountRepositoryProvider));
@@ -76,7 +104,9 @@ final exportUserDataUseCaseProvider = Provider<ExportUserDataUseCase>((ref) {
 
 String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
 
-final privacySettingsProvider = StreamProvider.autoDispose<PrivacySettings>((ref) {
+final privacySettingsProvider = StreamProvider.autoDispose<PrivacySettings>((
+  ref,
+) {
   // Was a plain (non-autoDispose) StreamProvider — the only one of
   // its siblings in this file that was, and with no watch on
   // authStateProvider either, meaning it never rebuilt on a sign-out
@@ -96,9 +126,10 @@ final privacySettingsProvider = StreamProvider.autoDispose<PrivacySettings>((ref
 
 /// Same data, for an arbitrary OTHER user — what `UserProfileScreen`
 /// reads to decide whether it's allowed to show that person's media.
-final otherUserPrivacySettingsProvider = StreamProvider.autoDispose.family<PrivacySettings, String>((ref, uid) {
-  return ref.watch(privacySettingsRepositoryProvider).watchSettings(uid);
-});
+final otherUserPrivacySettingsProvider = StreamProvider.autoDispose
+    .family<PrivacySettings, String>((ref, uid) {
+      return ref.watch(privacySettingsRepositoryProvider).watchSettings(uid);
+    });
 
 /// Every write from the Privacy & Security screen goes through here.
 /// Never throws — same "log internally, tell the user one friendly
@@ -110,39 +141,78 @@ class PrivacySettingsController {
   final Ref _ref;
 
   Future<bool> updateProfileVisibility(ProfileVisibility visibility) {
-    return _run((uid) => _ref.read(updateProfileVisibilityUseCaseProvider).call(uid: uid, visibility: visibility));
+    return _run(
+      (uid) => _ref
+          .read(updateProfileVisibilityUseCaseProvider)
+          .call(uid: uid, visibility: visibility),
+    );
   }
 
   Future<bool> updateAccountPrivacy(AccountPrivacy privacy) {
-    return _run((uid) => _ref.read(updateAccountPrivacyUseCaseProvider).call(uid: uid, privacy: privacy));
+    return _run(
+      (uid) => _ref
+          .read(updateAccountPrivacyUseCaseProvider)
+          .call(uid: uid, privacy: privacy),
+    );
   }
 
-  Future<bool> updateVisibilityRadius(VisibilityRadiusMode mode, {double? radiusKm}) {
-    return _run((uid) => _ref.read(updateVisibilityRadiusUseCaseProvider).call(uid: uid, mode: mode, radiusKm: radiusKm));
+  Future<bool> updateVisibilityRadius(
+    VisibilityRadiusMode mode, {
+    double? radiusKm,
+  }) {
+    return _run(
+      (uid) => _ref
+          .read(updateVisibilityRadiusUseCaseProvider)
+          .call(uid: uid, mode: mode, radiusKm: radiusKm),
+    );
   }
 
   Future<bool> updateShowReadReceipts(bool show) {
-    return _run((uid) => _ref.read(updateShowReadReceiptsUseCaseProvider).call(uid: uid, show: show));
+    return _run(
+      (uid) => _ref
+          .read(updateShowReadReceiptsUseCaseProvider)
+          .call(uid: uid, show: show),
+    );
   }
 
   Future<bool> updateWhoCanMessageMe(WhoCanMessageMe value) {
-    return _run((uid) => _ref.read(updateWhoCanMessageMeUseCaseProvider).call(uid: uid, value: value));
+    return _run(
+      (uid) => _ref
+          .read(updateWhoCanMessageMeUseCaseProvider)
+          .call(uid: uid, value: value),
+    );
   }
 
   Future<bool> updateTwoFactorEnabled(bool enabled) {
-    return _run((uid) => _ref.read(updateTwoFactorEnabledUseCaseProvider).call(uid: uid, enabled: enabled));
+    return _run(
+      (uid) => _ref
+          .read(updateTwoFactorEnabledUseCaseProvider)
+          .call(uid: uid, enabled: enabled),
+    );
   }
 
   Future<bool> updateGhostMode(bool enabled) {
-    return _run((uid) => _ref.read(updateGhostModeUseCaseProvider).call(uid: uid, enabled: enabled));
+    return _run(
+      (uid) => _ref
+          .read(updateGhostModeUseCaseProvider)
+          .call(uid: uid, enabled: enabled),
+    );
   }
 
   Future<bool> updateBirthdayOffersOptIn(bool enabled) {
-    return _run((uid) => _ref.read(updateBirthdayOffersOptInUseCaseProvider).call(uid: uid, enabled: enabled));
+    return _run(
+      (uid) => _ref
+          .read(updateBirthdayOffersOptInUseCaseProvider)
+          .call(uid: uid, enabled: enabled),
+    );
   }
 
   Future<bool> updateIncognitoBrowsing(bool enabled) {
-    return _run((uid) => _ref.read(updateIncognitoBrowsingUseCaseProvider).call(uid: uid, enabled: enabled));
+    return _run(
+      (uid) => _ref
+          .read(updateIncognitoBrowsingUseCaseProvider)
+          .call(uid: uid, enabled: enabled),
+    );
   }
 
   Future<bool> _run(Future<void> Function(String uid) action) async {
@@ -158,7 +228,9 @@ class PrivacySettingsController {
   }
 }
 
-final privacySettingsControllerProvider = Provider<PrivacySettingsController>((ref) {
+final privacySettingsControllerProvider = Provider<PrivacySettingsController>((
+  ref,
+) {
   return PrivacySettingsController(ref);
 });
 
@@ -199,7 +271,9 @@ class AccountController {
   }
 
   Future<void> reauthenticateWithPassword(String password) {
-    return _ref.read(accountRepositoryProvider).reauthenticateWithPassword(password);
+    return _ref
+        .read(accountRepositoryProvider)
+        .reauthenticateWithPassword(password);
   }
 
   /// Sends the confirmation link — see [AccountRepository.updateEmail].
@@ -215,16 +289,22 @@ class AccountController {
   }
 }
 
-final accountControllerProvider = Provider<AccountController>((ref) => AccountController(ref));
+final accountControllerProvider = Provider<AccountController>(
+  (ref) => AccountController(ref),
+);
 
-final deviceSessionRepositoryProvider = Provider<DeviceSessionRepository>((ref) {
+final deviceSessionRepositoryProvider = Provider<DeviceSessionRepository>((
+  ref,
+) {
   return FirebaseDeviceSessionRepository();
 });
 
 /// "Aktiv cihazlar" list. [touchOwnSessionProvider] is what keeps the
 /// current device's own entry in this list fresh — this provider only
 /// watches, it doesn't write.
-final deviceSessionsProvider = StreamProvider.autoDispose<List<DeviceSession>>((ref) {
+final deviceSessionsProvider = StreamProvider.autoDispose<List<DeviceSession>>((
+  ref,
+) {
   // See privacySettingsProvider's doc comment above — same
   // sign-out-then-different-account resurrection bug, here surfacing
   // as a real permission-denied (users/{oldUid}/sessions) instead of
@@ -247,7 +327,11 @@ class DeviceSessionController {
     try {
       await _ref.read(deviceSessionRepositoryProvider).touchCurrentSession(uid);
     } catch (e, st) {
-      logError('privacy_providers.DeviceSessionController.touchCurrentSession', e, st);
+      logError(
+        'privacy_providers.DeviceSessionController.touchCurrentSession',
+        e,
+        st,
+      );
     }
   }
 
@@ -260,13 +344,21 @@ class DeviceSessionController {
     final uid = _currentUid();
     if (uid == null) return false;
     try {
-      await _ref.read(deviceSessionRepositoryProvider).removeSession(uid, sessionId);
+      await _ref
+          .read(deviceSessionRepositoryProvider)
+          .removeSession(uid, sessionId);
       return true;
     } catch (e, st) {
-      logError('privacy_providers.DeviceSessionController.removeSession', e, st);
+      logError(
+        'privacy_providers.DeviceSessionController.removeSession',
+        e,
+        st,
+      );
       return false;
     }
   }
 }
 
-final deviceSessionControllerProvider = Provider<DeviceSessionController>((ref) => DeviceSessionController(ref));
+final deviceSessionControllerProvider = Provider<DeviceSessionController>(
+  (ref) => DeviceSessionController(ref),
+);

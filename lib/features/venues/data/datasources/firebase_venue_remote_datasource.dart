@@ -147,7 +147,9 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
   @override
   Future<void> deleteVenuePhoto(String ownerId, String venueId) async {
     try {
-      await deleteWithResizedVariant(_storage.ref('venue_photos/$ownerId/$venueId.jpg'));
+      await deleteWithResizedVariant(
+        _storage.ref('venue_photos/$ownerId/$venueId.jpg'),
+      );
     } on FirebaseException catch (e) {
       if (e.code != 'object-not-found') rethrow;
     }
@@ -198,7 +200,9 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
     return _venues
         .doc(venueId)
         .snapshots()
-        .map((snap) => (snap.data()?['visibleCheckinCount'] as num?)?.toInt() ?? 0);
+        .map(
+          (snap) => (snap.data()?['visibleCheckinCount'] as num?)?.toInt() ?? 0,
+        );
   }
 
   @override
@@ -223,7 +227,9 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
       tx.set(_activeCheckins(venueId).doc(uid), {
         'createdAt': FieldValue.serverTimestamp(),
       });
-      tx.set(privateRef, {'activeCheckinVenueId': venueId}, SetOptions(merge: true));
+      tx.set(privateRef, {
+        'activeCheckinVenueId': venueId,
+      }, SetOptions(merge: true));
     });
   }
 
@@ -235,7 +241,9 @@ class FirebaseVenueRemoteDatasource implements VenueRemoteDatasource {
       final venueId = privateSnap.data()?['activeCheckinVenueId'] as String?;
       if (venueId == null) return;
       tx.delete(_activeCheckins(venueId).doc(uid));
-      tx.set(privateRef, {'activeCheckinVenueId': null}, SetOptions(merge: true));
+      tx.set(privateRef, {
+        'activeCheckinVenueId': null,
+      }, SetOptions(merge: true));
     });
   }
 }

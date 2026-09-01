@@ -16,10 +16,12 @@ class AppConfigLifecycleObserver extends ConsumerStatefulWidget {
   final Widget child;
 
   @override
-  ConsumerState<AppConfigLifecycleObserver> createState() => _AppConfigLifecycleObserverState();
+  ConsumerState<AppConfigLifecycleObserver> createState() =>
+      _AppConfigLifecycleObserverState();
 }
 
-class _AppConfigLifecycleObserverState extends ConsumerState<AppConfigLifecycleObserver>
+class _AppConfigLifecycleObserverState
+    extends ConsumerState<AppConfigLifecycleObserver>
     with WidgetsBindingObserver {
   @override
   void initState() {

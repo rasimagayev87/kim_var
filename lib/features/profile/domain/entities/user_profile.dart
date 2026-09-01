@@ -104,7 +104,8 @@ class UserProfile {
   /// See `isRecentlyOnline`'s doc comment — [online] alone can't be
   /// trusted (a force-quit/crash can leave it stuck `true`), so this
   /// also checks how fresh [lastSeen] is.
-  bool get isRecentlyActive => isRecentlyOnline(online: online, lastSeen: lastSeen);
+  bool get isRecentlyActive =>
+      isRecentlyOnline(online: online, lastSeen: lastSeen);
 
   /// Whether venue/offer creation UI should be shown — true for
   /// `kBusinessStatusActive` AND for a null/absent field (accounts

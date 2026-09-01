@@ -18,7 +18,11 @@ class PhotoPlaceholderPattern extends StatelessWidget {
         children: [
           CustomPaint(painter: _DiagonalPatternPainter()),
           Center(
-            child: Icon(Icons.person_rounded, size: 88, color: Color(0x1AFFFFFF)),
+            child: Icon(
+              Icons.person_rounded,
+              size: 88,
+              color: Color(0x1AFFFFFF),
+            ),
           ),
         ],
       ),
@@ -36,7 +40,11 @@ class _DiagonalPatternPainter extends CustomPainter {
       ..strokeWidth = 1.4;
     const spacing = 18.0;
     for (double x = -size.height; x < size.width; x += spacing) {
-      canvas.drawLine(Offset(x, size.height), Offset(x + size.height, 0), paint);
+      canvas.drawLine(
+        Offset(x, size.height),
+        Offset(x + size.height, 0),
+        paint,
+      );
     }
   }
 

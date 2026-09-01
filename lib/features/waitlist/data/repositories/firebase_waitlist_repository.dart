@@ -7,9 +7,11 @@ import '../../domain/repositories/waitlist_repository.dart';
 import '../../../../core/utils/callables.dart';
 
 class FirebaseWaitlistRepository implements WaitlistRepository {
-  FirebaseWaitlistRepository({FirebaseFirestore? firestore, FirebaseFunctions? functions})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _functions = functions ?? FirebaseFunctions.instance;
+  FirebaseWaitlistRepository({
+    FirebaseFirestore? firestore,
+    FirebaseFunctions? functions,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _functions = functions ?? FirebaseFunctions.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
@@ -25,23 +27,42 @@ class FirebaseWaitlistRepository implements WaitlistRepository {
     required String phoneNumber,
     String? note,
   }) async {
-    final result = await _functions.httpsCallable('joinWaitlist', options: callableOptions()).call<Map<String, dynamic>>({
-      'venueId': venueId,
-      'partySize': partySize,
-      'phoneNumber': phoneNumber,
-      if (note != null) 'note': note,
-    });
+    final result = await _functions
+        .httpsCallable('joinWaitlist', options: callableOptions())
+        .call<Map<String, dynamic>>({
+          'venueId': venueId,
+          'partySize': partySize,
+          'phoneNumber': phoneNumber,
+          if (note != null) 'note': note,
+        });
     return result.data['entryId'] as String;
   }
 
   @override
-  Stream<WaitlistEntry?> watchMyEntry({required String venueId, required String userId}) {
+  Stream<WaitlistEntry?> watchMyEntry({
+    required String venueId,
+    required String userId,
+  }) {
     return _waitlist(venueId)
         .where('userId', isEqualTo: userId)
-        .where('status', whereIn: [WaitlistEntryStatus.waiting.name, WaitlistEntryStatus.called.name])
+        .where(
+          'status',
+          whereIn: [
+            WaitlistEntryStatus.waiting.name,
+            WaitlistEntryStatus.called.name,
+          ],
+        )
         .limit(1)
         .snapshots()
-        .map((snap) => snap.docs.isEmpty ? null : WaitlistEntry.fromFirestore(snap.docs.first.id, venueId, snap.docs.first.data()));
+        .map(
+          (snap) => snap.docs.isEmpty
+              ? null
+              : WaitlistEntry.fromFirestore(
+                  snap.docs.first.id,
+                  venueId,
+                  snap.docs.first.data(),
+                ),
+        );
   }
 
   @override
@@ -51,26 +72,49 @@ class FirebaseWaitlistRepository implements WaitlistRepository {
     // buttons) until it resolves to seated/no_show, even though it's
     // no longer counted in `queuePosition`.
     return _waitlist(venueId)
-        .where('status', whereIn: [WaitlistEntryStatus.waiting.name, WaitlistEntryStatus.called.name])
+        .where(
+          'status',
+          whereIn: [
+            WaitlistEntryStatus.waiting.name,
+            WaitlistEntryStatus.called.name,
+          ],
+        )
         .orderBy('joinedAt')
         .snapshots()
-        .map((snap) => snap.docs.map((d) => WaitlistEntry.fromFirestore(d.id, venueId, d.data())).toList());
+        .map(
+          (snap) => snap.docs
+              .map((d) => WaitlistEntry.fromFirestore(d.id, venueId, d.data()))
+              .toList(),
+        );
   }
 
   @override
-  Stream<WaitlistEntry?> watchMyLatestSeatedEntry({required String venueId, required String userId}) {
+  Stream<WaitlistEntry?> watchMyLatestSeatedEntry({
+    required String venueId,
+    required String userId,
+  }) {
     return _waitlist(venueId)
         .where('userId', isEqualTo: userId)
         .where('status', isEqualTo: WaitlistEntryStatus.seated.name)
         .orderBy('seatedAt', descending: true)
         .limit(1)
         .snapshots()
-        .map((snap) => snap.docs.isEmpty ? null : WaitlistEntry.fromFirestore(snap.docs.first.id, venueId, snap.docs.first.data()));
+        .map(
+          (snap) => snap.docs.isEmpty
+              ? null
+              : WaitlistEntry.fromFirestore(
+                  snap.docs.first.id,
+                  venueId,
+                  snap.docs.first.data(),
+                ),
+        );
   }
 
   @override
   Future<void> cancelEntry({required String venueId, required String entryId}) {
-    return _waitlist(venueId).doc(entryId).update({'status': WaitlistEntryStatus.cancelled.name});
+    return _waitlist(
+      venueId,
+    ).doc(entryId).update({'status': WaitlistEntryStatus.cancelled.name});
   }
 
   @override
@@ -91,17 +135,26 @@ class FirebaseWaitlistRepository implements WaitlistRepository {
 
   @override
   Future<void> markNoShow({required String venueId, required String entryId}) {
-    return _waitlist(venueId).doc(entryId).update({'status': WaitlistEntryStatus.noShow.name});
+    return _waitlist(
+      venueId,
+    ).doc(entryId).update({'status': WaitlistEntryStatus.noShow.name});
   }
 
   @override
   Future<void> removeEntry({required String venueId, required String entryId}) {
-    return _waitlist(venueId).doc(entryId).update({'status': WaitlistEntryStatus.cancelled.name});
+    return _waitlist(
+      venueId,
+    ).doc(entryId).update({'status': WaitlistEntryStatus.cancelled.name});
   }
 
   @override
-  Future<void> setWaitlistEnabled({required String venueId, required bool enabled}) {
-    return _firestore.collection('venues').doc(venueId).update({'waitlistEnabled': enabled});
+  Future<void> setWaitlistEnabled({
+    required String venueId,
+    required bool enabled,
+  }) {
+    return _firestore.collection('venues').doc(venueId).update({
+      'waitlistEnabled': enabled,
+    });
   }
 
   @override

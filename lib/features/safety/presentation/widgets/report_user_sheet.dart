@@ -22,7 +22,8 @@ Future<void> showReportUserSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
     ),
-    builder: (sheetContext) => _ReportUserSheet(reportedId: reportedId, chatId: chatId, loc: loc),
+    builder: (sheetContext) =>
+        _ReportUserSheet(reportedId: reportedId, chatId: chatId, loc: loc),
   );
 }
 
@@ -31,7 +32,11 @@ class _ReportUserSheet extends ConsumerStatefulWidget {
   final String? chatId;
   final AppLocalizations loc;
 
-  const _ReportUserSheet({required this.reportedId, required this.chatId, required this.loc});
+  const _ReportUserSheet({
+    required this.reportedId,
+    required this.chatId,
+    required this.loc,
+  });
 
   @override
   ConsumerState<_ReportUserSheet> createState() => _ReportUserSheetState();
@@ -61,7 +66,8 @@ class _ReportUserSheetState extends ConsumerState<_ReportUserSheet> {
     super.dispose();
   }
 
-  bool get _isOtherSelected => _selectedReason == widget.loc.chatReportReasonOther;
+  bool get _isOtherSelected =>
+      _selectedReason == widget.loc.chatReportReasonOther;
 
   bool get _canSubmit {
     if (_selectedReason == null) return false;
@@ -73,11 +79,15 @@ class _ReportUserSheetState extends ConsumerState<_ReportUserSheet> {
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
     if (myUid == null || !_canSubmit) return;
 
-    final reason = _isOtherSelected ? _otherReasonController.text.trim() : _selectedReason!;
+    final reason = _isOtherSelected
+        ? _otherReasonController.text.trim()
+        : _selectedReason!;
 
     setState(() => _sending = true);
     try {
-      await ref.read(reportUserUseCaseProvider).call(
+      await ref
+          .read(reportUserUseCaseProvider)
+          .call(
             reporterId: myUid,
             reportedId: widget.reportedId,
             reason: reason,
@@ -85,9 +95,9 @@ class _ReportUserSheetState extends ConsumerState<_ReportUserSheet> {
           );
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(widget.loc.chatReportSentNotice)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(widget.loc.chatReportSentNotice)));
     } catch (e) {
       if (!mounted) return;
       setState(() => _sending = false);
@@ -102,14 +112,24 @@ class _ReportUserSheetState extends ConsumerState<_ReportUserSheet> {
     final loc = widget.loc;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(24, 20, 24, MediaQuery.of(context).viewInsets.bottom + 24),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        20,
+        24,
+        MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
       child: SafeArea(
         top: false,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(loc.chatReportTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              loc.chatReportTitle,
+              style: AppTextStyles.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 16),
             ..._reasons.map(
               (reason) => _ReasonTile(
@@ -141,7 +161,10 @@ class _ReportUserSheetState extends ConsumerState<_ReportUserSheet> {
                     ? const SizedBox(
                         width: 22,
                         height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.onAccent),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: AppColors.onAccent,
+                        ),
                       )
                     : Text(loc.chatReportSubmitButton),
               ),
@@ -158,7 +181,11 @@ class _ReasonTile extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
-  const _ReasonTile({required this.label, required this.selected, required this.onTap});
+  const _ReasonTile({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -175,7 +202,9 @@ class _ReasonTile extends StatelessWidget {
             child: Row(
               children: [
                 Icon(
-                  selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                  selected
+                      ? Icons.radio_button_checked
+                      : Icons.radio_button_unchecked,
                   size: 20,
                   color: selected ? AppColors.primary : AppColors.textMuted,
                 ),
@@ -185,7 +214,9 @@ class _ReasonTile extends StatelessWidget {
                     label,
                     style: AppTextStyles.body.copyWith(
                       fontSize: 15,
-                      color: selected ? AppColors.white : AppColors.textSecondary,
+                      color: selected
+                          ? AppColors.white
+                          : AppColors.textSecondary,
                       fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                     ),
                   ),

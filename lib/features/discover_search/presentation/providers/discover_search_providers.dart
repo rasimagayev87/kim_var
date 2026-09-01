@@ -8,7 +8,9 @@ import '../../../venues/domain/entities/venue.dart';
 import '../../data/repositories/firebase_discover_search_repository.dart';
 import '../../domain/repositories/discover_search_repository.dart';
 
-final discoverSearchRepositoryProvider = Provider<DiscoverSearchRepository>((ref) {
+final discoverSearchRepositoryProvider = Provider<DiscoverSearchRepository>((
+  ref,
+) {
   return FirebaseDiscoverSearchRepository();
 });
 
@@ -52,7 +54,8 @@ class DiscoverSearchState {
 /// `DiscoverSearchRepository`'s own doc comment for why it alone needs
 /// no backfill), name and venue matches run alongside it.
 class DiscoverSearchController extends StateNotifier<DiscoverSearchState> {
-  DiscoverSearchController(this._repository) : super(const DiscoverSearchState());
+  DiscoverSearchController(this._repository)
+    : super(const DiscoverSearchState());
 
   final DiscoverSearchRepository _repository;
   Timer? _debounce;
@@ -62,7 +65,11 @@ class DiscoverSearchController extends StateNotifier<DiscoverSearchState> {
     state = state.copyWith(query: query);
 
     if (query.trim().isEmpty) {
-      state = state.copyWith(users: const [], venues: const [], isSearching: false);
+      state = state.copyWith(
+        users: const [],
+        venues: const [],
+        isSearching: false,
+      );
       return;
     }
 
@@ -80,9 +87,18 @@ class DiscoverSearchController extends StateNotifier<DiscoverSearchState> {
   Future<void> _runSearch(String query) async {
     state = state.copyWith(isSearching: true);
 
-    final byUsername = await _guarded(() => _repository.searchUsersByUsername(query), 'searchUsersByUsername');
-    final byName = await _guarded(() => _repository.searchUsersByName(query), 'searchUsersByName');
-    final venues = await _guarded(() => _repository.searchVenues(query), 'searchVenues');
+    final byUsername = await _guarded(
+      () => _repository.searchUsersByUsername(query),
+      'searchUsersByUsername',
+    );
+    final byName = await _guarded(
+      () => _repository.searchUsersByName(query),
+      'searchUsersByName',
+    );
+    final venues = await _guarded(
+      () => _repository.searchVenues(query),
+      'searchVenues',
+    );
 
     // The user may have kept typing while this was in flight — a
     // stale response for an earlier query landing after a newer one
@@ -98,11 +114,18 @@ class DiscoverSearchController extends StateNotifier<DiscoverSearchState> {
     state = state.copyWith(users: users, venues: venues, isSearching: false);
   }
 
-  Future<List<T>> _guarded<T>(Future<List<T>> Function() query, String site) async {
+  Future<List<T>> _guarded<T>(
+    Future<List<T>> Function() query,
+    String site,
+  ) async {
     try {
       return await query();
     } catch (e, st) {
-      logError('discover_search_providers.DiscoverSearchController.$site', e, st);
+      logError(
+        'discover_search_providers.DiscoverSearchController.$site',
+        e,
+        st,
+      );
       return const [];
     }
   }
@@ -115,6 +138,11 @@ class DiscoverSearchController extends StateNotifier<DiscoverSearchState> {
 }
 
 final discoverSearchControllerProvider =
-    StateNotifierProvider.autoDispose<DiscoverSearchController, DiscoverSearchState>((ref) {
-  return DiscoverSearchController(ref.watch(discoverSearchRepositoryProvider));
-});
+    StateNotifierProvider.autoDispose<
+      DiscoverSearchController,
+      DiscoverSearchState
+    >((ref) {
+      return DiscoverSearchController(
+        ref.watch(discoverSearchRepositoryProvider),
+      );
+    });

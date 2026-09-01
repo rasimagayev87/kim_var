@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import '../../../venues/domain/entities/venue.dart' show TimestampConverter, NullableTimestampConverter;
+import '../../../venues/domain/entities/venue.dart'
+    show TimestampConverter, NullableTimestampConverter;
 
 part 'pinbox_order.freezed.dart';
 part 'pinbox_order.g.dart';
@@ -27,9 +28,16 @@ part 'pinbox_order.g.dart';
 /// what happened rather than for a timer: `expired` reads as a system
 /// fault, and the money is deliberately NOT refunded (Public Offer §5),
 /// so the record must not suggest the platform lost the order.
-enum PinBoxOrderStatus { awaitingPayment, reserved, paymentFailed, completed, noShow }
+enum PinBoxOrderStatus {
+  awaitingPayment,
+  reserved,
+  paymentFailed,
+  completed,
+  noShow,
+}
 
-class PinBoxOrderStatusConverter implements JsonConverter<PinBoxOrderStatus, String?> {
+class PinBoxOrderStatusConverter
+    implements JsonConverter<PinBoxOrderStatus, String?> {
   const PinBoxOrderStatusConverter();
 
   @override
@@ -83,7 +91,9 @@ class PinBoxOrder with _$PinBoxOrder {
     required String buyerId,
     required int quantity,
     required double amountPaid,
-    @PinBoxOrderStatusConverter() @Default(PinBoxOrderStatus.reserved) PinBoxOrderStatus status,
+    @PinBoxOrderStatusConverter()
+    @Default(PinBoxOrderStatus.reserved)
+    PinBoxOrderStatus status,
 
     /// Short-lived, signed — regenerated on demand by a Cloud Function
     /// while the order is still 'reserved' and inside the pickup
@@ -100,7 +110,8 @@ class PinBoxOrder with _$PinBoxOrder {
     @NullableTimestampConverter() DateTime? redeemedAt,
   }) = _PinBoxOrder;
 
-  factory PinBoxOrder.fromJson(Map<String, dynamic> json) => _$PinBoxOrderFromJson(json);
+  factory PinBoxOrder.fromJson(Map<String, dynamic> json) =>
+      _$PinBoxOrderFromJson(json);
 
   factory PinBoxOrder.fromFirestore(String id, Map<String, dynamic> data) {
     return PinBoxOrder.fromJson({...data, 'id': id});

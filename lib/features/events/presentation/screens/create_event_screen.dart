@@ -17,6 +17,8 @@ import '../../domain/entities/venue_event.dart';
 import '../providers/venue_event_providers.dart';
 import 'category_label.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 const _kDescriptionMaxLength = 300;
 
 /// Owner-only "Tədbir yarat" form, reached from `MyVenuesScreen`'s
@@ -52,10 +54,15 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
   // portrait poster to lose most of its height right at upload time).
   static const _coverAspectRatio = CropAspectRatio(ratioX: 16, ratioY: 9);
 
-  late final _titleController = TextEditingController(text: widget.existingEvent?.title ?? '');
-  late final _descriptionController = TextEditingController(text: widget.existingEvent?.description ?? '');
+  late final _titleController = TextEditingController(
+    text: widget.existingEvent?.title ?? '',
+  );
+  late final _descriptionController = TextEditingController(
+    text: widget.existingEvent?.description ?? '',
+  );
   File? _coverImage;
-  late VenueEventCategory _category = widget.existingEvent?.category ?? VenueEventCategory.music;
+  late VenueEventCategory _category =
+      widget.existingEvent?.category ?? VenueEventCategory.music;
   late DateTime? _startAt = widget.existingEvent?.startAt;
   late DateTime? _endAt = widget.existingEvent?.endAt;
   bool _submitting = false;
@@ -81,23 +88,33 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      checkLostPhotoOnResume((file) => setState(() => _coverImage = file), aspectRatio: _coverAspectRatio);
+      checkLostPhotoOnResume(
+        (file) => setState(() => _coverImage = file),
+        aspectRatio: _coverAspectRatio,
+      );
     }
   }
 
-  Future<void> _pickCoverImage() =>
-      pickPhoto((file) => setState(() => _coverImage = file), aspectRatio: _coverAspectRatio);
+  Future<void> _pickCoverImage() => pickPhoto(
+    (file) => setState(() => _coverImage = file),
+    aspectRatio: _coverAspectRatio,
+  );
 
   Future<void> _pickDateTime({required bool isStart}) async {
     final now = DateTime.now();
-    final current = (isStart ? _startAt : _endAt) ?? (isStart ? now : (_startAt ?? now));
+    final current =
+        (isStart ? _startAt : _endAt) ?? (isStart ? now : (_startAt ?? now));
     final date = await showDatePicker(
       context: context,
       initialDate: current,
-      firstDate: isStart ? now.subtract(const Duration(days: 1)) : (_startAt ?? now),
+      firstDate: isStart
+          ? now.subtract(const Duration(days: 1))
+          : (_startAt ?? now),
       lastDate: now.add(const Duration(days: 365)),
       builder: (context, child) => Theme(
-        data: ThemeData.light().copyWith(colorScheme: const ColorScheme.light(primary: AppColors.primary)),
+        data: ThemeData.light().copyWith(
+          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+        ),
         child: child!,
       ),
     );
@@ -107,13 +124,21 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
       context: context,
       initialTime: TimeOfDay.fromDateTime(current),
       builder: (context, child) => Theme(
-        data: ThemeData.light().copyWith(colorScheme: const ColorScheme.light(primary: AppColors.primary)),
+        data: ThemeData.light().copyWith(
+          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+        ),
         child: child!,
       ),
     );
     if (time == null) return;
 
-    final combined = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final combined = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
     setState(() {
       if (isStart) {
         _startAt = combined;
@@ -141,7 +166,11 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
       final block = venueListingBlock(widget.venue.status);
       if (block != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(venueBlockMessage(AppLocalizations.of(context), block))),
+          SnackBar(
+            content: Text(
+              venueBlockMessage(AppLocalizations.of(context), block),
+            ),
+          ),
         );
         return;
       }
@@ -152,7 +181,9 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
 
     final bool ok;
     if (widget._isEditing) {
-      ok = await ref.read(venueEventControllerProvider).updateEvent(
+      ok = await ref
+          .read(venueEventControllerProvider)
+          .updateEvent(
             eventId: widget.existingEvent!.id,
             title: _titleController.text.trim(),
             description: _descriptionController.text.trim(),
@@ -163,7 +194,9 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
             onUploadProgress: (p) => setState(() => _uploadProgress = p),
           );
     } else {
-      final id = await ref.read(venueEventControllerProvider).createEvent(
+      final id = await ref
+          .read(venueEventControllerProvider)
+          .createEvent(
             venueId: widget.venue.id,
             venueName: widget.venue.name,
             venuePhotoUrl: widget.venue.photoUrl,
@@ -189,7 +222,9 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
         _submitting = false;
         _uploadProgress = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.venueGenericErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.venueGenericErrorMessage)));
     }
   }
 
@@ -209,18 +244,26 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: ChatLightColors.ink,
+          ),
         ),
         title: Text(
           widget._isEditing ? loc.eventEditTitle : loc.eventCreateTitle,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: ChatLightColors.ink,
+          ),
         ),
       ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           children: [
-            GestureDetector(
+            Pressable(
               onTap: _pickCoverImage,
               child: Container(
                 height: 160,
@@ -228,20 +271,35 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(AppRadii.card),
-                  border: Border.all(color: ChatLightColors.inkFaint.withValues(alpha: 0.18)),
+                  border: Border.all(
+                    color: ChatLightColors.inkFaint.withValues(alpha: 0.18),
+                  ),
                 ),
                 clipBehavior: Clip.antiAlias,
                 child: _coverImage != null
                     ? Image.file(_coverImage!, fit: BoxFit.cover)
                     : widget.existingEvent?.coverImageUrl != null
-                    ? AppImage(widget.existingEvent!.coverImageUrl!, fit: BoxFit.cover)
+                    ? AppImage(
+                        widget.existingEvent!.coverImageUrl!,
+                        fit: BoxFit.cover,
+                      )
                     : Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.add_photo_alternate_outlined, size: 32, color: ChatLightColors.inkFaint),
+                            const Icon(
+                              Icons.add_photo_alternate_outlined,
+                              size: 32,
+                              color: ChatLightColors.inkFaint,
+                            ),
                             const SizedBox(height: 8),
-                            Text(loc.eventCoverImageLabel, style: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 13)),
+                            Text(
+                              loc.eventCoverImageLabel,
+                              style: const TextStyle(
+                                color: ChatLightColors.inkFaint,
+                                fontSize: 13,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -251,8 +309,15 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
             _FieldLabel(loc.eventTitleLabel),
             TextField(
               controller: _titleController,
-              style: const TextStyle(fontSize: 15.5, color: ChatLightColors.ink),
-              decoration: InputDecoration(hintText: loc.eventTitleHint, filled: true, fillColor: Colors.white),
+              style: const TextStyle(
+                fontSize: 15.5,
+                color: ChatLightColors.ink,
+              ),
+              decoration: InputDecoration(
+                hintText: loc.eventTitleHint,
+                filled: true,
+                fillColor: Colors.white,
+              ),
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 18),
@@ -261,26 +326,50 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
               controller: _descriptionController,
               maxLines: 4,
               maxLength: _kDescriptionMaxLength,
-              style: const TextStyle(fontSize: 15.5, color: ChatLightColors.ink),
-              decoration: InputDecoration(hintText: loc.eventDescriptionHint, filled: true, fillColor: Colors.white),
+              style: const TextStyle(
+                fontSize: 15.5,
+                color: ChatLightColors.ink,
+              ),
+              decoration: InputDecoration(
+                hintText: loc.eventDescriptionHint,
+                filled: true,
+                fillColor: Colors.white,
+              ),
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 18),
             _FieldLabel(loc.eventCategoryLabel),
             DropdownButtonFormField<VenueEventCategory>(
               initialValue: _category,
-              decoration: const InputDecoration(filled: true, fillColor: Colors.white),
+              decoration: const InputDecoration(
+                filled: true,
+                fillColor: Colors.white,
+              ),
               items: VenueEventCategory.values
-                  .map((c) => DropdownMenuItem(value: c, child: Text(eventCategoryLabel(loc, c))))
+                  .map(
+                    (c) => DropdownMenuItem(
+                      value: c,
+                      child: Text(eventCategoryLabel(loc, c)),
+                    ),
+                  )
                   .toList(),
-              onChanged: (value) => setState(() => _category = value ?? _category),
+              onChanged: (value) =>
+                  setState(() => _category = value ?? _category),
             ),
             const SizedBox(height: 18),
             _FieldLabel(loc.eventStartLabel),
-            _DateTimeRow(value: _startAt, onTap: () => _pickDateTime(isStart: true), formatter: _formatDateTime),
+            _DateTimeRow(
+              value: _startAt,
+              onTap: () => _pickDateTime(isStart: true),
+              formatter: _formatDateTime,
+            ),
             const SizedBox(height: 18),
             _FieldLabel(loc.eventEndLabel),
-            _DateTimeRow(value: _endAt, onTap: () => _pickDateTime(isStart: false), formatter: _formatDateTime),
+            _DateTimeRow(
+              value: _endAt,
+              onTap: () => _pickDateTime(isStart: false),
+              formatter: _formatDateTime,
+            ),
             const SizedBox(height: 28),
             // The period's event allowance. Creating (not editing) is
             // the only case it applies to — an edit publishes nothing
@@ -290,16 +379,33 @@ class _CreateEventScreenState extends ConsumerState<CreateEventScreen>
               const SizedBox(height: 16),
             ],
             if (_uploadProgress != null) ...[
-              LinearProgressIndicator(value: _uploadProgress, color: AppColors.primary),
+              LinearProgressIndicator(
+                value: _uploadProgress,
+                color: AppColors.primary,
+              ),
               const SizedBox(height: 12),
             ],
             ElevatedButton(
-              onPressed: (_canSubmit && !_submitting && (widget._isEditing || _eventQuotaLeft(widget.venue) > 0))
+              onPressed:
+                  (_canSubmit &&
+                      !_submitting &&
+                      (widget._isEditing || _eventQuotaLeft(widget.venue) > 0))
                   ? _submit
                   : null,
               child: _submitting
-                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent))
-                  : Text(widget._isEditing ? loc.venueSaveButton : loc.eventPublishButton),
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.onAccent,
+                      ),
+                    )
+                  : Text(
+                      widget._isEditing
+                          ? loc.venueSaveButton
+                          : loc.eventPublishButton,
+                    ),
             ),
           ],
         ),
@@ -317,7 +423,14 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Text(label, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 14.5,
+          fontWeight: FontWeight.w600,
+          color: ChatLightColors.ink,
+        ),
+      ),
     );
   }
 }
@@ -327,7 +440,11 @@ class _DateTimeRow extends StatelessWidget {
   final VoidCallback onTap;
   final String Function(DateTime) formatter;
 
-  const _DateTimeRow({required this.value, required this.onTap, required this.formatter});
+  const _DateTimeRow({
+    required this.value,
+    required this.onTap,
+    required this.formatter,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -340,15 +457,26 @@ class _DateTimeRow extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(AppRadii.input),
-          border: Border.all(color: ChatLightColors.inkFaint.withValues(alpha: 0.18)),
+          border: Border.all(
+            color: ChatLightColors.inkFaint.withValues(alpha: 0.18),
+          ),
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today_outlined, size: 18, color: AppColors.primary),
+            const Icon(
+              Icons.calendar_today_outlined,
+              size: 18,
+              color: AppColors.primary,
+            ),
             const SizedBox(width: 10),
             Text(
               value != null ? formatter(value!) : loc.eventDateTimePlaceholder,
-              style: TextStyle(fontSize: 15, color: value != null ? ChatLightColors.ink : ChatLightColors.inkFaint),
+              style: TextStyle(
+                fontSize: 15,
+                color: value != null
+                    ? ChatLightColors.ink
+                    : ChatLightColors.inkFaint,
+              ),
             ),
           ],
         ),
@@ -370,7 +498,10 @@ class _DateTimeRow extends StatelessWidget {
 int _eventQuotaLeft(Venue venue) {
   final renewsAt = venue.subscriptionRenewsAt;
   if (renewsAt == null || !DateTime.now().isBefore(renewsAt)) return 0;
-  return (kFreeEventsPerPeriod - venue.freeEventsUsed).clamp(0, kFreeEventsPerPeriod);
+  return (kFreeEventsPerPeriod - venue.freeEventsUsed).clamp(
+    0,
+    kFreeEventsPerPeriod,
+  );
 }
 
 class _EventQuotaBanner extends StatelessWidget {
@@ -391,10 +522,17 @@ class _EventQuotaBanner extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         children: [
-          Icon(exhausted ? Icons.block : Icons.event_available_outlined, size: 16, color: color),
+          Icon(
+            exhausted ? Icons.block : Icons.event_available_outlined,
+            size: 16,
+            color: color,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -404,7 +542,11 @@ class _EventQuotaBanner extends StatelessWidget {
               exhausted
                   ? loc.eventQuotaExhausted(kFreeEventsPerPeriod, date)
                   : loc.eventQuotaRemaining(left, kFreeEventsPerPeriod),
-              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: color),
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ),
         ],

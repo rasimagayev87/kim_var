@@ -8,7 +8,15 @@ class CreateStoryUseCase {
 
   final StoryRepository _repository;
 
-  Future<String> call({required String creatorId, required File media, required StoryMediaType mediaType}) {
-    return _repository.createStory(creatorId: creatorId, media: media, mediaType: mediaType);
+  Future<String> call({
+    required String creatorId,
+    required File media,
+    required StoryMediaType mediaType,
+  }) {
+    return _repository.createStory(
+      creatorId: creatorId,
+      media: media,
+      mediaType: mediaType,
+    );
   }
 }

@@ -19,7 +19,8 @@ import '../../domain/usecases/delete_venue_usecase.dart';
 import '../../domain/usecases/update_venue_usecase.dart';
 import '../../domain/venue_failure.dart';
 
-export '../../domain/repositories/venue_repository.dart' show VenueWithDistance, SubmitVenueResult;
+export '../../domain/repositories/venue_repository.dart'
+    show VenueWithDistance, SubmitVenueResult;
 
 /// Exposed as its own provider (rather than left as a private default
 /// inside [FirebaseVenueRepository]'s constructor) so the Riverpod
@@ -309,9 +310,12 @@ class VenueController {
   /// this control to the venue's own owner in the first place. Doesn't
   /// set anything itself — `Venue.isPremium`/`premiumExpiresAt` only
   /// move once `epointWebhook` confirms the charge.
-  Future<({String checkoutUrl, double feeAmount, String paymentId})?> createVenuePremiumCheckout(String venueId, int months) async {
+  Future<({String checkoutUrl, double feeAmount, String paymentId})?>
+  createVenuePremiumCheckout(String venueId, int months) async {
     try {
-      return await _ref.read(venueRepositoryProvider).createVenuePremiumCheckout(venueId, months);
+      return await _ref
+          .read(venueRepositoryProvider)
+          .createVenuePremiumCheckout(venueId, months);
     } catch (e, st) {
       logError('venue_providers.createVenuePremiumCheckout', e, st);
       return null;
@@ -321,9 +325,17 @@ class VenueController {
   /// "Boş yer sayı" quick-edit sheet's Save action — see
   /// `VenueRepository.updateAvailableSeats`'s doc comment for why this
   /// is a standalone write, separate from [updateVenue].
-  Future<bool> updateAvailableSeats({required String venueId, required int availableSeats}) async {
+  Future<bool> updateAvailableSeats({
+    required String venueId,
+    required int availableSeats,
+  }) async {
     try {
-      await _ref.read(venueRepositoryProvider).updateAvailableSeats(venueId: venueId, availableSeats: availableSeats);
+      await _ref
+          .read(venueRepositoryProvider)
+          .updateAvailableSeats(
+            venueId: venueId,
+            availableSeats: availableSeats,
+          );
       return true;
     } catch (e, st) {
       logError('venue_providers.updateAvailableSeats', e, st);
@@ -459,7 +471,8 @@ final nearbyVenuesProvider =
         }(),
       };
 
-      final epochBucket = (DateTime.now().millisecondsSinceEpoch / (5 * 60 * 1000)).floor();
+      final epochBucket =
+          (DateTime.now().millisecondsSinceEpoch / (5 * 60 * 1000)).floor();
       final sorted = [...result]
         ..sort((a, b) {
           final byPremium = (b.venue.isPremium ? 1 : 0).compareTo(

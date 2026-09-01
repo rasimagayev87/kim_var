@@ -7,7 +7,10 @@ abstract class DiscoverSearchRepository {
   /// collection's own document IDs (already lowercase, since that's
   /// how username uniqueness is enforced), so this needs no backfill
   /// to work on every existing account, unlike [searchUsersByName].
-  Future<List<PublicProfile>> searchUsersByUsername(String query, {int limit = 20});
+  Future<List<PublicProfile>> searchUsersByUsername(
+    String query, {
+    int limit = 20,
+  });
 
   /// Users whose first+last name starts with [query] (case-insensitive).
   /// Backed by `users.nameLower`, written at onboarding/profile-edit

@@ -33,11 +33,19 @@ class VenueWaitlistScreen extends ConsumerWidget {
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: ChatLightColors.ink,
+          ),
         ),
         title: Text(
           loc.waitlistSectionTitle,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: ChatLightColors.ink,
+          ),
         ),
       ),
       body: Stack(
@@ -51,22 +59,38 @@ class VenueWaitlistScreen extends ConsumerWidget {
                 ),
                 Expanded(
                   child: entriesAsync.when(
-                    loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
+                    loading: () => const Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        color: AppColors.primary,
+                      ),
+                    ),
                     error: (error, _) => Center(
-                      child: Text('$error', style: const TextStyle(color: ChatLightColors.inkSoft), textAlign: TextAlign.center),
+                      child: Text(
+                        '$error',
+                        style: const TextStyle(color: ChatLightColors.inkSoft),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                     data: (entries) => entries.isEmpty
                         ? Center(
                             child: Text(
                               loc.waitlistEmptyMessage,
-                              style: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 14),
+                              style: const TextStyle(
+                                color: ChatLightColors.inkFaint,
+                                fontSize: 14,
+                              ),
                             ),
                           )
                         : ListView.separated(
                             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                             itemCount: entries.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 10),
-                            itemBuilder: (context, index) => _WaitlistEntryCard(venueId: venue.id, entry: entries[index]),
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) => _WaitlistEntryCard(
+                              venueId: venue.id,
+                              entry: entries[index],
+                            ),
                           ),
                   ),
                 ),
@@ -87,7 +111,8 @@ class _EnabledToggleRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final eligibleCategories = ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
+    final eligibleCategories =
+        ref.watch(waitlistCategoryConfigProvider).valueOrNull ?? const {};
     // [venue] is a snapshot passed once at navigation time (from
     // `MyVenuesScreen`'s 3-dot menu) — it never updates on its own, so
     // reading `venue.waitlistEnabled` directly made the Switch snap
@@ -97,7 +122,8 @@ class _EnabledToggleRow extends ConsumerWidget {
     // to Firestore. Watching the live doc keeps the Switch in sync with
     // what was actually just written, same fix shape as any other
     // "toggle a field, then watch it snap back" bug in this codebase.
-    final liveVenue = ref.watch(venueByIdProvider(venue.id)).valueOrNull ?? venue;
+    final liveVenue =
+        ref.watch(venueByIdProvider(venue.id)).valueOrNull ?? venue;
     // Reachable for a venue with existing entries even after its
     // category stops being eligible (see MyVenuesScreen's menu-item
     // gate) — but the toggle itself stays off and non-interactive in
@@ -109,19 +135,30 @@ class _EnabledToggleRow extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
       child: Row(
         children: [
           Expanded(
             child: Text(
               loc.waitlistEnableToggleLabel,
-              style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 14.5,
+                fontWeight: FontWeight.w600,
+                color: ChatLightColors.ink,
+              ),
             ),
           ),
           Switch(
             value: liveVenue.waitlistEnabled,
             activeThumbColor: AppColors.primary,
-            onChanged: canToggle ? (value) => ref.read(waitlistControllerProvider).setEnabled(venueId: venue.id, enabled: value) : null,
+            onChanged: canToggle
+                ? (value) => ref
+                      .read(waitlistControllerProvider)
+                      .setEnabled(venueId: venue.id, enabled: value)
+                : null,
           ),
         ],
       ),
@@ -140,13 +177,18 @@ class _WaitlistEntryCard extends ConsumerWidget {
     final loc = AppLocalizations.of(context);
     final controller = ref.read(waitlistControllerProvider);
     final profile = ref.watch(publicProfileProvider(entry.userId)).valueOrNull;
-    final name = (profile?.name ?? '').isEmpty ? loc.defaultUserName : profile!.name;
+    final name = (profile?.name ?? '').isEmpty
+        ? loc.defaultUserName
+        : profile!.name;
     final waitedMinutes = DateTime.now().difference(entry.joinedAt).inMinutes;
     final isCalled = entry.status == WaitlistEntryStatus.called;
 
     return Container(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -155,26 +197,53 @@ class _WaitlistEntryCard extends ConsumerWidget {
               CircleAvatar(
                 radius: 18,
                 backgroundColor: ChatLightColors.cardSurface,
-                backgroundImage: profile?.photoUrl != null ? NetworkImage(profile!.photoUrl!) : null,
-                child: profile?.photoUrl == null ? const Icon(Icons.person_outline, color: ChatLightColors.inkSoft) : null,
+                backgroundImage: profile?.photoUrl != null
+                    ? NetworkImage(profile!.photoUrl!)
+                    : null,
+                child: profile?.photoUrl == null
+                    ? const Icon(
+                        Icons.person_outline,
+                        color: ChatLightColors.inkSoft,
+                      )
+                    : null,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink)),
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: ChatLightColors.ink,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       '${loc.waitlistPartySizeLabel(entry.partySize)} · ${isCalled ? loc.waitlistCalledStatusLabel : loc.waitlistWaitingSinceLabel(waitedMinutes)}',
-                      style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: ChatLightColors.inkSoft,
+                      ),
                     ),
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        const Icon(Icons.phone_outlined, size: 13, color: ChatLightColors.inkSoft),
+                        const Icon(
+                          Icons.phone_outlined,
+                          size: 13,
+                          color: ChatLightColors.inkSoft,
+                        ),
                         const SizedBox(width: 4),
-                        Text(entry.phoneNumber, style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft)),
+                        Text(
+                          entry.phoneNumber,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: ChatLightColors.inkSoft,
+                          ),
+                        ),
                       ],
                     ),
                     if ((entry.note ?? '').isNotEmpty) ...[
@@ -183,7 +252,11 @@ class _WaitlistEntryCard extends ConsumerWidget {
                         entry.note!,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft, fontStyle: FontStyle.italic),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: ChatLightColors.inkSoft,
+                          fontStyle: FontStyle.italic,
+                        ),
                       ),
                     ],
                   ],
@@ -191,11 +264,21 @@ class _WaitlistEntryCard extends ConsumerWidget {
               ),
               if (!isCalled && entry.queuePosition != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                   child: Text(
                     '${entry.queuePosition}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: AppColors.primary),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.primary,
+                    ),
                   ),
                 ),
             ],
@@ -206,28 +289,66 @@ class _WaitlistEntryCard extends ConsumerWidget {
             children: isCalled
                 ? [
                     TextButton(
-                      onPressed: () => controller.markNoShow(venueId: venueId, entryId: entry.id),
-                      style: TextButton.styleFrom(foregroundColor: AppColors.error),
-                      child: Text(loc.waitlistNoShowButton, style: const TextStyle(fontSize: 13)),
+                      onPressed: () => controller.markNoShow(
+                        venueId: venueId,
+                        entryId: entry.id,
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                      ),
+                      child: Text(
+                        loc.waitlistNoShowButton,
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () => controller.markSeated(venueId: venueId, entryId: entry.id),
-                      style: ElevatedButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
-                      child: Text(loc.waitlistSeatedButton, style: const TextStyle(fontSize: 13)),
+                      onPressed: () => controller.markSeated(
+                        venueId: venueId,
+                        entryId: entry.id,
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: Size.zero,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                      ),
+                      child: Text(
+                        loc.waitlistSeatedButton,
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
                   ]
                 : [
                     TextButton(
-                      onPressed: () => controller.remove(venueId: venueId, entryId: entry.id),
-                      style: TextButton.styleFrom(foregroundColor: AppColors.error),
-                      child: Text(loc.waitlistRemoveButton, style: const TextStyle(fontSize: 13)),
+                      onPressed: () => controller.remove(
+                        venueId: venueId,
+                        entryId: entry.id,
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppColors.error,
+                      ),
+                      child: Text(
+                        loc.waitlistRemoveButton,
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton(
-                      onPressed: () => controller.call(venueId: venueId, entryId: entry.id),
-                      style: ElevatedButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
-                      child: Text(loc.waitlistCallButton, style: const TextStyle(fontSize: 13)),
+                      onPressed: () =>
+                          controller.call(venueId: venueId, entryId: entry.id),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: Size.zero,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
+                      ),
+                      child: Text(
+                        loc.waitlistCallButton,
+                        style: const TextStyle(fontSize: 13),
+                      ),
                     ),
                   ],
           ),

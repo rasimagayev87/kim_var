@@ -31,7 +31,7 @@ import '../../domain/repositories/privacy_settings_repository.dart';
 /// future prompt rather than half-built here.
 class FirebasePrivacySettingsRepository implements PrivacySettingsRepository {
   FirebasePrivacySettingsRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -44,7 +44,8 @@ class FirebasePrivacySettingsRepository implements PrivacySettingsRepository {
     'incognitoBrowsingEnabled',
   };
 
-  CollectionReference<Map<String, dynamic>> get _users => _firestore.collection('users');
+  CollectionReference<Map<String, dynamic>> get _users =>
+      _firestore.collection('users');
 
   @override
   Stream<PrivacySettings> watchSettings(String uid) {
@@ -60,10 +61,12 @@ class FirebasePrivacySettingsRepository implements PrivacySettingsRepository {
           publicData = doc.data();
           controller.add(_fromDocs(publicData, privateData));
         }, onError: controller.addError);
-        privateSub = privateDataRef(uid, firestore: _firestore).snapshots().listen((doc) {
-          privateData = doc.data();
-          controller.add(_fromDocs(publicData, privateData));
-        }, onError: controller.addError);
+        privateSub = privateDataRef(uid, firestore: _firestore)
+            .snapshots()
+            .listen((doc) {
+              privateData = doc.data();
+              controller.add(_fromDocs(publicData, privateData));
+            }, onError: controller.addError);
       },
       onCancel: () async {
         await publicSub?.cancel();
@@ -86,44 +89,72 @@ class FirebasePrivacySettingsRepository implements PrivacySettingsRepository {
       batch.set(_users.doc(uid), publicPatch, SetOptions(merge: true));
     }
     if (privatePatch.isNotEmpty) {
-      batch.set(privateDataRef(uid, firestore: _firestore), privatePatch, SetOptions(merge: true));
+      batch.set(
+        privateDataRef(uid, firestore: _firestore),
+        privatePatch,
+        SetOptions(merge: true),
+      );
     }
     await batch.commit();
   }
 
-  PrivacySettings _fromDocs(Map<String, dynamic>? publicData, Map<String, dynamic>? privateData) {
+  PrivacySettings _fromDocs(
+    Map<String, dynamic>? publicData,
+    Map<String, dynamic>? privateData,
+  ) {
     if (publicData == null) return const PrivacySettings();
 
-    final radiusMode = _radiusModeFrom(privateData?['visibilityRadiusMode'] as String?);
+    final radiusMode = _radiusModeFrom(
+      privateData?['visibilityRadiusMode'] as String?,
+    );
     return PrivacySettings(
-      profileVisibility: _visibilityFrom(publicData['profileVisibility'] as String?),
-      accountPrivacy: _accountPrivacyFrom(publicData['accountPrivacy'] as String?),
+      profileVisibility: _visibilityFrom(
+        publicData['profileVisibility'] as String?,
+      ),
+      accountPrivacy: _accountPrivacyFrom(
+        publicData['accountPrivacy'] as String?,
+      ),
       visibilityRadiusMode: radiusMode,
       visibilityRadiusKm: radiusMode == VisibilityRadiusMode.distance
           ? (privateData?['visibilityRadiusKm'] as num?)?.toDouble() ?? 1.0
           : null,
       showReadReceipts: privateData?['showReadReceipts'] as bool? ?? true,
-      whoCanMessageMe: _whoCanMessageMeFrom(publicData['whoCanMessageMe'] as String?),
+      whoCanMessageMe: _whoCanMessageMeFrom(
+        publicData['whoCanMessageMe'] as String?,
+      ),
       twoFactorEnabled: privateData?['twoFactorEnabled'] as bool? ?? false,
       ghostModeEnabled: privateData?['ghostModeEnabled'] as bool? ?? false,
       birthdayOffersOptIn: publicData['birthdayOffersOptIn'] as bool? ?? false,
-      incognitoBrowsingEnabled: privateData?['incognitoBrowsingEnabled'] as bool? ?? false,
+      incognitoBrowsingEnabled:
+          privateData?['incognitoBrowsingEnabled'] as bool? ?? false,
     );
   }
 
   ProfileVisibility _visibilityFrom(String? value) {
-    return ProfileVisibility.values.firstWhere((v) => v.name == value, orElse: () => ProfileVisibility.everyone);
+    return ProfileVisibility.values.firstWhere(
+      (v) => v.name == value,
+      orElse: () => ProfileVisibility.everyone,
+    );
   }
 
   AccountPrivacy _accountPrivacyFrom(String? value) {
-    return AccountPrivacy.values.firstWhere((v) => v.name == value, orElse: () => AccountPrivacy.public);
+    return AccountPrivacy.values.firstWhere(
+      (v) => v.name == value,
+      orElse: () => AccountPrivacy.public,
+    );
   }
 
   VisibilityRadiusMode _radiusModeFrom(String? value) {
-    return VisibilityRadiusMode.values.firstWhere((v) => v.name == value, orElse: () => VisibilityRadiusMode.distance);
+    return VisibilityRadiusMode.values.firstWhere(
+      (v) => v.name == value,
+      orElse: () => VisibilityRadiusMode.distance,
+    );
   }
 
   WhoCanMessageMe _whoCanMessageMeFrom(String? value) {
-    return WhoCanMessageMe.values.firstWhere((v) => v.name == value, orElse: () => WhoCanMessageMe.everyone);
+    return WhoCanMessageMe.values.firstWhere(
+      (v) => v.name == value,
+      orElse: () => WhoCanMessageMe.everyone,
+    );
   }
 }

@@ -21,7 +21,10 @@ abstract class WaitlistRepository {
   /// The signed-in user's own still-active (waiting or called) entry
   /// for this venue, if any — null once it's seated/cancelled/no-show,
   /// or if they never joined. Backs the live "sıra nömrəniz" display.
-  Stream<WaitlistEntry?> watchMyEntry({required String venueId, required String userId});
+  Stream<WaitlistEntry?> watchMyEntry({
+    required String venueId,
+    required String userId,
+  });
 
   /// Owner view — every `waiting` OR `called` entry for this venue,
   /// `joinedAt` ascending (oldest first, i.e. queue order). Backs the
@@ -46,7 +49,10 @@ abstract class WaitlistRepository {
   Future<void> removeEntry({required String venueId, required String entryId});
 
   /// Owner's "Növbəni aktivləşdir/söndür" toggle — see `Venue.waitlistEnabled`.
-  Future<void> setWaitlistEnabled({required String venueId, required bool enabled});
+  Future<void> setWaitlistEnabled({
+    required String venueId,
+    required bool enabled,
+  });
 
   /// One-shot existence check — whether this venue has EVER had any
   /// waitlist entry, any status. Same reasoning as `VenueEventRepository
@@ -61,5 +67,8 @@ abstract class WaitlistRepository {
   /// `waitlistEntryId` a review is built on (`ReviewRepository
   /// .submitReview`). Unlike [watchMyEntry] (which only ever returns
   /// `waiting`/`called`), this deliberately looks at `seated` only.
-  Stream<WaitlistEntry?> watchMyLatestSeatedEntry({required String venueId, required String userId});
+  Stream<WaitlistEntry?> watchMyLatestSeatedEntry({
+    required String venueId,
+    required String userId,
+  });
 }

@@ -19,7 +19,12 @@ class VenuePremiumInfoScreen extends ConsumerWidget {
   final DateTime? premiumSince;
   final DateTime? premiumExpiresAt;
 
-  const VenuePremiumInfoScreen({super.key, required this.venueId, this.premiumSince, this.premiumExpiresAt});
+  const VenuePremiumInfoScreen({
+    super.key,
+    required this.venueId,
+    this.premiumSince,
+    this.premiumExpiresAt,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -45,8 +50,15 @@ class VenuePremiumInfoScreen extends ConsumerWidget {
               Container(
                 width: 72,
                 height: 72,
-                decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.gold.withValues(alpha: 0.15)),
-                child: const Icon(Icons.workspace_premium_rounded, color: AppColors.gold, size: 38),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.gold.withValues(alpha: 0.15),
+                ),
+                child: const Icon(
+                  Icons.workspace_premium_rounded,
+                  color: AppColors.gold,
+                  size: 38,
+                ),
               ),
               const SizedBox(height: 20),
               Text(
@@ -58,20 +70,32 @@ class VenuePremiumInfoScreen extends ConsumerWidget {
               Text(
                 loc.venuePremiumInfoExplanationMessage,
                 textAlign: TextAlign.center,
-                style: AppTextStyles.body.copyWith(color: AppColors.textSecondary, height: 1.5),
+                style: AppTextStyles.body.copyWith(
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
               ),
               if (expiresAt != null) ...[
                 const SizedBox(height: 18),
                 Text(
-                  loc.venuePremiumInfoActiveUntilLabel(DateFormat('d MMM y').format(expiresAt)),
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w700),
+                  loc.venuePremiumInfoActiveUntilLabel(
+                    DateFormat('d MMM y').format(expiresAt),
+                  ),
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ],
               if (since != null) ...[
                 const SizedBox(height: 6),
                 Text(
-                  loc.venuePremiumInfoSinceLabel(DateFormat('d MMM y').format(since)),
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                  loc.venuePremiumInfoSinceLabel(
+                    DateFormat('d MMM y').format(since),
+                  ),
+                  style: AppTextStyles.caption.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
               const SizedBox(height: 28),
@@ -79,13 +103,22 @@ class VenuePremiumInfoScreen extends ConsumerWidget {
                 width: double.infinity,
                 height: 48,
                 child: OutlinedButton(
-                  onPressed: () => openVenuePremiumCheckout(context, ref, venueId),
+                  onPressed: () =>
+                      openVenuePremiumCheckout(context, ref, venueId),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.primary,
                     side: const BorderSide(color: AppColors.primary),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
-                  child: Text(loc.venuePremiumRenewEarlyButton, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  child: Text(
+                    loc.venuePremiumRenewEarlyButton,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ],

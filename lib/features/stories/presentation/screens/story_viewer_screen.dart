@@ -15,6 +15,8 @@ import '../../domain/entities/story.dart';
 import '../../domain/entities/story_view.dart';
 import '../providers/story_providers.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// How long an image story stays up before auto-advancing. A video
 /// story instead runs for its own actual duration (see
 /// [_StoryViewerScreenState._startProgress]), same as those apps. Long
@@ -38,13 +40,18 @@ class StoryViewerScreen extends ConsumerStatefulWidget {
   final List<Story> stories;
   final int initialIndex;
 
-  const StoryViewerScreen({super.key, required this.stories, this.initialIndex = 0});
+  const StoryViewerScreen({
+    super.key,
+    required this.stories,
+    this.initialIndex = 0,
+  });
 
   @override
   ConsumerState<StoryViewerScreen> createState() => _StoryViewerScreenState();
 }
 
-class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with SingleTickerProviderStateMixin {
+class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen>
+    with SingleTickerProviderStateMixin {
   late int _index = widget.initialIndex;
   late List<Story> _stories = widget.stories;
   VideoPlayerController? _videoController;
@@ -107,7 +114,9 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
       return;
     }
 
-    final controller = VideoPlayerController.networkUrl(Uri.parse(story.mediaUrl));
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(story.mediaUrl),
+    );
     _videoController = controller;
     try {
       await controller.initialize();
@@ -120,7 +129,9 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
     setState(() => _mediaReady = true);
     controller.play();
     final videoDuration = controller.value.duration;
-    _startProgress(videoDuration > Duration.zero ? videoDuration : _kImageStoryDuration);
+    _startProgress(
+      videoDuration > Duration.zero ? videoDuration : _kImageStoryDuration,
+    );
   }
 
   void _startProgress(Duration duration) {
@@ -206,13 +217,25 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(loc.storyDeleteConfirmTitle, style: AppTextStyles.cardTitle.copyWith(fontSize: 17)),
-        content: Text(loc.storyDeleteConfirmMessage, style: AppTextStyles.body.copyWith(fontSize: 14.5)),
+        title: Text(
+          loc.storyDeleteConfirmTitle,
+          style: AppTextStyles.cardTitle.copyWith(fontSize: 17),
+        ),
+        content: Text(
+          loc.storyDeleteConfirmMessage,
+          style: AppTextStyles.body.copyWith(fontSize: 14.5),
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(loc.actionDelete, style: const TextStyle(color: AppColors.error)),
+            child: Text(
+              loc.actionDelete,
+              style: const TextStyle(color: AppColors.error),
+            ),
           ),
         ],
       ),
@@ -229,7 +252,9 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
 
     if (!ok) {
       setState(() => _deleting = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.storyDeleteErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.storyDeleteErrorMessage)));
       _progressController.forward();
       return;
     }
@@ -253,8 +278,12 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
     final story = _stories[_index];
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
     final isOwner = myUid != null && myUid == story.creatorId;
-    final profile = ref.watch(publicProfileProvider(story.creatorId)).valueOrNull;
-    final creatorName = (profile?.name ?? '').isEmpty ? loc.defaultUserName : profile!.name;
+    final profile = ref
+        .watch(publicProfileProvider(story.creatorId))
+        .valueOrNull;
+    final creatorName = (profile?.name ?? '').isEmpty
+        ? loc.defaultUserName
+        : profile!.name;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -268,14 +297,16 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
             child: Center(
               child: story.mediaType == StoryMediaType.image
                   ? (_mediaReady
-                      ? AppImage(story.mediaUrl, fit: BoxFit.contain)
-                      : const CircularProgressIndicator(color: AppColors.primary))
+                        ? AppImage(story.mediaUrl, fit: BoxFit.contain)
+                        : const CircularProgressIndicator(
+                            color: AppColors.primary,
+                          ))
                   : (_videoController?.value.isInitialized ?? false)
-                      ? AspectRatio(
-                          aspectRatio: _videoController!.value.aspectRatio,
-                          child: VideoPlayer(_videoController!),
-                        )
-                      : const CircularProgressIndicator(color: AppColors.primary),
+                  ? AspectRatio(
+                      aspectRatio: _videoController!.value.aspectRatio,
+                      child: VideoPlayer(_videoController!),
+                    )
+                  : const CircularProgressIndicator(color: AppColors.primary),
             ),
           ),
           Positioned(
@@ -284,7 +315,10 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
             right: 0,
             child: SafeArea(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 child: Column(
                   children: [
                     Row(
@@ -298,8 +332,8 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
                                 final fraction = i < _index
                                     ? 1.0
                                     : i == _index
-                                        ? _progressController.value
-                                        : 0.0;
+                                    ? _progressController.value
+                                    : 0.0;
                                 return _SegmentBar(fraction: fraction);
                               },
                             ),
@@ -313,9 +347,15 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
                         CircleAvatar(
                           radius: 16,
                           backgroundColor: AppColors.card,
-                          backgroundImage: profile?.photoUrl != null ? NetworkImage(profile!.photoUrl!) : null,
+                          backgroundImage: profile?.photoUrl != null
+                              ? NetworkImage(profile!.photoUrl!)
+                              : null,
                           child: profile?.photoUrl == null
-                              ? const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 16)
+                              ? const Icon(
+                                  Icons.person_outline,
+                                  color: AppColors.textSecondary,
+                                  size: 16,
+                                )
                               : null,
                         ),
                         const SizedBox(width: 10),
@@ -335,12 +375,16 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              if (profile?.username != null && profile!.username!.isNotEmpty) ...[
+                              if (profile?.username != null &&
+                                  profile!.username!.isNotEmpty) ...[
                                 const SizedBox(width: 6),
                                 Flexible(
                                   child: Text(
                                     '@${profile.username}',
-                                    style: AppTextStyles.caption.copyWith(color: Colors.white70, fontSize: 12.5),
+                                    style: AppTextStyles.caption.copyWith(
+                                      color: Colors.white70,
+                                      fontSize: 12.5,
+                                    ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
@@ -349,21 +393,32 @@ class _StoryViewerScreenState extends ConsumerState<StoryViewerScreen> with Sing
                               const SizedBox(width: 8),
                               Text(
                                 formatRelativeTime(story.createdAt, loc),
-                                style: AppTextStyles.caption.copyWith(color: Colors.white70, fontSize: 12.5),
+                                style: AppTextStyles.caption.copyWith(
+                                  color: Colors.white70,
+                                  fontSize: 12.5,
+                                ),
                               ),
                             ],
                           ),
                         ),
                         if (isOwner)
                           IconButton(
-                            onPressed: _deleting ? null : () => _confirmDelete(story),
+                            onPressed: _deleting
+                                ? null
+                                : () => _confirmDelete(story),
                             icon: _deleting
                                 ? const SizedBox(
                                     width: 18,
                                     height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
                                   )
-                                : const Icon(Icons.delete_outline, color: Colors.white),
+                                : const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.white,
+                                  ),
                           ),
                         IconButton(
                           onPressed: () => Navigator.pop(context),
@@ -429,9 +484,10 @@ class _ViewersButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final viewCount = ref.watch(storyViewsProvider(storyId)).valueOrNull?.length ?? 0;
+    final viewCount =
+        ref.watch(storyViewsProvider(storyId)).valueOrNull?.length ?? 0;
 
-    return GestureDetector(
+    return Pressable(
       onTap: () => _showViewersSheet(context, storyId),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -442,9 +498,19 @@ class _ViewersButton extends ConsumerWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.visibility_outlined, size: 16, color: Colors.white),
+            const Icon(
+              Icons.visibility_outlined,
+              size: 16,
+              color: Colors.white,
+            ),
             const SizedBox(width: 6),
-            Text('$viewCount', style: AppTextStyles.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w600)),
+            Text(
+              '$viewCount',
+              style: AppTextStyles.caption.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ],
         ),
       ),
@@ -457,7 +523,9 @@ void _showViewersSheet(BuildContext context, String storyId) {
     context: context,
     backgroundColor: AppColors.surface,
     isScrollControlled: true,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (sheetContext) {
       final loc = AppLocalizations.of(sheetContext);
       return SafeArea(
@@ -471,29 +539,49 @@ void _showViewersSheet(BuildContext context, String storyId) {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(loc.storyViewersTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    loc.storyViewersTitle,
+                    style: AppTextStyles.cardTitle.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   viewsAsync.when(
                     data: (views) => views.isEmpty
                         ? Padding(
                             padding: const EdgeInsets.symmetric(vertical: 24),
-                            child: Text(loc.storyViewersEmptyMessage, style: AppTextStyles.caption),
+                            child: Text(
+                              loc.storyViewersEmptyMessage,
+                              style: AppTextStyles.caption,
+                            ),
                           )
                         : ConstrainedBox(
-                            constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.5),
+                            constraints: BoxConstraints(
+                              maxHeight:
+                                  MediaQuery.of(context).size.height * 0.5,
+                            ),
                             child: ListView.builder(
                               shrinkWrap: true,
                               itemCount: views.length,
-                              itemBuilder: (context, index) => _ViewerRow(view: views[index]),
+                              itemBuilder: (context, index) =>
+                                  _ViewerRow(view: views[index]),
                             ),
                           ),
                     loading: () => const Padding(
                       padding: EdgeInsets.symmetric(vertical: 24),
-                      child: Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.4)),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                          strokeWidth: 2.4,
+                        ),
+                      ),
                     ),
                     error: (_, _) => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 24),
-                      child: Text(loc.storyViewersEmptyMessage, style: AppTextStyles.caption),
+                      child: Text(
+                        loc.storyViewersEmptyMessage,
+                        style: AppTextStyles.caption,
+                      ),
                     ),
                   ),
                 ],
@@ -515,13 +603,19 @@ class _ViewerRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final profile = ref.watch(publicProfileProvider(view.viewerId)).valueOrNull;
-    final name = (profile?.name ?? '').isEmpty ? loc.defaultUserName : profile!.name;
+    final name = (profile?.name ?? '').isEmpty
+        ? loc.defaultUserName
+        : profile!.name;
 
     return InkWell(
       onTap: () {
         final navigator = Navigator.of(context);
         navigator.pop();
-        navigator.push(MaterialPageRoute(builder: (_) => UserProfileScreen(uid: view.viewerId)));
+        navigator.push(
+          MaterialPageRoute(
+            builder: (_) => UserProfileScreen(uid: view.viewerId),
+          ),
+        );
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -530,9 +624,15 @@ class _ViewerRow extends ConsumerWidget {
             CircleAvatar(
               radius: 20,
               backgroundColor: AppColors.card,
-              backgroundImage: profile?.photoUrl != null ? NetworkImage(profile!.photoUrl!) : null,
+              backgroundImage: profile?.photoUrl != null
+                  ? NetworkImage(profile!.photoUrl!)
+                  : null,
               child: profile?.photoUrl == null
-                  ? const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 18)
+                  ? const Icon(
+                      Icons.person_outline,
+                      color: AppColors.textSecondary,
+                      size: 18,
+                    )
                   : null,
             ),
             const SizedBox(width: 12),
@@ -541,13 +641,26 @@ class _ViewerRow extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(name, style: AppTextStyles.body.copyWith(fontSize: 14.5, fontWeight: FontWeight.w500)),
-                  if (profile?.username != null && profile!.username!.isNotEmpty)
-                    Text('@${profile.username}', style: AppTextStyles.caption.copyWith(fontSize: 12)),
+                  Text(
+                    name,
+                    style: AppTextStyles.body.copyWith(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (profile?.username != null &&
+                      profile!.username!.isNotEmpty)
+                    Text(
+                      '@${profile.username}',
+                      style: AppTextStyles.caption.copyWith(fontSize: 12),
+                    ),
                 ],
               ),
             ),
-            Text(DateFormat('HH:mm').format(view.viewedAt), style: AppTextStyles.caption.copyWith(fontSize: 12)),
+            Text(
+              DateFormat('HH:mm').format(view.viewedAt),
+              style: AppTextStyles.caption.copyWith(fontSize: 12),
+            ),
           ],
         ),
       ),

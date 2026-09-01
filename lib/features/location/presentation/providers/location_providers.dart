@@ -88,12 +88,15 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
   /// dialog never resolves, and notifications must not be lost to a
   /// stuck location flow.
   static Future<void> awaitLocationPermission() {
-    return _locationPermissionSettled.future
-        .timeout(const Duration(seconds: 5), onTimeout: () {});
+    return _locationPermissionSettled.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {},
+    );
   }
 
   static void _markLocationPermissionSettled() {
-    if (!_locationPermissionSettled.isCompleted) _locationPermissionSettled.complete();
+    if (!_locationPermissionSettled.isCompleted)
+      _locationPermissionSettled.complete();
   }
 
   Future<Position> _getPosition() async {
@@ -132,7 +135,10 @@ class LocationController extends StateNotifier<AsyncValue<Position>> {
     // first launch ended up on an unbounded spinner. Fail fast instead,
     // and let the live stream refine afterwards.
     return Geolocator.getCurrentPosition(
-      locationSettings: LocationSettings(accuracy: _accuracy, timeLimit: const Duration(seconds: 15)),
+      locationSettings: LocationSettings(
+        accuracy: _accuracy,
+        timeLimit: const Duration(seconds: 15),
+      ),
     );
   }
 
@@ -338,7 +344,10 @@ final selectedDiscoverModeProvider = StateProvider<DiscoverRadiusSelection>(
 /// instead of leaving the field permanently absent (which would
 /// silently exempt them from every recipient-radius check below).
 final discoverRadiusPersistenceProvider = Provider<void>((ref) {
-  ref.listen<DiscoverRadiusSelection>(selectedDiscoverModeProvider, (previous, next) {
+  ref.listen<DiscoverRadiusSelection>(selectedDiscoverModeProvider, (
+    previous,
+    next,
+  ) {
     if (previous == next) return;
     _persistDiscoverRadius(next);
   }, fireImmediately: true);
@@ -348,16 +357,18 @@ void _persistDiscoverRadius(DiscoverRadiusSelection selection) {
   final uid = fb.FirebaseAuth.instance.currentUser?.uid;
   if (uid == null) return;
   unawaited(
-    privateDataRef(uid).set({
-      'discoverRadiusMode': switch (selection.mode) {
-        DiscoverRadiusMode.distance => 'distance',
-        DiscoverRadiusMode.country => 'country',
-        DiscoverRadiusMode.world => 'world',
-      },
-      'discoverRadiusKm': selection.km,
-    }, SetOptions(merge: true)).catchError((e, st) {
-      logError('location_providers._persistDiscoverRadius', e, st);
-    }),
+    privateDataRef(uid)
+        .set({
+          'discoverRadiusMode': switch (selection.mode) {
+            DiscoverRadiusMode.distance => 'distance',
+            DiscoverRadiusMode.country => 'country',
+            DiscoverRadiusMode.world => 'world',
+          },
+          'discoverRadiusKm': selection.km,
+        }, SetOptions(merge: true))
+        .catchError((e, st) {
+          logError('location_providers._persistDiscoverRadius', e, st);
+        }),
   );
 }
 
@@ -455,8 +466,13 @@ class _RemoteCandidate {
 /// visibility radius, and the gender filter for real (all three were
 /// silently bypassable client-side filters before this). Polling, not
 /// realtime — see [kNearbyRefreshSeconds]'s own doc comment.
-Stream<List<_RemoteCandidate>> _pollNearbyCandidates(GenderFilter genderFilter) async* {
-  final callable = FirebaseFunctions.instance.httpsCallable('findNearbyUsers', options: callableOptions());
+Stream<List<_RemoteCandidate>> _pollNearbyCandidates(
+  GenderFilter genderFilter,
+) async* {
+  final callable = FirebaseFunctions.instance.httpsCallable(
+    'findNearbyUsers',
+    options: callableOptions(),
+  );
   while (true) {
     try {
       final genderWire = _genderFilterWireValue(genderFilter);
@@ -465,7 +481,10 @@ Stream<List<_RemoteCandidate>> _pollNearbyCandidates(GenderFilter genderFilter) 
       });
       final raw = (result.data['candidates'] as List).cast<dynamic>();
       yield raw
-          .map((e) => _RemoteCandidate.fromMap(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) =>
+                _RemoteCandidate.fromMap(Map<String, dynamic>.from(e as Map)),
+          )
           .toList();
     } catch (e, st) {
       logError('location_providers._pollNearbyCandidates', e, st);
@@ -475,8 +494,8 @@ Stream<List<_RemoteCandidate>> _pollNearbyCandidates(GenderFilter genderFilter) 
   }
 }
 
-final _nearbyDistanceCandidatesProvider =
-    StreamProvider.autoDispose.family<List<_RemoteCandidate>, GenderFilter>((ref, genderFilter) {
+final _nearbyDistanceCandidatesProvider = StreamProvider.autoDispose
+    .family<List<_RemoteCandidate>, GenderFilter>((ref, genderFilter) {
       return _pollNearbyCandidates(genderFilter);
     });
 
@@ -514,7 +533,10 @@ Stream<List<_RemoteCandidate>> _pollDiscoverCandidates({
       });
       final raw = (result.data['candidates'] as List).cast<dynamic>();
       yield raw
-          .map((e) => _RemoteCandidate.fromMap(Map<String, dynamic>.from(e as Map)))
+          .map(
+            (e) =>
+                _RemoteCandidate.fromMap(Map<String, dynamic>.from(e as Map)),
+          )
           .toList();
     } catch (e, st) {
       logError('location_providers._pollDiscoverCandidates', e, st);
@@ -528,7 +550,10 @@ Stream<List<_RemoteCandidate>> _pollDiscoverCandidates({
 /// [_pollDiscoverCandidates]'s doc comment for why this is a poll
 /// against a Cloud Function rather than a direct Firestore stream.
 final _countryCandidatesProvider = StreamProvider.autoDispose
-    .family<List<_RemoteCandidate>, ({String country, GenderFilter genderFilter})>((ref, params) {
+    .family<
+      List<_RemoteCandidate>,
+      ({String country, GenderFilter genderFilter})
+    >((ref, params) {
       return _pollDiscoverCandidates(
         mode: 'country',
         country: params.country,
@@ -538,8 +563,8 @@ final _countryCandidatesProvider = StreamProvider.autoDispose
 
 /// Everyone online worldwide — backs "Dünya üzrə". Same VIP-gated,
 /// polled-Cloud-Function story as [_countryCandidatesProvider].
-final _worldCandidatesProvider =
-    StreamProvider.autoDispose.family<List<_RemoteCandidate>, GenderFilter>((ref, genderFilter) {
+final _worldCandidatesProvider = StreamProvider.autoDispose
+    .family<List<_RemoteCandidate>, GenderFilter>((ref, genderFilter) {
       return _pollDiscoverCandidates(mode: 'world', genderFilter: genderFilter);
     });
 
@@ -553,7 +578,8 @@ final radiusUserCountsProvider = Provider<Map<double, int>>((ref) {
   final position = ref.watch(locationControllerProvider).valueOrNull;
   final genderFilter = ref.watch(selectedGenderFilterProvider);
   final candidates =
-      ref.watch(_nearbyDistanceCandidatesProvider(genderFilter)).valueOrNull ?? const [];
+      ref.watch(_nearbyDistanceCandidatesProvider(genderFilter)).valueOrNull ??
+      const [];
 
   final counts = <double, int>{for (final km in kRadiusOptionsKm) km: 0};
   if (position == null) return counts;
@@ -581,26 +607,37 @@ final radiusUserCountsProvider = Provider<Map<double, int>>((ref) {
 /// client-side from a raw Firestore scan the way it used to be. Only
 /// ever an aggregate number, no individual profiles are exposed by this
 /// provider.
-final venueAudienceCountProvider = FutureProvider.autoDispose.family<
-  int,
-  ({String venueId, String mode, double lat, double lng, double radiusKm, String? country})
->((ref, params) async {
-  try {
-    final callable = FirebaseFunctions.instance.httpsCallable('previewVenueAudience', options: callableOptions());
-    final result = await callable.call<Map<String, dynamic>>({
-      'venueId': params.venueId,
-      'mode': params.mode,
-      if (params.mode == 'country') 'country': params.country,
-      if (params.mode == 'distance') 'lat': params.lat,
-      if (params.mode == 'distance') 'lng': params.lng,
-      if (params.mode == 'distance') 'radiusKm': params.radiusKm,
+final venueAudienceCountProvider = FutureProvider.autoDispose
+    .family<
+      int,
+      ({
+        String venueId,
+        String mode,
+        double lat,
+        double lng,
+        double radiusKm,
+        String? country,
+      })
+    >((ref, params) async {
+      try {
+        final callable = FirebaseFunctions.instance.httpsCallable(
+          'previewVenueAudience',
+          options: callableOptions(),
+        );
+        final result = await callable.call<Map<String, dynamic>>({
+          'venueId': params.venueId,
+          'mode': params.mode,
+          if (params.mode == 'country') 'country': params.country,
+          if (params.mode == 'distance') 'lat': params.lat,
+          if (params.mode == 'distance') 'lng': params.lng,
+          if (params.mode == 'distance') 'radiusKm': params.radiusKm,
+        });
+        return (result.data['count'] as num?)?.toInt() ?? 0;
+      } catch (e, st) {
+        logError('location_providers.venueAudienceCountProvider', e, st);
+        return 0;
+      }
     });
-    return (result.data['count'] as num?)?.toInt() ?? 0;
-  } catch (e, st) {
-    logError('location_providers.venueAudienceCountProvider', e, st);
-    return 0;
-  }
-});
 
 final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
   final position = ref.watch(locationControllerProvider).valueOrNull;
@@ -614,7 +651,10 @@ final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
   switch (selection.mode) {
     case DiscoverRadiusMode.distance:
       candidates =
-          ref.watch(_nearbyDistanceCandidatesProvider(genderFilter)).valueOrNull ?? const [];
+          ref
+              .watch(_nearbyDistanceCandidatesProvider(genderFilter))
+              .valueOrNull ??
+          const [];
     case DiscoverRadiusMode.country:
       final myCountry = ref.watch(
         profileControllerProvider.select((p) => p.country),
@@ -623,12 +663,17 @@ final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
           ? const []
           : ref
                     .watch(
-                      _countryCandidatesProvider((country: myCountry, genderFilter: genderFilter)),
+                      _countryCandidatesProvider((
+                        country: myCountry,
+                        genderFilter: genderFilter,
+                      )),
                     )
                     .valueOrNull ??
                 const [];
     case DiscoverRadiusMode.world:
-      candidates = ref.watch(_worldCandidatesProvider(genderFilter)).valueOrNull ?? const [];
+      candidates =
+          ref.watch(_worldCandidatesProvider(genderFilter)).valueOrNull ??
+          const [];
   }
 
   final result = <NearbyUser>[];
@@ -640,7 +685,8 @@ final nearbyUsersProvider = Provider<List<NearbyUser>>((ref) {
     if (candidate.uid == myUid) continue;
     if (candidate.lat == null || candidate.lng == null) continue;
 
-    final distance = candidate.distanceMeters ??
+    final distance =
+        candidate.distanceMeters ??
         Geolocator.distanceBetween(
           position.latitude,
           position.longitude,

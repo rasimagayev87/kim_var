@@ -16,34 +16,45 @@ import 'offer_remote_datasource.dart';
 const kOfferGeoField = 'position';
 
 class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
-  FirebaseOfferRemoteDatasource({FirebaseFirestore? firestore, FirebaseStorage? storage})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+  FirebaseOfferRemoteDatasource({
+    FirebaseFirestore? firestore,
+    FirebaseStorage? storage,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _storage = storage ?? FirebaseStorage.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
-  CollectionReference<Map<String, dynamic>> get _offers => _firestore.collection('offers');
+  CollectionReference<Map<String, dynamic>> get _offers =>
+      _firestore.collection('offers');
 
   @override
   String allocateOfferId() => _offers.doc().id;
 
   @override
-  Future<void> setOffer(String offerId, Map<String, dynamic> data) => _offers.doc(offerId).set(data);
+  Future<void> setOffer(String offerId, Map<String, dynamic> data) =>
+      _offers.doc(offerId).set(data);
 
   @override
   Future<void> deleteOffer(String offerId) => _offers.doc(offerId).delete();
 
   @override
-  Stream<DocumentSnapshot<Map<String, dynamic>>> watchOffer(String offerId) => _offers.doc(offerId).snapshots();
+  Stream<DocumentSnapshot<Map<String, dynamic>>> watchOffer(String offerId) =>
+      _offers.doc(offerId).snapshots();
 
   @override
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchOffersByOwner(String ownerId) {
-    return _offers.where('ownerId', isEqualTo: ownerId).orderBy('createdAt', descending: true).snapshots();
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchOffersByOwner(
+    String ownerId,
+  ) {
+    return _offers
+        .where('ownerId', isEqualTo: ownerId)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
   }
 
   @override
-  Future<List<(DocumentSnapshot<Map<String, dynamic>>, double)>> queryWithinRadius({
+  Future<List<(DocumentSnapshot<Map<String, dynamic>>, double)>>
+  queryWithinRadius({
     required double lat,
     required double lng,
     required double radiusKm,
@@ -56,13 +67,17 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
       field: kOfferGeoField,
       geopointFrom: (data) => data[kOfferGeoField]['geopoint'] as GeoPoint,
       queryBuilder: (query) {
-        var q = query.where('status', isEqualTo: 'approved').where('happyHourActive', isEqualTo: true);
+        var q = query
+            .where('status', isEqualTo: 'approved')
+            .where('happyHourActive', isEqualTo: true);
         if (category != null) q = q.where('category', isEqualTo: category);
         return q;
       },
       strictMode: true,
     );
-    return results.map((r) => (r.documentSnapshot, r.distanceFromCenterInKm)).toList();
+    return results
+        .map((r) => (r.documentSnapshot, r.distanceFromCenterInKm))
+        .toList();
   }
 
   @override
@@ -75,7 +90,10 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
   }
 
   @override
-  Future<QuerySnapshot<Map<String, dynamic>>> queryByCountry(String country, {String? category}) {
+  Future<QuerySnapshot<Map<String, dynamic>>> queryByCountry(
+    String country, {
+    String? category,
+  }) {
     var query = _offers
         .where('status', isEqualTo: 'approved')
         .where('happyHourActive', isEqualTo: true)
@@ -85,8 +103,13 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
   }
 
   @override
-  Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({required int limit, String? category}) {
-    var query = _offers.where('status', isEqualTo: 'approved').where('happyHourActive', isEqualTo: true);
+  Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({
+    required int limit,
+    String? category,
+  }) {
+    var query = _offers
+        .where('status', isEqualTo: 'approved')
+        .where('happyHourActive', isEqualTo: true);
     if (category != null) query = query.where('category', isEqualTo: category);
     return query.limit(limit).get();
   }
@@ -102,7 +125,10 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
     final storageRef = _storage.ref('offer_photos/$ownerId/$offerId.jpg');
     // GPS EXIF strip (Düzəliş Prompt 3 / C#43).
     final stripped = await stripExifIfImage(photo);
-    final task = storageRef.putFile(stripped, SettableMetadata(contentType: 'image/jpeg'));
+    final task = storageRef.putFile(
+      stripped,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
 
     onTaskReady?.call(task.cancel);
 
@@ -121,7 +147,9 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
   @override
   Future<void> deleteOfferPhoto(String ownerId, String offerId) async {
     try {
-      await deleteWithResizedVariant(_storage.ref('offer_photos/$ownerId/$offerId.jpg'));
+      await deleteWithResizedVariant(
+        _storage.ref('offer_photos/$ownerId/$offerId.jpg'),
+      );
     } on FirebaseException catch (e) {
       if (e.code != 'object-not-found') rethrow;
     }
@@ -132,11 +160,17 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
 
   @override
   Stream<Set<String>> watchFavoriteOfferIds(String uid) {
-    return _favoriteOffers(uid).snapshots().map((snapshot) => snapshot.docs.map((doc) => doc.id).toSet());
+    return _favoriteOffers(
+      uid,
+    ).snapshots().map((snapshot) => snapshot.docs.map((doc) => doc.id).toSet());
   }
 
   @override
-  Future<void> setFavorite({required String uid, required String offerId, required bool isFavorite}) async {
+  Future<void> setFavorite({
+    required String uid,
+    required String offerId,
+    required bool isFavorite,
+  }) async {
     final favoriteDoc = _favoriteOffers(uid).doc(offerId);
     if (isFavorite) {
       await favoriteDoc.set({'createdAt': FieldValue.serverTimestamp()});
@@ -155,6 +189,8 @@ class FirebaseOfferRemoteDatasource implements OfferRemoteDatasource {
 
   @override
   Future<void> redeemOffer(String offerId, String uid) async {
-    await _redemptions(offerId).doc(uid).set({'redeemedAt': FieldValue.serverTimestamp()});
+    await _redemptions(
+      offerId,
+    ).doc(uid).set({'redeemedAt': FieldValue.serverTimestamp()});
   }
 }

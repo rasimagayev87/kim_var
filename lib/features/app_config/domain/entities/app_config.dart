@@ -34,7 +34,8 @@ class AppConfig {
     this.minSupportedVersionIos = '1.0.0',
     this.latestVersionAndroid = '1.0.0',
     this.latestVersionIos = '1.0.0',
-    this.updateStoreUrlAndroid = 'https://play.google.com/store/apps/details?id=com.peakpin.app',
+    this.updateStoreUrlAndroid =
+        'https://play.google.com/store/apps/details?id=com.peakpin.app',
     this.updateStoreUrlIos = 'https://apps.apple.com/app/id0000000000',
     this.softUpdateIntervalHours = 72,
     this.maintenanceModeEnabled = false,
@@ -66,11 +67,13 @@ class AppConfig {
     },
     this.urlPrivacyPolicy = 'https://peakpin.app/privacy-policy.html',
     this.urlTermsOfService = 'https://peakpin.app/terms-of-service.html',
-    this.urlCommunityGuidelines = 'https://peakpin.app/community-guidelines.html',
+    this.urlCommunityGuidelines =
+        'https://peakpin.app/community-guidelines.html',
     this.urlBusinessOffer = 'https://peakpin.app/business-offer.html',
     this.businessOfferVersion = '1.0',
     this.businessOfferEffectiveDate = '2026-08-28',
-    this.urlChildSafetyStandards = 'https://peakpin.app/child-safety-standards.html',
+    this.urlChildSafetyStandards =
+        'https://peakpin.app/child-safety-standards.html',
     this.supportEmail = 'support@peakpin.app',
     this.privacyEmail = 'privacy@peakpin.app',
     this.supportPhone = '',
@@ -91,15 +94,18 @@ class AppConfig {
   final int softUpdateIntervalHours;
 
   final bool maintenanceModeEnabled;
+
   /// Already resolved to the app's current locale by the repository.
   final String maintenanceMessage;
 
   final bool readOnlyModeEnabled;
+
   /// Already resolved to the app's current locale by the repository.
   final String readOnlyMessage;
 
   final bool announcementEnabled;
   final String announcementId;
+
   /// Already resolved to the app's current locale by the repository.
   final String announcementMessage;
   final String announcementActionUrl;
@@ -110,12 +116,14 @@ class AppConfig {
   final String urlTermsOfService;
   final String urlCommunityGuidelines;
   final String urlBusinessOffer;
+
   /// Compared against a venue's own `offerAcceptedVersion` (see
   /// `Venue`) to decide whether a fresh acceptance is required before
   /// the next subscription payment — see
   /// `business_offer_consent_row.dart` and `MyVenuesScreen`'s
   /// re-acceptance sheet.
   final String businessOfferVersion;
+
   /// ISO date string, shown in the non-blocking "oferta yeniləndi"
   /// banner — purely informational, not parsed/compared against
   /// anything.
@@ -125,11 +133,13 @@ class AppConfig {
   final String privacyEmail;
   final String supportPhone;
   final List<double> radiusOptionsKm;
+
   /// Not wired to any behavior yet — today country/world discover modes
   /// are simply VIP-gated outright (see `isPremiumProvider` call sites in
   /// `discover_tab.dart`/`privacy_security_screen.dart`), not gated by a
   /// numeric distance threshold. Reserved for that future shape.
   final double vipRadiusThresholdM;
+
   /// How often [findNearbyUsers] (functions/src/index.ts) is re-polled
   /// while the distance-mode "yaxınlıqdakılar" feed is active — Düzəliş
   /// Prompt 4 replaced its real-time `.snapshots()` listener with a

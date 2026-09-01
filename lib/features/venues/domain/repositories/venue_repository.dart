@@ -158,7 +158,8 @@ abstract class VenueRepository {
   /// case the Cloud Function proceeds using the existing acceptance on
   /// file (see that function's own doc comment for the backward-compat
   /// case of a venue with no acceptance at all).
-  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueSubscriptionPayment(
+  Future<({String checkoutUrl, double feeAmount, String paymentId})>
+  retryVenueSubscriptionPayment(
     String venueId, {
     ({String version, String documentUrl, String appVersion})? offerAcceptance,
   });
@@ -169,7 +170,8 @@ abstract class VenueRepository {
   /// first-payment banner. Distinct from [retryVenueSubscriptionPayment],
   /// which only handles an already-live venue's overdue renewal (see
   /// `retryVenueCreationPayment`, functions/src/index.ts).
-  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryVenueCreationPayment(String venueId);
+  Future<({String checkoutUrl, double feeAmount, String paymentId})>
+  retryVenueCreationPayment(String venueId);
 
   /// Starts an Epoint checkout for one of the 1/6/12-month "Məkanı
   /// premium et" tiers. `Venue.isPremium`/`premiumSince`/
@@ -177,7 +179,8 @@ abstract class VenueRepository {
   /// `venue_premium` branch (functions/src/index.ts) once the charge
   /// is confirmed — never directly from here (see firestore.rules'
   /// venues update rule).
-  Future<({String checkoutUrl, double feeAmount, String paymentId})> createVenuePremiumCheckout(String venueId, int months);
+  Future<({String checkoutUrl, double feeAmount, String paymentId})>
+  createVenuePremiumCheckout(String venueId, int months);
 
   /// Clears [Venue.firstPaymentAnnouncementPending] once the owner has
   /// seen/dismissed the first-payment confirmation card — a plain,

@@ -16,7 +16,7 @@ class FirebaseStorageRepository implements StorageRepository {
   final FirebaseStorage _storage;
 
   FirebaseStorageRepository({FirebaseStorage? storage})
-      : _storage = storage ?? FirebaseStorage.instance;
+    : _storage = storage ?? FirebaseStorage.instance;
 
   String _pathFor(String userId) => 'profile_photos/$userId/profile.jpg';
 
@@ -87,7 +87,10 @@ class FirebaseStorageRepository implements StorageRepository {
     }
   }
 
-  StorageException _mapException(FirebaseException e, {required StorageFailure fallback}) {
+  StorageException _mapException(
+    FirebaseException e, {
+    required StorageFailure fallback,
+  }) {
     switch (e.code) {
       case 'unauthorized':
       case 'permission-denied':
@@ -103,7 +106,11 @@ class FirebaseStorageRepository implements StorageRepository {
           cause: e,
         );
       default:
-        return StorageException(fallback, e.message ?? 'Naməlum Storage xətası.', cause: e);
+        return StorageException(
+          fallback,
+          e.message ?? 'Naməlum Storage xətası.',
+          cause: e,
+        );
     }
   }
 }

@@ -9,7 +9,9 @@ import '../../domain/entities/call_session.dart';
 /// Every call site in the app goes through this provider, not
 /// `FirebaseCallRepository` directly.
 final callRepositoryProvider = Provider<CallRepository>(
-  (ref) => FirebaseCallRepository(safetyRepository: ref.watch(safetyRepositoryProvider)),
+  (ref) => FirebaseCallRepository(
+    safetyRepository: ref.watch(safetyRepositoryProvider),
+  ),
 );
 
 /// Watched once at the app's home screen so an incoming call surfaces
@@ -18,14 +20,17 @@ final incomingCallProvider = StreamProvider.autoDispose<CallSession?>((ref) {
   return ref.watch(callRepositoryProvider).watchIncomingCall();
 });
 
-final callSessionProvider = StreamProvider.autoDispose.family<CallSession?, String>((ref, callId) {
-  return ref.watch(callRepositoryProvider).watchCall(callId);
-});
+final callSessionProvider = StreamProvider.autoDispose
+    .family<CallSession?, String>((ref, callId) {
+      return ref.watch(callRepositoryProvider).watchCall(callId);
+    });
 
-final localCallStreamProvider = StreamProvider.autoDispose.family<MediaStream?, String>((ref, callId) {
-  return ref.watch(callRepositoryProvider).watchLocalStream(callId);
-});
+final localCallStreamProvider = StreamProvider.autoDispose
+    .family<MediaStream?, String>((ref, callId) {
+      return ref.watch(callRepositoryProvider).watchLocalStream(callId);
+    });
 
-final remoteCallStreamProvider = StreamProvider.autoDispose.family<MediaStream?, String>((ref, callId) {
-  return ref.watch(callRepositoryProvider).watchRemoteStream(callId);
-});
+final remoteCallStreamProvider = StreamProvider.autoDispose
+    .family<MediaStream?, String>((ref, callId) {
+      return ref.watch(callRepositoryProvider).watchRemoteStream(callId);
+    });

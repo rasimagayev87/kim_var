@@ -7,9 +7,10 @@ import '../../domain/repositories/notification_preferences_repository.dart';
 
 /// `notificationPreferences` lives on `users/{uid}/private/data`
 /// (Düzəliş Prompt 4) — see `privateDataRef`'s own doc comment.
-class FirebaseNotificationPreferencesRepository implements NotificationPreferencesRepository {
+class FirebaseNotificationPreferencesRepository
+    implements NotificationPreferencesRepository {
   FirebaseNotificationPreferencesRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -20,7 +21,8 @@ class FirebaseNotificationPreferencesRepository implements NotificationPreferenc
   @override
   Stream<NotificationPreferences> watchPreferences(String uid) {
     return _userDoc(uid).snapshots().map((snap) {
-      final map = snap.data()?['notificationPreferences'] as Map<String, dynamic>?;
+      final map =
+          snap.data()?['notificationPreferences'] as Map<String, dynamic>?;
       if (map == null) return const NotificationPreferences();
       // Every default here MUST match the server's own reading of a
       // missing key. `notifyUser` treats absent as enabled
@@ -52,7 +54,8 @@ class FirebaseNotificationPreferencesRepository implements NotificationPreferenc
   @override
   Future<void> updatePreferences(String uid, Map<String, bool> changes) {
     final data = <String, dynamic>{
-      for (final entry in changes.entries) 'notificationPreferences.${entry.key}': entry.value,
+      for (final entry in changes.entries)
+        'notificationPreferences.${entry.key}': entry.value,
     };
     // Must be update(), not set(merge:true) — only update() interprets a
     // dotted key like 'notificationPreferences.messages' as a nested

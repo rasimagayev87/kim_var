@@ -21,22 +21,30 @@ import '../../domain/usecases/send_text_message_usecase.dart';
 import '../../domain/usecases/send_video_message_usecase.dart';
 
 final chatRepositoryProvider = Provider<ChatRepository>(
-  (ref) => FirebaseChatRepository(safetyRepository: ref.watch(safetyRepositoryProvider)),
+  (ref) => FirebaseChatRepository(
+    safetyRepository: ref.watch(safetyRepositoryProvider),
+  ),
 );
 
 final sendTextMessageUseCaseProvider = Provider<SendTextMessageUseCase>((ref) {
   return SendTextMessageUseCase(ref.watch(chatRepositoryProvider));
 });
 
-final sendImageMessageUseCaseProvider = Provider<SendImageMessageUseCase>((ref) {
+final sendImageMessageUseCaseProvider = Provider<SendImageMessageUseCase>((
+  ref,
+) {
   return SendImageMessageUseCase(ref.watch(chatRepositoryProvider));
 });
 
-final sendVideoMessageUseCaseProvider = Provider<SendVideoMessageUseCase>((ref) {
+final sendVideoMessageUseCaseProvider = Provider<SendVideoMessageUseCase>((
+  ref,
+) {
   return SendVideoMessageUseCase(ref.watch(chatRepositoryProvider));
 });
 
-final sendAudioMessageUseCaseProvider = Provider<SendAudioMessageUseCase>((ref) {
+final sendAudioMessageUseCaseProvider = Provider<SendAudioMessageUseCase>((
+  ref,
+) {
   return SendAudioMessageUseCase(ref.watch(chatRepositoryProvider));
 });
 
@@ -64,7 +72,10 @@ final chatsProvider = StreamProvider.autoDispose<List<Chat>>((ref) {
   return ref.watch(chatRepositoryProvider).watchChats(uid);
 });
 
-final chatByIdProvider = StreamProvider.autoDispose.family<Chat?, String>((ref, chatId) {
+final chatByIdProvider = StreamProvider.autoDispose.family<Chat?, String>((
+  ref,
+  chatId,
+) {
   return ref.watch(chatRepositoryProvider).watchChat(chatId);
 });
 
@@ -148,23 +159,29 @@ class ChatListController extends StateNotifier<ChatListState> {
       state = state.copyWith(isInitialLoading: false);
       return;
     }
-    _firstPageSub = _ref.read(chatRepositoryProvider).watchChats(uid, limit: _kChatPageSize).listen(
-      (chats) {
-        _firstPage = chats;
-        state = state.copyWith(isInitialLoading: false, clearError: true);
-        _recompute();
-      },
-      onError: (Object e, StackTrace st) {
-        logError('chat_providers.ChatListController.firstPage', e, st);
-        if (!_autoRetried) {
-          _autoRetried = true;
-          _firstPageSub?.cancel();
-          Future<void>.delayed(const Duration(milliseconds: 600), _subscribeFirstPage);
-          return;
-        }
-        state = state.copyWith(isInitialLoading: false, error: e);
-      },
-    );
+    _firstPageSub = _ref
+        .read(chatRepositoryProvider)
+        .watchChats(uid, limit: _kChatPageSize)
+        .listen(
+          (chats) {
+            _firstPage = chats;
+            state = state.copyWith(isInitialLoading: false, clearError: true);
+            _recompute();
+          },
+          onError: (Object e, StackTrace st) {
+            logError('chat_providers.ChatListController.firstPage', e, st);
+            if (!_autoRetried) {
+              _autoRetried = true;
+              _firstPageSub?.cancel();
+              Future<void>.delayed(
+                const Duration(milliseconds: 600),
+                _subscribeFirstPage,
+              );
+              return;
+            }
+            state = state.copyWith(isInitialLoading: false, error: e);
+          },
+        );
   }
 
   /// Re-subscribes from scratch — used by the retry action on the
@@ -183,20 +200,33 @@ class ChatListController extends StateNotifier<ChatListState> {
     for (final chat in [..._firstPage, ..._olderPages]) {
       if (seen.add(chat.id)) merged.add(chat);
     }
-    merged.sort((a, b) => (b.lastMessageAt ?? DateTime(0)).compareTo(a.lastMessageAt ?? DateTime(0)));
+    merged.sort(
+      (a, b) => (b.lastMessageAt ?? DateTime(0)).compareTo(
+        a.lastMessageAt ?? DateTime(0),
+      ),
+    );
     state = state.copyWith(chats: merged);
   }
 
   Future<void> loadMore() async {
     final uid = _currentUid();
-    if (uid == null || state.isLoadingMore || !state.hasMore || state.chats.isEmpty) return;
+    if (uid == null ||
+        state.isLoadingMore ||
+        !state.hasMore ||
+        state.chats.isEmpty)
+      return;
     final oldest = state.chats.last.lastMessageAt;
     if (oldest == null) return;
 
     state = state.copyWith(isLoadingMore: true);
-    final more = await _ref.read(chatRepositoryProvider).fetchMoreChats(uid, startAfter: oldest, limit: _kChatPageSize);
+    final more = await _ref
+        .read(chatRepositoryProvider)
+        .fetchMoreChats(uid, startAfter: oldest, limit: _kChatPageSize);
     _olderPages = [..._olderPages, ...more];
-    state = state.copyWith(isLoadingMore: false, hasMore: more.length == _kChatPageSize);
+    state = state.copyWith(
+      isLoadingMore: false,
+      hasMore: more.length == _kChatPageSize,
+    );
     _recompute();
   }
 
@@ -214,7 +244,9 @@ class ChatListController extends StateNotifier<ChatListState> {
     final uid = _currentUid();
     if (uid == null) return;
     try {
-      await _ref.read(chatRepositoryProvider).setArchived(chatId, uid, archived);
+      await _ref
+          .read(chatRepositoryProvider)
+          .setArchived(chatId, uid, archived);
     } catch (e, st) {
       logError('chat_providers.ChatListController.setArchived', e, st);
     }
@@ -237,28 +269,35 @@ class ChatListController extends StateNotifier<ChatListState> {
   }
 }
 
-final chatListControllerProvider = StateNotifierProvider<ChatListController, ChatListState>((ref) {
-  // ChatListController isn't autoDispose, so without this watch it's built
-  // once and keeps its subscription bound to whatever uid was signed in
-  // at that moment — a logout followed by signing into a different
-  // account (no full app restart) would otherwise leave both "Hamısı"
-  // and "Sorğular" silently empty forever, since the old subscription
-  // never re-reads the new uid. Watching authStateProvider makes Riverpod
-  // dispose and recreate this controller on every sign-in/sign-out.
-  ref.watch(authStateProvider);
-  return ChatListController(ref);
-});
+final chatListControllerProvider =
+    StateNotifierProvider<ChatListController, ChatListState>((ref) {
+      // ChatListController isn't autoDispose, so without this watch it's built
+      // once and keeps its subscription bound to whatever uid was signed in
+      // at that moment — a logout followed by signing into a different
+      // account (no full app restart) would otherwise leave both "Hamısı"
+      // and "Sorğular" silently empty forever, since the old subscription
+      // never re-reads the new uid. Watching authStateProvider makes Riverpod
+      // dispose and recreate this controller on every sign-in/sign-out.
+      ref.watch(authStateProvider);
+      return ChatListController(ref);
+    });
 
 // autoDispose — same stuck-listener reasoning as chatByIdProvider above.
 // Filters out messages the signed-in user chose "Özün üçün sil" on —
 // the doc still exists (the other participant's copy is untouched),
 // it's just hidden from this one viewer.
-final chatMessagesProvider = StreamProvider.autoDispose.family<List<ChatMessage>, String>((ref, chatId) {
-  final uid = _currentUid();
-  return ref.watch(chatRepositoryProvider).watchMessages(chatId).map(
-        (messages) => uid == null ? messages : messages.where((m) => !m.deletedFor.contains(uid)).toList(),
-      );
-});
+final chatMessagesProvider = StreamProvider.autoDispose
+    .family<List<ChatMessage>, String>((ref, chatId) {
+      final uid = _currentUid();
+      return ref
+          .watch(chatRepositoryProvider)
+          .watchMessages(chatId)
+          .map(
+            (messages) => uid == null
+                ? messages
+                : messages.where((m) => !m.deletedFor.contains(uid)).toList(),
+          );
+    });
 
 /// A locally-tracked media send that hasn't (yet, or ever) landed as a
 /// real [ChatMessage] in Firestore. This is what lets the composer show
@@ -286,7 +325,10 @@ class PendingOutgoingMessage {
     required this.createdAt,
   });
 
-  PendingOutgoingMessage copyWith({double? progress, PendingMessageStatus? status}) {
+  PendingOutgoingMessage copyWith({
+    double? progress,
+    PendingMessageStatus? status,
+  }) {
     return PendingOutgoingMessage(
       localId: localId,
       type: type,
@@ -308,17 +350,18 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
 
   final Ref _ref;
 
-  Future<bool> sendText({required String otherUid, required String text}) async {
+  Future<bool> sendText({
+    required String otherUid,
+    required String text,
+  }) async {
     final uid = _currentUid();
     if (uid == null) return false;
     if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     state = const AsyncValue.loading();
     try {
-      await _ref.read(sendTextMessageUseCaseProvider).call(
-            participantIds: [uid, otherUid],
-            senderId: uid,
-            text: text,
-          );
+      await _ref
+          .read(sendTextMessageUseCaseProvider)
+          .call(participantIds: [uid, otherUid], senderId: uid, text: text);
       state = const AsyncValue.data(null);
       return true;
     } on ChatException catch (e, st) {
@@ -340,7 +383,9 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
     final uid = _currentUid();
     if (uid == null) return false;
     try {
-      await _ref.read(chatRepositoryProvider).sendPostMessage(
+      await _ref
+          .read(chatRepositoryProvider)
+          .sendPostMessage(
             participantIds: [uid, otherUid],
             senderId: uid,
             postId: postId,
@@ -370,7 +415,9 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
     final uid = _currentUid();
     if (uid == null) return;
     try {
-      await _ref.read(chatRepositoryProvider).logCallMessage(
+      await _ref
+          .read(chatRepositoryProvider)
+          .logCallMessage(
             participantIds: [uid, otherUid],
             senderId: uid,
             callId: callId,
@@ -385,12 +432,17 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<bool> sendImage({required String otherUid, required File imageFile}) async {
+  Future<bool> sendImage({
+    required String otherUid,
+    required File imageFile,
+  }) async {
     final uid = _currentUid();
     if (uid == null) return false;
     state = const AsyncValue.loading();
     try {
-      await _ref.read(sendImageMessageUseCaseProvider).call(
+      await _ref
+          .read(sendImageMessageUseCaseProvider)
+          .call(
             participantIds: [uid, otherUid],
             senderId: uid,
             imageFile: imageFile,
@@ -427,11 +479,16 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<bool> deleteMessageForMe({required String chatId, required String messageId}) async {
+  Future<bool> deleteMessageForMe({
+    required String chatId,
+    required String messageId,
+  }) async {
     final uid = _currentUid();
     if (uid == null) return false;
     try {
-      await _ref.read(chatRepositoryProvider).deleteMessageForMe(chatId: chatId, messageId: messageId, uid: uid);
+      await _ref
+          .read(chatRepositoryProvider)
+          .deleteMessageForMe(chatId: chatId, messageId: messageId, uid: uid);
       return true;
     } catch (e, st) {
       logError('chat_providers.deleteMessageForMe', e, st);
@@ -439,9 +496,14 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
     }
   }
 
-  Future<bool> deleteMessageForEveryone({required String chatId, required String messageId}) async {
+  Future<bool> deleteMessageForEveryone({
+    required String chatId,
+    required String messageId,
+  }) async {
     try {
-      await _ref.read(chatRepositoryProvider).deleteMessageForEveryone(chatId: chatId, messageId: messageId);
+      await _ref
+          .read(chatRepositoryProvider)
+          .deleteMessageForEveryone(chatId: chatId, messageId: messageId);
       return true;
     } catch (e, st) {
       logError('chat_providers.deleteMessageForEveryone', e, st);
@@ -451,11 +513,16 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
 
   /// Forwards [message] into each of [targetOtherUids]' chats with the
   /// caller — up to 5, per the picker sheet's own selection cap.
-  Future<bool> forwardMessage({required ChatMessage message, required List<String> targetOtherUids}) async {
+  Future<bool> forwardMessage({
+    required ChatMessage message,
+    required List<String> targetOtherUids,
+  }) async {
     final uid = _currentUid();
     if (uid == null) return false;
     try {
-      await _ref.read(chatRepositoryProvider).forwardMessage(
+      await _ref
+          .read(chatRepositoryProvider)
+          .forwardMessage(
             targetOtherUids: targetOtherUids,
             senderId: uid,
             type: message.type,
@@ -481,7 +548,9 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
   Future<void> markRead(String chatId) {
     final uid = _currentUid();
     if (uid == null) return Future.value();
-    return _ref.read(chatRepositoryProvider).markRead(chatId, uid, showReadReceipts: _showReadReceipts());
+    return _ref
+        .read(chatRepositoryProvider)
+        .markRead(chatId, uid, showReadReceipts: _showReadReceipts());
   }
 
   /// Triggered by actually pressing play on a voice message — see
@@ -491,15 +560,23 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
     if (uid == null) return Future.value();
     return _ref
         .read(chatRepositoryProvider)
-        .markMessageRead(chatId, messageId, uid, showReadReceipts: _showReadReceipts());
+        .markMessageRead(
+          chatId,
+          messageId,
+          uid,
+          showReadReceipts: _showReadReceipts(),
+        );
   }
 
-  bool _showReadReceipts() => _ref.read(privacySettingsProvider).valueOrNull?.showReadReceipts ?? true;
+  bool _showReadReceipts() =>
+      _ref.read(privacySettingsProvider).valueOrNull?.showReadReceipts ?? true;
 
   Future<void> setTyping(String chatId, bool isTyping) {
     final uid = _currentUid();
     if (uid == null) return Future.value();
-    return _ref.read(chatRepositoryProvider).setTyping(chatId: chatId, uid: uid, isTyping: isTyping);
+    return _ref
+        .read(chatRepositoryProvider)
+        .setTyping(chatId: chatId, uid: uid, isTyping: isTyping);
   }
 
   Future<void> deleteChat(String chatId) {
@@ -509,15 +586,17 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
   }
 }
 
-final chatControllerProvider = StateNotifierProvider<ChatController, AsyncValue<void>>((ref) {
-  return ChatController(ref);
-});
+final chatControllerProvider =
+    StateNotifierProvider<ChatController, AsyncValue<void>>((ref) {
+      return ChatController(ref);
+    });
 
 /// Owns every in-flight/failed media upload, keyed by chatId. Kept
 /// separate from [ChatController] because its state (progress ticks on
 /// every Storage byte chunk) is much chattier and only a handful of
 /// widgets — the composer's pending-row — need to rebuild on it.
-class PendingMessagesController extends StateNotifier<Map<String, List<PendingOutgoingMessage>>> {
+class PendingMessagesController
+    extends StateNotifier<Map<String, List<PendingOutgoingMessage>>> {
   PendingMessagesController(this._ref) : super(const {});
 
   final Ref _ref;
@@ -541,18 +620,24 @@ class PendingMessagesController extends StateNotifier<Map<String, List<PendingOu
     state = {...state, chatId: list};
   }
 
-  Future<void> sendImage({required String chatId, required String otherUid, required File file}) {
+  Future<void> sendImage({
+    required String chatId,
+    required String otherUid,
+    required File file,
+  }) {
     return _send(
       chatId: chatId,
       otherUid: otherUid,
       type: MessageType.image,
       file: file,
-      upload: (uid, onProgress) => _ref.read(sendImageMessageUseCaseProvider).call(
-        participantIds: [uid, otherUid],
-        senderId: uid,
-        imageFile: file,
-        onProgress: onProgress,
-      ),
+      upload: (uid, onProgress) => _ref
+          .read(sendImageMessageUseCaseProvider)
+          .call(
+            participantIds: [uid, otherUid],
+            senderId: uid,
+            imageFile: file,
+            onProgress: onProgress,
+          ),
     );
   }
 
@@ -568,13 +653,15 @@ class PendingMessagesController extends StateNotifier<Map<String, List<PendingOu
       type: MessageType.video,
       file: file,
       durationMs: durationMs,
-      upload: (uid, onProgress) => _ref.read(sendVideoMessageUseCaseProvider).call(
-        participantIds: [uid, otherUid],
-        senderId: uid,
-        videoFile: file,
-        durationMs: durationMs,
-        onProgress: onProgress,
-      ),
+      upload: (uid, onProgress) => _ref
+          .read(sendVideoMessageUseCaseProvider)
+          .call(
+            participantIds: [uid, otherUid],
+            senderId: uid,
+            videoFile: file,
+            durationMs: durationMs,
+            onProgress: onProgress,
+          ),
     );
   }
 
@@ -590,13 +677,15 @@ class PendingMessagesController extends StateNotifier<Map<String, List<PendingOu
       type: MessageType.audio,
       file: file,
       durationMs: durationMs,
-      upload: (uid, onProgress) => _ref.read(sendAudioMessageUseCaseProvider).call(
-        participantIds: [uid, otherUid],
-        senderId: uid,
-        audioFile: file,
-        durationMs: durationMs,
-        onProgress: onProgress,
-      ),
+      upload: (uid, onProgress) => _ref
+          .read(sendAudioMessageUseCaseProvider)
+          .call(
+            participantIds: [uid, otherUid],
+            senderId: uid,
+            audioFile: file,
+            durationMs: durationMs,
+            onProgress: onProgress,
+          ),
     );
   }
 
@@ -606,15 +695,23 @@ class PendingMessagesController extends StateNotifier<Map<String, List<PendingOu
     required MessageType type,
     required File file,
     int? durationMs,
-    required Future<void> Function(String uid, void Function(double) onProgress) upload,
+    required Future<void> Function(String uid, void Function(double) onProgress)
+    upload,
   }) async {
     final uid = _currentUid();
     if (uid == null) return;
 
-    final localId = 'pending_${DateTime.now().microsecondsSinceEpoch}_${_counter++}';
+    final localId =
+        'pending_${DateTime.now().microsecondsSinceEpoch}_${_counter++}';
     _upsert(
       chatId,
-      PendingOutgoingMessage(localId: localId, type: type, file: file, durationMs: durationMs, createdAt: DateTime.now()),
+      PendingOutgoingMessage(
+        localId: localId,
+        type: type,
+        file: file,
+        durationMs: durationMs,
+        createdAt: DateTime.now(),
+      ),
     );
 
     try {
@@ -651,13 +748,26 @@ class PendingMessagesController extends StateNotifier<Map<String, List<PendingOu
     }
   }
 
-  Future<void> retry({required String chatId, required String otherUid, required PendingOutgoingMessage message}) {
+  Future<void> retry({
+    required String chatId,
+    required String otherUid,
+    required PendingOutgoingMessage message,
+  }) {
     _remove(chatId, message.localId);
     switch (message.type) {
       case MessageType.image:
-        return sendImage(chatId: chatId, otherUid: otherUid, file: message.file);
+        return sendImage(
+          chatId: chatId,
+          otherUid: otherUid,
+          file: message.file,
+        );
       case MessageType.video:
-        return sendVideo(chatId: chatId, otherUid: otherUid, file: message.file, durationMs: message.durationMs);
+        return sendVideo(
+          chatId: chatId,
+          otherUid: otherUid,
+          file: message.file,
+          durationMs: message.durationMs,
+        );
       case MessageType.audio:
         return sendAudio(
           chatId: chatId,
@@ -683,10 +793,17 @@ class PendingMessagesController extends StateNotifier<Map<String, List<PendingOu
 }
 
 final pendingMessagesProvider =
-    StateNotifierProvider<PendingMessagesController, Map<String, List<PendingOutgoingMessage>>>((ref) {
-  return PendingMessagesController(ref);
-});
+    StateNotifierProvider<
+      PendingMessagesController,
+      Map<String, List<PendingOutgoingMessage>>
+    >((ref) {
+      return PendingMessagesController(ref);
+    });
 
-final pendingMessagesForChatProvider = Provider.family<List<PendingOutgoingMessage>, String>((ref, chatId) {
-  return ref.watch(pendingMessagesProvider.select((state) => state[chatId])) ?? const [];
-});
+final pendingMessagesForChatProvider =
+    Provider.family<List<PendingOutgoingMessage>, String>((ref, chatId) {
+      return ref.watch(
+            pendingMessagesProvider.select((state) => state[chatId]),
+          ) ??
+          const [];
+    });

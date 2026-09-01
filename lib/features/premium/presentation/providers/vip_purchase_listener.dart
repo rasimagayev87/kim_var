@@ -24,7 +24,8 @@ StreamSubscription<List<PurchaseDetails>>? _subscription;
 void startVipPurchaseListener() {
   _subscription ??= InAppPurchase.instance.purchaseStream.listen(
     _onPurchaseUpdate,
-    onError: (Object e, StackTrace st) => logError('vip_purchase_listener', e, st),
+    onError: (Object e, StackTrace st) =>
+        logError('vip_purchase_listener', e, st),
   );
 }
 
@@ -38,7 +39,9 @@ void startVipPurchaseListener() {
 /// propagate after creation).
 Future<List<ProductDetails>> queryVipProducts() async {
   if (!await InAppPurchase.instance.isAvailable()) return const [];
-  final response = await InAppPurchase.instance.queryProductDetails(kVipPackages.map((p) => p.skuId).toSet());
+  final response = await InAppPurchase.instance.queryProductDetails(
+    kVipPackages.map((p) => p.skuId).toSet(),
+  );
   return response.productDetails;
 }
 
@@ -49,7 +52,9 @@ Future<List<ProductDetails>> queryVipProducts() async {
 /// [InAppPurchase.purchaseStream], handled by [_onPurchaseUpdate] —
 /// this function only starts the flow, it never itself grants premium.
 Future<void> buyVipPackage(ProductDetails product) {
-  return InAppPurchase.instance.buyNonConsumable(purchaseParam: PurchaseParam(productDetails: product));
+  return InAppPurchase.instance.buyNonConsumable(
+    purchaseParam: PurchaseParam(productDetails: product),
+  );
 }
 
 /// Apple requires a working "Restore Purchases" control for any app
@@ -71,7 +76,8 @@ Future<void> restoreVipPurchases() {
 
 Future<void> _onPurchaseUpdate(List<PurchaseDetails> purchases) async {
   for (final purchase in purchases) {
-    if (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored) {
+    if (purchase.status == PurchaseStatus.purchased ||
+        purchase.status == PurchaseStatus.restored) {
       try {
         // `verifyInAppPurchase` (Cloud Function, functions/src/index.ts)
         // is the only thing that ever sets `users/{uid}.premium` from a
@@ -84,11 +90,13 @@ Future<void> _onPurchaseUpdate(List<PurchaseDetails> purchases) async {
         // itself already succeeded from the store's point of view, this
         // app failing to verify it is this app's problem, not grounds
         // to leave the customer's transaction hanging.
-        await FirebaseFunctions.instance.httpsCallable('verifyInAppPurchase', options: callableOptions()).call<Map<String, dynamic>>({
-          'productId': purchase.productID,
-          'platform': Platform.isIOS ? 'ios' : 'android',
-          'receiptData': purchase.verificationData.serverVerificationData,
-        });
+        await FirebaseFunctions.instance
+            .httpsCallable('verifyInAppPurchase', options: callableOptions())
+            .call<Map<String, dynamic>>({
+              'productId': purchase.productID,
+              'platform': Platform.isIOS ? 'ios' : 'android',
+              'receiptData': purchase.verificationData.serverVerificationData,
+            });
       } catch (e, st) {
         logError('vip_purchase_listener.verify', e, st);
         // Düzəliş Prompt 7 — a rejected verification (PAY-25's
@@ -103,7 +111,11 @@ Future<void> _onPurchaseUpdate(List<PurchaseDetails> purchases) async {
         _showVerificationError(e);
       }
     } else if (purchase.status == PurchaseStatus.error) {
-      logError('vip_purchase_listener.purchaseError', purchase.error ?? 'unknown IAP error', StackTrace.current);
+      logError(
+        'vip_purchase_listener.purchaseError',
+        purchase.error ?? 'unknown IAP error',
+        StackTrace.current,
+      );
     }
 
     if (purchase.pendingCompletePurchase) {
@@ -123,7 +135,10 @@ void _showVerificationError(Object error) {
   // re-mapped client-side, so server and client never drift out of
   // sync on wording. Anything else (network failure, etc.) falls
   // back to a generic message.
-  final message = error is FirebaseFunctionsException && error.message != null && error.message!.isNotEmpty
+  final message =
+      error is FirebaseFunctionsException &&
+          error.message != null &&
+          error.message!.isNotEmpty
       ? error.message!
       : loc.vipVerificationErrorGeneric;
   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));

@@ -18,7 +18,9 @@ void showLanguagePickerSheet(BuildContext context, WidgetRef ref) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.surface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (sheetContext) {
       return SafeArea(
         top: false,
@@ -31,21 +33,38 @@ void showLanguagePickerSheet(BuildContext context, WidgetRef ref) {
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   children: [
-                    const Icon(Icons.language_outlined, color: AppColors.textSecondary, size: 20),
+                    const Icon(
+                      Icons.language_outlined,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
                     const SizedBox(width: 10),
-                    Text(loc.languagePickerTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+                    Text(
+                      loc.languagePickerTitle,
+                      style: AppTextStyles.cardTitle.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: 8),
               for (final language in kSupportedLanguages)
                 ListTile(
-                  title: Text(language.nativeName, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
+                  title: Text(
+                    language.nativeName,
+                    style: AppTextStyles.body.copyWith(fontSize: 15.5),
+                  ),
                   trailing: language.locale.languageCode == currentCode
-                      ? const Icon(Icons.check_circle_outline, color: AppColors.primary)
+                      ? const Icon(
+                          Icons.check_circle_outline,
+                          color: AppColors.primary,
+                        )
                       : null,
                   onTap: () {
-                    ref.read(localeProvider.notifier).setLocale(language.locale);
+                    ref
+                        .read(localeProvider.notifier)
+                        .setLocale(language.locale);
                     Navigator.pop(sheetContext);
                   },
                 ),

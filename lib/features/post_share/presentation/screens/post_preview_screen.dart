@@ -16,7 +16,11 @@ class PostPreviewScreen extends ConsumerStatefulWidget {
   final File file;
   final PostMediaType mediaType;
 
-  const PostPreviewScreen({super.key, required this.file, required this.mediaType});
+  const PostPreviewScreen({
+    super.key,
+    required this.file,
+    required this.mediaType,
+  });
 
   @override
   ConsumerState<PostPreviewScreen> createState() => _PostPreviewScreenState();
@@ -58,7 +62,9 @@ class _PostPreviewScreenState extends ConsumerState<PostPreviewScreen> {
     });
     final loc = AppLocalizations.of(context);
 
-    final ok = await ref.read(postControllerProvider).uploadAndCreatePost(
+    final ok = await ref
+        .read(postControllerProvider)
+        .uploadAndCreatePost(
           file: widget.file,
           mediaType: widget.mediaType,
           caption: _captionController.text.trim(),
@@ -74,9 +80,9 @@ class _PostPreviewScreenState extends ConsumerState<PostPreviewScreen> {
       Navigator.pop(context, true);
     } else {
       setState(() => _submitting = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.postShareErrorMessage)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.postShareErrorMessage)));
     }
   }
 
@@ -101,11 +107,11 @@ class _PostPreviewScreenState extends ConsumerState<PostPreviewScreen> {
             child: widget.mediaType == PostMediaType.photo
                 ? Image.file(widget.file, fit: BoxFit.contain)
                 : (_videoController?.value.isInitialized ?? false)
-                    ? AspectRatio(
-                        aspectRatio: _videoController!.value.aspectRatio,
-                        child: VideoPlayer(_videoController!),
-                      )
-                    : const CircularProgressIndicator(color: AppColors.primary),
+                ? AspectRatio(
+                    aspectRatio: _videoController!.value.aspectRatio,
+                    child: VideoPlayer(_videoController!),
+                  )
+                : const CircularProgressIndicator(color: AppColors.primary),
           ),
           Positioned(
             left: 0,
@@ -123,14 +129,23 @@ class _PostPreviewScreenState extends ConsumerState<PostPreviewScreen> {
                       enabled: !_submitting,
                       maxLines: 3,
                       minLines: 1,
-                      style: const TextStyle(color: Colors.white, fontSize: 14.5),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14.5,
+                      ),
                       decoration: InputDecoration(
                         hintText: loc.postCaptionHint,
                         hintStyle: const TextStyle(color: Colors.white54),
                         filled: true,
                         fillColor: Colors.black45,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -141,7 +156,9 @@ class _PostPreviewScreenState extends ConsumerState<PostPreviewScreen> {
                           value: _progress > 0 ? _progress : null,
                           minHeight: 4,
                           backgroundColor: AppColors.divider,
-                          valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                          valueColor: const AlwaysStoppedAnimation(
+                            AppColors.primary,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -152,7 +169,10 @@ class _PostPreviewScreenState extends ConsumerState<PostPreviewScreen> {
                           ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.onAccent),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: AppColors.onAccent,
+                              ),
                             )
                           : Text(loc.postShareButton),
                     ),

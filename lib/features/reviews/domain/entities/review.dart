@@ -10,10 +10,13 @@ part 'review.g.dart';
 /// only permits setting this once (`resource.data.ownerReply == null`).
 @freezed
 class ReviewOwnerReply with _$ReviewOwnerReply {
-  const factory ReviewOwnerReply({required String text, @TimestampConverter() required DateTime repliedAt}) =
-      _ReviewOwnerReply;
+  const factory ReviewOwnerReply({
+    required String text,
+    @TimestampConverter() required DateTime repliedAt,
+  }) = _ReviewOwnerReply;
 
-  factory ReviewOwnerReply.fromJson(Map<String, dynamic> json) => _$ReviewOwnerReplyFromJson(json);
+  factory ReviewOwnerReply.fromJson(Map<String, dynamic> json) =>
+      _$ReviewOwnerReplyFromJson(json);
 }
 
 /// `reviews/{venueId}_{userId}` — the composite id (same convention as
@@ -43,5 +46,6 @@ class Review with _$Review {
 
   factory Review.fromJson(Map<String, dynamic> json) => _$ReviewFromJson(json);
 
-  factory Review.fromFirestore(String id, Map<String, dynamic> data) => Review.fromJson({...data, 'id': id});
+  factory Review.fromFirestore(String id, Map<String, dynamic> data) =>
+      Review.fromJson({...data, 'id': id});
 }

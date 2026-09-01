@@ -22,7 +22,12 @@ class ProfileShareScreen extends StatelessWidget {
   final String username;
   final String? photoUrl;
 
-  const ProfileShareScreen({super.key, required this.name, required this.username, this.photoUrl});
+  const ProfileShareScreen({
+    super.key,
+    required this.name,
+    required this.username,
+    this.photoUrl,
+  });
 
   String get _profileLink => 'https://peakpin.app/u/$username';
 
@@ -30,7 +35,9 @@ class ProfileShareScreen extends StatelessWidget {
     await Clipboard.setData(ClipboardData(text: _profileLink));
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(AppLocalizations.of(context).profileLinkCopiedMessage)),
+      SnackBar(
+        content: Text(AppLocalizations.of(context).profileLinkCopiedMessage),
+      ),
     );
   }
 
@@ -50,7 +57,11 @@ class ProfileShareScreen extends StatelessWidget {
         centerTitle: true,
         title: Text(
           loc.shareProfileLabel,
-          style: GoogleFonts.manrope(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          style: GoogleFonts.manrope(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: ChatLightColors.ink,
+          ),
         ),
       ),
       body: SafeArea(
@@ -60,7 +71,12 @@ class ProfileShareScreen extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _ShareCard(name: name, username: username, photoUrl: photoUrl, link: _profileLink),
+                _ShareCard(
+                  name: name,
+                  username: username,
+                  photoUrl: photoUrl,
+                  link: _profileLink,
+                ),
                 const SizedBox(height: 24),
                 Row(
                   children: [
@@ -69,13 +85,20 @@ class ProfileShareScreen extends StatelessWidget {
                         onPressed: () => _copyLink(context),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: ChatLightColors.ink,
-                          side: const BorderSide(color: ChatLightColors.cardSurface),
+                          side: const BorderSide(
+                            color: ChatLightColors.cardSurface,
+                          ),
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                         child: Text(
                           loc.copyProfileLinkLabel,
-                          style: GoogleFonts.manrope(fontWeight: FontWeight.w600, fontSize: 14.5),
+                          style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14.5,
+                          ),
                         ),
                       ),
                     ),
@@ -88,11 +111,16 @@ class ProfileShareScreen extends StatelessWidget {
                           foregroundColor: AppColors.onAccent,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                         child: Text(
                           loc.shareProfileLinkButtonLabel,
-                          style: GoogleFonts.manrope(fontWeight: FontWeight.w600, fontSize: 14.5),
+                          style: GoogleFonts.manrope(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14.5,
+                          ),
                         ),
                       ),
                     ),
@@ -113,7 +141,12 @@ class _ShareCard extends StatelessWidget {
   final String? photoUrl;
   final String link;
 
-  const _ShareCard({required this.name, required this.username, required this.photoUrl, required this.link});
+  const _ShareCard({
+    required this.name,
+    required this.username,
+    required this.photoUrl,
+    required this.link,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +162,11 @@ class _ShareCard extends StatelessWidget {
             color: AppColors.card,
             borderRadius: BorderRadius.circular(22),
             boxShadow: [
-              BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 24, offset: const Offset(0, 8)),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
             ],
           ),
           child: Column(
@@ -138,12 +175,20 @@ class _ShareCard extends StatelessWidget {
                 name,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: GoogleFonts.manrope(fontSize: 19, fontWeight: FontWeight.w800, color: ChatLightColors.ink),
+                style: GoogleFonts.manrope(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: ChatLightColors.ink,
+                ),
               ),
               const SizedBox(height: 2),
               Text(
                 '@$username',
-                style: GoogleFonts.manrope(fontSize: 14, fontWeight: FontWeight.w500, color: ChatLightColors.inkSoft),
+                style: GoogleFonts.manrope(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: ChatLightColors.inkSoft,
+                ),
               ),
               const SizedBox(height: 24),
               Container(
@@ -157,13 +202,18 @@ class _ShareCard extends StatelessWidget {
                   data: link,
                   version: QrVersions.auto,
                   size: 196,
-                  eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: ChatLightColors.ink),
+                  eyeStyle: const QrEyeStyle(
+                    eyeShape: QrEyeShape.square,
+                    color: ChatLightColors.ink,
+                  ),
                   dataModuleStyle: const QrDataModuleStyle(
                     dataModuleShape: QrDataModuleShape.square,
                     color: ChatLightColors.ink,
                   ),
                   embeddedImage: const AssetImage('assets/icon.png'),
-                  embeddedImageStyle: const QrEmbeddedImageStyle(size: Size(32, 32)),
+                  embeddedImageStyle: const QrEmbeddedImageStyle(
+                    size: Size(32, 32),
+                  ),
                 ),
               ),
             ],
@@ -190,16 +240,26 @@ class _Avatar extends StatelessWidget {
         shape: BoxShape.circle,
         color: ChatLightColors.bg2,
         border: Border.all(color: ChatLightColors.bg1, width: 4),
-        image: photoUrl != null ? DecorationImage(image: NetworkImage(photoUrl!), fit: BoxFit.cover) : null,
+        image: photoUrl != null
+            ? DecorationImage(image: NetworkImage(photoUrl!), fit: BoxFit.cover)
+            : null,
         boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4)),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       alignment: Alignment.center,
       child: photoUrl == null
           ? Text(
               name.isNotEmpty ? name.substring(0, 1).toUpperCase() : '?',
-              style: GoogleFonts.manrope(fontSize: 30, fontWeight: FontWeight.w800, color: ChatLightColors.inkSoft),
+              style: GoogleFonts.manrope(
+                fontSize: 30,
+                fontWeight: FontWeight.w800,
+                color: ChatLightColors.inkSoft,
+              ),
             )
           : null,
     );

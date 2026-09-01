@@ -29,5 +29,6 @@ class NearbyUser {
 
   /// "İndi aktivdir" — see `isRecentlyOnline`'s doc comment for why
   /// this checks staleness rather than trusting [online] on its own.
-  bool get isRecentlyActive => isRecentlyOnline(online: online, lastSeen: lastSeen);
+  bool get isRecentlyActive =>
+      isRecentlyOnline(online: online, lastSeen: lastSeen);
 }

@@ -28,8 +28,7 @@ import 'l10n/app_localizations.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Incoming-call pushes. Registered BEFORE `runApp` because
   // `onBackgroundMessage` has to be attached while the engine starts —
@@ -95,7 +94,9 @@ void main() async {
     // whole block claims to prevent.
     await FirebaseAppCheck.instance
         .activate(
-          androidProvider: kDebugMode ? AndroidProvider.debug : AndroidProvider.playIntegrity,
+          androidProvider: kDebugMode
+              ? AndroidProvider.debug
+              : AndroidProvider.playIntegrity,
           // Was AppleProvider.appAttest — real devices (confirmed: Google
           // Sign-In itself succeeding, Gmail even sending its own "new
           // sign-in" notification) were getting "Firebase App Check token is
@@ -104,7 +105,9 @@ void main() async {
           // attestation and still attaching it. DeviceCheck is the older,
           // simpler Apple attestation API — no per-install key generation to
           // go stale/mismatch the way App Attest's can.
-          appleProvider: kDebugMode ? AppleProvider.debug : AppleProvider.deviceCheck,
+          appleProvider: kDebugMode
+              ? AppleProvider.debug
+              : AppleProvider.deviceCheck,
         )
         .timeout(const Duration(seconds: 5));
     // activate() only registers the token provider — it does NOT mean
@@ -135,7 +138,9 @@ void main() async {
   // yet — see RemoteConfigDataSource.init()'s own doc comment.
   final appConfigRepository = FirebaseAppConfigRepository();
   await appConfigRepository.init();
-  final resolvedAppConfig = appConfigRepository.current(languageCode: initialLocale.languageCode);
+  final resolvedAppConfig = appConfigRepository.current(
+    languageCode: initialLocale.languageCode,
+  );
   applyRemoteRadiusOptions(resolvedAppConfig.radiusOptionsKm);
   applyRemoteNearbyRefreshSeconds(resolvedAppConfig.nearbyRefreshSeconds);
   final packageInfo = await PackageInfo.fromPlatform();
@@ -143,15 +148,18 @@ void main() async {
   // relies on it — see `logStartupMarker`.
   logStartupMarker('${packageInfo.version}+${packageInfo.buildNumber}');
 
-
-  runApp(ProviderScope(
-    overrides: [
-      localeProvider.overrideWith((ref) => LocaleController(initialLocale, prefs)),
-      appConfigRepositoryProvider.overrideWithValue(appConfigRepository),
-      installedAppVersionProvider.overrideWithValue(packageInfo.version),
-    ],
-    child: const PeakPinApp(),
-  ));
+  runApp(
+    ProviderScope(
+      overrides: [
+        localeProvider.overrideWith(
+          (ref) => LocaleController(initialLocale, prefs),
+        ),
+        appConfigRepositoryProvider.overrideWithValue(appConfigRepository),
+        installedAppVersionProvider.overrideWithValue(packageInfo.version),
+      ],
+      child: const PeakPinApp(),
+    ),
+  );
 
   startDeepLinkListener();
   startVipPurchaseListener();

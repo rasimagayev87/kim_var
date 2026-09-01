@@ -37,8 +37,13 @@ class UnimplementedCallRepository implements CallRepository {
   const UnimplementedCallRepository();
 
   @override
-  Future<CallSession> startCall({required String receiverId, required CallType type}) {
-    throw UnimplementedError('Calling requires a WebRTC + signaling backend — see class doc comment.');
+  Future<CallSession> startCall({
+    required String receiverId,
+    required CallType type,
+  }) {
+    throw UnimplementedError(
+      'Calling requires a WebRTC + signaling backend — see class doc comment.',
+    );
   }
 
   @override
@@ -63,16 +68,19 @@ class UnimplementedCallRepository implements CallRepository {
   Stream<MediaStream?> watchRemoteStream(String callId) => Stream.value(null);
 
   @override
-  Future<void> setMuted(String callId, bool muted) => throw UnimplementedError();
+  Future<void> setMuted(String callId, bool muted) =>
+      throw UnimplementedError();
 
   @override
-  Future<void> setVideoEnabled(String callId, bool enabled) => throw UnimplementedError();
+  Future<void> setVideoEnabled(String callId, bool enabled) =>
+      throw UnimplementedError();
 
   @override
   Future<void> switchCamera(String callId) => throw UnimplementedError();
 
   @override
-  Future<void> setSpeakerphoneOn(String callId, bool enabled) => throw UnimplementedError();
+  Future<void> setSpeakerphoneOn(String callId, bool enabled) =>
+      throw UnimplementedError();
 
   @override
   Future<int?> getDataUsageBytes(String callId) => Future.value(null);

@@ -38,7 +38,11 @@ class BirthdayOpportunitiesScreen extends ConsumerWidget {
                 child: Text(
                   loc.birthdayEmpty,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ChatLightColors.inkSoft),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ChatLightColors.inkSoft,
+                  ),
                 ),
               ),
             );
@@ -53,14 +57,18 @@ class BirthdayOpportunitiesScreen extends ConsumerWidget {
               childAspectRatio: 0.82,
             ),
             itemCount: feed.venueIds.length,
-            itemBuilder: (context, index) => BirthdayVenueCard(venueId: feed.venueIds[index]),
+            itemBuilder: (context, index) =>
+                BirthdayVenueCard(venueId: feed.venueIds[index]),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, _) => Center(
           child: Text(
             loc.birthdayEmpty,
-            style: const TextStyle(fontSize: 14, color: ChatLightColors.inkSoft),
+            style: const TextStyle(
+              fontSize: 14,
+              color: ChatLightColors.inkSoft,
+            ),
           ),
         ),
       ),

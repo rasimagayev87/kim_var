@@ -126,7 +126,12 @@ class ActiveCallController extends StateNotifier<ActiveCallUiState> {
   /// after `startCall` (caller) or just after `acceptCall` (callee).
   /// Safe to call again for the same [callId] (e.g. `CallScreen`
   /// re-attaching after a restore-from-PiP) — it's a no-op then.
-  Future<void> start({required String callId, required String otherUid, required CallType type, required bool isCaller}) async {
+  Future<void> start({
+    required String callId,
+    required String otherUid,
+    required CallType type,
+    required bool isCaller,
+  }) async {
     if (state.callId == callId) return;
     await _teardown();
     _ending = false;
@@ -146,7 +151,10 @@ class ActiveCallController extends StateNotifier<ActiveCallUiState> {
       unawaited(_initRenderers());
     }
 
-    _sessionSub = _ref.read(callRepositoryProvider).watchCall(callId).listen(_onSessionUpdate);
+    _sessionSub = _ref
+        .read(callRepositoryProvider)
+        .watchCall(callId)
+        .listen(_onSessionUpdate);
     // `watchLocalStream`/`watchRemoteStream` already replay whatever
     // stream is currently open to a *new* subscriber (see that
     // method's own doc comment in firebase_call_repository.dart) — but
@@ -237,7 +245,10 @@ class ActiveCallController extends StateNotifier<ActiveCallUiState> {
 
   void _startDurationTimerOnce() {
     _durationTimer ??= Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) state = state.copyWith(duration: state.duration + const Duration(seconds: 1));
+      if (mounted)
+        state = state.copyWith(
+          duration: state.duration + const Duration(seconds: 1),
+        );
     });
   }
 
@@ -252,23 +263,27 @@ class ActiveCallController extends StateNotifier<ActiveCallUiState> {
   void toggleMute() {
     final next = !state.muted;
     state = state.copyWith(muted: next);
-    if (state.callId != null) _ref.read(callRepositoryProvider).setMuted(state.callId!, next);
+    if (state.callId != null)
+      _ref.read(callRepositoryProvider).setMuted(state.callId!, next);
   }
 
   void toggleSpeaker() {
     final next = !state.speakerOn;
     state = state.copyWith(speakerOn: next);
-    if (state.callId != null) _ref.read(callRepositoryProvider).setSpeakerphoneOn(state.callId!, next);
+    if (state.callId != null)
+      _ref.read(callRepositoryProvider).setSpeakerphoneOn(state.callId!, next);
   }
 
   void toggleCamera() {
     final next = !state.cameraOff;
     state = state.copyWith(cameraOff: next);
-    if (state.callId != null) _ref.read(callRepositoryProvider).setVideoEnabled(state.callId!, !next);
+    if (state.callId != null)
+      _ref.read(callRepositoryProvider).setVideoEnabled(state.callId!, !next);
   }
 
   Future<void> switchCamera() async {
-    if (state.cameraOff || state.switchingCamera || state.callId == null) return;
+    if (state.cameraOff || state.switchingCamera || state.callId == null)
+      return;
     state = state.copyWith(switchingCamera: true);
     await _ref.read(callRepositoryProvider).switchCamera(state.callId!);
     if (mounted) state = state.copyWith(switchingCamera: false);
@@ -305,11 +320,15 @@ class ActiveCallController extends StateNotifier<ActiveCallUiState> {
     // — `endCall` (already called by `hangUp`, or about to run below
     // for the "other side ended it" path) closes the connection
     // `getStats()` would otherwise read from.
-    final dataUsage = everAccepted ? await _ref.read(callRepositoryProvider).getDataUsageBytes(callId) : null;
+    final dataUsage = everAccepted
+        ? await _ref.read(callRepositoryProvider).getDataUsageBytes(callId)
+        : null;
     // Covers the "other side ended it" / "declined" paths, where
     // nothing has called `endCall` yet. A no-op (repository-level) if
     // this device already called it via `hangUp`.
-    unawaited(_ref.read(callRepositoryProvider).endCall(callId).catchError((_) {}));
+    unawaited(
+      _ref.read(callRepositoryProvider).endCall(callId).catchError((_) {}),
+    );
 
     // Only the caller logs the call — see the doc comment on
     // `ChatRepository.logCallMessage`. The callee's own controller
@@ -317,12 +336,18 @@ class ActiveCallController extends StateNotifier<ActiveCallUiState> {
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
     if (isCaller && myUid != null) {
       unawaited(
-        _ref.read(chatControllerProvider.notifier).logCall(
+        _ref
+            .read(chatControllerProvider.notifier)
+            .logCall(
               otherUid: otherUid,
               callId: callId,
               callerId: myUid,
-              callMessageType: type == CallType.video ? CallMessageType.video : CallMessageType.voice,
-              callOutcome: everAccepted ? CallMessageOutcome.completed : CallMessageOutcome.missed,
+              callMessageType: type == CallType.video
+                  ? CallMessageType.video
+                  : CallMessageType.voice,
+              callOutcome: everAccepted
+                  ? CallMessageOutcome.completed
+                  : CallMessageOutcome.missed,
               callDurationSeconds: everAccepted ? duration.inSeconds : null,
               callDataUsageBytes: dataUsage,
             ),
@@ -358,6 +383,7 @@ class ActiveCallController extends StateNotifier<ActiveCallUiState> {
 
 /// Not `.autoDispose` — this must survive `CallScreen` (and everything
 /// else) being popped off the navigator, which is the entire point.
-final activeCallControllerProvider = StateNotifierProvider<ActiveCallController, ActiveCallUiState>((ref) {
-  return ActiveCallController(ref);
-});
+final activeCallControllerProvider =
+    StateNotifierProvider<ActiveCallController, ActiveCallUiState>((ref) {
+      return ActiveCallController(ref);
+    });

@@ -29,12 +29,19 @@ class LiveFeedPinboxCard extends ConsumerWidget {
   final double distanceMeters;
   final double? width;
 
-  const LiveFeedPinboxCard({super.key, required this.pinbox, required this.distanceMeters, this.width});
+  const LiveFeedPinboxCard({
+    super.key,
+    required this.pinbox,
+    required this.distanceMeters,
+    this.width,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final distanceUnit = ref.watch(mapLocationSettingsProvider).valueOrNull?.distanceUnit ?? DistanceUnit.km;
+    final distanceUnit =
+        ref.watch(mapLocationSettingsProvider).valueOrNull?.distanceUnit ??
+        DistanceUnit.km;
     final isNew = DateTime.now().difference(pinbox.createdAt) < _kFreshWindow;
     final isSoldOut = pinbox.isSoldOut;
 
@@ -48,7 +55,12 @@ class LiveFeedPinboxCard extends ConsumerWidget {
           elevation: 0,
           child: InkWell(
             borderRadius: BorderRadius.circular(18),
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => PinBoxCheckoutScreen(pinbox: pinbox))),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PinBoxCheckoutScreen(pinbox: pinbox),
+              ),
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -56,21 +68,42 @@ class LiveFeedPinboxCard extends ConsumerWidget {
                 AspectRatio(
                   aspectRatio: 1.2,
                   child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(18),
+                    ),
                     child: Stack(
                       fit: StackFit.expand,
                       children: [
                         pinbox.imageUrl != null
                             ? AppImage(pinbox.imageUrl!, fit: BoxFit.cover)
-                            : Container(color: ChatLightColors.cardSurface, child: const Icon(Icons.inventory_2_outlined, color: ChatLightColors.inkSoft)),
+                            : Container(
+                                color: ChatLightColors.cardSurface,
+                                child: const Icon(
+                                  Icons.inventory_2_outlined,
+                                  color: ChatLightColors.inkSoft,
+                                ),
+                              ),
                         if (isNew && !isSoldOut)
                           Positioned(
                             top: 8,
                             left: 8,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: const Color(0xFFFF6B6B), borderRadius: BorderRadius.circular(8)),
-                              child: Text(loc.liveFeedNewBadge, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFF6B6B),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                loc.liveFeedNewBadge,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                         if (isSoldOut)
@@ -78,9 +111,22 @@ class LiveFeedPinboxCard extends ConsumerWidget {
                             top: 8,
                             left: 8,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.6), borderRadius: BorderRadius.circular(8)),
-                              child: Text(loc.pinboxSoldOutLabel, style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800, color: Colors.white)),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.black.withValues(alpha: 0.6),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                loc.pinboxSoldOutLabel,
+                                style: const TextStyle(
+                                  fontSize: 10.5,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                ),
+                              ),
                             ),
                           ),
                       ],
@@ -96,14 +142,21 @@ class LiveFeedPinboxCard extends ConsumerWidget {
                         pinbox.title,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: ChatLightColors.ink,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         pinbox.description,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: ChatLightColors.inkSoft),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: ChatLightColors.inkSoft,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Row(
@@ -119,7 +172,11 @@ class LiveFeedPinboxCard extends ConsumerWidget {
                           const SizedBox(width: 6),
                           Text(
                             '${pinbox.pinboxPrice.toStringAsFixed(0)} ₼',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppColors.primary),
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primary,
+                            ),
                           ),
                         ],
                       ),
@@ -128,7 +185,10 @@ class LiveFeedPinboxCard extends ConsumerWidget {
                         '${formatRelativeTime(pinbox.createdAt, loc)} · ${formatDistance(loc, distanceMeters, distanceUnit)}',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 10.5, color: ChatLightColors.inkFaint),
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: ChatLightColors.inkFaint,
+                        ),
                       ),
                     ],
                   ),

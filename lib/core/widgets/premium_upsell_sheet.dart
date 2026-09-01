@@ -32,7 +32,8 @@ Future<void> showPremiumUpsellSheet(
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
     ),
-    builder: (sheetContext) => _PremiumUpsellSheet(title: title, message: message),
+    builder: (sheetContext) =>
+        _PremiumUpsellSheet(title: title, message: message),
   );
 }
 
@@ -69,7 +70,11 @@ class _PremiumUpsellSheet extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: AppColors.gold,
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 16, spreadRadius: 0),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.25),
+                    blurRadius: 16,
+                    spreadRadius: 0,
+                  ),
                 ],
               ),
               child: const Icon(
@@ -79,25 +84,37 @@ class _PremiumUpsellSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
-            Text(title, textAlign: TextAlign.center, style: AppTextStyles.sectionTitle),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: AppTextStyles.sectionTitle,
+            ),
             const SizedBox(height: 10),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: AppTextStyles.caption.copyWith(height: 1.55, fontSize: 14.5),
+              style: AppTextStyles.caption.copyWith(
+                height: 1.55,
+                fontSize: 14.5,
+              ),
             ),
             const SizedBox(height: 26),
             ElevatedButton(
               onPressed: () {
                 Navigator.pop(context);
-                Navigator.push(context, MaterialPageRoute(builder: (_) => const VipScreen()));
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const VipScreen()),
+                );
               },
               child: Text(loc.premiumUpgradeButton),
             ),
             const SizedBox(height: 6),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              style: TextButton.styleFrom(foregroundColor: AppColors.textSecondary),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textSecondary,
+              ),
               child: Text(loc.premiumLaterButton),
             ),
           ],

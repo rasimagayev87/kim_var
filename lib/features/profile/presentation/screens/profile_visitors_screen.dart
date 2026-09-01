@@ -33,13 +33,22 @@ class ProfileVisitorsScreen extends ConsumerWidget {
         foregroundColor: ChatLightColors.ink,
         title: Text(
           loc.profileVisitorsTitle,
-          style: const TextStyle(color: ChatLightColors.ink, fontWeight: FontWeight.w700, fontSize: 17),
+          style: const TextStyle(
+            color: ChatLightColors.ink,
+            fontWeight: FontWeight.w700,
+            fontSize: 17,
+          ),
         ),
       ),
       body: visitorsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: ChatLightColors.ink)),
+        loading: () => const Center(
+          child: CircularProgressIndicator(color: ChatLightColors.ink),
+        ),
         error: (_, _) => Center(
-          child: Text(loc.profileVisitorsEmptyMessage, style: const TextStyle(color: ChatLightColors.inkFaint)),
+          child: Text(
+            loc.profileVisitorsEmptyMessage,
+            style: const TextStyle(color: ChatLightColors.inkFaint),
+          ),
         ),
         data: (visitors) {
           if (visitors.isEmpty) {
@@ -49,12 +58,20 @@ class ProfileVisitorsScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.directions_walk, size: 48, color: ChatLightColors.inkFaint),
+                    const Icon(
+                      Icons.directions_walk,
+                      size: 48,
+                      color: ChatLightColors.inkFaint,
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       loc.profileVisitorsEmptyMessage,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 14.5, height: 1.5),
+                      style: const TextStyle(
+                        color: ChatLightColors.inkFaint,
+                        fontSize: 14.5,
+                        height: 1.5,
+                      ),
                     ),
                   ],
                 ),
@@ -65,8 +82,10 @@ class ProfileVisitorsScreen extends ConsumerWidget {
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 8),
             itemCount: visitors.length,
-            separatorBuilder: (_, _) => const Divider(height: 1, color: ChatLightColors.cardSurface),
-            itemBuilder: (context, index) => _VisitorTile(visit: visitors[index]),
+            separatorBuilder: (_, _) =>
+                const Divider(height: 1, color: ChatLightColors.cardSurface),
+            itemBuilder: (context, index) =>
+                _VisitorTile(visit: visitors[index]),
           );
         },
       ),
@@ -82,7 +101,9 @@ class _VisitorTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final profile = ref.watch(publicProfileProvider(visit.viewerId)).valueOrNull;
+    final profile = ref
+        .watch(publicProfileProvider(visit.viewerId))
+        .valueOrNull;
     final name = profile?.name ?? '…';
     final photoUrl = profile?.photoUrl;
 
@@ -91,16 +112,27 @@ class _VisitorTile extends ConsumerWidget {
         radius: 24,
         backgroundColor: ChatLightColors.cardSurface,
         backgroundImage: photoUrl != null ? NetworkImage(photoUrl) : null,
-        child: photoUrl == null ? const Icon(Icons.person_outline, color: ChatLightColors.inkSoft) : null,
+        child: photoUrl == null
+            ? const Icon(Icons.person_outline, color: ChatLightColors.inkSoft)
+            : null,
       ),
-      title: Text(name, style: const TextStyle(color: ChatLightColors.ink, fontWeight: FontWeight.w600, fontSize: 15)),
+      title: Text(
+        name,
+        style: const TextStyle(
+          color: ChatLightColors.ink,
+          fontWeight: FontWeight.w600,
+          fontSize: 15,
+        ),
+      ),
       subtitle: Text(
         formatRelativeTime(visit.viewedAt, loc),
         style: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 12.5),
       ),
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(builder: (_) => UserProfileScreen(uid: visit.viewerId)),
+        MaterialPageRoute(
+          builder: (_) => UserProfileScreen(uid: visit.viewerId),
+        ),
       ),
     );
   }

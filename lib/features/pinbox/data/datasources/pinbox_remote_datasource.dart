@@ -12,7 +12,9 @@ abstract class PinBoxRemoteDatasource {
 
   Stream<DocumentSnapshot<Map<String, dynamic>>> watchPinBox(String pinboxId);
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchPinBoxesByOwner(String ownerId);
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchPinBoxesByOwner(
+    String ownerId,
+  );
 
   /// [ownerId] is now part of the Storage path (Düzəliş Prompt 3 / K-6,
   /// `pinbox_photos/{ownerId}/{pinboxId}.jpg`) — must equal the caller's
@@ -35,7 +37,8 @@ abstract class PinBoxRemoteDatasource {
   /// the UI, never dropped from the list — see `PinBox.isSoldOut`), so
   /// this deliberately does NOT filter on stock, only on moderation
   /// status.
-  Future<List<(DocumentSnapshot<Map<String, dynamic>>, double)>> queryWithinRadius({
+  Future<List<(DocumentSnapshot<Map<String, dynamic>>, double)>>
+  queryWithinRadius({
     required double lat,
     required double lng,
     required double radiusKm,
@@ -43,16 +46,26 @@ abstract class PinBoxRemoteDatasource {
   });
 
   /// Backs "Ölkə üzrə" — mirrors `OfferRemoteDatasource.queryByCountry`.
-  Future<QuerySnapshot<Map<String, dynamic>>> queryByCountry(String country, {String? category});
+  Future<QuerySnapshot<Map<String, dynamic>>> queryByCountry(
+    String country, {
+    String? category,
+  });
 
   /// Backs "Dünya üzrə" — mirrors `OfferRemoteDatasource.queryAllActive`.
-  Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({required int limit, String? category});
+  Future<QuerySnapshot<Map<String, dynamic>>> queryAllActive({
+    required int limit,
+    String? category,
+  });
 
   /// PinBox Faza 8's ticket screen — the order doc is written
   /// exclusively by Cloud Functions (`reservePinBoxOrder`/
   /// `generatePinBoxQrToken`), this is read-only from the client.
-  Stream<DocumentSnapshot<Map<String, dynamic>>> watchPinBoxOrder(String orderId);
+  Stream<DocumentSnapshot<Map<String, dynamic>>> watchPinBoxOrder(
+    String orderId,
+  );
 
   /// PinBox Faza 11's "Aldıqlarım" — every order this uid ever bought.
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchOrdersByBuyer(String buyerId);
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchOrdersByBuyer(
+    String buyerId,
+  );
 }

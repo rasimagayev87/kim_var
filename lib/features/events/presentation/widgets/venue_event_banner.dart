@@ -26,10 +26,17 @@ class VenueEventBanner extends ConsumerWidget {
     return Container(
       margin: const EdgeInsets.only(top: 6),
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: _kEventAccent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+        color: _kEventAccent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Text(
         loc.eventTodayBannerLabel(event.title),
-        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: _kEventAccent),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: _kEventAccent,
+        ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),

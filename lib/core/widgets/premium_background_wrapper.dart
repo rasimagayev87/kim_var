@@ -35,7 +35,10 @@ class PremiumBackgroundWrapper extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 gradient: RadialGradient(
-                  colors: [AppColors.primary.withValues(alpha: 0.12), AppColors.primary.withValues(alpha: 0.0)],
+                  colors: [
+                    AppColors.primary.withValues(alpha: 0.12),
+                    AppColors.primary.withValues(alpha: 0.0),
+                  ],
                 ),
               ),
             ),
@@ -48,7 +51,12 @@ class PremiumBackgroundWrapper extends StatelessWidget {
               height: 280,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: RadialGradient(colors: [_coolGlow.withValues(alpha: 0.05), Colors.transparent]),
+                gradient: RadialGradient(
+                  colors: [
+                    _coolGlow.withValues(alpha: 0.05),
+                    Colors.transparent,
+                  ],
+                ),
               ),
             ),
           ),

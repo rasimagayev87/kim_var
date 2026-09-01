@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../../l10n/app_localizations.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// "Title" + "Hamısına bax ›" row shared by every Canlı section
 /// ([LiveFeedOfferCard]'s "Yaxınlıqdakı təkliflər" and friends) — kept
 /// as one widget so the row's spacing/typography can't quietly drift
@@ -31,22 +33,34 @@ class LiveFeedSectionHeader extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w800, color: ChatLightColors.ink),
+            style: const TextStyle(
+              fontSize: 16.5,
+              fontWeight: FontWeight.w800,
+              color: ChatLightColors.ink,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ),
         if (onSeeAll != null)
-          GestureDetector(
+          Pressable(
             onTap: onSeeAll,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   loc.liveFeedSeeAll,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: ChatLightColors.inkSoft),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: ChatLightColors.inkSoft,
+                  ),
                 ),
-                const Icon(Icons.chevron_right, size: 18, color: ChatLightColors.inkSoft),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: ChatLightColors.inkSoft,
+                ),
               ],
             ),
           ),

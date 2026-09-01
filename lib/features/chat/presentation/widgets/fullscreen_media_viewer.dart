@@ -13,13 +13,19 @@ import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../domain/entities/chat_message.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Full-bleed black viewer opened by tapping an image or video bubble.
 /// Images support pinch-zoom; video gets basic tap-to-toggle playback.
 class FullscreenMediaViewer extends StatefulWidget {
   final String mediaUrl;
   final MessageType type;
 
-  const FullscreenMediaViewer({super.key, required this.mediaUrl, required this.type});
+  const FullscreenMediaViewer({
+    super.key,
+    required this.mediaUrl,
+    required this.type,
+  });
 
   @override
   State<FullscreenMediaViewer> createState() => _FullscreenMediaViewerState();
@@ -33,7 +39,9 @@ class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
   void initState() {
     super.initState();
     if (widget.type == MessageType.video) {
-      final controller = VideoPlayerController.networkUrl(Uri.parse(widget.mediaUrl));
+      final controller = VideoPlayerController.networkUrl(
+        Uri.parse(widget.mediaUrl),
+      );
       _controller = controller;
       controller.initialize().then((_) {
         if (!mounted) return;
@@ -62,28 +70,40 @@ class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
       if (!hasAccess) {
         final granted = await Gal.requestAccess(toAlbum: true);
         if (!granted) {
-          if (mounted) messenger.showSnackBar(SnackBar(content: Text(loc.chatMediaDownloadErrorMessage)));
+          if (mounted)
+            messenger.showSnackBar(
+              SnackBar(content: Text(loc.chatMediaDownloadErrorMessage)),
+            );
           return;
         }
       }
 
       final response = await http.get(Uri.parse(widget.mediaUrl));
-      if (response.statusCode != 200) throw Exception('HTTP ${response.statusCode}');
+      if (response.statusCode != 200)
+        throw Exception('HTTP ${response.statusCode}');
 
       if (widget.type == MessageType.image) {
         await Gal.putImageBytes(response.bodyBytes, album: 'PeakPin');
       } else {
         final dir = await getTemporaryDirectory();
-        final file = File('${dir.path}/peakpin_${DateTime.now().microsecondsSinceEpoch}.mp4');
+        final file = File(
+          '${dir.path}/peakpin_${DateTime.now().microsecondsSinceEpoch}.mp4',
+        );
         await file.writeAsBytes(response.bodyBytes);
         await Gal.putVideo(file.path, album: 'PeakPin');
         unawaited(file.delete().catchError((_) => file));
       }
 
-      if (mounted) messenger.showSnackBar(SnackBar(content: Text(loc.chatMediaDownloadedMessage)));
+      if (mounted)
+        messenger.showSnackBar(
+          SnackBar(content: Text(loc.chatMediaDownloadedMessage)),
+        );
     } catch (e, st) {
       logError('fullscreen_media_viewer._download', e, st);
-      if (mounted) messenger.showSnackBar(SnackBar(content: Text(loc.chatMediaDownloadErrorMessage)));
+      if (mounted)
+        messenger.showSnackBar(
+          SnackBar(content: Text(loc.chatMediaDownloadErrorMessage)),
+        );
     } finally {
       if (mounted) setState(() => _downloading = false);
     }
@@ -106,7 +126,10 @@ class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
                   )
                 : const Icon(Icons.download_outlined),
           ),
@@ -130,7 +153,7 @@ class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
     if (controller == null || !controller.value.isInitialized) {
       return const CircularProgressIndicator(color: AppColors.primary);
     }
-    return GestureDetector(
+    return Pressable(
       onTap: () => setState(() {
         controller.value.isPlaying ? controller.pause() : controller.play();
       }),
@@ -143,7 +166,11 @@ class _FullscreenMediaViewerState extends State<FullscreenMediaViewer> {
             AnimatedOpacity(
               opacity: controller.value.isPlaying ? 0 : 1,
               duration: const Duration(milliseconds: 200),
-              child: const Icon(Icons.play_arrow_rounded, color: Colors.white70, size: 72),
+              child: const Icon(
+                Icons.play_arrow_rounded,
+                color: Colors.white70,
+                size: 72,
+              ),
             ),
           ],
         ),

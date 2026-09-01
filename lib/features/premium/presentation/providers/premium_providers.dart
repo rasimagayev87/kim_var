@@ -51,5 +51,7 @@ final premiumExpiresAtProvider = StreamProvider.autoDispose<DateTime?>((ref) {
       .collection('users')
       .doc(uid)
       .snapshots()
-      .map((snap) => (snap.data()?['premiumExpiresAt'] as Timestamp?)?.toDate());
+      .map(
+        (snap) => (snap.data()?['premiumExpiresAt'] as Timestamp?)?.toDate(),
+      );
 });

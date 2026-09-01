@@ -31,7 +31,11 @@ class MapLocationScreen extends ConsumerWidget {
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.white),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: AppColors.white,
+          ),
         ),
         title: Text(loc.mapLocationScreenTitle),
       ),
@@ -44,7 +48,9 @@ class MapLocationScreen extends ConsumerWidget {
                 SettingsMenuRow(
                   icon: Icons.map_outlined,
                   title: loc.mapTypeTitle,
-                  trailing: SettingsPill(label: _mapTypeLabel(loc, settings.mapType)),
+                  trailing: SettingsPill(
+                    label: _mapTypeLabel(loc, settings.mapType),
+                  ),
                   onTap: () => _showOptionsSheet<AppMapType>(
                     context: context,
                     title: loc.mapTypeTitle,
@@ -63,7 +69,9 @@ class MapLocationScreen extends ConsumerWidget {
                 SettingsMenuRow(
                   icon: Icons.straighten_outlined,
                   title: loc.distanceUnitTitle,
-                  trailing: SettingsPill(label: _distanceUnitLabel(loc, settings.distanceUnit)),
+                  trailing: SettingsPill(
+                    label: _distanceUnitLabel(loc, settings.distanceUnit),
+                  ),
                   onTap: () => _showOptionsSheet<DistanceUnit>(
                     context: context,
                     title: loc.distanceUnitTitle,
@@ -81,14 +89,19 @@ class MapLocationScreen extends ConsumerWidget {
                 SettingsMenuRow(
                   icon: Icons.location_searching_outlined,
                   title: loc.gpsAccuracyTitle,
-                  trailing: SettingsPill(label: _gpsAccuracyLabel(loc, settings.gpsAccuracy)),
+                  trailing: SettingsPill(
+                    label: _gpsAccuracyLabel(loc, settings.gpsAccuracy),
+                  ),
                   onTap: () => _showOptionsSheet<GpsAccuracyLevel>(
                     context: context,
                     title: loc.gpsAccuracyTitle,
                     current: settings.gpsAccuracy,
                     options: [
                       _Option(GpsAccuracyLevel.high, loc.gpsAccuracyHigh),
-                      _Option(GpsAccuracyLevel.standard, loc.gpsAccuracyStandard),
+                      _Option(
+                        GpsAccuracyLevel.standard,
+                        loc.gpsAccuracyStandard,
+                      ),
                     ],
                     onSelected: (v) async {
                       final ok = await controller.updateGpsAccuracy(v);
@@ -107,7 +120,10 @@ class MapLocationScreen extends ConsumerWidget {
                       if (!ok && context.mounted) showError();
                       return;
                     }
-                    final confirmed = await _showBackgroundLocationDisclosure(context, loc);
+                    final confirmed = await _showBackgroundLocationDisclosure(
+                      context,
+                      loc,
+                    );
                     if (confirmed != true || !context.mounted) return;
                     final result = await controller.enableBackgroundLocation();
                     if (!context.mounted) return;
@@ -116,7 +132,9 @@ class MapLocationScreen extends ConsumerWidget {
                         break;
                       case BackgroundLocationResult.deniedNeedsSettings:
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text(loc.backgroundLocationDeniedMessage)),
+                          SnackBar(
+                            content: Text(loc.backgroundLocationDeniedMessage),
+                          ),
                         );
                       case BackgroundLocationResult.failed:
                         showError();
@@ -147,7 +165,9 @@ class MapLocationScreen extends ConsumerWidget {
   }
 
   String _gpsAccuracyLabel(AppLocalizations loc, GpsAccuracyLevel level) {
-    return level == GpsAccuracyLevel.high ? loc.gpsAccuracyHigh : loc.gpsAccuracyStandard;
+    return level == GpsAccuracyLevel.high
+        ? loc.gpsAccuracyHigh
+        : loc.gpsAccuracyStandard;
   }
 }
 
@@ -164,7 +184,10 @@ class _Option<T> {
 /// system prompt alone. This is that disclosure; [enableBackgroundLocation]
 /// (which triggers the actual OS "Always Allow" request) only runs if
 /// the user confirms here first.
-Future<bool?> _showBackgroundLocationDisclosure(BuildContext context, AppLocalizations loc) {
+Future<bool?> _showBackgroundLocationDisclosure(
+  BuildContext context,
+  AppLocalizations loc,
+) {
   return showDialog<bool>(
     context: context,
     builder: (dialogContext) => AlertDialog(
@@ -194,7 +217,9 @@ void _showOptionsSheet<T>({
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.surface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (sheetContext) {
       return SafeArea(
         top: false,
@@ -207,16 +232,28 @@ void _showOptionsSheet<T>({
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: Text(title, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+                  child: Text(
+                    title,
+                    style: AppTextStyles.cardTitle.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
               for (final option in options)
                 ListTile(
-                  title: Text(option.label, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
+                  title: Text(
+                    option.label,
+                    style: AppTextStyles.body.copyWith(fontSize: 15.5),
+                  ),
                   leading: Icon(
-                    option.value == current ? Icons.radio_button_checked : Icons.radio_button_off,
-                    color: option.value == current ? AppColors.primary : AppColors.textMuted,
+                    option.value == current
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
+                    color: option.value == current
+                        ? AppColors.primary
+                        : AppColors.textMuted,
                   ),
                   onTap: () {
                     Navigator.pop(sheetContext);

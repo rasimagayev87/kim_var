@@ -27,10 +27,12 @@ String formatLastSeen(DateTime dateTime, AppLocalizations loc) {
   final now = DateTime.now();
   final time = DateFormat('HH:mm').format(dateTime);
 
-  bool isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+  bool isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
 
   if (isSameDay(dateTime, now)) return '${loc.chatDateToday} $time';
-  if (isSameDay(dateTime, now.subtract(const Duration(days: 1)))) return '${loc.chatDateYesterday} $time';
+  if (isSameDay(dateTime, now.subtract(const Duration(days: 1))))
+    return '${loc.chatDateYesterday} $time';
 
   final diff = now.difference(dateTime);
   if (diff.inDays < 7) return loc.postTimeDaysAgo(diff.inDays);

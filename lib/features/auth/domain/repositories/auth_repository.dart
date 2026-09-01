@@ -73,13 +73,19 @@ abstract class AuthRepository {
   /// distinguished by the caller's error copy — showing one generic
   /// "email or password is wrong" message either way avoids leaking
   /// which part was incorrect (account-enumeration hygiene).
-  Future<(AppUser user, bool isNewUser)> signInWithEmailPassword(String email, String password);
+  Future<(AppUser user, bool isNewUser)> signInWithEmailPassword(
+    String email,
+    String password,
+  );
 
   /// Creates a brand-new email+password account. Always the
   /// `isNewUser: true` case in practice, but routed through the same
   /// `_afterSignIn`/doc-existence check every other provider uses,
   /// rather than assumed, to stay consistent.
-  Future<(AppUser user, bool isNewUser)> registerWithEmailPassword(String email, String password);
+  Future<(AppUser user, bool isNewUser)> registerWithEmailPassword(
+    String email,
+    String password,
+  );
 
   /// Sends a Firebase password-reset email to [email]. Silently
   /// succeeds even for an email with no account — Firebase's own

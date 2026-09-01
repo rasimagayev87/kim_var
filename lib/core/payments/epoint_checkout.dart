@@ -16,6 +16,8 @@ import 'epoint_token_widget_screen.dart';
 
 import '../../core/utils/callables.dart';
 
+import '../../core/widgets/pressable.dart';
+
 /// The ONE place every Epoint-backed checkout (offer placement fee,
 /// Boost, venue subscription — see `submitOffer`/`createBoostCheckout`/
 /// `retryOfferPayment`/`retryVenueSubscriptionPayment`, all of which
@@ -48,10 +50,19 @@ Future<void> presentEpointCheckout(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    builder: (sheetContext) => _EpointCheckoutSheet(checkoutUrl: checkoutUrl, paymentId: paymentId, feeAmount: feeAmount),
+    builder: (sheetContext) => _EpointCheckoutSheet(
+      checkoutUrl: checkoutUrl,
+      paymentId: paymentId,
+      feeAmount: feeAmount,
+    ),
   );
   if (cardResult == null || !context.mounted) return;
-  await Navigator.push(context, MaterialPageRoute(builder: (_) => EpointPaymentResultScreen(success: cardResult)));
+  await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => EpointPaymentResultScreen(success: cardResult),
+    ),
+  );
 }
 
 enum _Method { card, applePay, googlePay, savedCard }
@@ -61,10 +72,15 @@ class _EpointCheckoutSheet extends ConsumerStatefulWidget {
   final String paymentId;
   final double feeAmount;
 
-  const _EpointCheckoutSheet({required this.checkoutUrl, required this.paymentId, required this.feeAmount});
+  const _EpointCheckoutSheet({
+    required this.checkoutUrl,
+    required this.paymentId,
+    required this.feeAmount,
+  });
 
   @override
-  ConsumerState<_EpointCheckoutSheet> createState() => _EpointCheckoutSheetState();
+  ConsumerState<_EpointCheckoutSheet> createState() =>
+      _EpointCheckoutSheetState();
 }
 
 class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
@@ -75,7 +91,10 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
   Future<void> _payByCard() async {
     final cardResult = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => EpointCardCheckoutScreen(checkoutUrl: widget.checkoutUrl)),
+      MaterialPageRoute(
+        builder: (_) =>
+            EpointCardCheckoutScreen(checkoutUrl: widget.checkoutUrl),
+      ),
     );
     if (!mounted) return;
     Navigator.pop(context, cardResult);
@@ -100,16 +119,26 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
     setState(() => _confirming = true);
     try {
       final result = await FirebaseFunctions.instance
-          .httpsCallable('createEpointWidgetCheckout', options: callableOptions(kPaymentCallableTimeout))
+          .httpsCallable(
+            'createEpointWidgetCheckout',
+            options: callableOptions(kPaymentCallableTimeout),
+          )
           .call<Map<String, dynamic>>({'paymentId': widget.paymentId});
       final widgetUrl = result.data['widgetUrl'] as String;
       if (!mounted) return;
       Navigator.pop(context);
-      await Navigator.push(context, MaterialPageRoute(builder: (_) => EpointTokenWidgetScreen(widgetUrl: widgetUrl)));
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => EpointTokenWidgetScreen(widgetUrl: widgetUrl),
+        ),
+      );
     } catch (_) {
       if (!mounted) return;
       setState(() => _confirming = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
     }
   }
 
@@ -127,7 +156,9 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
     } catch (_) {
       if (!mounted) return;
       setState(() => _confirming = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.epointCheckoutErrorMessage)));
     }
   }
 
@@ -157,9 +188,14 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (_) => Container(
-        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+        ),
         child: SafeArea(
           top: false,
           child: Padding(
@@ -168,9 +204,20 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(loc.savedCardPickerTitle, style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink)),
+                Text(
+                  loc.savedCardPickerTitle,
+                  style: const TextStyle(
+                    fontSize: 16.5,
+                    fontWeight: FontWeight.w700,
+                    color: ChatLightColors.ink,
+                  ),
+                ),
                 const SizedBox(height: 8),
-                for (final card in cards) SavedCardRow(card: card, onTap: () => Navigator.pop(context, card)),
+                for (final card in cards)
+                  SavedCardRow(
+                    card: card,
+                    onTap: () => Navigator.pop(context, card),
+                  ),
               ],
             ),
           ),
@@ -188,11 +235,15 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final amountText = widget.feeAmount.toStringAsFixed(2);
-    final savedCards = ref.watch(savedCardsProvider).valueOrNull ?? const <SavedCard>[];
+    final savedCards =
+        ref.watch(savedCardsProvider).valueOrNull ?? const <SavedCard>[];
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       child: SafeArea(
         top: false,
         child: Column(
@@ -203,11 +254,21 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: ChatLightColors.cardSurface, borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(
+                  color: ChatLightColors.cardSurface,
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
             const SizedBox(height: 18),
-            Text(loc.epointCheckoutTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+            Text(
+              loc.epointCheckoutTitle,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: ChatLightColors.ink,
+              ),
+            ),
             const SizedBox(height: 4),
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -215,10 +276,22 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
               children: [
                 Text(
                   amountText,
-                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w800, color: AppColors.primary, letterSpacing: -0.5),
+                  style: const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primary,
+                    letterSpacing: -0.5,
+                  ),
                 ),
                 const SizedBox(width: 6),
-                const Text('AZN', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: ChatLightColors.ink)),
+                const Text(
+                  'AZN',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: ChatLightColors.ink,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 20),
@@ -263,11 +336,19 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.lock_outline_rounded, size: 14, color: ChatLightColors.inkFaint),
+                Icon(
+                  Icons.lock_outline_rounded,
+                  size: 14,
+                  color: ChatLightColors.inkFaint,
+                ),
                 const SizedBox(width: 6),
                 Text(
                   loc.epointCheckoutSecurityNote,
-                  style: TextStyle(fontSize: 12, color: ChatLightColors.inkFaint, fontWeight: FontWeight.w500),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: ChatLightColors.inkFaint,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -279,20 +360,31 @@ class _EpointCheckoutSheetState extends ConsumerState<_EpointCheckoutSheet> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.onAccent,
-                  disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
+                  disabledBackgroundColor: AppColors.primary.withValues(
+                    alpha: 0.6,
+                  ),
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
                 onPressed: _confirming ? null : _confirm,
                 child: _confirming
                     ? const SizedBox(
                         width: 22,
                         height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.onAccent),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: AppColors.onAccent,
+                        ),
                       )
                     : Text(
                         loc.epointCheckoutPayButton(amountText),
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.onAccent),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.onAccent,
+                        ),
                       ),
               ),
             ),
@@ -325,16 +417,21 @@ class _PaymentMethodCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary.withValues(alpha: 0.06) : ChatLightColors.bg1,
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.06)
+              : ChatLightColors.bg1,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: selected ? AppColors.primary : ChatLightColors.cardSurface, width: selected ? 1.8 : 1),
+          border: Border.all(
+            color: selected ? AppColors.primary : ChatLightColors.cardSurface,
+            width: selected ? 1.8 : 1,
+          ),
         ),
         child: Row(
           children: [
@@ -344,7 +441,13 @@ class _PaymentMethodCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2))],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Icon(icon, color: iconColor, size: 24),
             ),
@@ -353,9 +456,22 @@ class _PaymentMethodCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: ChatLightColors.ink)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: ChatLightColors.ink,
+                    ),
+                  ),
                   const SizedBox(height: 2),
-                  Text(subtitle, style: const TextStyle(fontSize: 12, color: ChatLightColors.inkSoft)),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: ChatLightColors.inkSoft,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -363,7 +479,10 @@ class _PaymentMethodCard extends StatelessWidget {
               const SizedBox(
                 width: 22,
                 height: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.2, color: AppColors.primary),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  color: AppColors.primary,
+                ),
               )
             else
               Container(
@@ -371,10 +490,17 @@ class _PaymentMethodCard extends StatelessWidget {
                 height: 22,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: selected ? AppColors.primary : ChatLightColors.inkFaint, width: 2),
+                  border: Border.all(
+                    color: selected
+                        ? AppColors.primary
+                        : ChatLightColors.inkFaint,
+                    width: 2,
+                  ),
                   color: selected ? AppColors.primary : Colors.transparent,
                 ),
-                child: selected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                child: selected
+                    ? const Icon(Icons.check, size: 14, color: Colors.white)
+                    : null,
               ),
           ],
         ),

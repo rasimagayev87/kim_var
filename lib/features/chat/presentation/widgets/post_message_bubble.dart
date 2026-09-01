@@ -5,6 +5,8 @@ import '../../../../core/theme/app_text_styles.dart';
 import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// In-bubble preview for a shared "Lent" post — a static thumbnail
 /// (photo posts only; video posts show a plain play-icon placeholder,
 /// same "no inline video decoding in a bubble" rule as
@@ -27,7 +29,7 @@ class PostMessageBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
 
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
@@ -43,17 +45,25 @@ class PostMessageBubble extends StatelessWidget {
                     ? AppImage(
                         thumbnailUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => _ThumbnailFallback(isVideo: isVideo),
+                        errorBuilder: (_, _, _) =>
+                            _ThumbnailFallback(isVideo: isVideo),
                       )
                     : _ThumbnailFallback(isVideo: isVideo),
               ),
               Container(
                 width: 180,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 color: AppColors.backgroundDark,
                 child: Row(
                   children: [
-                    const Icon(Icons.attachment_outlined, size: 14, color: AppColors.textSecondary),
+                    const Icon(
+                      Icons.attachment_outlined,
+                      size: 14,
+                      color: AppColors.textSecondary,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
@@ -62,7 +72,11 @@ class PostMessageBubble extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Icon(Icons.chevron_right, size: 16, color: AppColors.textMuted),
+                    const Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: AppColors.textMuted,
+                    ),
                   ],
                 ),
               ),
@@ -84,7 +98,11 @@ class _ThumbnailFallback extends StatelessWidget {
     return Container(
       color: AppColors.card,
       alignment: Alignment.center,
-      child: Icon(isVideo ? Icons.play_circle_outline : Icons.image_outlined, color: AppColors.textMuted, size: 32),
+      child: Icon(
+        isVideo ? Icons.play_circle_outline : Icons.image_outlined,
+        color: AppColors.textMuted,
+        size: 32,
+      ),
     );
   }
 }

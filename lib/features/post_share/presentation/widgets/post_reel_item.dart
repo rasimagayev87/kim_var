@@ -22,6 +22,8 @@ import '../providers/post_providers.dart';
 import 'comments_sheet.dart';
 import 'post_share_sheet.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// One full-screen Reels/TikTok-style page for a single [Post] — video
 /// (autoplaying, looping, tap zones for play/pause + long-press-hold
 /// 2x speed) or photo, plus the bottom name/caption and right-edge
@@ -282,15 +284,12 @@ class _VideoTapZones extends StatelessWidget {
     return Positioned.fill(
       child: Row(
         children: [
+          // Görünməz toxunma zonası — animasiya ediləcək məzmun yoxdur.
+          // Görünməz toxunma zonası — animasiya ediləcək məzmun yoxdur,
+          // ona görə `Pressable` deyil.
+          Expanded(child: GestureDetector(onTap: onToggleSpeed)),
           Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: onToggleSpeed,
-            ),
-          ),
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
+            child: Pressable(
               onTap: onTogglePlayPause,
               onLongPress: onDownload,
               child: Stack(
@@ -335,12 +334,10 @@ class _VideoTapZones extends StatelessWidget {
               ),
             ),
           ),
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
-              onTap: onToggleSpeed,
-            ),
-          ),
+          // Görünməz toxunma zonası — animasiya ediləcək məzmun yoxdur.
+          // Görünməz toxunma zonası — animasiya ediləcək məzmun yoxdur,
+          // ona görə `Pressable` deyil.
+          Expanded(child: GestureDetector(onTap: onToggleSpeed)),
         ],
       ),
     );
@@ -436,7 +433,7 @@ class MuteToggleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(11),
@@ -552,7 +549,7 @@ class _RightActionRail extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            GestureDetector(
+            Pressable(
               onTap: () async {
                 if (!context.mounted) return;
                 Navigator.push(
@@ -692,7 +689,7 @@ class _RailAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,

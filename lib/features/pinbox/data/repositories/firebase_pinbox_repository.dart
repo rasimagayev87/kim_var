@@ -18,9 +18,11 @@ import '../datasources/pinbox_remote_datasource.dart';
 import '../../../../core/utils/callables.dart';
 
 class FirebasePinBoxRepository implements PinBoxRepository {
-  FirebasePinBoxRepository({PinBoxRemoteDatasource? datasource, FirebaseFunctions? functions})
-      : _datasource = datasource ?? FirebasePinBoxRemoteDatasource(),
-        _functions = functions ?? FirebaseFunctions.instance;
+  FirebasePinBoxRepository({
+    PinBoxRemoteDatasource? datasource,
+    FirebaseFunctions? functions,
+  }) : _datasource = datasource ?? FirebasePinBoxRemoteDatasource(),
+       _functions = functions ?? FirebaseFunctions.instance;
 
   final PinBoxRemoteDatasource _datasource;
   final FirebaseFunctions _functions;
@@ -40,7 +42,11 @@ class FirebasePinBoxRepository implements PinBoxRepository {
     try {
       return PinBoxOrder.fromFirestore(id, data);
     } catch (e, st) {
-      logError('firebase_pinbox_repository.PinBoxOrder.fromFirestore($id)', e, st);
+      logError(
+        'firebase_pinbox_repository.PinBoxOrder.fromFirestore($id)',
+        e,
+        st,
+      );
       return null;
     }
   }
@@ -135,16 +141,18 @@ class FirebasePinBoxRepository implements PinBoxRepository {
       );
     }
 
-    final result = await _functions.httpsCallable('updatePinBox', options: callableOptions()).call<Map<String, dynamic>>({
-      'pinboxId': pinboxId,
-      'title': title,
-      'description': description,
-      'originalPrice': originalPrice,
-      'pinboxPrice': pinboxPrice,
-      'pickupWindowStart': pickupWindowStart.toIso8601String(),
-      'pickupWindowEnd': pickupWindowEnd.toIso8601String(),
-      if (imageUrl != null) 'imageUrl': imageUrl,
-    });
+    final result = await _functions
+        .httpsCallable('updatePinBox', options: callableOptions())
+        .call<Map<String, dynamic>>({
+          'pinboxId': pinboxId,
+          'title': title,
+          'description': description,
+          'originalPrice': originalPrice,
+          'pinboxPrice': pinboxPrice,
+          'pickupWindowStart': pickupWindowStart.toIso8601String(),
+          'pickupWindowEnd': pickupWindowEnd.toIso8601String(),
+          if (imageUrl != null) 'imageUrl': imageUrl,
+        });
 
     return result.data['sentForReReview'] as bool;
   }
@@ -152,26 +160,36 @@ class FirebasePinBoxRepository implements PinBoxRepository {
   @override
   Future<void> deletePinBox(String pinboxId) async {
     await _datasource.deletePinBox(pinboxId);
-    await _datasource.deletePinBoxPhoto(fb.FirebaseAuth.instance.currentUser!.uid, pinboxId);
+    await _datasource.deletePinBoxPhoto(
+      fb.FirebaseAuth.instance.currentUser!.uid,
+      pinboxId,
+    );
   }
 
   @override
   Future<void> resubmitPinBox(String pinboxId) async {
-    await _functions.httpsCallable('resubmitPinBox', options: callableOptions()).call<Map<String, dynamic>>({
-      'pinboxId': pinboxId,
-    });
+    await _functions
+        .httpsCallable('resubmitPinBox', options: callableOptions())
+        .call<Map<String, dynamic>>({'pinboxId': pinboxId});
   }
 
   @override
   Stream<PinBox?> watchPinBox(String pinboxId) {
-    return _datasource.watchPinBox(pinboxId).map((doc) => doc.exists ? _safePinBox(doc.id, doc.data()!) : null);
+    return _datasource
+        .watchPinBox(pinboxId)
+        .map((doc) => doc.exists ? _safePinBox(doc.id, doc.data()!) : null);
   }
 
   @override
   Stream<List<PinBox>> watchMyPinBoxes(String ownerId) {
     return _datasource
         .watchPinBoxesByOwner(ownerId)
-        .map((snap) => snap.docs.map((doc) => _safePinBox(doc.id, doc.data())).whereType<PinBox>().toList());
+        .map(
+          (snap) => snap.docs
+              .map((doc) => _safePinBox(doc.id, doc.data()))
+              .whereType<PinBox>()
+              .toList(),
+        );
   }
 
   /// Excludes a box whose same-day pickup window has already ended,
@@ -181,7 +199,8 @@ class FirebasePinBoxRepository implements PinBoxRepository {
   /// this client-side filter is the only thing hiding it from discovery
   /// once ordering it would no longer make sense. Applied uniformly
   /// across all 3 fetch methods below.
-  bool _isWithinPickupWindow(PinBox pinbox) => pinbox.pickupWindowEnd.isAfter(DateTime.now());
+  bool _isWithinPickupWindow(PinBox pinbox) =>
+      pinbox.pickupWindowEnd.isAfter(DateTime.now());
 
   @override
   Future<List<PinBoxWithDistance>> fetchPinBoxesWithinRadius({
@@ -190,41 +209,68 @@ class FirebasePinBoxRepository implements PinBoxRepository {
     required double radiusKm,
     VenueCategory? category,
   }) async {
-    final results = await withPermissionRetry(() => _datasource.queryWithinRadius(
-          lat: lat,
-          lng: lng,
-          radiusKm: radiusKm,
-          category: category?.name,
-        ));
+    final results = await withPermissionRetry(
+      () => _datasource.queryWithinRadius(
+        lat: lat,
+        lng: lng,
+        radiusKm: radiusKm,
+        category: category?.name,
+      ),
+    );
 
     return results
-        .map((r) => (pinbox: _safePinBox(r.$1.id, r.$1.data()!), distanceMeters: r.$2 * 1000))
+        .map(
+          (r) => (
+            pinbox: _safePinBox(r.$1.id, r.$1.data()!),
+            distanceMeters: r.$2 * 1000,
+          ),
+        )
         .where((r) => r.pinbox != null && _isWithinPickupWindow(r.pinbox!))
         .map((r) => (pinbox: r.pinbox!, distanceMeters: r.distanceMeters))
         .toList();
   }
 
   @override
-  Future<List<PinBox>> fetchPinBoxesByCountry(String country, {VenueCategory? category}) async {
-    final snap = await withPermissionRetry(() => _datasource.queryByCountry(country, category: category?.name));
-    return snap.docs.map((d) => _safePinBox(d.id, d.data())).whereType<PinBox>().where(_isWithinPickupWindow).toList();
-  }
-
-  @override
-  Future<List<PinBox>> fetchAllActivePinBoxes({int limit = 300, VenueCategory? category}) async {
-    final snap = await withPermissionRetry(() => _datasource.queryAllActive(limit: limit, category: category?.name));
-    return snap.docs.map((d) => _safePinBox(d.id, d.data())).whereType<PinBox>().where(_isWithinPickupWindow).toList();
-  }
-
-  @override
-  Future<({String orderId, String checkoutUrl, double feeAmount, String paymentId})> reservePinBoxOrder({
-    required String pinboxId,
-    int quantity = 1,
+  Future<List<PinBox>> fetchPinBoxesByCountry(
+    String country, {
+    VenueCategory? category,
   }) async {
-    final result = await _functions.httpsCallable('reservePinBoxOrder', options: callableOptions()).call<Map<String, dynamic>>({
-      'pinboxId': pinboxId,
-      'quantity': quantity,
-    });
+    final snap = await withPermissionRetry(
+      () => _datasource.queryByCountry(country, category: category?.name),
+    );
+    return snap.docs
+        .map((d) => _safePinBox(d.id, d.data()))
+        .whereType<PinBox>()
+        .where(_isWithinPickupWindow)
+        .toList();
+  }
+
+  @override
+  Future<List<PinBox>> fetchAllActivePinBoxes({
+    int limit = 300,
+    VenueCategory? category,
+  }) async {
+    final snap = await withPermissionRetry(
+      () => _datasource.queryAllActive(limit: limit, category: category?.name),
+    );
+    return snap.docs
+        .map((d) => _safePinBox(d.id, d.data()))
+        .whereType<PinBox>()
+        .where(_isWithinPickupWindow)
+        .toList();
+  }
+
+  @override
+  Future<
+    ({String orderId, String checkoutUrl, double feeAmount, String paymentId})
+  >
+  reservePinBoxOrder({required String pinboxId, int quantity = 1}) async {
+    final result = await _functions
+        .httpsCallable('reservePinBoxOrder', options: callableOptions())
+        .call<Map<String, dynamic>>({
+          'pinboxId': pinboxId,
+          'quantity': quantity,
+        });
     return (
       orderId: result.data['orderId'] as String,
       checkoutUrl: result.data['checkoutUrl'] as String,
@@ -237,35 +283,44 @@ class FirebasePinBoxRepository implements PinBoxRepository {
   Stream<PinBoxOrder?> watchPinBoxOrder(String orderId) {
     return _datasource
         .watchPinBoxOrder(orderId)
-        .map((doc) => doc.exists ? _safePinBoxOrder(doc.id, doc.data()!) : null);
+        .map(
+          (doc) => doc.exists ? _safePinBoxOrder(doc.id, doc.data()!) : null,
+        );
   }
 
   @override
   Stream<List<PinBoxOrder>> watchMyOrders(String buyerId) {
     return _datasource
         .watchOrdersByBuyer(buyerId)
-        .map((snap) => snap.docs.map((doc) => _safePinBoxOrder(doc.id, doc.data())).whereType<PinBoxOrder>().toList());
+        .map(
+          (snap) => snap.docs
+              .map((doc) => _safePinBoxOrder(doc.id, doc.data()))
+              .whereType<PinBoxOrder>()
+              .toList(),
+        );
   }
 
   @override
-  Future<({String qrToken, DateTime expiresAt})> generateQrToken(String orderId) async {
-    final result = await _functions.httpsCallable('generatePinBoxQrToken', options: callableOptions()).call<Map<String, dynamic>>({
-      'orderId': orderId,
-    });
+  Future<({String qrToken, DateTime expiresAt})> generateQrToken(
+    String orderId,
+  ) async {
+    final result = await _functions
+        .httpsCallable('generatePinBoxQrToken', options: callableOptions())
+        .call<Map<String, dynamic>>({'orderId': orderId});
     final qrToken = result.data['qrToken'] as String;
     final expiresAtMs = result.data['qrTokenExpiresAtMs'] as int;
-    return (qrToken: qrToken, expiresAt: DateTime.fromMillisecondsSinceEpoch(expiresAtMs));
+    return (
+      qrToken: qrToken,
+      expiresAt: DateTime.fromMillisecondsSinceEpoch(expiresAtMs),
+    );
   }
 
   @override
-  Future<({String orderId, String pinboxTitle, int quantity})> redeemPinBoxOrder({
-    required String venueId,
-    required String code,
-  }) async {
-    final result = await _functions.httpsCallable('redeemPinBoxOrder', options: callableOptions()).call<Map<String, dynamic>>({
-      'venueId': venueId,
-      'code': code,
-    });
+  Future<({String orderId, String pinboxTitle, int quantity})>
+  redeemPinBoxOrder({required String venueId, required String code}) async {
+    final result = await _functions
+        .httpsCallable('redeemPinBoxOrder', options: callableOptions())
+        .call<Map<String, dynamic>>({'venueId': venueId, 'code': code});
     return (
       orderId: result.data['orderId'] as String,
       pinboxTitle: result.data['pinboxTitle'] as String,

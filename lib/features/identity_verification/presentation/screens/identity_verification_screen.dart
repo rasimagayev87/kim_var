@@ -21,10 +21,12 @@ class IdentityVerificationScreen extends ConsumerStatefulWidget {
   const IdentityVerificationScreen({super.key});
 
   @override
-  ConsumerState<IdentityVerificationScreen> createState() => _IdentityVerificationScreenState();
+  ConsumerState<IdentityVerificationScreen> createState() =>
+      _IdentityVerificationScreenState();
 }
 
-class _IdentityVerificationScreenState extends ConsumerState<IdentityVerificationScreen> {
+class _IdentityVerificationScreenState
+    extends ConsumerState<IdentityVerificationScreen> {
   File? _idFront;
   File? _idBack;
   File? _selfie;
@@ -40,7 +42,9 @@ class _IdentityVerificationScreenState extends ConsumerState<IdentityVerificatio
     return showModalBottomSheet<ImageSource>(
       context: context,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) => SafeArea(
         top: false,
         child: Column(
@@ -48,12 +52,18 @@ class _IdentityVerificationScreenState extends ConsumerState<IdentityVerificatio
           children: [
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.camera_alt_outlined, color: AppColors.textSecondary),
+              leading: const Icon(
+                Icons.camera_alt_outlined,
+                color: AppColors.textSecondary,
+              ),
               title: Text(loc.identityVerificationSourceCameraOption),
               onTap: () => Navigator.pop(sheetContext, ImageSource.camera),
             ),
             ListTile(
-              leading: const Icon(Icons.image_outlined, color: AppColors.textSecondary),
+              leading: const Icon(
+                Icons.image_outlined,
+                color: AppColors.textSecondary,
+              ),
               title: Text(loc.identityVerificationSourceGalleryOption),
               onTap: () => Navigator.pop(sheetContext, ImageSource.gallery),
             ),
@@ -69,7 +79,11 @@ class _IdentityVerificationScreenState extends ConsumerState<IdentityVerificatio
     final source = await _chooseSource(loc);
     if (source == null) return;
 
-    final picked = await ImagePicker().pickImage(source: source, maxWidth: 1600, imageQuality: 85);
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      maxWidth: 1600,
+      imageQuality: 85,
+    );
     if (picked == null) return;
 
     setState(() {
@@ -103,8 +117,14 @@ class _IdentityVerificationScreenState extends ConsumerState<IdentityVerificatio
     final selfie = _selfie;
     if (idFront == null || idBack == null || selfie == null) return;
 
-    final controller = ref.read(identityVerificationSubmitControllerProvider.notifier);
-    final ok = await controller.submit(idFront: idFront, idBack: idBack, selfieWithId: selfie);
+    final controller = ref.read(
+      identityVerificationSubmitControllerProvider.notifier,
+    );
+    final ok = await controller.submit(
+      idFront: idFront,
+      idBack: idBack,
+      selfieWithId: selfie,
+    );
     if (!mounted) return;
 
     if (ok) {
@@ -124,8 +144,12 @@ class _IdentityVerificationScreenState extends ConsumerState<IdentityVerificatio
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final identityVerified = ref.watch(profileControllerProvider.select((p) => p.identityVerified));
-    final latestRequestAsync = ref.watch(latestIdentityVerificationRequestProvider);
+    final identityVerified = ref.watch(
+      profileControllerProvider.select((p) => p.identityVerified),
+    );
+    final latestRequestAsync = ref.watch(
+      latestIdentityVerificationRequestProvider,
+    );
     final submitState = ref.watch(identityVerificationSubmitControllerProvider);
 
     ref.listen(identityVerificationSubmitControllerProvider, (previous, next) {
@@ -156,13 +180,22 @@ class _IdentityVerificationScreenState extends ConsumerState<IdentityVerificatio
         child: identityVerified
             ? _AlreadyVerifiedView(loc: loc)
             : latestRequestAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-                error: (_, _) => Center(child: Text(loc.photoOperationFailedError)),
+                loading: () => const Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.4,
+                    color: AppColors.primary,
+                  ),
+                ),
+                error: (_, _) =>
+                    Center(child: Text(loc.photoOperationFailedError)),
                 data: (request) {
-                  if (request != null && request.status == IdentityVerificationStatus.pending) {
+                  if (request != null &&
+                      request.status == IdentityVerificationStatus.pending) {
                     return _PendingView(loc: loc);
                   }
-                  if (request != null && request.status == IdentityVerificationStatus.rejected && !_resubmitting) {
+                  if (request != null &&
+                      request.status == IdentityVerificationStatus.rejected &&
+                      !_resubmitting) {
                     return _RejectedView(
                       loc: loc,
                       reason: request.rejectionReason,
@@ -204,13 +237,20 @@ class _AlreadyVerifiedView extends StatelessWidget {
             Text(
               loc.identityVerificationAlreadyVerifiedTitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.white),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.white,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               loc.identityVerificationAlreadyVerifiedBody,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -233,20 +273,34 @@ class _PendingView extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: AppColors.gold.withValues(alpha: 0.14), shape: BoxShape.circle),
-              child: const Icon(Icons.hourglass_top_rounded, size: 32, color: AppColors.gold),
+              decoration: BoxDecoration(
+                color: AppColors.gold.withValues(alpha: 0.14),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.hourglass_top_rounded,
+                size: 32,
+                color: AppColors.gold,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
               loc.identityVerificationPendingTitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.white),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.white,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               loc.identityVerificationPendingBody,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13.5, color: AppColors.textSecondary),
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ),
@@ -259,7 +313,11 @@ class _RejectedView extends StatelessWidget {
   final AppLocalizations loc;
   final String? reason;
   final VoidCallback onResubmit;
-  const _RejectedView({required this.loc, required this.reason, required this.onResubmit});
+  const _RejectedView({
+    required this.loc,
+    required this.reason,
+    required this.onResubmit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -271,14 +329,25 @@ class _RejectedView extends StatelessWidget {
           children: [
             Container(
               padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(color: AppColors.error.withValues(alpha: 0.12), shape: BoxShape.circle),
-              child: const Icon(Icons.close_rounded, size: 32, color: AppColors.error),
+              decoration: BoxDecoration(
+                color: AppColors.error.withValues(alpha: 0.12),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.close_rounded,
+                size: 32,
+                color: AppColors.error,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
               loc.identityVerificationRejectedTitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: AppColors.white),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: AppColors.white,
+              ),
             ),
             if (reason != null && reason!.trim().isNotEmpty) ...[
               const SizedBox(height: 10),
@@ -295,11 +364,18 @@ class _RejectedView extends StatelessWidget {
                     children: [
                       TextSpan(
                         text: '${loc.moderationReviewNotePrefix}: ',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.white),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.white,
+                        ),
                       ),
                       TextSpan(
                         text: reason,
-                        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
                     ],
                   ),
@@ -361,7 +437,11 @@ class _UploadWizard extends StatelessWidget {
           ),
           child: Text(
             loc.identityVerificationInfoBanner,
-            style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary, height: 1.4),
+            style: const TextStyle(
+              fontSize: 12.5,
+              color: AppColors.textSecondary,
+              height: 1.4,
+            ),
           ),
         ),
         const SizedBox(height: 20),
@@ -369,7 +449,9 @@ class _UploadWizard extends StatelessWidget {
           stepNumber: 1,
           title: loc.identityVerificationStep1Title,
           file: idFront,
-          buttonLabel: idFront == null ? loc.identityVerificationAddPhotoButton : loc.identityVerificationChangePhotoButton,
+          buttonLabel: idFront == null
+              ? loc.identityVerificationAddPhotoButton
+              : loc.identityVerificationChangePhotoButton,
           onTap: isLoading ? null : onPickIdFront,
         ),
         const SizedBox(height: 14),
@@ -377,7 +459,9 @@ class _UploadWizard extends StatelessWidget {
           stepNumber: 2,
           title: loc.identityVerificationStep2Title,
           file: idBack,
-          buttonLabel: idBack == null ? loc.identityVerificationAddPhotoButton : loc.identityVerificationChangePhotoButton,
+          buttonLabel: idBack == null
+              ? loc.identityVerificationAddPhotoButton
+              : loc.identityVerificationChangePhotoButton,
           onTap: isLoading ? null : onPickIdBack,
         ),
         const SizedBox(height: 14),
@@ -385,7 +469,9 @@ class _UploadWizard extends StatelessWidget {
           stepNumber: 3,
           title: loc.identityVerificationStep3Title,
           file: selfie,
-          buttonLabel: selfie == null ? loc.identityVerificationTakeSelfieButton : loc.identityVerificationChangePhotoButton,
+          buttonLabel: selfie == null
+              ? loc.identityVerificationTakeSelfieButton
+              : loc.identityVerificationChangePhotoButton,
           onTap: isLoading ? null : onPickSelfie,
         ),
         const SizedBox(height: 24),
@@ -401,8 +487,15 @@ class _UploadWizard extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  loc.uploadingProgress((submitState.progress * 100).clamp(0, 100).toStringAsFixed(0)),
-                  style: const TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+                  loc.uploadingProgress(
+                    (submitState.progress * 100)
+                        .clamp(0, 100)
+                        .toStringAsFixed(0),
+                  ),
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -454,13 +547,19 @@ class _ImageStepCard extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.background,
               borderRadius: BorderRadius.circular(12),
-              image: file != null ? DecorationImage(image: FileImage(file!), fit: BoxFit.cover) : null,
+              image: file != null
+                  ? DecorationImage(image: FileImage(file!), fit: BoxFit.cover)
+                  : null,
             ),
             child: file == null
                 ? Center(
                     child: Text(
                       '$stepNumber',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppColors.textSecondary),
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   )
                 : null,
@@ -472,17 +571,30 @@ class _ImageStepCard extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.white),
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.white,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 TextButton(
                   onPressed: onTap,
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: Text(buttonLabel, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  child: Text(
+                    buttonLabel,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
               ],
             ),

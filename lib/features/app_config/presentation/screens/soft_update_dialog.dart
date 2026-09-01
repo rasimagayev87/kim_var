@@ -20,19 +20,27 @@ const _kLastShownAtKey = 'soft_update_last_shown_at_ms';
 /// and the dialog isn't already showing. Call from the home shell once
 /// past the splash gate; safe to call repeatedly (e.g. on every resume),
 /// since the interval/version check makes repeat calls no-ops.
-Future<void> maybeShowSoftUpdateDialog(BuildContext context, WidgetRef ref) async {
+Future<void> maybeShowSoftUpdateDialog(
+  BuildContext context,
+  WidgetRef ref,
+) async {
   final status = ref.read(updateStatusProvider);
   if (status != UpdateStatus.softUpdateAvailable) return;
 
   final config = ref.read(appConfigProvider);
-  final latestVersion = Platform.isIOS ? config.latestVersionIos : config.latestVersionAndroid;
+  final latestVersion = Platform.isIOS
+      ? config.latestVersionIos
+      : config.latestVersionAndroid;
 
   final prefs = await SharedPreferences.getInstance();
   final lastShownVersion = prefs.getString(_kLastShownVersionKey);
   final lastShownAtMs = prefs.getInt(_kLastShownAtKey);
 
-  final intervalElapsed = lastShownAtMs == null ||
-      DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(lastShownAtMs)) >=
+  final intervalElapsed =
+      lastShownAtMs == null ||
+      DateTime.now().difference(
+            DateTime.fromMillisecondsSinceEpoch(lastShownAtMs),
+          ) >=
           Duration(hours: config.softUpdateIntervalHours);
 
   // A newer `latest_version_*` always resets the cooldown, even if the
@@ -44,7 +52,10 @@ Future<void> maybeShowSoftUpdateDialog(BuildContext context, WidgetRef ref) asyn
   await prefs.setInt(_kLastShownAtKey, DateTime.now().millisecondsSinceEpoch);
 
   if (!context.mounted) return;
-  await showDialog<void>(context: context, builder: (_) => const SoftUpdateDialog());
+  await showDialog<void>(
+    context: context,
+    builder: (_) => const SoftUpdateDialog(),
+  );
 }
 
 class SoftUpdateDialog extends ConsumerWidget {
@@ -54,7 +65,9 @@ class SoftUpdateDialog extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final config = ref.watch(appConfigProvider);
-    final storeUrl = Platform.isIOS ? config.updateStoreUrlIos : config.updateStoreUrlAndroid;
+    final storeUrl = Platform.isIOS
+        ? config.updateStoreUrlIos
+        : config.updateStoreUrlAndroid;
 
     return AlertDialog(
       backgroundColor: AppColors.surface,
@@ -69,7 +82,10 @@ class SoftUpdateDialog extends ConsumerWidget {
         FilledButton(
           style: FilledButton.styleFrom(backgroundColor: AppColors.primary),
           onPressed: () {
-            launchUrl(Uri.parse(storeUrl), mode: LaunchMode.externalApplication);
+            launchUrl(
+              Uri.parse(storeUrl),
+              mode: LaunchMode.externalApplication,
+            );
             Navigator.pop(context);
           },
           child: Text(loc.softUpdateNowButton),

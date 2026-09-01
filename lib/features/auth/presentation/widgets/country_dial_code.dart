@@ -3,7 +3,11 @@ class CountryDialCode {
   final String dialCode;
   final String flag;
 
-  const CountryDialCode({required this.name, required this.dialCode, required this.flag});
+  const CountryDialCode({
+    required this.name,
+    required this.dialCode,
+    required this.flag,
+  });
 }
 
 /// A curated list of dial codes prioritising the app's launch

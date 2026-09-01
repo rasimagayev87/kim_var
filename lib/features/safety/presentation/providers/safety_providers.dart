@@ -8,7 +8,9 @@ import '../../domain/usecases/block_user_usecase.dart';
 import '../../domain/usecases/report_user_usecase.dart';
 import '../../domain/usecases/unblock_user_usecase.dart';
 
-final safetyRepositoryProvider = Provider<SafetyRepository>((ref) => FirebaseSafetyRepository());
+final safetyRepositoryProvider = Provider<SafetyRepository>(
+  (ref) => FirebaseSafetyRepository(),
+);
 
 final blockUserUseCaseProvider = Provider<BlockUserUseCase>((ref) {
   return BlockUserUseCase(ref.watch(safetyRepositoryProvider));
@@ -48,8 +50,10 @@ final blockedByUsersProvider = StreamProvider.autoDispose<Set<String>>((ref) {
   final uid = fb.FirebaseAuth.instance.currentUser?.uid;
   if (uid == null) return Stream.value(const <String>{});
   return privateDataRef(uid).snapshots().map(
-        (doc) => (doc.data()?['blockedByUsers'] as List?)?.cast<String>().toSet() ?? const <String>{},
-      );
+    (doc) =>
+        (doc.data()?['blockedByUsers'] as List?)?.cast<String>().toSet() ??
+        const <String>{},
+  );
 });
 
 /// Every uid whose content should disappear from THIS user's own feeds
@@ -62,7 +66,9 @@ final blockedByUsersProvider = StreamProvider.autoDispose<Set<String>>((ref) {
 /// list-query problem, Düzəliş Prompt 4 / RT-25) — every consumer of
 /// this provider does the filtering client-side.
 final hiddenAuthorIdsProvider = Provider.autoDispose<Set<String>>((ref) {
-  final blockedByMe = ref.watch(blockedUserIdsProvider).valueOrNull ?? const <String>{};
-  final blockedByOthers = ref.watch(blockedByUsersProvider).valueOrNull ?? const <String>{};
+  final blockedByMe =
+      ref.watch(blockedUserIdsProvider).valueOrNull ?? const <String>{};
+  final blockedByOthers =
+      ref.watch(blockedByUsersProvider).valueOrNull ?? const <String>{};
   return {...blockedByMe, ...blockedByOthers};
 });

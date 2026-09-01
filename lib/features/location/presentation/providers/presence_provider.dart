@@ -55,8 +55,8 @@ final presenceTickProvider = StreamProvider<int>((ref) {
 
 class PresenceController {
   PresenceController({FirebaseFirestore? firestore, fb.FirebaseAuth? auth})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _auth = auth ?? fb.FirebaseAuth.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _auth = auth ?? fb.FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore;
   final fb.FirebaseAuth _auth;
@@ -78,7 +78,10 @@ class PresenceController {
     _offlineGraceTimer?.cancel();
     _offlineGraceTimer = null;
     await _writeHeartbeat();
-    _heartbeatTimer ??= Timer.periodic(_heartbeatInterval, (_) => _writeHeartbeat());
+    _heartbeatTimer ??= Timer.periodic(
+      _heartbeatInterval,
+      (_) => _writeHeartbeat(),
+    );
   }
 
   /// App backgrounded (`paused`/`detached`). Doesn't write offline

@@ -21,7 +21,16 @@ class VipPackageOption {
 /// products there). Kept as named constants so pointing at a
 /// different SKU later is a one-line change with no callers to touch.
 const kVipPackages = [
-  VipPackageOption(period: VipBillingPeriod.monthly, skuId: 'peakpin_vip_monthly'),
-  VipPackageOption(period: VipBillingPeriod.quarterly, skuId: 'peakpin_vip_quarterly'),
-  VipPackageOption(period: VipBillingPeriod.yearly, skuId: 'peakpin_vip_yearly'),
+  VipPackageOption(
+    period: VipBillingPeriod.monthly,
+    skuId: 'peakpin_vip_monthly',
+  ),
+  VipPackageOption(
+    period: VipBillingPeriod.quarterly,
+    skuId: 'peakpin_vip_quarterly',
+  ),
+  VipPackageOption(
+    period: VipBillingPeriod.yearly,
+    skuId: 'peakpin_vip_yearly',
+  ),
 ];

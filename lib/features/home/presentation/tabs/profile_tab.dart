@@ -29,6 +29,8 @@ import '../../../stories/presentation/providers/story_providers.dart';
 import '../../../stories/presentation/screens/create_story_screen.dart';
 import '../../../stories/presentation/screens/story_viewer_screen.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 class ProfileTab extends ConsumerWidget {
   const ProfileTab({super.key});
 
@@ -54,7 +56,9 @@ class ProfileTab extends ConsumerWidget {
         : ref.watch(userRepostedPostsProvider(myUid));
     final newVisitorsCount = ref.watch(newProfileVisitorsCountProvider);
 
-    final displayName = profile.name.isEmpty ? loc.profileNamePlaceholder : profile.name;
+    final displayName = profile.name.isEmpty
+        ? loc.profileNamePlaceholder
+        : profile.name;
 
     return DefaultTabController(
           length: 3,
@@ -80,7 +84,9 @@ class ProfileTab extends ConsumerWidget {
                         children: [
                           Row(
                             children: [
-                              if (ref.watch(featureFlagProvider(FeatureFlag.mediaUpload)))
+                              if (ref.watch(
+                                featureFlagProvider(FeatureFlag.mediaUpload),
+                              ))
                                 IconButton(
                                   onPressed: () async {
                                     if (!context.mounted) return;
@@ -95,7 +101,10 @@ class ProfileTab extends ConsumerWidget {
                               IconButton(
                                 onPressed: () => Navigator.push(
                                   context,
-                                  MaterialPageRoute(builder: (_) => const DiscoverSearchScreen()),
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const DiscoverSearchScreen(),
+                                  ),
                                 ),
                                 icon: const Icon(
                                   Icons.search,
@@ -274,15 +283,23 @@ class ProfileTab extends ConsumerWidget {
                             onTapFollowing: myUid == null
                                 ? null
                                 : () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (_) => FollowListScreen(uid: myUid, initialTabIndex: 1)),
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => FollowListScreen(
+                                        uid: myUid,
+                                        initialTabIndex: 1,
+                                      ),
                                     ),
+                                  ),
                             onTapFollowers: myUid == null
                                 ? null
                                 : () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (_) => FollowListScreen(uid: myUid)),
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          FollowListScreen(uid: myUid),
                                     ),
+                                  ),
                           ),
                           const SizedBox(height: 8),
                         ],
@@ -418,7 +435,7 @@ class _AvatarWithRing extends ConsumerWidget {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        GestureDetector(
+        Pressable(
           onTap: () async {
             if (hasActiveStory) {
               Navigator.push(
@@ -473,7 +490,7 @@ class _AvatarWithRing extends ConsumerWidget {
           Positioned(
             bottom: 2,
             right: 2,
-            child: GestureDetector(
+            child: Pressable(
               onTap: () async {
                 if (!context.mounted) return;
                 startCreateStoryFlow(context);

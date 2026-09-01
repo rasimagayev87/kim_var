@@ -7,6 +7,9 @@
 /// `_SubscriptionOverdueBannerState._pay()` (`my_venues_screen.dart`)
 /// so this one comparison can be unit-tested without standing up the
 /// whole widget.
-bool needsBusinessOfferReacceptance({required String? acceptedVersion, required String currentVersion}) {
+bool needsBusinessOfferReacceptance({
+  required String? acceptedVersion,
+  required String currentVersion,
+}) {
   return acceptedVersion == null || acceptedVersion != currentVersion;
 }

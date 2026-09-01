@@ -15,11 +15,14 @@ import '../../../pinbox/presentation/providers/pinbox_providers.dart';
 import '../../../pinbox/presentation/screens/pinbox_checkout_screen.dart';
 import '../../../settings/map_location/presentation/providers/map_location_providers.dart';
 import '../../../venues/domain/entities/venue.dart';
-import '../../../venues/presentation/screens/create_venue_screen.dart' show venueCategoryLabel;
+import '../../../venues/presentation/screens/create_venue_screen.dart'
+    show venueCategoryLabel;
 import '../../domain/entities/offer.dart';
 import '../providers/offer_providers.dart';
 import '../screens/offer_details_screen.dart';
 import 'offer_filter_sheet.dart';
+
+import '../../../../core/widgets/pressable.dart';
 
 /// Hamısı/Kompaniya/Tədbir/PinBox filter chips at the top of Kəşf et →
 /// Fürsətlər — "Kompaniya" covers every `Offer` (discount/gift/1+1/
@@ -29,7 +32,9 @@ import 'offer_filter_sheet.dart';
 /// (surprise-box discount sales).
 enum ListingFilter { all, offers, events, pinbox }
 
-final listingFilterProvider = StateProvider.autoDispose<ListingFilter>((ref) => ListingFilter.all);
+final listingFilterProvider = StateProvider.autoDispose<ListingFilter>(
+  (ref) => ListingFilter.all,
+);
 
 /// One row in the merged Hamısı list — an offer, an event, or a
 /// PinBox, never more than one; [distanceMeters] is what the merged
@@ -42,21 +47,24 @@ class _ListingItem {
   final PinBoxWithDistance? pinboxItem;
 
   _ListingItem.offer(OfferWithDistance item)
-      : offerItem = item,
-        eventItem = null,
-        pinboxItem = null;
+    : offerItem = item,
+      eventItem = null,
+      pinboxItem = null;
 
   _ListingItem.event(VenueEventWithDistance item)
-      : offerItem = null,
-        eventItem = item,
-        pinboxItem = null;
+    : offerItem = null,
+      eventItem = item,
+      pinboxItem = null;
 
   _ListingItem.pinbox(PinBoxWithDistance item)
-      : offerItem = null,
-        eventItem = null,
-        pinboxItem = item;
+    : offerItem = null,
+      eventItem = null,
+      pinboxItem = item;
 
-  double get distanceMeters => offerItem?.distanceMeters ?? eventItem?.distanceMeters ?? pinboxItem!.distanceMeters;
+  double get distanceMeters =>
+      offerItem?.distanceMeters ??
+      eventItem?.distanceMeters ??
+      pinboxItem!.distanceMeters;
 }
 
 /// Collapses the Azerbaijani/Turkish İ/I/ı family down to plain ASCII
@@ -64,7 +72,11 @@ class _ListingItem {
 /// `_azSearchKey` (duplicated rather than shared: one small function,
 /// no other coupling between the two screens).
 String _azSearchKey(String value) {
-  return value.replaceAll('İ', 'i').replaceAll('I', 'i').replaceAll('ı', 'i').toLowerCase();
+  return value
+      .replaceAll('İ', 'i')
+      .replaceAll('I', 'i')
+      .replaceAll('ı', 'i')
+      .toLowerCase();
 }
 
 /// The full localized type label ("Endirim", "Hədiyyə", ...) — lets the
@@ -109,7 +121,9 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (_) => OfferFilterSheet(selected: selected),
     );
     if (!mounted) return;
@@ -140,12 +154,15 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
     }).toList();
   }
 
-  List<VenueEventWithDistance> _visibleEvents(List<VenueEventWithDistance> all) {
+  List<VenueEventWithDistance> _visibleEvents(
+    List<VenueEventWithDistance> all,
+  ) {
     if (_query.isEmpty) return all;
     final q = _azSearchKey(_query);
     return all.where((item) {
       final event = item.event;
-      return _azSearchKey(event.title).contains(q) || _azSearchKey(event.venueName).contains(q);
+      return _azSearchKey(event.title).contains(q) ||
+          _azSearchKey(event.venueName).contains(q);
     }).toList();
   }
 
@@ -154,7 +171,8 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
     final q = _azSearchKey(_query);
     return all.where((item) {
       final pinbox = item.pinbox;
-      return _azSearchKey(pinbox.title).contains(q) || _azSearchKey(pinbox.venueName).contains(q);
+      return _azSearchKey(pinbox.title).contains(q) ||
+          _azSearchKey(pinbox.venueName).contains(q);
     }).toList();
   }
 
@@ -164,13 +182,22 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
     final offersAsync = ref.watch(nearbyOffersProvider);
     final eventsAsync = ref.watch(nearbyEventsProvider);
     final pinboxesAsync = ref.watch(nearbyPinBoxesProvider);
-    final distanceUnit = ref.watch(mapLocationSettingsProvider).valueOrNull?.distanceUnit ?? DistanceUnit.km;
+    final distanceUnit =
+        ref.watch(mapLocationSettingsProvider).valueOrNull?.distanceUnit ??
+        DistanceUnit.km;
     final selectedCategory = ref.watch(selectedOfferCategoryFilterProvider);
     final listingFilter = ref.watch(listingFilterProvider);
 
     Widget body;
-    if (offersAsync.isLoading || eventsAsync.isLoading || pinboxesAsync.isLoading) {
-      body = const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary));
+    if (offersAsync.isLoading ||
+        eventsAsync.isLoading ||
+        pinboxesAsync.isLoading) {
+      body = const Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2.4,
+          color: AppColors.primary,
+        ),
+      );
     } else if (offersAsync.hasError) {
       body = _OfferStatusMessage(
         icon: Icons.error_outline,
@@ -201,22 +228,45 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
       final pinboxes = _visiblePinBoxes(pinboxesAsync.valueOrNull ?? const []);
 
       final items = <_ListingItem>[
-        if (listingFilter == ListingFilter.all || listingFilter == ListingFilter.offers)
+        if (listingFilter == ListingFilter.all ||
+            listingFilter == ListingFilter.offers)
           ...offers.map(_ListingItem.offer),
-        if (listingFilter == ListingFilter.all || listingFilter == ListingFilter.events)
+        if (listingFilter == ListingFilter.all ||
+            listingFilter == ListingFilter.events)
           ...events.map(_ListingItem.event),
-        if (listingFilter == ListingFilter.all || listingFilter == ListingFilter.pinbox)
+        if (listingFilter == ListingFilter.all ||
+            listingFilter == ListingFilter.pinbox)
           ...pinboxes.map(_ListingItem.pinbox),
       ]..sort((a, b) => a.distanceMeters.compareTo(b.distanceMeters));
 
       if (items.isEmpty) {
         final (emptyIcon, emptyTitle, emptySubtitle) = switch (listingFilter) {
-          ListingFilter.all => (Icons.local_offer_outlined, loc.listingEmptyAllTitle, loc.listingEmptyAllSubtitle),
-          ListingFilter.offers => (Icons.local_offer_outlined, loc.offersEmptyTitle, loc.offersEmptySubtitle),
-          ListingFilter.events => (Icons.celebration_outlined, loc.listingEmptyEventsTitle, loc.listingEmptyEventsSubtitle),
-          ListingFilter.pinbox => (Icons.inventory_2_outlined, loc.listingEmptyPinboxTitle, loc.listingEmptyPinboxSubtitle),
+          ListingFilter.all => (
+            Icons.local_offer_outlined,
+            loc.listingEmptyAllTitle,
+            loc.listingEmptyAllSubtitle,
+          ),
+          ListingFilter.offers => (
+            Icons.local_offer_outlined,
+            loc.offersEmptyTitle,
+            loc.offersEmptySubtitle,
+          ),
+          ListingFilter.events => (
+            Icons.celebration_outlined,
+            loc.listingEmptyEventsTitle,
+            loc.listingEmptyEventsSubtitle,
+          ),
+          ListingFilter.pinbox => (
+            Icons.inventory_2_outlined,
+            loc.listingEmptyPinboxTitle,
+            loc.listingEmptyPinboxSubtitle,
+          ),
         };
-        body = _OfferStatusMessage(icon: emptyIcon, title: emptyTitle, subtitle: emptySubtitle);
+        body = _OfferStatusMessage(
+          icon: emptyIcon,
+          title: emptyTitle,
+          subtitle: emptySubtitle,
+        );
       } else {
         body = ListView.separated(
           // Extra bottom padding so the last card doesn't sit under the
@@ -227,9 +277,22 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
           separatorBuilder: (_, _) => const SizedBox(height: 12),
           itemBuilder: (context, index) {
             final item = items[index];
-            if (item.offerItem != null) return _OfferCard(item: item.offerItem!, loc: loc, distanceUnit: distanceUnit);
-            if (item.eventItem != null) return VenueEventCard(item: item.eventItem!, distanceUnit: distanceUnit);
-            return _PinBoxCard(item: item.pinboxItem!, loc: loc, distanceUnit: distanceUnit);
+            if (item.offerItem != null)
+              return _OfferCard(
+                item: item.offerItem!,
+                loc: loc,
+                distanceUnit: distanceUnit,
+              );
+            if (item.eventItem != null)
+              return VenueEventCard(
+                item: item.eventItem!,
+                distanceUnit: distanceUnit,
+              );
+            return _PinBoxCard(
+              item: item.pinboxItem!,
+              loc: loc,
+              distanceUnit: distanceUnit,
+            );
           },
         );
       }
@@ -253,12 +316,11 @@ class _OfferListViewState extends ConsumerState<OfferListView> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
                 child: _ListingFilterChips(
                   selected: listingFilter,
-                  onSelected: (f) => ref.read(listingFilterProvider.notifier).state = f,
+                  onSelected: (f) =>
+                      ref.read(listingFilterProvider.notifier).state = f,
                 ),
               ),
-              Expanded(
-                child: body,
-              ),
+              Expanded(child: body),
             ],
           ),
         ),
@@ -292,7 +354,7 @@ class _ListingFilterChips extends StatelessWidget {
         itemBuilder: (context, index) {
           final (value, label) = entries[index];
           final isSelected = value == selected;
-          return GestureDetector(
+          return Pressable(
             onTap: () => onSelected(value),
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
@@ -306,7 +368,9 @@ class _ListingFilterChips extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? AppColors.onAccent : ChatLightColors.inkSoft,
+                  color: isSelected
+                      ? AppColors.onAccent
+                      : ChatLightColors.inkSoft,
                 ),
               ),
             ),
@@ -338,20 +402,37 @@ class _OfferSearchField extends StatelessWidget {
       children: [
         Expanded(
           child: Container(
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: TextField(
               controller: controller,
               onChanged: onChanged,
-              style: const TextStyle(fontSize: 14.5, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 14.5,
+                color: ChatLightColors.ink,
+              ),
               cursorColor: AppColors.primary,
               decoration: InputDecoration(
                 hintText: loc.offersSearchHint,
-                hintStyle: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 14.5),
-                prefixIcon: const Icon(Icons.search, color: ChatLightColors.inkFaint, size: 21),
+                hintStyle: const TextStyle(
+                  color: ChatLightColors.inkFaint,
+                  fontSize: 14.5,
+                ),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: ChatLightColors.inkFaint,
+                  size: 21,
+                ),
                 suffixIcon: controller.text.isEmpty
                     ? null
                     : IconButton(
-                        icon: const Icon(Icons.close, color: ChatLightColors.inkFaint, size: 18),
+                        icon: const Icon(
+                          Icons.close,
+                          color: ChatLightColors.inkFaint,
+                          size: 18,
+                        ),
                         onPressed: () {
                           controller.clear();
                           onChanged('');
@@ -379,7 +460,9 @@ class _OfferSearchField extends StatelessWidget {
               child: Icon(
                 Icons.tune_rounded,
                 size: 20,
-                color: filterActive ? AppColors.primary : ChatLightColors.inkSoft,
+                color: filterActive
+                    ? AppColors.primary
+                    : ChatLightColors.inkSoft,
               ),
             ),
           ),
@@ -394,7 +477,11 @@ class _OfferCard extends StatelessWidget {
   final AppLocalizations loc;
   final DistanceUnit distanceUnit;
 
-  const _OfferCard({required this.item, required this.loc, required this.distanceUnit});
+  const _OfferCard({
+    required this.item,
+    required this.loc,
+    required this.distanceUnit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -408,7 +495,9 @@ class _OfferCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => OfferDetailsScreen(offerId: offer.id)),
+          MaterialPageRoute(
+            builder: (_) => OfferDetailsScreen(offerId: offer.id),
+          ),
         ),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -423,14 +512,22 @@ class _OfferCard extends StatelessWidget {
                   children: [
                     Text(
                       offer.venueName,
-                      style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.primary),
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.primary,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       offer.title,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: ChatLightColors.ink,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -438,7 +535,11 @@ class _OfferCard extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         offer.description,
-                        style: TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft, height: 1.3),
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: ChatLightColors.inkSoft,
+                          height: 1.3,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -446,22 +547,42 @@ class _OfferCard extends StatelessWidget {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        Icon(Icons.location_on_outlined, size: 12.5, color: ChatLightColors.inkFaint),
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 12.5,
+                          color: ChatLightColors.inkFaint,
+                        ),
                         const SizedBox(width: 3),
                         Expanded(
                           child: Text(
-                            formatDistance(loc, item.distanceMeters, distanceUnit),
-                            style: TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+                            formatDistance(
+                              loc,
+                              item.distanceMeters,
+                              distanceUnit,
+                            ),
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: ChatLightColors.inkFaint,
+                            ),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: 6),
-                        Icon(Icons.schedule_outlined, size: 12.5, color: ChatLightColors.inkFaint),
+                        Icon(
+                          Icons.schedule_outlined,
+                          size: 12.5,
+                          color: ChatLightColors.inkFaint,
+                        ),
                         const SizedBox(width: 3),
                         Text(
-                          loc.offerEndsOnLabel(DateFormat('d MMM').format(offer.endDate)),
-                          style: TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+                          loc.offerEndsOnLabel(
+                            DateFormat('d MMM').format(offer.endDate),
+                          ),
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: ChatLightColors.inkFaint,
+                          ),
                         ),
                       ],
                     ),
@@ -502,7 +623,11 @@ class _OfferVenueLogo extends StatelessWidget {
             : Container(
                 color: ChatLightColors.cardSurface,
                 alignment: Alignment.center,
-                child: Icon(venueCategoryIcon(offer.category), color: ChatLightColors.inkSoft, size: 24),
+                child: Icon(
+                  venueCategoryIcon(offer.category),
+                  color: ChatLightColors.inkSoft,
+                  size: 24,
+                ),
               ),
       ),
     );
@@ -519,10 +644,17 @@ class _CategoryPill extends StatelessWidget {
     final loc = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: ChatLightColors.cardSurface, borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+        color: ChatLightColors.cardSurface,
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Text(
         venueCategoryLabel(loc, category),
-        style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: ChatLightColors.inkSoft),
+        style: const TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: ChatLightColors.inkSoft,
+        ),
       ),
     );
   }
@@ -541,22 +673,48 @@ class _OfferTypeBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final (color, lines) = switch (offer.offerType) {
-      OfferType.discount => (AppColors.primary, ['${offer.discountValue?.round() ?? 0}%', loc.offerBadgeDiscountSuffix]),
-      OfferType.fixedPrice => (AppColors.cyanDark, ['${offer.discountValue?.round() ?? 0}', loc.offerBadgeFixedPriceSuffix]),
+      OfferType.discount => (
+        AppColors.primary,
+        ['${offer.discountValue?.round() ?? 0}%', loc.offerBadgeDiscountSuffix],
+      ),
+      OfferType.fixedPrice => (
+        AppColors.cyanDark,
+        [
+          '${offer.discountValue?.round() ?? 0}',
+          loc.offerBadgeFixedPriceSuffix,
+        ],
+      ),
       OfferType.gift => (const Color(0xFFF5A524), [loc.offerBadgeGiftLabel]),
-      OfferType.buyOneGetOne => (const Color(0xFF7C6CF2), [loc.offerBadgeBuyOneGetOneLabel, loc.offerBadgeGiftLabel]),
+      OfferType.buyOneGetOne => (
+        const Color(0xFF7C6CF2),
+        [loc.offerBadgeBuyOneGetOneLabel, loc.offerBadgeGiftLabel],
+      ),
       OfferType.happyHour => (
         const Color(0xFFFF6B6B),
-        ['⏰', offer.activeHours != null ? '${offer.activeHours!.start}-${offer.activeHours!.end}' : ''],
+        [
+          '⏰',
+          offer.activeHours != null
+              ? '${offer.activeHours!.start}-${offer.activeHours!.end}'
+              : '',
+        ],
       ),
-      OfferType.firstVisit => (const Color(0xFF9B59F5), ['🎁', loc.offerBadgeFirstVisitLabel]),
-      OfferType.birthday => (const Color(0xFFFF4FA3), ['🎂', loc.offerBadgeBirthdayLabel]),
+      OfferType.firstVisit => (
+        const Color(0xFF9B59F5),
+        ['🎁', loc.offerBadgeFirstVisitLabel],
+      ),
+      OfferType.birthday => (
+        const Color(0xFFFF4FA3),
+        ['🎂', loc.offerBadgeBirthdayLabel],
+      ),
     };
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       constraints: const BoxConstraints(minWidth: 64),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisSize: MainAxisSize.min,
@@ -565,7 +723,12 @@ class _OfferTypeBadge extends StatelessWidget {
             Text(
               line,
               textAlign: TextAlign.right,
-              style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: color, height: 1.15),
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w800,
+                color: color,
+                height: 1.15,
+              ),
             ),
         ],
       ),
@@ -580,7 +743,13 @@ class _OfferStatusMessage extends StatelessWidget {
   final String? actionLabel;
   final VoidCallback? onAction;
 
-  const _OfferStatusMessage({required this.icon, required this.title, required this.subtitle, this.actionLabel, this.onAction});
+  const _OfferStatusMessage({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.actionLabel,
+    this.onAction,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -593,20 +762,31 @@ class _OfferStatusMessage extends StatelessWidget {
             Container(
               width: 88,
               height: 88,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.primary.withValues(alpha: 0.1)),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primary.withValues(alpha: 0.1),
+              ),
               child: Icon(icon, color: AppColors.primary, size: 38),
             ),
             const SizedBox(height: 22),
             Text(
               title,
-              style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w700,
+                color: ChatLightColors.ink,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: ChatLightColors.inkSoft, height: 1.5),
+              style: TextStyle(
+                fontSize: 13,
+                color: ChatLightColors.inkSoft,
+                height: 1.5,
+              ),
             ),
             if (actionLabel != null && onAction != null) ...[
               const SizedBox(height: 16),
@@ -629,7 +809,11 @@ class _PinBoxCard extends StatelessWidget {
   final AppLocalizations loc;
   final DistanceUnit distanceUnit;
 
-  const _PinBoxCard({required this.item, required this.loc, required this.distanceUnit});
+  const _PinBoxCard({
+    required this.item,
+    required this.loc,
+    required this.distanceUnit,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -647,7 +831,9 @@ class _PinBoxCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(22),
           onTap: () => Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => PinBoxCheckoutScreen(pinbox: pinbox)),
+            MaterialPageRoute(
+              builder: (_) => PinBoxCheckoutScreen(pinbox: pinbox),
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.all(14),
@@ -660,11 +846,19 @@ class _PinBoxCard extends StatelessWidget {
                     width: 52,
                     height: 52,
                     child: pinbox.imageUrl != null
-                        ? AppImage(pinbox.imageUrl!, thumbnail: true, fit: BoxFit.cover)
+                        ? AppImage(
+                            pinbox.imageUrl!,
+                            thumbnail: true,
+                            fit: BoxFit.cover,
+                          )
                         : Container(
                             color: ChatLightColors.cardSurface,
                             alignment: Alignment.center,
-                            child: const Icon(Icons.inventory_2_outlined, color: ChatLightColors.inkSoft, size: 24),
+                            child: const Icon(
+                              Icons.inventory_2_outlined,
+                              color: ChatLightColors.inkSoft,
+                              size: 24,
+                            ),
                           ),
                   ),
                 ),
@@ -675,36 +869,62 @@ class _PinBoxCard extends StatelessWidget {
                     children: [
                       Text(
                         pinbox.venueName,
-                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.primary),
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
                       Text(
                         pinbox.title,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: ChatLightColors.ink,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(Icons.location_on_outlined, size: 12.5, color: ChatLightColors.inkFaint),
+                          const Icon(
+                            Icons.location_on_outlined,
+                            size: 12.5,
+                            color: ChatLightColors.inkFaint,
+                          ),
                           const SizedBox(width: 3),
                           Expanded(
                             child: Text(
-                              formatDistance(loc, item.distanceMeters, distanceUnit),
-                              style: const TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+                              formatDistance(
+                                loc,
+                                item.distanceMeters,
+                                distanceUnit,
+                              ),
+                              style: const TextStyle(
+                                fontSize: 11.5,
+                                color: ChatLightColors.inkFaint,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 6),
-                          const Icon(Icons.schedule_outlined, size: 12.5, color: ChatLightColors.inkFaint),
+                          const Icon(
+                            Icons.schedule_outlined,
+                            size: 12.5,
+                            color: ChatLightColors.inkFaint,
+                          ),
                           const SizedBox(width: 3),
                           Text(
                             '${pickupFormat.format(pinbox.pickupWindowStart)}-${pickupFormat.format(pinbox.pickupWindowEnd)}',
-                            style: const TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+                            style: const TextStyle(
+                              fontSize: 11.5,
+                              color: ChatLightColors.inkFaint,
+                            ),
                           ),
                         ],
                       ),
@@ -725,21 +945,34 @@ class _PinBoxCard extends StatelessWidget {
                     ),
                     Text(
                       '${pinbox.pinboxPrice.toStringAsFixed(2)} ₼',
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: AppColors.primary),
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.primary,
+                      ),
                     ),
                     const SizedBox(height: 4),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
-                        color: soldOut ? ChatLightColors.inkFaint.withValues(alpha: 0.18) : AppColors.primary.withValues(alpha: 0.12),
+                        color: soldOut
+                            ? ChatLightColors.inkFaint.withValues(alpha: 0.18)
+                            : AppColors.primary.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Text(
-                        soldOut ? loc.pinboxSoldOutLabel : loc.pinboxStockLeftLabel(pinbox.stockRemaining),
+                        soldOut
+                            ? loc.pinboxSoldOutLabel
+                            : loc.pinboxStockLeftLabel(pinbox.stockRemaining),
                         style: TextStyle(
                           fontSize: 10.5,
                           fontWeight: FontWeight.w800,
-                          color: soldOut ? ChatLightColors.inkSoft : AppColors.primary,
+                          color: soldOut
+                              ? ChatLightColors.inkSoft
+                              : AppColors.primary,
                         ),
                       ),
                     ),

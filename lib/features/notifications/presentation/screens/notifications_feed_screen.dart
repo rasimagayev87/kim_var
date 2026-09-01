@@ -10,7 +10,8 @@ import '../../../../core/utils/relative_time_formatter.dart';
 import '../../../../core/widgets/app_image.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
-import '../../../settings/notifications/presentation/screens/notifications_screen.dart' as settings;
+import '../../../settings/notifications/presentation/screens/notifications_screen.dart'
+    as settings;
 import '../../domain/entities/notification.dart';
 import '../notification_localizer.dart';
 import '../notification_navigation.dart';
@@ -27,10 +28,12 @@ class NotificationsFeedScreen extends ConsumerStatefulWidget {
   const NotificationsFeedScreen({super.key});
 
   @override
-  ConsumerState<NotificationsFeedScreen> createState() => _NotificationsFeedScreenState();
+  ConsumerState<NotificationsFeedScreen> createState() =>
+      _NotificationsFeedScreenState();
 }
 
-class _NotificationsFeedScreenState extends ConsumerState<NotificationsFeedScreen> {
+class _NotificationsFeedScreenState
+    extends ConsumerState<NotificationsFeedScreen> {
   final _scrollController = ScrollController();
 
   @override
@@ -49,7 +52,8 @@ class _NotificationsFeedScreenState extends ConsumerState<NotificationsFeedScree
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
       ref.read(notificationListControllerProvider.notifier).loadMore();
     }
   }
@@ -59,26 +63,64 @@ class _NotificationsFeedScreenState extends ConsumerState<NotificationsFeedScree
     final action = await showModalBottomSheet<_NotificationMenuAction>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.done_all_rounded, color: ChatLightColors.ink),
-              title: Text(loc.notifMenuMarkAllRead, style: const TextStyle(color: ChatLightColors.ink, fontSize: 15)),
-              onTap: () => Navigator.pop(sheetContext, _NotificationMenuAction.markAllRead),
+              leading: const Icon(
+                Icons.done_all_rounded,
+                color: ChatLightColors.ink,
+              ),
+              title: Text(
+                loc.notifMenuMarkAllRead,
+                style: const TextStyle(
+                  color: ChatLightColors.ink,
+                  fontSize: 15,
+                ),
+              ),
+              onTap: () => Navigator.pop(
+                sheetContext,
+                _NotificationMenuAction.markAllRead,
+              ),
             ),
             ListTile(
-              leading: const Icon(Icons.delete_sweep_outlined, color: ChatLightColors.ink),
-              title: Text(loc.notifMenuDeleteRead, style: const TextStyle(color: ChatLightColors.ink, fontSize: 15)),
-              onTap: () => Navigator.pop(sheetContext, _NotificationMenuAction.deleteRead),
+              leading: const Icon(
+                Icons.delete_sweep_outlined,
+                color: ChatLightColors.ink,
+              ),
+              title: Text(
+                loc.notifMenuDeleteRead,
+                style: const TextStyle(
+                  color: ChatLightColors.ink,
+                  fontSize: 15,
+                ),
+              ),
+              onTap: () => Navigator.pop(
+                sheetContext,
+                _NotificationMenuAction.deleteRead,
+              ),
             ),
             ListTile(
-              leading: const Icon(Icons.settings_outlined, color: ChatLightColors.ink),
-              title: Text(loc.notifMenuSettings, style: const TextStyle(color: ChatLightColors.ink, fontSize: 15)),
-              onTap: () => Navigator.pop(sheetContext, _NotificationMenuAction.openSettings),
+              leading: const Icon(
+                Icons.settings_outlined,
+                color: ChatLightColors.ink,
+              ),
+              title: Text(
+                loc.notifMenuSettings,
+                style: const TextStyle(
+                  color: ChatLightColors.ink,
+                  fontSize: 15,
+                ),
+              ),
+              onTap: () => Navigator.pop(
+                sheetContext,
+                _NotificationMenuAction.openSettings,
+              ),
             ),
             const SizedBox(height: 8),
           ],
@@ -90,25 +132,38 @@ class _NotificationsFeedScreenState extends ConsumerState<NotificationsFeedScree
 
     switch (action) {
       case _NotificationMenuAction.markAllRead:
-        final ok = await ref.read(notificationListControllerProvider.notifier).markAllRead();
+        final ok = await ref
+            .read(notificationListControllerProvider.notifier)
+            .markAllRead();
         if (!mounted) return;
         _showSnack(ok ? loc.notifMarkAllReadDone : loc.notifActionErrorMessage);
       case _NotificationMenuAction.deleteRead:
-        final ok = await ref.read(notificationListControllerProvider.notifier).deleteReadNotifications();
+        final ok = await ref
+            .read(notificationListControllerProvider.notifier)
+            .deleteReadNotifications();
         if (!mounted) return;
         _showSnack(ok ? loc.notifDeleteReadDone : loc.notifActionErrorMessage);
       case _NotificationMenuAction.openSettings:
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const settings.NotificationsScreen()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const settings.NotificationsScreen(),
+          ),
+        );
     }
   }
 
   void _showSnack(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _onTapNotification(AppNotification notification) async {
     if (!notification.isRead) {
-      ref.read(notificationListControllerProvider.notifier).markRead(notification.id);
+      ref
+          .read(notificationListControllerProvider.notifier)
+          .markRead(notification.id);
     }
     await openNotificationTarget(context, ref, notification);
   }
@@ -123,7 +178,10 @@ class _NotificationsFeedScreenState extends ConsumerState<NotificationsFeedScree
         SafeArea(
           child: Column(
             children: [
-              _GlassHeader(title: loc.notificationsFeedTitle, onMenuTap: _openMenu),
+              _GlassHeader(
+                title: loc.notificationsFeedTitle,
+                onMenuTap: _openMenu,
+              ),
               Expanded(child: _buildBody(loc, state)),
             ],
           ),
@@ -136,16 +194,25 @@ class _NotificationsFeedScreenState extends ConsumerState<NotificationsFeedScree
     if (state.isInitialLoading) return const _NotificationSkeletonList();
 
     if (state.error != null) {
-      return _NotificationErrorState(error: state.error!, onRetry: () => ref.read(notificationListControllerProvider.notifier).retry());
+      return _NotificationErrorState(
+        error: state.error!,
+        onRetry: () =>
+            ref.read(notificationListControllerProvider.notifier).retry(),
+      );
     }
 
     if (state.notifications.isEmpty) {
-      return _NotificationEmptyState(title: loc.notifEmptyTitle, subtitle: loc.notifEmptySubtitle);
+      return _NotificationEmptyState(
+        title: loc.notifEmptyTitle,
+        subtitle: loc.notifEmptySubtitle,
+      );
     }
 
     return ListView.separated(
       controller: _scrollController,
-      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
       itemCount: state.notifications.length + (state.isLoadingMore ? 1 : 0),
       separatorBuilder: (_, _) => const SizedBox(height: 10),
@@ -153,7 +220,12 @@ class _NotificationsFeedScreenState extends ConsumerState<NotificationsFeedScree
         if (index >= state.notifications.length) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.4)),
+            child: Center(
+              child: CircularProgressIndicator(
+                color: AppColors.primary,
+                strokeWidth: 2.4,
+              ),
+            ),
           );
         }
         final notification = state.notifications[index];
@@ -190,7 +262,11 @@ class _GlassHeader extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: ChatLightColors.ink),
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: ChatLightColors.ink,
+                  ),
                 ),
               ),
               Material(
@@ -198,7 +274,10 @@ class _GlassHeader extends StatelessWidget {
                 shape: const CircleBorder(),
                 child: IconButton(
                   onPressed: onMenuTap,
-                  icon: const Icon(Icons.more_horiz_rounded, color: ChatLightColors.ink),
+                  icon: const Icon(
+                    Icons.more_horiz_rounded,
+                    color: ChatLightColors.ink,
+                  ),
                 ),
               ),
             ],
@@ -272,7 +351,11 @@ class _NotificationCard extends StatelessWidget {
   final AppLocalizations loc;
   final VoidCallback onTap;
 
-  const _NotificationCard({required this.notification, required this.loc, required this.onTap});
+  const _NotificationCard({
+    required this.notification,
+    required this.loc,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -288,7 +371,9 @@ class _NotificationCard extends StatelessWidget {
     final body = localized?.body ?? notification.body;
 
     return Material(
-      color: isUnread ? AppColors.primary.withValues(alpha: 0.06) : Colors.white,
+      color: isUnread
+          ? AppColors.primary.withValues(alpha: 0.06)
+          : Colors.white,
       borderRadius: BorderRadius.circular(22),
       child: InkWell(
         borderRadius: BorderRadius.circular(22),
@@ -306,7 +391,11 @@ class _NotificationCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                      style: const TextStyle(
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w700,
+                        color: ChatLightColors.ink,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -314,7 +403,11 @@ class _NotificationCard extends StatelessWidget {
                       const SizedBox(height: 3),
                       Text(
                         body,
-                        style: TextStyle(fontSize: 13, color: ChatLightColors.inkSoft, height: 1.35),
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: ChatLightColors.inkSoft,
+                          height: 1.35,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -322,7 +415,10 @@ class _NotificationCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       formatRelativeTime(notification.createdAt, loc),
-                      style: TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: ChatLightColors.inkFaint,
+                      ),
                     ),
                   ],
                 ),
@@ -333,7 +429,10 @@ class _NotificationCard extends StatelessWidget {
                   width: 9,
                   height: 9,
                   margin: const EdgeInsets.only(top: 4),
-                  decoration: const BoxDecoration(color: AppColors.primary, shape: BoxShape.circle),
+                  decoration: const BoxDecoration(
+                    color: AppColors.primary,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               ],
             ],
@@ -377,7 +476,10 @@ class _NotificationAvatar extends StatelessWidget {
     return Container(
       width: 44,
       height: 44,
-      decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
       alignment: Alignment.center,
       child: Icon(
         _notificationIcons[notification.type] ?? Icons.notifications,
@@ -408,29 +510,53 @@ class _NotificationSkeletonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 76,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(22)),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(width: 44, height: 44, decoration: const BoxDecoration(color: ChatLightColors.cardSurface, shape: BoxShape.circle)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(height: 13, width: 140, color: ChatLightColors.cardSurface),
-                const SizedBox(height: 8),
-                Container(height: 11, width: double.infinity, color: ChatLightColors.cardSurface),
-                const SizedBox(height: 6),
-                Container(height: 11, width: 90, color: ChatLightColors.cardSurface),
-              ],
-            ),
+          height: 76,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
           ),
-        ],
-      ),
-    ).animate(onPlay: (controller) => controller.repeat()).shimmer(duration: 1400.ms, color: Colors.white);
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: const BoxDecoration(
+                  color: ChatLightColors.cardSurface,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 13,
+                      width: 140,
+                      color: ChatLightColors.cardSurface,
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 11,
+                      width: double.infinity,
+                      color: ChatLightColors.cardSurface,
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      height: 11,
+                      width: 90,
+                      color: ChatLightColors.cardSurface,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        )
+        .animate(onPlay: (controller) => controller.repeat())
+        .shimmer(duration: 1400.ms, color: Colors.white);
   }
 }
 
@@ -451,20 +577,35 @@ class _NotificationEmptyState extends StatelessWidget {
             Container(
               width: 96,
               height: 96,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.primary.withValues(alpha: 0.1)),
-              child: const Icon(Icons.notifications_none_rounded, color: AppColors.primary, size: 42),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: AppColors.primary.withValues(alpha: 0.1),
+              ),
+              child: const Icon(
+                Icons.notifications_none_rounded,
+                color: AppColors.primary,
+                size: 42,
+              ),
             ),
             const SizedBox(height: 24),
             Text(
               title,
-              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: ChatLightColors.ink,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, color: ChatLightColors.inkSoft, height: 1.5),
+              style: TextStyle(
+                fontSize: 13.5,
+                color: ChatLightColors.inkSoft,
+                height: 1.5,
+              ),
             ),
           ],
         ),
@@ -491,10 +632,22 @@ class _NotificationErrorState extends StatelessWidget {
     final loc = AppLocalizations.of(context);
 
     final (icon, title, message) = isOfflineError(error)
-        ? (Icons.cloud_off_outlined, loc.notifErrorOfflineTitle, loc.notifErrorOfflineMessage)
+        ? (
+            Icons.cloud_off_outlined,
+            loc.notifErrorOfflineTitle,
+            loc.notifErrorOfflineMessage,
+          )
         : isPermissionDeniedError(error)
-            ? (Icons.lock_outline_rounded, loc.notifErrorPermissionTitle, loc.notifErrorPermissionMessage)
-            : (Icons.error_outline_rounded, loc.notifErrorUnknownTitle, loc.notifErrorUnknownMessage);
+        ? (
+            Icons.lock_outline_rounded,
+            loc.notifErrorPermissionTitle,
+            loc.notifErrorPermissionMessage,
+          )
+        : (
+            Icons.error_outline_rounded,
+            loc.notifErrorUnknownTitle,
+            loc.notifErrorUnknownMessage,
+          );
 
     return Center(
       child: Padding(
@@ -506,14 +659,22 @@ class _NotificationErrorState extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               title,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: ChatLightColors.ink,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, color: ChatLightColors.inkSoft, height: 1.5),
+              style: TextStyle(
+                fontSize: 13.5,
+                color: ChatLightColors.inkSoft,
+                height: 1.5,
+              ),
             ),
             const SizedBox(height: 18),
             TextButton(

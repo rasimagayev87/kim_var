@@ -25,27 +25,33 @@ gmaps.MapType toGoogleMapType(AppMapType type) {
 }
 
 LocationAccuracy toLocationAccuracy(GpsAccuracyLevel level) {
-  return level == GpsAccuracyLevel.high ? LocationAccuracy.high : LocationAccuracy.medium;
+  return level == GpsAccuracyLevel.high
+      ? LocationAccuracy.high
+      : LocationAccuracy.medium;
 }
 
-final mapLocationSettingsRepositoryProvider = Provider<MapLocationSettingsRepository>((ref) {
-  return FirebaseMapLocationSettingsRepository();
-});
+final mapLocationSettingsRepositoryProvider =
+    Provider<MapLocationSettingsRepository>((ref) {
+      return FirebaseMapLocationSettingsRepository();
+    });
 
 String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
 
-final mapLocationSettingsProvider = StreamProvider.autoDispose<MapLocationSettings>((ref) {
-  // Forces a rebuild on sign-out/sign-in — without it, a quick account
-  // switch can resurrect this provider still bound to the previous
-  // uid before autoDispose's own teardown-triggered disposal fires,
-  // silently showing the PREVIOUS account's map/location settings
-  // under the new session. Same fix pattern as
-  // `chatListControllerProvider`/`_premiumStatusProvider`.
-  ref.watch(authStateProvider);
-  final uid = _currentUid();
-  if (uid == null) return Stream.value(const MapLocationSettings());
-  return ref.watch(mapLocationSettingsRepositoryProvider).watchSettings(uid);
-});
+final mapLocationSettingsProvider =
+    StreamProvider.autoDispose<MapLocationSettings>((ref) {
+      // Forces a rebuild on sign-out/sign-in — without it, a quick account
+      // switch can resurrect this provider still bound to the previous
+      // uid before autoDispose's own teardown-triggered disposal fires,
+      // silently showing the PREVIOUS account's map/location settings
+      // under the new session. Same fix pattern as
+      // `chatListControllerProvider`/`_premiumStatusProvider`.
+      ref.watch(authStateProvider);
+      final uid = _currentUid();
+      if (uid == null) return Stream.value(const MapLocationSettings());
+      return ref
+          .watch(mapLocationSettingsRepositoryProvider)
+          .watchSettings(uid);
+    });
 
 /// Bacground-permission-request outcome, so the screen can show the
 /// right message without re-deriving Geolocator semantics itself.
@@ -67,7 +73,9 @@ class MapLocationSettingsController {
   Future<bool> updateGpsAccuracy(GpsAccuracyLevel level) async {
     final ok = await _run({'gpsAccuracy': level.name});
     if (ok) {
-      _ref.read(locationControllerProvider.notifier).applyAccuracy(toLocationAccuracy(level));
+      _ref
+          .read(locationControllerProvider.notifier)
+          .applyAccuracy(toLocationAccuracy(level));
     }
     return ok;
   }
@@ -80,11 +88,17 @@ class MapLocationSettingsController {
       final permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.always) {
         final ok = await _run({'backgroundLocationEnabled': true});
-        return ok ? BackgroundLocationResult.granted : BackgroundLocationResult.failed;
+        return ok
+            ? BackgroundLocationResult.granted
+            : BackgroundLocationResult.failed;
       }
       return BackgroundLocationResult.deniedNeedsSettings;
     } catch (e, st) {
-      logError('map_location_providers.MapLocationSettingsController.enableBackgroundLocation', e, st);
+      logError(
+        'map_location_providers.MapLocationSettingsController.enableBackgroundLocation',
+        e,
+        st,
+      );
       return BackgroundLocationResult.failed;
     }
   }
@@ -98,7 +112,9 @@ class MapLocationSettingsController {
     if (uid == null) return false;
     if (!ensureWritableOrWarn(_ref.read(appConfigProvider))) return false;
     try {
-      await _ref.read(mapLocationSettingsRepositoryProvider).updateSettings(uid, changes);
+      await _ref
+          .read(mapLocationSettingsRepositoryProvider)
+          .updateSettings(uid, changes);
       return true;
     } catch (e, st) {
       logError('map_location_providers.MapLocationSettingsController', e, st);
@@ -107,6 +123,7 @@ class MapLocationSettingsController {
   }
 }
 
-final mapLocationSettingsControllerProvider = Provider<MapLocationSettingsController>((ref) {
-  return MapLocationSettingsController(ref);
-});
+final mapLocationSettingsControllerProvider =
+    Provider<MapLocationSettingsController>((ref) {
+      return MapLocationSettingsController(ref);
+    });

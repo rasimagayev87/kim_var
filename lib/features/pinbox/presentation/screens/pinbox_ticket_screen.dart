@@ -35,15 +35,22 @@ const _kQrRefreshInterval = Duration(seconds: 30);
 /// hardcoding Google Maps — same three-way choice (Google/Apple/Waze)
 /// `VenueProfileScreen`'s `_DirectionsRow` already offers, reusing its
 /// exact URL schemes and l10n labels for consistency.
-Future<void> _openDirectionsPicker(BuildContext context, double lat, double lng) async {
+Future<void> _openDirectionsPicker(
+  BuildContext context,
+  double lat,
+  double lng,
+) async {
   final loc = AppLocalizations.of(context);
 
-  Future<void> open(String url) => launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  Future<void> open(String url) =>
+      launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 
   await showModalBottomSheet<void>(
     context: context,
     backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (sheetContext) => SafeArea(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -51,23 +58,37 @@ Future<void> _openDirectionsPicker(BuildContext context, double lat, double lng)
           const SizedBox(height: 8),
           ListTile(
             leading: const Icon(Icons.map_outlined, color: ChatLightColors.ink),
-            title: Text(loc.venueDirectionsGoogleMaps, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+            title: Text(
+              loc.venueDirectionsGoogleMaps,
+              style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+            ),
             onTap: () {
               Navigator.pop(sheetContext);
-              open('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+              open(
+                'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+              );
             },
           ),
           ListTile(
             leading: const Icon(Icons.map_outlined, color: ChatLightColors.ink),
-            title: Text(loc.venueDirectionsAppleMaps, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+            title: Text(
+              loc.venueDirectionsAppleMaps,
+              style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+            ),
             onTap: () {
               Navigator.pop(sheetContext);
               open('https://maps.apple.com/?daddr=$lat,$lng');
             },
           ),
           ListTile(
-            leading: const Icon(Icons.navigation_outlined, color: ChatLightColors.ink),
-            title: Text(loc.venueDirectionsWaze, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
+            leading: const Icon(
+              Icons.navigation_outlined,
+              color: ChatLightColors.ink,
+            ),
+            title: Text(
+              loc.venueDirectionsWaze,
+              style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
+            ),
             onTap: () {
               Navigator.pop(sheetContext);
               open('https://waze.com/ul?ll=$lat,$lng&navigate=yes');
@@ -139,13 +160,21 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
       setState(() => _qrLoading = true);
     });
     _refreshQrToken();
-    _refreshTimer = Timer.periodic(_kQrRefreshInterval, (_) => _refreshQrToken());
-    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) => _tickCountdown());
+    _refreshTimer = Timer.periodic(
+      _kQrRefreshInterval,
+      (_) => _refreshQrToken(),
+    );
+    _countdownTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _tickCountdown(),
+    );
   }
 
   Future<void> _refreshQrToken() async {
     try {
-      final result = await ref.read(pinboxRepositoryProvider).generateQrToken(widget.orderId);
+      final result = await ref
+          .read(pinboxRepositoryProvider)
+          .generateQrToken(widget.orderId);
       if (!mounted) return;
       setState(() {
         _qrToken = result.qrToken;
@@ -165,7 +194,9 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
   void _tickCountdown() {
     if (_qrExpiresAt == null || !mounted) return;
     final remaining = _qrExpiresAt!.difference(DateTime.now());
-    setState(() => _countdown = remaining.isNegative ? Duration.zero : remaining);
+    setState(
+      () => _countdown = remaining.isNegative ? Duration.zero : remaining,
+    );
   }
 
   @override
@@ -182,10 +213,13 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
     final currentStatus = orderAsync.valueOrNull?.status;
     if (currentStatus != null) _startPollingIfNeeded(currentStatus);
 
-    ref.listen<AsyncValue<PinBoxOrder?>>(pinboxOrderByIdProvider(widget.orderId), (previous, next) {
-      final status = next.valueOrNull?.status;
-      if (status != null) _startPollingIfNeeded(status);
-    });
+    ref.listen<AsyncValue<PinBoxOrder?>>(
+      pinboxOrderByIdProvider(widget.orderId),
+      (previous, next) {
+        final status = next.valueOrNull?.status;
+        if (status != null) _startPollingIfNeeded(status);
+      },
+    );
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -196,32 +230,73 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: ChatLightColors.ink,
+          ),
         ),
         title: Text(
           loc.pinboxTicketTitle,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: ChatLightColors.ink,
+          ),
         ),
       ),
       body: SafeArea(
         child: orderAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-          error: (_, _) => Center(child: Text(loc.pinboxTicketNotFoundMessage, style: const TextStyle(color: ChatLightColors.inkSoft))),
+          loading: () => const Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2.4,
+              color: AppColors.primary,
+            ),
+          ),
+          error: (_, _) => Center(
+            child: Text(
+              loc.pinboxTicketNotFoundMessage,
+              style: const TextStyle(color: ChatLightColors.inkSoft),
+            ),
+          ),
           data: (order) {
             if (order == null) {
-              return Center(child: Text(loc.pinboxTicketNotFoundMessage, style: const TextStyle(color: ChatLightColors.inkSoft)));
+              return Center(
+                child: Text(
+                  loc.pinboxTicketNotFoundMessage,
+                  style: const TextStyle(color: ChatLightColors.inkSoft),
+                ),
+              );
             }
             final pinboxAsync = ref.watch(pinboxByIdProvider(order.pinboxId));
             return pinboxAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-              error: (_, _) => Center(child: Text(loc.pinboxTicketNotFoundMessage, style: const TextStyle(color: ChatLightColors.inkSoft))),
+              loading: () => const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.4,
+                  color: AppColors.primary,
+                ),
+              ),
+              error: (_, _) => Center(
+                child: Text(
+                  loc.pinboxTicketNotFoundMessage,
+                  style: const TextStyle(color: ChatLightColors.inkSoft),
+                ),
+              ),
               data: (pinbox) {
                 if (pinbox == null) {
-                  return Center(child: Text(loc.pinboxTicketNotFoundMessage, style: const TextStyle(color: ChatLightColors.inkSoft)));
+                  return Center(
+                    child: Text(
+                      loc.pinboxTicketNotFoundMessage,
+                      style: const TextStyle(color: ChatLightColors.inkSoft),
+                    ),
+                  );
                 }
                 final pickupFormat = DateFormat('HH:mm');
-                final savings = (pinbox.originalPrice - pinbox.pinboxPrice) * order.quantity;
-                final orderCode = '#PK-${widget.orderId.substring(0, widget.orderId.length.clamp(0, 6)).toUpperCase()}';
+                final savings =
+                    (pinbox.originalPrice - pinbox.pinboxPrice) *
+                    order.quantity;
+                final orderCode =
+                    '#PK-${widget.orderId.substring(0, widget.orderId.length.clamp(0, 6)).toUpperCase()}';
 
                 return ListView(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
@@ -231,17 +306,28 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                       children: [
                         Text(
                           loc.pinboxTicketTitle,
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: ChatLightColors.inkSoft),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: ChatLightColors.inkSoft,
+                          ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: ChatLightColors.cardSurface,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             orderCode,
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ChatLightColors.inkSoft),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: ChatLightColors.inkSoft,
+                            ),
                           ),
                         ),
                       ],
@@ -249,7 +335,10 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                     const SizedBox(height: AppSpacing.lg),
                     Container(
                       padding: const EdgeInsets.all(18),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadii.card)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(AppRadii.card),
+                      ),
                       child: Column(
                         children: [
                           _StatusPill(status: order.status, loc: loc),
@@ -262,11 +351,19 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                                   width: 44,
                                   height: 44,
                                   child: pinbox.imageUrl != null
-                                      ? AppImage(pinbox.imageUrl!, thumbnail: true, fit: BoxFit.cover)
+                                      ? AppImage(
+                                          pinbox.imageUrl!,
+                                          thumbnail: true,
+                                          fit: BoxFit.cover,
+                                        )
                                       : Container(
                                           color: ChatLightColors.cardSurface,
                                           alignment: Alignment.center,
-                                          child: const Icon(Icons.inventory_2_outlined, size: 20, color: ChatLightColors.inkSoft),
+                                          child: const Icon(
+                                            Icons.inventory_2_outlined,
+                                            size: 20,
+                                            color: ChatLightColors.inkSoft,
+                                          ),
                                         ),
                                 ),
                               ),
@@ -277,11 +374,21 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                                   children: [
                                     Text(
                                       pinbox.venueName,
-                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                        color: ChatLightColors.ink,
+                                      ),
                                     ),
                                     Text(
-                                      loc.pinboxTicketItemLabel(pinbox.title, order.quantity),
-                                      style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
+                                      loc.pinboxTicketItemLabel(
+                                        pinbox.title,
+                                        order.quantity,
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 12.5,
+                                        color: ChatLightColors.inkSoft,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -293,8 +400,15 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                             Container(
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                border: Border.all(color: ChatLightColors.inkFaint.withValues(alpha: 0.3), style: BorderStyle.solid),
-                                borderRadius: BorderRadius.circular(AppRadii.card),
+                                border: Border.all(
+                                  color: ChatLightColors.inkFaint.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                  style: BorderStyle.solid,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  AppRadii.card,
+                                ),
                               ),
                               child: Column(
                                 children: [
@@ -302,7 +416,12 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                                     const SizedBox(
                                       width: 196,
                                       height: 196,
-                                      child: Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2.4,
+                                          color: AppColors.primary,
+                                        ),
+                                      ),
                                     )
                                   else if (_qrToken == null)
                                     SizedBox(
@@ -320,33 +439,50 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                                         // holding the ticket. Say what
                                         // happened, and what it means
                                         // for their money.
-                                        child: pinbox.pickupWindowEnd.isBefore(DateTime.now())
+                                        child:
+                                            pinbox.pickupWindowEnd.isBefore(
+                                              DateTime.now(),
+                                            )
                                             ? Column(
-                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
                                                 children: [
-                                                  const Icon(Icons.event_busy,
-                                                      size: 34, color: ChatLightColors.inkFaint),
+                                                  const Icon(
+                                                    Icons.event_busy,
+                                                    size: 34,
+                                                    color: ChatLightColors
+                                                        .inkFaint,
+                                                  ),
                                                   const SizedBox(height: 10),
                                                   Text(
                                                     loc.pinboxNoShowTicketTitle,
                                                     textAlign: TextAlign.center,
                                                     style: const TextStyle(
-                                                        fontSize: 13.5,
-                                                        fontWeight: FontWeight.w700,
-                                                        color: ChatLightColors.ink),
+                                                      fontSize: 13.5,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                      color:
+                                                          ChatLightColors.ink,
+                                                    ),
                                                   ),
                                                   const SizedBox(height: 6),
                                                   Padding(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 4,
+                                                        ),
                                                     child: Text(
                                                       loc.pinboxNoShowTicketBody(
                                                         '${pickupFormat.format(pinbox.pickupWindowStart)}–${pickupFormat.format(pinbox.pickupWindowEnd)}',
                                                       ),
-                                                      textAlign: TextAlign.center,
+                                                      textAlign:
+                                                          TextAlign.center,
                                                       style: const TextStyle(
-                                                          fontSize: 11.5,
-                                                          height: 1.35,
-                                                          color: ChatLightColors.inkSoft),
+                                                        fontSize: 11.5,
+                                                        height: 1.35,
+                                                        color: ChatLightColors
+                                                            .inkSoft,
+                                                      ),
                                                     ),
                                                   ),
                                                 ],
@@ -355,7 +491,10 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                                                 loc.pinboxTicketQrUnavailableMessage,
                                                 textAlign: TextAlign.center,
                                                 style: const TextStyle(
-                                                    fontSize: 12.5, color: ChatLightColors.inkSoft),
+                                                  fontSize: 12.5,
+                                                  color:
+                                                      ChatLightColors.inkSoft,
+                                                ),
                                               ),
                                       ),
                                     )
@@ -364,9 +503,13 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                                       data: _qrToken!,
                                       version: QrVersions.auto,
                                       size: 196,
-                                      eyeStyle: const QrEyeStyle(eyeShape: QrEyeShape.square, color: ChatLightColors.ink),
+                                      eyeStyle: const QrEyeStyle(
+                                        eyeShape: QrEyeShape.square,
+                                        color: ChatLightColors.ink,
+                                      ),
                                       dataModuleStyle: const QrDataModuleStyle(
-                                        dataModuleShape: QrDataModuleShape.square,
+                                        dataModuleShape:
+                                            QrDataModuleShape.square,
                                         color: ChatLightColors.ink,
                                       ),
                                     ),
@@ -390,8 +533,13 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                                   ],
                                   const SizedBox(height: 10),
                                   Text(
-                                    loc.pinboxTicketQrRefreshCountdown(_countdown.inSeconds),
-                                    style: const TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+                                    loc.pinboxTicketQrRefreshCountdown(
+                                      _countdown.inSeconds,
+                                    ),
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      color: ChatLightColors.inkFaint,
+                                    ),
                                   ),
                                 ],
                               ),
@@ -400,7 +548,11 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                             Text(
                               loc.pinboxTicketShowToCashierHint,
                               textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12.5, color: AppColors.primary, fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ],
                         ],
@@ -409,7 +561,10 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                     const SizedBox(height: AppSpacing.xxl),
                     Container(
                       padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadii.card)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(AppRadii.card),
+                      ),
                       child: Column(
                         children: [
                           _InfoRow(
@@ -418,7 +573,10 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                                 '${pickupFormat.format(pinbox.pickupWindowStart)} - ${pickupFormat.format(pinbox.pickupWindowEnd)}',
                           ),
                           const SizedBox(height: 8),
-                          _InfoRow(label: loc.pinboxTicketAmountPaidLabel, value: '${order.amountPaid.toStringAsFixed(2)} AZN'),
+                          _InfoRow(
+                            label: loc.pinboxTicketAmountPaidLabel,
+                            value: '${order.amountPaid.toStringAsFixed(2)} AZN',
+                          ),
                           const SizedBox(height: 8),
                           _InfoRow(
                             label: loc.pinboxTicketSavingsLabel,
@@ -431,7 +589,10 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                     const SizedBox(height: AppSpacing.xxl),
                     Container(
                       padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadii.card)),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(AppRadii.card),
+                      ),
                       child: Row(
                         children: [
                           Expanded(
@@ -440,17 +601,28 @@ class _PinBoxTicketScreenState extends ConsumerState<PinBoxTicketScreen> {
                               children: [
                                 Text(
                                   pinbox.venueName,
-                                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                                  style: const TextStyle(
+                                    fontSize: 13.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: ChatLightColors.ink,
+                                  ),
                                 ),
                                 Text(
                                   pinbox.address,
-                                  style: const TextStyle(fontSize: 12, color: ChatLightColors.inkSoft),
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: ChatLightColors.inkSoft,
+                                  ),
                                 ),
                               ],
                             ),
                           ),
                           TextButton.icon(
-                            onPressed: () => _openDirectionsPicker(context, pinbox.lat, pinbox.lng),
+                            onPressed: () => _openDirectionsPicker(
+                              context,
+                              pinbox.lat,
+                              pinbox.lng,
+                            ),
                             icon: const Icon(Icons.map_outlined, size: 16),
                             label: Text(loc.pinboxTicketOpenRouteButton),
                           ),
@@ -477,24 +649,53 @@ class _StatusPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (status) {
-      PinBoxOrderStatus.awaitingPayment => (loc.pinboxOrderStatusAwaitingPayment, AppColors.gold),
-      PinBoxOrderStatus.reserved => (loc.pinboxOrderStatusReserved, AppColors.primary),
-      PinBoxOrderStatus.paymentFailed => (loc.pinboxOrderStatusPaymentFailed, AppColors.error),
-      PinBoxOrderStatus.completed => (loc.pinboxOrderStatusCompleted, AppColors.gold),
-      PinBoxOrderStatus.noShow => (loc.pinboxOrderStatusNoShow, ChatLightColors.inkFaint),
+      PinBoxOrderStatus.awaitingPayment => (
+        loc.pinboxOrderStatusAwaitingPayment,
+        AppColors.gold,
+      ),
+      PinBoxOrderStatus.reserved => (
+        loc.pinboxOrderStatusReserved,
+        AppColors.primary,
+      ),
+      PinBoxOrderStatus.paymentFailed => (
+        loc.pinboxOrderStatusPaymentFailed,
+        AppColors.error,
+      ),
+      PinBoxOrderStatus.completed => (
+        loc.pinboxOrderStatusCompleted,
+        AppColors.gold,
+      ),
+      PinBoxOrderStatus.noShow => (
+        loc.pinboxOrderStatusNoShow,
+        ChatLightColors.inkFaint,
+      ),
     };
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(999)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
       alignment: Alignment.center,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Container(width: 7, height: 7, decoration: BoxDecoration(shape: BoxShape.circle, color: color)),
+          Container(
+            width: 7,
+            height: 7,
+            decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+          ),
           const SizedBox(width: 8),
-          Text(label, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: color)),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
+          ),
         ],
       ),
     );
@@ -513,8 +714,18 @@ class _InfoRow extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: const TextStyle(fontSize: 13, color: ChatLightColors.inkSoft)),
-        Text(value, style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: valueColor ?? ChatLightColors.ink)),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, color: ChatLightColors.inkSoft),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+            color: valueColor ?? ChatLightColors.ink,
+          ),
+        ),
       ],
     );
   }

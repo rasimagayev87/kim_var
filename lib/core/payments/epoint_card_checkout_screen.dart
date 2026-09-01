@@ -27,11 +27,13 @@ class EpointCardCheckoutScreen extends StatefulWidget {
   const EpointCardCheckoutScreen({super.key, required this.checkoutUrl});
 
   @override
-  State<EpointCardCheckoutScreen> createState() => _EpointCardCheckoutScreenState();
+  State<EpointCardCheckoutScreen> createState() =>
+      _EpointCardCheckoutScreenState();
 }
 
 class _EpointCardCheckoutScreenState extends State<EpointCardCheckoutScreen> {
-  static const _successRedirectPrefix = 'https://admin.peakpin.app/payment/success';
+  static const _successRedirectPrefix =
+      'https://admin.peakpin.app/payment/success';
   static const _errorRedirectPrefix = 'https://admin.peakpin.app/payment/error';
 
   late final WebViewController _controller;
@@ -78,14 +80,24 @@ class _EpointCardCheckoutScreenState extends State<EpointCardCheckoutScreen> {
         ),
         title: Text(
           loc.epointCardOption,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: ChatLightColors.ink,
+          ),
         ),
         centerTitle: true,
       ),
       body: Stack(
         children: [
           WebViewWidget(controller: _controller),
-          if (_loading) const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
+          if (_loading)
+            const Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: AppColors.primary,
+              ),
+            ),
         ],
       ),
     );

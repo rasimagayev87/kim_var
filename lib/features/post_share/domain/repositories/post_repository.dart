@@ -36,7 +36,10 @@ abstract class PostRepository {
   /// a private account's posts, even for an accepted follower, still
   /// need a server-side (Cloud Function) read to work; that's a known,
   /// separate, not-yet-built gap, not a regression from this fix.
-  Stream<List<Post>> watchUserPosts(String userId, {required bool isOwnProfile});
+  Stream<List<Post>> watchUserPosts(
+    String userId, {
+    required bool isOwnProfile,
+  });
 
   /// Newest-first, video-only posts from public accounts, across every
   /// author — the discover/search screen's default grid (empty search

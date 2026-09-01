@@ -5,7 +5,7 @@ import '../../domain/repositories/payment_history_repository.dart';
 
 class FirebasePaymentHistoryRepository implements PaymentHistoryRepository {
   FirebasePaymentHistoryRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -47,7 +47,10 @@ class FirebasePaymentHistoryRepository implements PaymentHistoryRepository {
       // the reader's language. The screen therefore renders the
       // localized `type` label as the heading and this as the detail
       // line. See docs/BACKLOG.md.
-      packageName: data['description'] as String? ?? data['packageName'] as String? ?? '',
+      packageName:
+          data['description'] as String? ??
+          data['packageName'] as String? ??
+          '',
       amount: (data['amount'] as num?)?.toDouble() ?? 0,
       currency: data['currency'] as String? ?? '',
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),

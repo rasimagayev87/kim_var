@@ -47,7 +47,9 @@ class _SessionGuardState extends ConsumerState<SessionGuard> {
     final uid = fb.FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final sessionId = await ref.read(deviceSessionRepositoryProvider).currentSessionId();
+    final sessionId = await ref
+        .read(deviceSessionRepositoryProvider)
+        .currentSessionId();
     if (!mounted) return;
 
     _subscription = FirebaseFirestore.instance
@@ -57,16 +59,16 @@ class _SessionGuardState extends ConsumerState<SessionGuard> {
         .doc(sessionId)
         .snapshots()
         .listen((snap) {
-      if (snap.exists) {
-        _everSawSession = true;
-        return;
-      }
-      // Only react once the doc has been seen existing at least once —
-      // otherwise the brief window before the very first
-      // touchCurrentSession() write lands would look identical to a
-      // revoke and sign the user straight back out.
-      if (_everSawSession) _handleRevoked();
-    });
+          if (snap.exists) {
+            _everSawSession = true;
+            return;
+          }
+          // Only react once the doc has been seen existing at least once —
+          // otherwise the brief window before the very first
+          // touchCurrentSession() write lands would look identical to a
+          // revoke and sign the user straight back out.
+          if (_everSawSession) _handleRevoked();
+        });
   }
 
   Future<void> _handleRevoked() async {

@@ -68,7 +68,10 @@ class LiveFeedCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: gradient.glow,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.black.withValues(alpha: 0.05), width: 0.5),
+            border: Border.all(
+              color: Colors.black.withValues(alpha: 0.05),
+              width: 0.5,
+            ),
           ),
           child: Row(
             children: [
@@ -94,7 +97,11 @@ class LiveFeedCard extends StatelessWidget {
                         ),
                         borderRadius: BorderRadius.circular(11),
                         boxShadow: [
-                          BoxShadow(color: gradient.start.withValues(alpha: 0.35), blurRadius: 8, offset: const Offset(0, 3)),
+                          BoxShadow(
+                            color: gradient.start.withValues(alpha: 0.35),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
                         ],
                       ),
                       child: Icon(icon, size: 18, color: Colors.white),
@@ -109,21 +116,32 @@ class LiveFeedCard extends StatelessWidget {
                       item.title,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.white),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.white,
+                      ),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       item.subtitle,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                   ],
                 ),
               ),
               if (_isTappable) ...[
                 const SizedBox(width: 8),
-                const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.textSecondary),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 20,
+                  color: AppColors.textSecondary,
+                ),
               ],
             ],
           ),

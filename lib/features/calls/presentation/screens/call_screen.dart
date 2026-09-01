@@ -7,6 +7,8 @@ import '../../../profile/presentation/providers/public_profile_providers.dart';
 import '../../domain/entities/call_session.dart';
 import '../providers/active_call_controller.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Full-screen call UI — covers both the outgoing ("Zəng edilir...")
 /// and the already-accepted ("in call") states for [callId], since
 /// they're really one continuous screen from the caller's perspective.
@@ -43,7 +45,9 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   @override
   void initState() {
     super.initState();
-    ref.read(activeCallControllerProvider.notifier).start(
+    ref
+        .read(activeCallControllerProvider.notifier)
+        .start(
           callId: widget.callId,
           otherUid: widget.otherUid,
           type: widget.type,
@@ -93,9 +97,13 @@ class _CallScreenState extends ConsumerState<CallScreen> {
       // other phone is ringing or switched off. Showing "çalınır"
       // regardless tells the caller to keep waiting for something that
       // may never happen.
-      CallStatus.ringing => call.delivered ? loc.callStatusRinging : loc.callStatusDialing,
+      CallStatus.ringing =>
+        call.delivered ? loc.callStatusRinging : loc.callStatusDialing,
       CallStatus.busy => loc.callStatusBusy,
-      CallStatus.accepted => call.duration == Duration.zero ? loc.callStatusConnecting : _formatDuration(call.duration),
+      CallStatus.accepted =>
+        call.duration == Duration.zero
+            ? loc.callStatusConnecting
+            : _formatDuration(call.duration),
       CallStatus.declined => loc.callDeclinedMessage,
       CallStatus.ended => loc.callEndedMessage,
     };
@@ -120,9 +128,15 @@ class _CallScreenState extends ConsumerState<CallScreen> {
             },
             child: Stack(
               children: [
-                if (isVideo && call.hasRemoteVideo && call.remoteRenderer != null)
+                if (isVideo &&
+                    call.hasRemoteVideo &&
+                    call.remoteRenderer != null)
                   Positioned.fill(
-                    child: RTCVideoView(call.remoteRenderer!, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
+                    child: RTCVideoView(
+                      call.remoteRenderer!,
+                      objectFit:
+                          RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                    ),
                   )
                 else
                   _PeerAvatar(name: peer?.name, photoUrl: peer?.photoUrl),
@@ -135,10 +149,20 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                       if (!(isVideo && call.hasRemoteVideo))
                         Text(
                           peer?.name ?? '',
-                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       const SizedBox(height: 6),
-                      Text(statusText, style: const TextStyle(color: Colors.white70, fontSize: 15)),
+                      Text(
+                        statusText,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 15,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -147,17 +171,31 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                   left: 8,
                   child: _MinimizeButton(onTap: _minimize),
                 ),
-                if (isVideo && call.renderersReady && !call.cameraOff && call.localRenderer != null)
+                if (isVideo &&
+                    call.renderersReady &&
+                    !call.cameraOff &&
+                    call.localRenderer != null)
                   _DraggableSelfPreview(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(14),
                         border: Border.all(color: Colors.white24, width: 1),
-                        boxShadow: const [BoxShadow(color: Colors.black45, blurRadius: 12, offset: Offset(0, 4))],
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black45,
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(14),
-                        child: RTCVideoView(call.localRenderer!, mirror: true, objectFit: RTCVideoViewObjectFit.RTCVideoViewObjectFitCover),
+                        child: RTCVideoView(
+                          call.localRenderer!,
+                          mirror: true,
+                          objectFit:
+                              RTCVideoViewObjectFit.RTCVideoViewObjectFitCover,
+                        ),
                       ),
                     ),
                   ),
@@ -169,29 +207,48 @@ class _CallScreenState extends ConsumerState<CallScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       _CallControlButton(
-                        icon: call.muted ? Icons.mic_off_rounded : Icons.mic_rounded,
-                        onTap: () => ref.read(activeCallControllerProvider.notifier).toggleMute(),
+                        icon: call.muted
+                            ? Icons.mic_off_rounded
+                            : Icons.mic_rounded,
+                        onTap: () => ref
+                            .read(activeCallControllerProvider.notifier)
+                            .toggleMute(),
                       ),
                       const SizedBox(width: 16),
                       _CallControlButton(
-                        icon: call.speakerOn ? Icons.volume_up_rounded : Icons.phone_in_talk_rounded,
+                        icon: call.speakerOn
+                            ? Icons.volume_up_rounded
+                            : Icons.phone_in_talk_rounded,
                         active: call.speakerOn,
-                        onTap: () => ref.read(activeCallControllerProvider.notifier).toggleSpeaker(),
+                        onTap: () => ref
+                            .read(activeCallControllerProvider.notifier)
+                            .toggleSpeaker(),
                       ),
                       const SizedBox(width: 16),
-                      _CallControlButton(icon: Icons.call_end_rounded, color: Colors.redAccent, size: 64, onTap: _hangUp),
+                      _CallControlButton(
+                        icon: Icons.call_end_rounded,
+                        color: Colors.redAccent,
+                        size: 64,
+                        onTap: _hangUp,
+                      ),
                       if (isVideo) ...[
                         const SizedBox(width: 16),
                         _CallControlButton(
-                          icon: call.cameraOff ? Icons.videocam_off_rounded : Icons.videocam_rounded,
-                          onTap: () => ref.read(activeCallControllerProvider.notifier).toggleCamera(),
+                          icon: call.cameraOff
+                              ? Icons.videocam_off_rounded
+                              : Icons.videocam_rounded,
+                          onTap: () => ref
+                              .read(activeCallControllerProvider.notifier)
+                              .toggleCamera(),
                         ),
                         const SizedBox(width: 16),
                         _CallControlButton(
                           icon: Icons.cameraswitch_rounded,
                           onTap: (call.cameraOff || call.switchingCamera)
                               ? null
-                              : () => ref.read(activeCallControllerProvider.notifier).switchCamera(),
+                              : () => ref
+                                    .read(activeCallControllerProvider.notifier)
+                                    .switchCamera(),
                         ),
                       ],
                     ],
@@ -213,13 +270,20 @@ class _MinimizeButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: 40,
         height: 40,
-        decoration: const BoxDecoration(color: Colors.black38, shape: BoxShape.circle),
-        child: const Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 26),
+        decoration: const BoxDecoration(
+          color: Colors.black38,
+          shape: BoxShape.circle,
+        ),
+        child: const Icon(
+          Icons.keyboard_arrow_down_rounded,
+          color: Colors.white,
+          size: 26,
+        ),
       ),
     );
   }
@@ -241,7 +305,11 @@ class _PeerAvatar extends StatelessWidget {
         child: photoUrl == null
             ? Text(
                 (name?.isNotEmpty ?? false) ? name![0].toUpperCase() : '?',
-                style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 40,
+                  fontWeight: FontWeight.w700,
+                ),
               )
             : null,
       ),
@@ -254,6 +322,7 @@ class _CallControlButton extends StatelessWidget {
   final VoidCallback? onTap;
   final Color color;
   final double size;
+
   /// True highlights the button (solid white fill, dark icon) instead of
   /// the default translucent style — used for toggles like the speaker
   /// button so its current on/off state reads at a glance, the same way
@@ -271,15 +340,22 @@ class _CallControlButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final disabled = onTap == null;
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Opacity(
         opacity: disabled ? 0.4 : 1,
         child: Container(
           width: size,
           height: size,
-          decoration: BoxDecoration(color: active ? Colors.white : color, shape: BoxShape.circle),
-          child: Icon(icon, color: active ? Colors.black87 : Colors.white, size: size * 0.45),
+          decoration: BoxDecoration(
+            color: active ? Colors.white : color,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            icon,
+            color: active ? Colors.black87 : Colors.white,
+            size: size * 0.45,
+          ),
         ),
       ),
     );
@@ -329,13 +405,22 @@ class _DraggableSelfPreviewState extends State<_DraggableSelfPreview> {
     final size = MediaQuery.sizeOf(context);
     final boxWidth = _width * _scale;
     final boxHeight = _height * _scale;
-    final maxX = (size.width - boxWidth - _margin).clamp(_margin, double.infinity);
-    final maxY = (size.height - boxHeight - _margin).clamp(_margin, double.infinity);
+    final maxX = (size.width - boxWidth - _margin).clamp(
+      _margin,
+      double.infinity,
+    );
+    final maxY = (size.height - boxHeight - _margin).clamp(
+      _margin,
+      double.infinity,
+    );
     // Defaults to the top-right corner on first layout, exactly where
     // the fixed PiP used to sit — only diverges from there once the
     // user actually drags it.
     _topLeft ??= Offset(size.width - _width - _margin, _margin);
-    final clamped = Offset(_topLeft!.dx.clamp(_margin, maxX), _topLeft!.dy.clamp(_margin, maxY));
+    final clamped = Offset(
+      _topLeft!.dx.clamp(_margin, maxX),
+      _topLeft!.dy.clamp(_margin, maxY),
+    );
 
     return Positioned(
       left: clamped.dx,
@@ -346,7 +431,10 @@ class _DraggableSelfPreviewState extends State<_DraggableSelfPreview> {
         onScaleStart: (_) => _scaleAtGestureStart = _scale,
         onScaleUpdate: (details) {
           setState(() {
-            _scale = (_scaleAtGestureStart * details.scale).clamp(1.0, _maxScale);
+            _scale = (_scaleAtGestureStart * details.scale).clamp(
+              1.0,
+              _maxScale,
+            );
             _topLeft = clamped + details.focalPointDelta;
           });
         },

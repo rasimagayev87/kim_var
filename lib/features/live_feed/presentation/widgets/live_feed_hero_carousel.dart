@@ -68,7 +68,9 @@ class _LiveFeedHeroCarouselState extends State<LiveFeedHeroCarousel> {
                   width: i == _page ? 18 : 6,
                   height: 6,
                   decoration: BoxDecoration(
-                    color: i == _page ? AppColors.primary : ChatLightColors.cardSurface,
+                    color: i == _page
+                        ? AppColors.primary
+                        : ChatLightColors.cardSurface,
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
@@ -93,17 +95,26 @@ class _HeroCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(24),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
-        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailsScreen(eventId: event.id))),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => EventDetailsScreen(eventId: event.id),
+          ),
+        ),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (event.coverImageUrl != null) AppImage(event.coverImageUrl!, fit: BoxFit.cover),
+            if (event.coverImageUrl != null)
+              AppImage(event.coverImageUrl!, fit: BoxFit.cover),
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
-                  colors: [ChatLightColors.ink.withValues(alpha: 0.92), ChatLightColors.ink.withValues(alpha: 0.15)],
+                  colors: [
+                    ChatLightColors.ink.withValues(alpha: 0.92),
+                    ChatLightColors.ink.withValues(alpha: 0.15),
+                  ],
                   stops: const [0.35, 1],
                 ),
               ),
@@ -116,11 +127,22 @@ class _HeroCard extends StatelessWidget {
                 children: [
                   if (event.status == VenueEventStatus.live)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                      decoration: BoxDecoration(color: const Color(0xFF7C6CF2), borderRadius: BorderRadius.circular(20)),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7C6CF2),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
                       child: Text(
                         loc.eventStatusLive.toUpperCase(),
-                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 0.5),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
                   Column(
@@ -130,23 +152,42 @@ class _HeroCard extends StatelessWidget {
                         event.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 21, fontWeight: FontWeight.w800, color: Colors.white, height: 1.15),
+                        style: const TextStyle(
+                          fontSize: 21,
+                          fontWeight: FontWeight.w800,
+                          color: Colors.white,
+                          height: 1.15,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         event.venueName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: Colors.white70),
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white70,
+                        ),
                       ),
                       const SizedBox(height: 10),
                       Row(
                         children: [
-                          const Icon(Icons.schedule_outlined, size: 14, color: Colors.white70),
+                          const Icon(
+                            Icons.schedule_outlined,
+                            size: 14,
+                            color: Colors.white70,
+                          ),
                           const SizedBox(width: 5),
                           Text(
-                            DateFormat('d MMM, HH:mm', loc.localeName).format(event.startAt),
-                            style: const TextStyle(fontSize: 12.5, color: Colors.white70),
+                            DateFormat(
+                              'd MMM, HH:mm',
+                              loc.localeName,
+                            ).format(event.startAt),
+                            style: const TextStyle(
+                              fontSize: 12.5,
+                              color: Colors.white70,
+                            ),
                           ),
                         ],
                       ),

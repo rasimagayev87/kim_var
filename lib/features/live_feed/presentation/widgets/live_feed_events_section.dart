@@ -24,9 +24,12 @@ class LiveFeedEventsSection extends ConsumerWidget {
 
     return eventsAsync.when(
       data: (events) {
-        final rest = events.where((item) => !isTonightHeroEvent(item.event)).toList();
+        final rest = events
+            .where((item) => !isTonightHeroEvent(item.event))
+            .toList();
         if (rest.isEmpty) return const SizedBox.shrink();
-        final sorted = [...rest]..sort((a, b) => b.event.createdAt.compareTo(a.event.createdAt));
+        final sorted = [...rest]
+          ..sort((a, b) => b.event.createdAt.compareTo(a.event.createdAt));
         final latest = sorted.take(3).toList();
 
         return Column(
@@ -38,7 +41,12 @@ class LiveFeedEventsSection extends ConsumerWidget {
                 icon: Icons.event_outlined,
                 iconColor: const Color(0xFF7C6CF2),
                 title: loc.liveFeedSectionEvents,
-                onSeeAll: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LiveFeedAllEventsScreen())),
+                onSeeAll: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LiveFeedAllEventsScreen(),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -49,8 +57,11 @@ class LiveFeedEventsSection extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: latest.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, index) =>
-                    LiveFeedEventCard(event: latest[index].event, distanceMeters: latest[index].distanceMeters, width: _kCardWidth),
+                itemBuilder: (context, index) => LiveFeedEventCard(
+                  event: latest[index].event,
+                  distanceMeters: latest[index].distanceMeters,
+                  width: _kCardWidth,
+                ),
               ),
             ),
           ],

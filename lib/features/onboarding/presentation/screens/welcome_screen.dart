@@ -23,7 +23,9 @@ class WelcomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final currentLanguage = kSupportedLanguages.firstWhere(
-      (language) => language.locale.languageCode == ref.watch(localeProvider).languageCode,
+      (language) =>
+          language.locale.languageCode ==
+          ref.watch(localeProvider).languageCode,
       orElse: () => kSupportedLanguages.first,
     );
 
@@ -39,20 +41,31 @@ class WelcomeScreen extends ConsumerWidget {
                 padding: const EdgeInsets.only(top: 8, right: 12),
                 child: Material(
                   color: AppColors.card,
-                  shape: const StadiumBorder(side: BorderSide(color: AppColors.divider)),
+                  shape: const StadiumBorder(
+                    side: BorderSide(color: AppColors.divider),
+                  ),
                   child: InkWell(
                     customBorder: const StadiumBorder(),
                     onTap: () => showLanguagePickerSheet(context, ref),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.language_outlined, size: 18, color: AppColors.textSecondary),
+                          const Icon(
+                            Icons.language_outlined,
+                            size: 18,
+                            color: AppColors.textSecondary,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             currentLanguage.locale.languageCode.toUpperCase(),
-                            style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700),
+                            style: AppTextStyles.caption.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ],
                       ),
@@ -69,12 +82,15 @@ class WelcomeScreen extends ConsumerWidget {
                 children: [
                   const Spacer(flex: 3),
                   GlowLogo(
-                    child: Image.asset(
-                      'assets/icon_foreground.png',
-                      width: 220,
-                      height: 220,
-                    ),
-                  ).animate().fadeIn(duration: 600.ms).scale(
+                        child: Image.asset(
+                          'assets/icon_foreground.png',
+                          width: 220,
+                          height: 220,
+                        ),
+                      )
+                      .animate()
+                      .fadeIn(duration: 600.ms)
+                      .scale(
                         begin: const Offset(0.8, 0.8),
                         end: const Offset(1, 1),
                       ),
@@ -82,25 +98,32 @@ class WelcomeScreen extends ConsumerWidget {
                   Text(
                     loc.welcomeHeadline,
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.sectionTitle.copyWith(fontSize: 20, fontWeight: FontWeight.bold),
+                    style: AppTextStyles.sectionTitle.copyWith(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ).animate().fadeIn(delay: 200.ms, duration: 500.ms),
                   const SizedBox(height: 8),
                   Text(
                     loc.welcomeSubtitle,
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.caption.copyWith(fontSize: 13, color: AppColors.textSecondary, height: 1.5),
+                    style: AppTextStyles.caption.copyWith(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                      height: 1.5,
+                    ),
                   ).animate().fadeIn(delay: 300.ms, duration: 500.ms),
                   const Spacer(flex: 4),
                   ElevatedButton(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AuthScreen()),
-                    ),
-                    child: Text(loc.welcomeStartButton),
-                  ).animate().fadeIn(delay: 450.ms, duration: 450.ms).slideY(
-                        begin: 0.2,
-                        end: 0,
-                      ),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const AuthScreen()),
+                        ),
+                        child: Text(loc.welcomeStartButton),
+                      )
+                      .animate()
+                      .fadeIn(delay: 450.ms, duration: 450.ms)
+                      .slideY(begin: 0.2, end: 0),
                   const SizedBox(height: 36),
                 ],
               ),

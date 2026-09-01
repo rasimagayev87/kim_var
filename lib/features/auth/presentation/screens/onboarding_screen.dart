@@ -16,12 +16,16 @@ import '../../../../core/widgets/premium_text_field.dart';
 import '../../../../l10n/app_localizations.dart';
 import '../../../home/presentation/screens/home_screen.dart';
 import '../../../location/presentation/providers/location_providers.dart';
-import '../../../profile/domain/entities/user_profile.dart' show kBusinessStatusActive, kBusinessStatusNone, kGenderOptions;
+import '../../../profile/domain/entities/user_profile.dart'
+    show kBusinessStatusActive, kBusinessStatusNone, kGenderOptions;
 import '../../../profile/presentation/providers/photo_upload_provider.dart';
 import '../../../profile/presentation/storage_failure_messages.dart';
-import '../../domain/repositories/auth_repository.dart' show EmailNotVerifiedException, UnderageOnboardingException;
+import '../../domain/repositories/auth_repository.dart'
+    show EmailNotVerifiedException, UnderageOnboardingException;
 import '../providers/auth_providers.dart';
 import '../widgets/country_dial_code.dart';
+
+import '../../../../core/widgets/pressable.dart';
 
 /// Shown exactly once, right after a user's very first successful
 /// sign-in (any provider), to collect the data needed to create
@@ -94,7 +98,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
     _usernameCheckDebounce = Timer(const Duration(milliseconds: 500), () async {
       setState(() => _checkingUsername = true);
-      final available = await ref.read(authControllerProvider.notifier).isUsernameAvailable(trimmed);
+      final available = await ref
+          .read(authControllerProvider.notifier)
+          .isUsernameAvailable(trimmed);
       if (!mounted || _usernameController.text.trim() != trimmed) return;
       setState(() {
         _usernameAvailable = available;
@@ -137,7 +143,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     }
     _autoDialCode = dialCode;
     _phoneController.text = '$dialCode $rest'.trimRight();
-    _phoneController.selection = TextSelection.collapsed(offset: _phoneController.text.length);
+    _phoneController.selection = TextSelection.collapsed(
+      offset: _phoneController.text.length,
+    );
   }
 
   String _dialCodeFor(String? country) {
@@ -167,7 +175,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _pickPhoto() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1024, imageQuality: 85);
+    final picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+      imageQuality: 85,
+    );
     if (picked == null) return;
     setState(() => _pickedPhoto = File(picked.path));
   }
@@ -198,10 +210,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       return;
     }
     final phone = _phoneController.text.trim();
-    if (_autoDialCode == null || phone == _autoDialCode || phone.length <= _autoDialCode!.length) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.onboardingPhoneRequiredError)),
-      );
+    if (_autoDialCode == null ||
+        phone == _autoDialCode ||
+        phone.length <= _autoDialCode!.length) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.onboardingPhoneRequiredError)));
       return;
     }
     if (_birthDate == null) {
@@ -211,9 +225,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       return;
     }
     if (_gender == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.onboardingSelectGenderError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.onboardingSelectGenderError)));
       return;
     }
     if (_country == null || _city == null) {
@@ -232,7 +246,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() => _saving = true);
 
     try {
-      await ref.read(authControllerProvider.notifier).completeOnboarding(
+      await ref
+          .read(authControllerProvider.notifier)
+          .completeOnboarding(
             username: username,
             firstName: _firstNameController.text.trim(),
             lastName: _lastNameController.text.trim(),
@@ -242,21 +258,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             city: _city!,
             phoneNumber: phone.replaceAll(' ', ''),
             businessStatus: _businessStatus!,
-            bio: _bioController.text.trim().isEmpty ? null : _bioController.text.trim(),
+            bio: _bioController.text.trim().isEmpty
+                ? null
+                : _bioController.text.trim(),
           );
 
       if (_pickedPhoto != null) {
         // Photo is optional here, so a failure shouldn't block onboarding —
         // the profile document itself was already created above. The user
         // can retry from the edit-profile screen if this fails.
-        await ref.read(photoUploadControllerProvider.notifier).upload(_pickedPhoto!);
+        await ref
+            .read(photoUploadControllerProvider.notifier)
+            .upload(_pickedPhoto!);
         final uploadState = ref.read(photoUploadControllerProvider);
         if (uploadState.status == PhotoUploadStatus.error && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
                 uploadState.failureType != null
-                    ? localizedStorageFailureMessage(loc, uploadState.failureType!)
+                    ? localizedStorageFailureMessage(
+                        loc,
+                        uploadState.failureType!,
+                      )
                     : loc.onboardingPhotoUploadFailedError,
               ),
             ),
@@ -275,9 +298,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } on UnderageOnboardingException {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.onboardingUnderageError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.onboardingUnderageError)));
     } on EmailNotVerifiedException {
       // Defense-in-depth only — the normal flow never reaches
       // OnboardingScreen in this state at all (VerifyEmailScreen sits
@@ -286,9 +309,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       // failed.
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.authEmailNotVerifiedError)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.authEmailNotVerifiedError)));
     } on FirebaseFunctionsException catch (e) {
       // P0 / C-3 — the two rejections `FirebaseAuthRepository
       // .completeOnboarding` does NOT translate into a domain exception
@@ -306,7 +329,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         'resource-exhausted' => loc.registerGenericError,
         _ => loc.registerGenericError,
       };
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
@@ -340,23 +365,37 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         color: AppColors.surface,
                         border: Border.all(color: AppColors.divider, width: 2),
                         image: _pickedPhoto != null
-                            ? DecorationImage(image: FileImage(_pickedPhoto!), fit: BoxFit.cover)
+                            ? DecorationImage(
+                                image: FileImage(_pickedPhoto!),
+                                fit: BoxFit.cover,
+                              )
                             : null,
                       ),
                       child: _pickedPhoto == null
-                          ? const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 46)
+                          ? const Icon(
+                              Icons.person_outline,
+                              color: AppColors.textSecondary,
+                              size: 46,
+                            )
                           : null,
                     ),
                     Positioned(
                       right: 0,
                       bottom: 0,
-                      child: GestureDetector(
+                      child: Pressable(
                         onTap: _pickPhoto,
                         child: Container(
                           width: 34,
                           height: 34,
-                          decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primary),
-                          child: const Icon(Icons.camera_alt_outlined, size: 17, color: AppColors.onAccent),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.primary,
+                          ),
+                          child: const Icon(
+                            Icons.camera_alt_outlined,
+                            size: 17,
+                            color: AppColors.onAccent,
+                          ),
                         ),
                       ),
                     ),
@@ -381,7 +420,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       label: loc.fieldFirstNameLabel,
                       hint: loc.fieldFirstNameHint,
                       icon: Icons.person_outline,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? loc.fieldFirstNameRequiredError : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? loc.fieldFirstNameRequiredError
+                          : null,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -391,7 +432,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       label: loc.fieldLastNameLabel,
                       hint: loc.fieldLastNameHint,
                       icon: Icons.person_outline,
-                      validator: (v) => (v == null || v.trim().isEmpty) ? loc.fieldLastNameRequiredError : null,
+                      validator: (v) => (v == null || v.trim().isEmpty)
+                          ? loc.fieldLastNameRequiredError
+                          : null,
                     ),
                   ),
                 ],
@@ -406,7 +449,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 validator: (v) {
                   final trimmed = v?.trim() ?? '';
                   if (trimmed.isEmpty) return loc.fieldUsernameRequiredError;
-                  if (!_usernamePattern.hasMatch(trimmed)) return loc.fieldUsernameInvalidError;
+                  if (!_usernamePattern.hasMatch(trimmed))
+                    return loc.fieldUsernameInvalidError;
                   return null;
                 },
                 suffixIcon: _checkingUsername
@@ -415,19 +459,29 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         child: SizedBox(
                           width: 16,
                           height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.textSecondary),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppColors.textSecondary,
+                          ),
                         ),
                       )
                     : _usernameAvailable == null
-                        ? null
-                        : Icon(
-                            _usernameAvailable! ? Icons.check_circle_outline : Icons.error_outline,
-                            color: _usernameAvailable! ? AppColors.primary : AppColors.error,
-                          ),
+                    ? null
+                    : Icon(
+                        _usernameAvailable!
+                            ? Icons.check_circle_outline
+                            : Icons.error_outline,
+                        color: _usernameAvailable!
+                            ? AppColors.primary
+                            : AppColors.error,
+                      ),
               ),
               if (_usernameAvailable == false) ...[
                 const SizedBox(height: 6),
-                Text(loc.onboardingUsernameUnavailableError, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+                Text(
+                  loc.onboardingUsernameUnavailableError,
+                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
+                ),
               ],
               const SizedBox(height: 16),
               PremiumTextField(
@@ -438,19 +492,22 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 keyboardType: TextInputType.phone,
                 validator: (v) {
                   final trimmed = v?.trim() ?? '';
-                  if (_autoDialCode == null || trimmed.length <= _autoDialCode!.length) {
+                  if (_autoDialCode == null ||
+                      trimmed.length <= _autoDialCode!.length) {
                     return loc.onboardingPhoneRequiredError;
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
-              GestureDetector(
+              Pressable(
                 onTap: _pickBirthDate,
                 child: AbsorbPointer(
                   child: PremiumTextField(
                     controller: TextEditingController(
-                      text: _birthDate == null ? '' : DateFormat('dd.MM.yyyy').format(_birthDate!),
+                      text: _birthDate == null
+                          ? ''
+                          : DateFormat('dd.MM.yyyy').format(_birthDate!),
                     ),
                     label: loc.fieldBirthDateLabel,
                     hint: loc.fieldBirthDateHint,
@@ -464,16 +521,28 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 isExpanded: true,
                 dropdownColor: AppColors.card,
                 style: AppTextStyles.body.copyWith(fontSize: 15.5),
-                icon: const Icon(Icons.keyboard_arrow_down_outlined, color: AppColors.textSecondary),
+                icon: const Icon(
+                  Icons.keyboard_arrow_down_outlined,
+                  color: AppColors.textSecondary,
+                ),
                 decoration: InputDecoration(
                   labelText: loc.fieldGenderLabel,
-                  prefixIcon: const Icon(Icons.wc_outlined, color: AppColors.textSecondary, size: 20),
+                  prefixIcon: const Icon(
+                    Icons.wc_outlined,
+                    color: AppColors.textSecondary,
+                    size: 20,
+                  ),
                 ),
-                items: kGenderOptions.map((o) => DropdownMenuItem(value: o, child: Text(o))).toList(),
+                items: kGenderOptions
+                    .map((o) => DropdownMenuItem(value: o, child: Text(o)))
+                    .toList(),
                 onChanged: (v) => setState(() => _gender = v),
               ),
               const SizedBox(height: 20),
-              Text(loc.sectionCountryCityTitle, style: AppTextStyles.sectionTitle.copyWith(fontSize: 20)),
+              Text(
+                loc.sectionCountryCityTitle,
+                style: AppTextStyles.sectionTitle.copyWith(fontSize: 20),
+              ),
               const SizedBox(height: 12),
               CountryCityPicker(
                 initialCountry: _country,
@@ -485,9 +554,15 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onCityChanged: (value) => setState(() => _city = value),
               ),
               const SizedBox(height: 24),
-              Text(loc.sectionBusinessStatusTitle, style: AppTextStyles.sectionTitle.copyWith(fontSize: 20)),
+              Text(
+                loc.sectionBusinessStatusTitle,
+                style: AppTextStyles.sectionTitle.copyWith(fontSize: 20),
+              ),
               const SizedBox(height: 6),
-              Text(loc.sectionBusinessStatusSubtitle, style: AppTextStyles.caption),
+              Text(
+                loc.sectionBusinessStatusSubtitle,
+                style: AppTextStyles.caption,
+              ),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -495,7 +570,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     child: _BusinessStatusOption(
                       label: loc.businessStatusActiveLabel,
                       selected: _businessStatus == kBusinessStatusActive,
-                      onTap: () => setState(() => _businessStatus = kBusinessStatusActive),
+                      onTap: () => setState(
+                        () => _businessStatus = kBusinessStatusActive,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -503,13 +580,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     child: _BusinessStatusOption(
                       label: loc.businessStatusNoneLabel,
                       selected: _businessStatus == kBusinessStatusNone,
-                      onTap: () => setState(() => _businessStatus = kBusinessStatusNone),
+                      onTap: () =>
+                          setState(() => _businessStatus = kBusinessStatusNone),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 24),
-              Text(loc.sectionAboutOptionalTitle, style: AppTextStyles.sectionTitle.copyWith(fontSize: 20)),
+              Text(
+                loc.sectionAboutOptionalTitle,
+                style: AppTextStyles.sectionTitle.copyWith(fontSize: 20),
+              ),
               const SizedBox(height: 12),
               TextField(
                 controller: _bioController,
@@ -548,16 +629,21 @@ class _BusinessStatusOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(vertical: 14),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: selected ? AppColors.primary.withValues(alpha: 0.12) : AppColors.surface,
+          color: selected
+              ? AppColors.primary.withValues(alpha: 0.12)
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: selected ? AppColors.primary : AppColors.divider, width: selected ? 1.5 : 1),
+          border: Border.all(
+            color: selected ? AppColors.primary : AppColors.divider,
+            width: selected ? 1.5 : 1,
+          ),
         ),
         child: Text(
           label,

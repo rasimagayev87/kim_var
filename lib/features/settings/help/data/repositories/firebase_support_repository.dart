@@ -7,7 +7,8 @@ import '../../domain/entities/support_message.dart';
 import '../../domain/repositories/support_repository.dart';
 
 class FirebaseSupportRepository implements SupportRepository {
-  FirebaseSupportRepository({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
+  FirebaseSupportRepository({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -23,7 +24,9 @@ class FirebaseSupportRepository implements SupportRepository {
       'type': type.name,
       'message': message,
       'appVersion': info.version,
-      'platform': Platform.isIOS ? 'iOS' : (Platform.isAndroid ? 'Android' : Platform.operatingSystem),
+      'platform': Platform.isIOS
+          ? 'iOS'
+          : (Platform.isAndroid ? 'Android' : Platform.operatingSystem),
       'createdAt': FieldValue.serverTimestamp(),
     });
   }

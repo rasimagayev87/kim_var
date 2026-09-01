@@ -8,6 +8,8 @@ class UpdateIncognitoBrowsingUseCase {
   final PrivacySettingsRepository _repository;
 
   Future<void> call({required String uid, required bool enabled}) {
-    return _repository.updateSettings(uid, {'incognitoBrowsingEnabled': enabled});
+    return _repository.updateSettings(uid, {
+      'incognitoBrowsingEnabled': enabled,
+    });
   }
 }

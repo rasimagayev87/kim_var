@@ -16,9 +16,11 @@ import '../datasources/offer_remote_datasource.dart';
 import '../../../../core/utils/callables.dart';
 
 class FirebaseOfferRepository implements OfferRepository {
-  FirebaseOfferRepository({OfferRemoteDatasource? datasource, FirebaseFunctions? functions})
-      : _datasource = datasource ?? FirebaseOfferRemoteDatasource(),
-        _functions = functions ?? FirebaseFunctions.instance;
+  FirebaseOfferRepository({
+    OfferRemoteDatasource? datasource,
+    FirebaseFunctions? functions,
+  }) : _datasource = datasource ?? FirebaseOfferRemoteDatasource(),
+       _functions = functions ?? FirebaseFunctions.instance;
 
   final OfferRemoteDatasource _datasource;
   final FirebaseFunctions _functions;
@@ -70,23 +72,25 @@ class FirebaseOfferRepository implements OfferRepository {
       );
     }
 
-    final result = await _functions.httpsCallable('submitOffer', options: callableOptions()).call<Map<String, dynamic>>({
-      'offerId': offerId,
-      'venueId': venueId,
-      'title': title,
-      'description': description,
-      'offerType': offerType.name,
-      'discountValue': discountValue,
-      'startDate': startDate.toIso8601String(),
-      'endDate': endDate.toIso8601String(),
-      'imageUrl': imageUrl,
-      'terms': terms,
-      'activeHours': activeHours?.toMap(),
-      'activeDays': activeDays,
-      if (birthdayMatchId != null) 'birthdayMatchId': birthdayMatchId,
-      if (targetUserIds.isNotEmpty) 'targetUserIds': targetUserIds,
-      if (personalMessage != null) 'personalMessage': personalMessage,
-    });
+    final result = await _functions
+        .httpsCallable('submitOffer', options: callableOptions())
+        .call<Map<String, dynamic>>({
+          'offerId': offerId,
+          'venueId': venueId,
+          'title': title,
+          'description': description,
+          'offerType': offerType.name,
+          'discountValue': discountValue,
+          'startDate': startDate.toIso8601String(),
+          'endDate': endDate.toIso8601String(),
+          'imageUrl': imageUrl,
+          'terms': terms,
+          'activeHours': activeHours?.toMap(),
+          'activeDays': activeDays,
+          if (birthdayMatchId != null) 'birthdayMatchId': birthdayMatchId,
+          if (targetUserIds.isNotEmpty) 'targetUserIds': targetUserIds,
+          if (personalMessage != null) 'personalMessage': personalMessage,
+        });
 
     final data = result.data;
     return (
@@ -99,8 +103,11 @@ class FirebaseOfferRepository implements OfferRepository {
   }
 
   @override
-  Future<({String checkoutUrl, double feeAmount, String paymentId})> retryOfferPayment(String offerId) async {
-    final result = await _functions.httpsCallable('retryOfferPayment', options: callableOptions()).call<Map<String, dynamic>>({'offerId': offerId});
+  Future<({String checkoutUrl, double feeAmount, String paymentId})>
+  retryOfferPayment(String offerId) async {
+    final result = await _functions
+        .httpsCallable('retryOfferPayment', options: callableOptions())
+        .call<Map<String, dynamic>>({'offerId': offerId});
     final data = result.data;
     return (
       checkoutUrl: data['checkoutUrl'] as String,
@@ -143,20 +150,22 @@ class FirebaseOfferRepository implements OfferRepository {
       );
     }
 
-    final result = await _functions.httpsCallable('updateOffer', options: callableOptions()).call<Map<String, dynamic>>({
-      'offerId': offerId,
-      'category': category.name,
-      'title': title,
-      'description': description,
-      'offerType': offerType.name,
-      'discountValue': discountValue,
-      'startDate': startDate.toIso8601String(),
-      'endDate': endDate.toIso8601String(),
-      'terms': terms,
-      'activeHours': activeHours?.toMap(),
-      'activeDays': activeDays,
-      if (imageUrl != null) 'imageUrl': imageUrl,
-    });
+    final result = await _functions
+        .httpsCallable('updateOffer', options: callableOptions())
+        .call<Map<String, dynamic>>({
+          'offerId': offerId,
+          'category': category.name,
+          'title': title,
+          'description': description,
+          'offerType': offerType.name,
+          'discountValue': discountValue,
+          'startDate': startDate.toIso8601String(),
+          'endDate': endDate.toIso8601String(),
+          'terms': terms,
+          'activeHours': activeHours?.toMap(),
+          'activeDays': activeDays,
+          if (imageUrl != null) 'imageUrl': imageUrl,
+        });
 
     return result.data['sentForReReview'] as bool;
   }
@@ -164,23 +173,36 @@ class FirebaseOfferRepository implements OfferRepository {
   @override
   Future<void> deleteOffer(String offerId) async {
     await _datasource.deleteOffer(offerId);
-    await _datasource.deleteOfferPhoto(fb.FirebaseAuth.instance.currentUser!.uid, offerId);
+    await _datasource.deleteOfferPhoto(
+      fb.FirebaseAuth.instance.currentUser!.uid,
+      offerId,
+    );
   }
 
   @override
   Stream<Offer?> watchOffer(String offerId) {
-    return _datasource.watchOffer(offerId).map((doc) => doc.exists ? _safeOffer(doc.id, doc.data()!) : null);
+    return _datasource
+        .watchOffer(offerId)
+        .map((doc) => doc.exists ? _safeOffer(doc.id, doc.data()!) : null);
   }
 
   @override
   Stream<List<Offer>> watchMyOffers(String ownerId) {
     return _datasource
         .watchOffersByOwner(ownerId)
-        .map((snap) => snap.docs.map((d) => _safeOffer(d.id, d.data())).whereType<Offer>().toList());
+        .map(
+          (snap) => snap.docs
+              .map((d) => _safeOffer(d.id, d.data()))
+              .whereType<Offer>()
+              .toList(),
+        );
   }
 
   @override
-  Future<List<Offer>> fetchOtherActiveOffersForVenue(String venueId, {required String excludeOfferId}) async {
+  Future<List<Offer>> fetchOtherActiveOffersForVenue(
+    String venueId, {
+    required String excludeOfferId,
+  }) async {
     final snap = await _datasource.queryByVenue(venueId);
     final now = DateTime.now();
     return snap.docs
@@ -198,24 +220,41 @@ class FirebaseOfferRepository implements OfferRepository {
     required double radiusKm,
     VenueCategory? category,
   }) async {
-    final results = await withPermissionRetry(() => _datasource.queryWithinRadius(
-          lat: lat,
-          lng: lng,
-          radiusKm: radiusKm,
-          category: category?.name,
-        ));
+    final results = await withPermissionRetry(
+      () => _datasource.queryWithinRadius(
+        lat: lat,
+        lng: lng,
+        radiusKm: radiusKm,
+        category: category?.name,
+      ),
+    );
 
     final now = DateTime.now();
     return results
-        .map((r) => (offer: _safeOffer(r.$1.id, r.$1.data()!), distanceMeters: r.$2 * 1000))
-        .where((entry) => entry.offer != null && entry.offer!.endDate.isAfter(now))
-        .map((entry) => (offer: entry.offer!, distanceMeters: entry.distanceMeters))
+        .map(
+          (r) => (
+            offer: _safeOffer(r.$1.id, r.$1.data()!),
+            distanceMeters: r.$2 * 1000,
+          ),
+        )
+        .where(
+          (entry) => entry.offer != null && entry.offer!.endDate.isAfter(now),
+        )
+        .map(
+          (entry) =>
+              (offer: entry.offer!, distanceMeters: entry.distanceMeters),
+        )
         .toList();
   }
 
   @override
-  Future<List<Offer>> fetchOffersByCountry(String country, {VenueCategory? category}) async {
-    final snap = await withPermissionRetry(() => _datasource.queryByCountry(country, category: category?.name));
+  Future<List<Offer>> fetchOffersByCountry(
+    String country, {
+    VenueCategory? category,
+  }) async {
+    final snap = await withPermissionRetry(
+      () => _datasource.queryByCountry(country, category: category?.name),
+    );
     final now = DateTime.now();
     return snap.docs
         .map((d) => _safeOffer(d.id, d.data()))
@@ -225,8 +264,13 @@ class FirebaseOfferRepository implements OfferRepository {
   }
 
   @override
-  Future<List<Offer>> fetchAllActiveOffers({int limit = 300, VenueCategory? category}) async {
-    final snap = await withPermissionRetry(() => _datasource.queryAllActive(limit: limit, category: category?.name));
+  Future<List<Offer>> fetchAllActiveOffers({
+    int limit = 300,
+    VenueCategory? category,
+  }) async {
+    final snap = await withPermissionRetry(
+      () => _datasource.queryAllActive(limit: limit, category: category?.name),
+    );
     final now = DateTime.now();
     return snap.docs
         .map((d) => _safeOffer(d.id, d.data()))
@@ -236,24 +280,35 @@ class FirebaseOfferRepository implements OfferRepository {
   }
 
   @override
-  Stream<Set<String>> watchFavoriteOfferIds(String uid) => _datasource.watchFavoriteOfferIds(uid);
+  Stream<Set<String>> watchFavoriteOfferIds(String uid) =>
+      _datasource.watchFavoriteOfferIds(uid);
 
   @override
-  Future<void> setFavorite({required String uid, required String offerId, required bool isFavorite}) {
-    return _datasource.setFavorite(uid: uid, offerId: offerId, isFavorite: isFavorite);
+  Future<void> setFavorite({
+    required String uid,
+    required String offerId,
+    required bool isFavorite,
+  }) {
+    return _datasource.setFavorite(
+      uid: uid,
+      offerId: offerId,
+      isFavorite: isFavorite,
+    );
   }
 
   @override
   Future<void> resubmitOffer(String offerId) async {
-    await _functions.httpsCallable('resubmitOffer', options: callableOptions()).call<Map<String, dynamic>>({'offerId': offerId});
+    await _functions
+        .httpsCallable('resubmitOffer', options: callableOptions())
+        .call<Map<String, dynamic>>({'offerId': offerId});
   }
 
   @override
-  Future<({String checkoutUrl, double feeAmount, String paymentId})> createBoostCheckout(String offerId, int hours) async {
-    final result = await _functions.httpsCallable('createBoostCheckout', options: callableOptions()).call<Map<String, dynamic>>({
-      'offerId': offerId,
-      'hours': hours,
-    });
+  Future<({String checkoutUrl, double feeAmount, String paymentId})>
+  createBoostCheckout(String offerId, int hours) async {
+    final result = await _functions
+        .httpsCallable('createBoostCheckout', options: callableOptions())
+        .call<Map<String, dynamic>>({'offerId': offerId, 'hours': hours});
     final data = result.data;
     return (
       checkoutUrl: data['checkoutUrl'] as String,
@@ -263,18 +318,29 @@ class FirebaseOfferRepository implements OfferRepository {
   }
 
   @override
-  Stream<bool> watchIsRedeemedByMe(String offerId, String uid) => _datasource.watchIsRedeemedByMe(offerId, uid);
+  Stream<bool> watchIsRedeemedByMe(String offerId, String uid) =>
+      _datasource.watchIsRedeemedByMe(offerId, uid);
 
   @override
-  Future<void> redeemOffer(String offerId, String uid) => _datasource.redeemOffer(offerId, uid);
+  Future<void> redeemOffer(String offerId, String uid) =>
+      _datasource.redeemOffer(offerId, uid);
 
   @override
-  Future<({String venueId, List<String> matchedUserIds})?> fetchBirthdayMatch(String matchId) async {
-    final snap = await FirebaseFirestore.instance.collection('birthdayMatches').doc(matchId).get();
+  Future<({String venueId, List<String> matchedUserIds})?> fetchBirthdayMatch(
+    String matchId,
+  ) async {
+    final snap = await FirebaseFirestore.instance
+        .collection('birthdayMatches')
+        .doc(matchId)
+        .get();
     final data = snap.data();
     if (data == null) return null;
     final venueId = data['venueId'] as String?;
     if (venueId == null) return null;
-    return (venueId: venueId, matchedUserIds: (data['matchedUserIds'] as List?)?.cast<String>() ?? const []);
+    return (
+      venueId: venueId,
+      matchedUserIds:
+          (data['matchedUserIds'] as List?)?.cast<String>() ?? const [],
+    );
   }
 }

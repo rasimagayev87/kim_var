@@ -22,10 +22,14 @@ import '../../domain/usecases/update_offer_usecase.dart';
 
 export '../../domain/repositories/offer_repository.dart' show OfferWithDistance;
 
-final offerRemoteDatasourceProvider = Provider<OfferRemoteDatasource>((ref) => FirebaseOfferRemoteDatasource());
+final offerRemoteDatasourceProvider = Provider<OfferRemoteDatasource>(
+  (ref) => FirebaseOfferRemoteDatasource(),
+);
 
 final offerRepositoryProvider = Provider<OfferRepository>((ref) {
-  return FirebaseOfferRepository(datasource: ref.watch(offerRemoteDatasourceProvider));
+  return FirebaseOfferRepository(
+    datasource: ref.watch(offerRemoteDatasourceProvider),
+  );
 });
 
 final createOfferUseCaseProvider = Provider<CreateOfferUseCase>((ref) {
@@ -68,7 +72,9 @@ final myOffersProvider = StreamProvider.autoDispose<List<Offer>>((ref) {
 /// Typically 0–3 documents: a user gets birthday offers on one day a
 /// year, from the handful of venues that acted. Cached by Riverpod for
 /// the screen's lifetime rather than re-read per offer.
-final myBirthdayOfferIdsProvider = FutureProvider.autoDispose<Set<String>>((ref) async {
+final myBirthdayOfferIdsProvider = FutureProvider.autoDispose<Set<String>>((
+  ref,
+) async {
   final uid = _currentUid();
   if (uid == null) return const <String>{};
   final snap = await FirebaseFirestore.instance
@@ -80,24 +86,38 @@ final myBirthdayOfferIdsProvider = FutureProvider.autoDispose<Set<String>>((ref)
 });
 
 /// Offer Details' "Digər aktiv təkliflər" section.
-final otherOffersForVenueProvider = FutureProvider.autoDispose.family<List<Offer>, ({String venueId, String excludeOfferId})>(
-  (ref, args) async {
-    final offers =
-        await ref.watch(offerRepositoryProvider).fetchOtherActiveOffersForVenue(args.venueId, excludeOfferId: args.excludeOfferId);
-    // Same `OfferType.birthday` visibility rule as `nearbyOffersProvider`
-    // — this is still an "everyone visiting this venue" surface.
-    final myBirthdayOfferIds = await ref.watch(myBirthdayOfferIdsProvider.future);
-    return offers
-        .where((o) => o.offerType != OfferType.birthday || myBirthdayOfferIds.contains(o.id))
-        .toList();
-  },
-);
+final otherOffersForVenueProvider = FutureProvider.autoDispose
+    .family<List<Offer>, ({String venueId, String excludeOfferId})>((
+      ref,
+      args,
+    ) async {
+      final offers = await ref
+          .watch(offerRepositoryProvider)
+          .fetchOtherActiveOffersForVenue(
+            args.venueId,
+            excludeOfferId: args.excludeOfferId,
+          );
+      // Same `OfferType.birthday` visibility rule as `nearbyOffersProvider`
+      // — this is still an "everyone visiting this venue" surface.
+      final myBirthdayOfferIds = await ref.watch(
+        myBirthdayOfferIdsProvider.future,
+      );
+      return offers
+          .where(
+            (o) =>
+                o.offerType != OfferType.birthday ||
+                myBirthdayOfferIds.contains(o.id),
+          )
+          .toList();
+    });
 
 /// The Filter bottom sheet's selected category — null means "every
 /// category". A plain `StateProvider` (not persisted) since it's pure
 /// UI filter state, same role as `selectedGenderFilterProvider` for
 /// İnsanlar.
-final selectedOfferCategoryFilterProvider = StateProvider<VenueCategory?>((ref) => null);
+final selectedOfferCategoryFilterProvider = StateProvider<VenueCategory?>(
+  (ref) => null,
+);
 
 /// Drives every offer write (create/update/delete). Same contract as
 /// `VenueController`.
@@ -131,7 +151,9 @@ class OfferController {
     if (uid == null) return null;
 
     try {
-      final result = await _ref.read(createOfferUseCaseProvider).call(
+      final result = await _ref
+          .read(createOfferUseCaseProvider)
+          .call(
             venueId: venueId,
             title: title,
             description: description,
@@ -168,9 +190,12 @@ class OfferController {
     }
   }
 
-  Future<({String checkoutUrl, double feeAmount, String paymentId})?> retryOfferPayment(String offerId) async {
+  Future<({String checkoutUrl, double feeAmount, String paymentId})?>
+  retryOfferPayment(String offerId) async {
     try {
-      return await _ref.read(offerRepositoryProvider).retryOfferPayment(offerId);
+      return await _ref
+          .read(offerRepositoryProvider)
+          .retryOfferPayment(offerId);
     } catch (e, st) {
       logError('offer_providers.retryOfferPayment', e, st);
       return null;
@@ -200,7 +225,9 @@ class OfferController {
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
     try {
-      final sentForReReview = await _ref.read(updateOfferUseCaseProvider).call(
+      final sentForReReview = await _ref
+          .read(updateOfferUseCaseProvider)
+          .call(
             offerId: offerId,
             title: title,
             description: description,
@@ -229,7 +256,10 @@ class OfferController {
     }
   }
 
-  Future<bool> deleteOffer(String offerId, {required void Function() onError}) async {
+  Future<bool> deleteOffer(
+    String offerId, {
+    required void Function() onError,
+  }) async {
     try {
       await _ref.read(deleteOfferUseCaseProvider).call(offerId);
       _ref.invalidate(nearbyOffersProvider);
@@ -243,12 +273,17 @@ class OfferController {
 
   /// Flips [offerId]'s favorite state for the signed-in user — mirrors
   /// `VenueController.toggleFavorite`.
-  Future<bool> toggleFavorite(String offerId, {required bool isCurrentlyFavorite}) async {
+  Future<bool> toggleFavorite(
+    String offerId, {
+    required bool isCurrentlyFavorite,
+  }) async {
     final uid = _currentUid();
     if (uid == null) return false;
 
     try {
-      await _ref.read(offerRepositoryProvider).setFavorite(
+      await _ref
+          .read(offerRepositoryProvider)
+          .setFavorite(
             uid: uid,
             offerId: offerId,
             isFavorite: !isCurrentlyFavorite,
@@ -279,9 +314,12 @@ class OfferController {
   /// anything itself — `Offer.boostedUntil` only moves once
   /// `epointWebhook` confirms the charge, so there's nothing to
   /// invalidate here the way the old direct-write version had to.
-  Future<({String checkoutUrl, double feeAmount, String paymentId})?> createBoostCheckout(String offerId, int hours) async {
+  Future<({String checkoutUrl, double feeAmount, String paymentId})?>
+  createBoostCheckout(String offerId, int hours) async {
     try {
-      return await _ref.read(offerRepositoryProvider).createBoostCheckout(offerId, hours);
+      return await _ref
+          .read(offerRepositoryProvider)
+          .createBoostCheckout(offerId, hours);
     } catch (e, st) {
       logError('offer_providers.createBoostCheckout', e, st);
       return null;
@@ -308,7 +346,9 @@ class OfferController {
   }
 }
 
-final offerControllerProvider = Provider<OfferController>((ref) => OfferController(ref));
+final offerControllerProvider = Provider<OfferController>(
+  (ref) => OfferController(ref),
+);
 
 /// Realtime set of offer ids the signed-in user has favorited — mirrors
 /// `favoriteVenueIdsProvider`.
@@ -316,11 +356,14 @@ final offerControllerProvider = Provider<OfferController>((ref) => OfferControll
 /// `OfferType.firstVisit` offer — backs `_RedeemButton`'s
 /// "Aktivləşdir"/"İstifadə edilib" state, mirrors
 /// `isVenueLikedByMeProvider`.
-final isOfferRedeemedByMeProvider = StreamProvider.autoDispose.family<bool, String>((ref, offerId) {
-  final uid = _currentUid();
-  if (uid == null) return Stream.value(false);
-  return ref.watch(offerRepositoryProvider).watchIsRedeemedByMe(offerId, uid);
-});
+final isOfferRedeemedByMeProvider = StreamProvider.autoDispose
+    .family<bool, String>((ref, offerId) {
+      final uid = _currentUid();
+      if (uid == null) return Stream.value(false);
+      return ref
+          .watch(offerRepositoryProvider)
+          .watchIsRedeemedByMe(offerId, uid);
+    });
 
 final favoriteOfferIdsProvider = StreamProvider.autoDispose<Set<String>>((ref) {
   final uid = _currentUid();
@@ -332,12 +375,20 @@ final favoriteOfferIdsProvider = StreamProvider.autoDispose<Set<String>>((ref) {
 /// [position] — mirrors `venue_providers.dart`'s `_withDistanceFrom`
 /// for the Ölkə/Dünya modes. Sorting itself happens once, uniformly
 /// across all 3 radius modes, in [_sortBoostedFirst] below.
-List<OfferWithDistance> _withDistanceFrom(List<Offer> offers, Position position) {
+List<OfferWithDistance> _withDistanceFrom(
+  List<Offer> offers,
+  Position position,
+) {
   return offers
       .map(
         (offer) => (
           offer: offer,
-          distanceMeters: Geolocator.distanceBetween(position.latitude, position.longitude, offer.lat, offer.lng),
+          distanceMeters: Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            offer.lat,
+            offer.lng,
+          ),
         ),
       )
       .toList();
@@ -364,48 +415,62 @@ List<OfferWithDistance> _sortBoostedFirst(List<OfferWithDistance> offers) {
 /// İnsanlar/Məkanlar ([selectedDiscoverModeProvider]) per the product
 /// spec, plus the Filter bottom sheet's category selection. One-shot
 /// fetch, not a live stream, same reasoning as `nearbyVenuesProvider`.
-final nearbyOffersProvider = FutureProvider.autoDispose<List<OfferWithDistance>>((ref) async {
-  final position = ref.watch(locationControllerProvider).valueOrNull;
-  final selection = ref.watch(selectedDiscoverModeProvider);
-  final category = ref.watch(selectedOfferCategoryFilterProvider);
-  final repository = ref.watch(offerRepositoryProvider);
+final nearbyOffersProvider =
+    FutureProvider.autoDispose<List<OfferWithDistance>>((ref) async {
+      final position = ref.watch(locationControllerProvider).valueOrNull;
+      final selection = ref.watch(selectedDiscoverModeProvider);
+      final category = ref.watch(selectedOfferCategoryFilterProvider);
+      final repository = ref.watch(offerRepositoryProvider);
 
-  if (position == null) return const [];
+      if (position == null) return const [];
 
-  List<OfferWithDistance> result;
-  switch (selection.mode) {
-    case DiscoverRadiusMode.distance:
-      result = await repository.fetchOffersWithinRadius(
-        lat: position.latitude,
-        lng: position.longitude,
-        radiusKm: selection.km!,
-        category: category,
+      List<OfferWithDistance> result;
+      switch (selection.mode) {
+        case DiscoverRadiusMode.distance:
+          result = await repository.fetchOffersWithinRadius(
+            lat: position.latitude,
+            lng: position.longitude,
+            radiusKm: selection.km!,
+            category: category,
+          );
+        case DiscoverRadiusMode.country:
+          final myCountry = ref.watch(
+            profileControllerProvider.select((p) => p.country),
+          );
+          if (myCountry == null) return const [];
+          final offers = await repository.fetchOffersByCountry(
+            myCountry,
+            category: category,
+          );
+          result = _withDistanceFrom(offers, position);
+        case DiscoverRadiusMode.world:
+          final offers = await repository.fetchAllActiveOffers(
+            category: category,
+          );
+          result = _withDistanceFrom(offers, position);
+      }
+
+      // `OfferType.birthday` offers are never for "everyone" — only the
+      // matched birthday users may ever see one here, same as every other
+      // offer type is otherwise open to. A direct link (the target user's
+      // own "your offer is ready" push, see `onOfferUpdated`'s
+      // birthday-approval branch in functions/src/index.ts) still reaches
+      // `OfferDetailsScreen` fine — this filter only ever touches the
+      // "everyone" list providers, never a single-doc fetch by id.
+      //
+      // Keyed on [myBirthdayOfferIdsProvider] rather than the offer's own
+      // `targetUserIds`: that array named every user with a birthday today
+      // on a publicly readable document. See that provider's doc comment.
+      final myBirthdayOfferIds = await ref.watch(
+        myBirthdayOfferIdsProvider.future,
       );
-    case DiscoverRadiusMode.country:
-      final myCountry = ref.watch(profileControllerProvider.select((p) => p.country));
-      if (myCountry == null) return const [];
-      final offers = await repository.fetchOffersByCountry(myCountry, category: category);
-      result = _withDistanceFrom(offers, position);
-    case DiscoverRadiusMode.world:
-      final offers = await repository.fetchAllActiveOffers(category: category);
-      result = _withDistanceFrom(offers, position);
-  }
+      result = result
+          .where(
+            (r) =>
+                r.offer.offerType != OfferType.birthday ||
+                myBirthdayOfferIds.contains(r.offer.id),
+          )
+          .toList();
 
-  // `OfferType.birthday` offers are never for "everyone" — only the
-  // matched birthday users may ever see one here, same as every other
-  // offer type is otherwise open to. A direct link (the target user's
-  // own "your offer is ready" push, see `onOfferUpdated`'s
-  // birthday-approval branch in functions/src/index.ts) still reaches
-  // `OfferDetailsScreen` fine — this filter only ever touches the
-  // "everyone" list providers, never a single-doc fetch by id.
-  //
-  // Keyed on [myBirthdayOfferIdsProvider] rather than the offer's own
-  // `targetUserIds`: that array named every user with a birthday today
-  // on a publicly readable document. See that provider's doc comment.
-  final myBirthdayOfferIds = await ref.watch(myBirthdayOfferIdsProvider.future);
-  result = result
-      .where((r) => r.offer.offerType != OfferType.birthday || myBirthdayOfferIds.contains(r.offer.id))
-      .toList();
-
-  return _sortBoostedFirst(result);
-});
+      return _sortBoostedFirst(result);
+    });

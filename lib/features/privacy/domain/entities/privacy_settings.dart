@@ -130,13 +130,16 @@ class PrivacySettings {
       profileVisibility: profileVisibility ?? this.profileVisibility,
       accountPrivacy: accountPrivacy ?? this.accountPrivacy,
       visibilityRadiusMode: visibilityRadiusMode ?? this.visibilityRadiusMode,
-      visibilityRadiusKm: clearRadiusKm ? null : (visibilityRadiusKm ?? this.visibilityRadiusKm),
+      visibilityRadiusKm: clearRadiusKm
+          ? null
+          : (visibilityRadiusKm ?? this.visibilityRadiusKm),
       showReadReceipts: showReadReceipts ?? this.showReadReceipts,
       whoCanMessageMe: whoCanMessageMe ?? this.whoCanMessageMe,
       twoFactorEnabled: twoFactorEnabled ?? this.twoFactorEnabled,
       ghostModeEnabled: ghostModeEnabled ?? this.ghostModeEnabled,
       birthdayOffersOptIn: birthdayOffersOptIn ?? this.birthdayOffersOptIn,
-      incognitoBrowsingEnabled: incognitoBrowsingEnabled ?? this.incognitoBrowsingEnabled,
+      incognitoBrowsingEnabled:
+          incognitoBrowsingEnabled ?? this.incognitoBrowsingEnabled,
     );
   }
 }

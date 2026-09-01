@@ -16,6 +16,8 @@ import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../../location/presentation/providers/presence_provider.dart';
 import '../../../profile/presentation/providers/public_profile_providers.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 enum _ChatFilter { all, unread, archived, requests }
 
 /// Collapses the Azerbaijani/Turkish İ/I/ı family down to plain ASCII
@@ -26,7 +28,11 @@ enum _ChatFilter { all, unread, archived, requests }
 /// containing 'İ' (extremely common in Azerbaijani) silently never
 /// matches.
 String _azSearchKey(String value) {
-  return value.replaceAll('İ', 'i').replaceAll('I', 'i').replaceAll('ı', 'i').toLowerCase();
+  return value
+      .replaceAll('İ', 'i')
+      .replaceAll('I', 'i')
+      .replaceAll('ı', 'i')
+      .toLowerCase();
 }
 
 sealed class _ChatRow {
@@ -74,7 +80,8 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
       ref.read(chatListControllerProvider.notifier).loadMore();
     }
   }
@@ -112,14 +119,18 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     if (_query.isNotEmpty) {
       final q = _azSearchKey(_query);
       result = result.where((chat) {
-        final peer = ref.watch(publicProfileProvider(chat.otherParticipant(myUid))).valueOrNull;
+        final peer = ref
+            .watch(publicProfileProvider(chat.otherParticipant(myUid)))
+            .valueOrNull;
         final name = _azSearchKey(peer?.name ?? '');
         final username = _azSearchKey(peer?.username ?? '');
         // `previewFor(myUid)` — a "məndən sil" override shouldn't stay
         // searchable in this uid's own list either (see `_ChatCard`'s
         // identical reasoning for the same call).
         final lastMessage = _azSearchKey(chat.previewFor(myUid).text);
-        return name.contains(q) || username.contains(q) || lastMessage.contains(q);
+        return name.contains(q) ||
+            username.contains(q) ||
+            lastMessage.contains(q);
       }).toList();
     }
 
@@ -149,7 +160,11 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
   /// present) followed by "Son söhbətlər" — skipped entirely while
   /// actively searching, since mixing section headers into search
   /// results reads as confusing rather than helpful.
-  List<_ChatRow> _buildRows(List<Chat> visible, AppLocalizations loc, String myUid) {
+  List<_ChatRow> _buildRows(
+    List<Chat> visible,
+    AppLocalizations loc,
+    String myUid,
+  ) {
     if (_query.isNotEmpty) {
       return [for (final chat in visible) _ChatRowItem(chat)];
     }
@@ -159,11 +174,17 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
 
     final rows = <_ChatRow>[];
     if (pinned.isNotEmpty) {
-      rows.add(_SectionHeaderRow(loc.chatsPinnedSectionLabel, icon: Icons.push_pin_outlined));
+      rows.add(
+        _SectionHeaderRow(
+          loc.chatsPinnedSectionLabel,
+          icon: Icons.push_pin_outlined,
+        ),
+      );
       rows.addAll(pinned.map(_ChatRowItem.new));
     }
     if (rest.isNotEmpty) {
-      if (pinned.isNotEmpty) rows.add(_SectionHeaderRow(loc.chatsRecentSectionLabel));
+      if (pinned.isNotEmpty)
+        rows.add(_SectionHeaderRow(loc.chatsRecentSectionLabel));
       rows.addAll(rest.map(_ChatRowItem.new));
     }
     return rows;
@@ -174,8 +195,9 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     final loc = AppLocalizations.of(context);
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
     final listState = ref.watch(chatListControllerProvider);
-    final requestsCount =
-        myUid == null ? 0 : listState.chats.where((c) => c.needsResponseFrom(myUid)).length;
+    final requestsCount = myUid == null
+        ? 0
+        : listState.chats.where((c) => c.needsResponseFrom(myUid)).length;
 
     return Stack(
       children: [
@@ -187,7 +209,11 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 10),
                 child: Text(
                   loc.chatsTitle,
-                  style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: ChatLightColors.ink),
+                  style: const TextStyle(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w800,
+                    color: ChatLightColors.ink,
+                  ),
                 ),
               ),
               Padding(
@@ -204,7 +230,9 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
               ),
               const SizedBox(height: 4),
               Expanded(
-                child: myUid == null ? const SizedBox.shrink() : _buildBody(loc, myUid, listState),
+                child: myUid == null
+                    ? const SizedBox.shrink()
+                    : _buildBody(loc, myUid, listState),
               ),
             ],
           ),
@@ -213,9 +241,15 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
     );
   }
 
-  Widget _buildBody(AppLocalizations loc, String myUid, ChatListState listState) {
+  Widget _buildBody(
+    AppLocalizations loc,
+    String myUid,
+    ChatListState listState,
+  ) {
     if (listState.isInitialLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      );
     }
     if (listState.error != null) {
       return FriendlyErrorState(
@@ -236,20 +270,20 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
       }
       return switch (_filter) {
         _ChatFilter.unread => _FilterEmptyState(
-            icon: Icons.mark_email_read_outlined,
-            title: loc.chatsUnreadEmptyTitle,
-            subtitle: loc.chatsUnreadEmptySubtitle,
-          ),
+          icon: Icons.mark_email_read_outlined,
+          title: loc.chatsUnreadEmptyTitle,
+          subtitle: loc.chatsUnreadEmptySubtitle,
+        ),
         _ChatFilter.archived => _FilterEmptyState(
-            icon: Icons.archive_outlined,
-            title: loc.chatsArchivedEmptyTitle,
-            subtitle: loc.chatsArchivedEmptySubtitle,
-          ),
+          icon: Icons.archive_outlined,
+          title: loc.chatsArchivedEmptyTitle,
+          subtitle: loc.chatsArchivedEmptySubtitle,
+        ),
         _ChatFilter.requests => _FilterEmptyState(
-            icon: Icons.mark_chat_unread_outlined,
-            title: loc.chatsRequestsEmptyTitle,
-            subtitle: loc.chatsRequestsEmptySubtitle,
-          ),
+          icon: Icons.mark_chat_unread_outlined,
+          title: loc.chatsRequestsEmptyTitle,
+          subtitle: loc.chatsRequestsEmptySubtitle,
+        ),
         _ChatFilter.all => const _EmptyChats(),
       };
     }
@@ -261,19 +295,29 @@ class _ChatsTabState extends ConsumerState<ChatsTab> {
       child: ListView.builder(
         key: ValueKey(_filter),
         controller: _scrollController,
-        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
         padding: const EdgeInsets.only(top: 4, bottom: 8),
         itemCount: rows.length + (listState.isLoadingMore ? 1 : 0),
         itemBuilder: (context, index) {
           if (index >= rows.length) {
             return const Padding(
               padding: EdgeInsets.symmetric(vertical: 20),
-              child: Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.4)),
+              child: Center(
+                child: CircularProgressIndicator(
+                  color: AppColors.primary,
+                  strokeWidth: 2.4,
+                ),
+              ),
             );
           }
           final row = rows[index];
           return switch (row) {
-            _SectionHeaderRow() => _SectionHeader(label: row.label, icon: row.icon),
+            _SectionHeaderRow() => _SectionHeader(
+              label: row.label,
+              icon: row.icon,
+            ),
             _ChatRowItem() => _ChatCard(chat: row.chat, myUid: myUid),
           };
         },
@@ -299,7 +343,9 @@ class _ChatSearchFieldState extends State<_ChatSearchField> {
   @override
   void initState() {
     super.initState();
-    _focusNode.addListener(() => setState(() => _focused = _focusNode.hasFocus));
+    _focusNode.addListener(
+      () => setState(() => _focused = _focusNode.hasFocus),
+    );
   }
 
   @override
@@ -318,9 +364,18 @@ class _ChatSearchFieldState extends State<_ChatSearchField> {
       decoration: BoxDecoration(
         color: ChatLightColors.cardSurface,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _focused ? AppColors.primary : Colors.transparent, width: 1.4),
+        border: Border.all(
+          color: _focused ? AppColors.primary : Colors.transparent,
+          width: 1.4,
+        ),
         boxShadow: _focused
-            ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.18), blurRadius: 12, spreadRadius: 1)]
+            ? [
+                BoxShadow(
+                  color: AppColors.primary.withValues(alpha: 0.18),
+                  blurRadius: 12,
+                  spreadRadius: 1,
+                ),
+              ]
             : const [],
       ),
       child: TextField(
@@ -331,12 +386,23 @@ class _ChatSearchFieldState extends State<_ChatSearchField> {
         cursorColor: AppColors.primary,
         decoration: InputDecoration(
           hintText: loc.chatsSearchHint,
-          hintStyle: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 14.5),
-          prefixIcon: Icon(Icons.search, color: _focused ? AppColors.primary : ChatLightColors.inkFaint, size: 21),
+          hintStyle: const TextStyle(
+            color: ChatLightColors.inkFaint,
+            fontSize: 14.5,
+          ),
+          prefixIcon: Icon(
+            Icons.search,
+            color: _focused ? AppColors.primary : ChatLightColors.inkFaint,
+            size: 21,
+          ),
           suffixIcon: widget.controller.text.isEmpty
               ? null
               : IconButton(
-                  icon: const Icon(Icons.close, color: ChatLightColors.inkFaint, size: 18),
+                  icon: const Icon(
+                    Icons.close,
+                    color: ChatLightColors.inkFaint,
+                    size: 18,
+                  ),
                   onPressed: () {
                     widget.controller.clear();
                     widget.onChanged('');
@@ -345,9 +411,18 @@ class _ChatSearchFieldState extends State<_ChatSearchField> {
           filled: false,
           isDense: true,
           contentPadding: const EdgeInsets.symmetric(vertical: 13),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide.none,
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide.none,
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(20),
+            borderSide: BorderSide.none,
+          ),
         ),
       ),
     );
@@ -365,7 +440,11 @@ class _ChatFilterChips extends StatelessWidget {
   /// entirely rather than showing an empty "0".
   final int requestsCount;
 
-  const _ChatFilterChips({required this.selected, required this.onSelected, required this.requestsCount});
+  const _ChatFilterChips({
+    required this.selected,
+    required this.onSelected,
+    required this.requestsCount,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -393,10 +472,18 @@ class _ChatFilterChips extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: isSelected ? AppColors.primary : ChatLightColors.cardSurface,
+              color: isSelected
+                  ? AppColors.primary
+                  : ChatLightColors.cardSurface,
               borderRadius: BorderRadius.circular(18),
               boxShadow: isSelected
-                  ? [BoxShadow(color: AppColors.primary.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 3))]
+                  ? [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ]
                   : const [],
             ),
             child: Text(
@@ -409,7 +496,7 @@ class _ChatFilterChips extends StatelessWidget {
             ),
           );
 
-          return GestureDetector(
+          return Pressable(
             onTap: () => onSelected(filter),
             child: filter == _ChatFilter.requests && requestsCount > 0
                 ? Stack(
@@ -420,17 +507,27 @@ class _ChatFilterChips extends StatelessWidget {
                         top: -5,
                         right: -5,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
                           constraints: const BoxConstraints(minWidth: 17),
                           decoration: BoxDecoration(
                             color: AppColors.error,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: ChatLightColors.bg1, width: 1.5),
+                            border: Border.all(
+                              color: ChatLightColors.bg1,
+                              width: 1.5,
+                            ),
                           ),
                           child: Text(
                             requestsCount > 99 ? '99+' : '$requestsCount',
                             textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.white),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                       ),
@@ -462,7 +559,11 @@ class _SectionHeader extends StatelessWidget {
           ],
           Text(
             label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ChatLightColors.inkSoft),
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: ChatLightColors.inkSoft,
+            ),
           ),
         ],
       ),
@@ -481,12 +582,17 @@ class _ChatCard extends ConsumerWidget {
     final loc = AppLocalizations.of(context);
     final otherUid = chat.otherParticipant(myUid);
     final peerAsync = ref.watch(publicProfileProvider(otherUid));
-    ref.watch(presenceTickProvider); // forces re-evaluation of isRecentlyActive as time passes
+    ref.watch(
+      presenceTickProvider,
+    ); // forces re-evaluation of isRecentlyActive as time passes
     final peer = peerAsync.valueOrNull;
-    final displayName = (peer?.name ?? '').isEmpty ? loc.defaultUserName : peer!.name;
+    final displayName = (peer?.name ?? '').isEmpty
+        ? loc.defaultUserName
+        : peer!.name;
     final unread = chat.unreadFor(myUid);
     final pendingForMe = chat.needsResponseFrom(myUid);
-    final pendingFromMe = chat.status == ChatRequestStatus.pending && chat.initiatorId == myUid;
+    final pendingFromMe =
+        chat.status == ChatRequestStatus.pending && chat.initiatorId == myUid;
     final isPinned = chat.isPinnedFor(myUid);
     final isMuted = chat.isMutedFor(myUid);
     final isArchived = chat.isArchivedFor(myUid);
@@ -517,7 +623,9 @@ class _ChatCard extends ConsumerWidget {
           children: [
             SlidableAction(
               onPressed: (_) => _togglePin(context, ref, loc, isPinned),
-              backgroundColor: isPinned ? ChatLightColors.inkSoft : AppColors.primary,
+              backgroundColor: isPinned
+                  ? ChatLightColors.inkSoft
+                  : AppColors.primary,
               foregroundColor: Colors.white,
               icon: isPinned ? Icons.push_pin_outlined : Icons.push_pin,
               label: isPinned ? loc.chatsUnpinAction : loc.chatsPinAction,
@@ -537,7 +645,9 @@ class _ChatCard extends ConsumerWidget {
           // it reappeared there. Toggling off `isArchived` makes dismiss
           // do "remove from the tab you're looking at" in both tabs.
           dismissible: DismissiblePane(
-            onDismissed: () => ref.read(chatListControllerProvider.notifier).setArchived(chat.id, !isArchived),
+            onDismissed: () => ref
+                .read(chatListControllerProvider.notifier)
+                .setArchived(chat.id, !isArchived),
           ),
           children: [
             // Post-launch QA — Səssiz et (mute) revealed FIRST (leftmost).
@@ -551,10 +661,14 @@ class _ChatCard extends ConsumerWidget {
             // what dismissing actually does; Sil in the middle is reachable
             // only by a deliberate partial swipe + tap, never by dismiss.
             SlidableAction(
-              onPressed: (_) => ref.read(chatListControllerProvider.notifier).setMuted(chat.id, !isMuted),
+              onPressed: (_) => ref
+                  .read(chatListControllerProvider.notifier)
+                  .setMuted(chat.id, !isMuted),
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
-              icon: isMuted ? Icons.notifications_active_outlined : Icons.notifications_off_outlined,
+              icon: isMuted
+                  ? Icons.notifications_active_outlined
+                  : Icons.notifications_off_outlined,
               label: isMuted ? loc.chatsUnmuteAction : loc.chatsMuteAction,
               borderRadius: BorderRadius.circular(cardRadius),
             ),
@@ -576,11 +690,17 @@ class _ChatCard extends ConsumerWidget {
               borderRadius: BorderRadius.circular(cardRadius),
             ),
             SlidableAction(
-              onPressed: (_) => ref.read(chatListControllerProvider.notifier).setArchived(chat.id, !isArchived),
+              onPressed: (_) => ref
+                  .read(chatListControllerProvider.notifier)
+                  .setArchived(chat.id, !isArchived),
               backgroundColor: ChatLightColors.inkSoft,
               foregroundColor: Colors.white,
-              icon: isArchived ? Icons.unarchive_outlined : Icons.archive_outlined,
-              label: isArchived ? loc.chatsUnarchiveAction : loc.chatsArchiveAction,
+              icon: isArchived
+                  ? Icons.unarchive_outlined
+                  : Icons.archive_outlined,
+              label: isArchived
+                  ? loc.chatsUnarchiveAction
+                  : loc.chatsArchiveAction,
               borderRadius: BorderRadius.circular(cardRadius),
             ),
           ],
@@ -610,9 +730,15 @@ class _ChatCard extends ConsumerWidget {
                       CircleAvatar(
                         radius: 25,
                         backgroundColor: Colors.white,
-                        backgroundImage: peer?.photoUrl != null ? NetworkImage(peer!.photoUrl!) : null,
+                        backgroundImage: peer?.photoUrl != null
+                            ? NetworkImage(peer!.photoUrl!)
+                            : null,
                         child: peer?.photoUrl == null
-                            ? const Icon(Icons.person_outline, color: ChatLightColors.inkFaint, size: 24)
+                            ? const Icon(
+                                Icons.person_outline,
+                                color: ChatLightColors.inkFaint,
+                                size: 24,
+                              )
                             : null,
                       ),
                       if (peer?.isRecentlyActive == true)
@@ -625,7 +751,10 @@ class _ChatCard extends ConsumerWidget {
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: ChatLightColors.onlineDot,
-                              border: Border.all(color: ChatLightColors.cardSurface, width: 2.5),
+                              border: Border.all(
+                                color: ChatLightColors.cardSurface,
+                                width: 2.5,
+                              ),
                             ),
                           ),
                         ),
@@ -641,7 +770,11 @@ class _ChatCard extends ConsumerWidget {
                             Expanded(
                               child: Text(
                                 displayName,
-                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+                                style: const TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w600,
+                                  color: ChatLightColors.ink,
+                                ),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -649,7 +782,10 @@ class _ChatCard extends ConsumerWidget {
                             if (chat.lastMessageAt != null)
                               Text(
                                 _formatTimestamp(loc, chat.lastMessageAt!),
-                                style: const TextStyle(fontSize: 11, color: ChatLightColors.inkFaint),
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: ChatLightColors.inkFaint,
+                                ),
                               ),
                           ],
                         ),
@@ -660,43 +796,69 @@ class _ChatCard extends ConsumerWidget {
                               child: Text(
                                 pendingForMe
                                     ? loc.chatRequestBannerTitle
-                                    : (pendingFromMe ? loc.chatRequestPendingNotice : preview),
+                                    : (pendingFromMe
+                                          ? loc.chatRequestPendingNotice
+                                          : preview),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: pendingForMe
                                       ? AppColors.primary
-                                      : (isUnread ? ChatLightColors.ink : ChatLightColors.inkFaint),
-                                  fontWeight: pendingForMe || isUnread ? FontWeight.w700 : FontWeight.w400,
+                                      : (isUnread
+                                            ? ChatLightColors.ink
+                                            : ChatLightColors.inkFaint),
+                                  fontWeight: pendingForMe || isUnread
+                                      ? FontWeight.w700
+                                      : FontWeight.w400,
                                 ),
                               ),
                             ),
                             const SizedBox(width: 8),
                             if (isMuted) ...[
-                              const Icon(Icons.notifications_off_outlined, size: 14, color: ChatLightColors.inkFaint),
+                              const Icon(
+                                Icons.notifications_off_outlined,
+                                size: 14,
+                                color: ChatLightColors.inkFaint,
+                              ),
                               const SizedBox(width: 6),
                             ],
                             if (isPinned) ...[
-                              const Icon(Icons.push_pin, size: 13, color: ChatLightColors.inkFaint),
+                              const Icon(
+                                Icons.push_pin,
+                                size: 13,
+                                color: ChatLightColors.inkFaint,
+                              ),
                               const SizedBox(width: 6),
                             ],
                             if (isUnread)
                               Container(
                                 constraints: const BoxConstraints(minWidth: 20),
                                 height: 20,
-                                padding: const EdgeInsets.symmetric(horizontal: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                ),
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
                                   color: AppColors.primary,
                                   borderRadius: BorderRadius.circular(10),
                                   boxShadow: [
-                                    BoxShadow(color: AppColors.primary.withValues(alpha: 0.35), blurRadius: 5, offset: const Offset(0, 2)),
+                                    BoxShadow(
+                                      color: AppColors.primary.withValues(
+                                        alpha: 0.35,
+                                      ),
+                                      blurRadius: 5,
+                                      offset: const Offset(0, 2),
+                                    ),
                                   ],
                                 ),
                                 child: Text(
                                   '$unread',
-                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
                           ],
@@ -718,25 +880,43 @@ class _ChatCard extends ConsumerWidget {
   /// search) is what the "max 3" count is checked against, so a pin
   /// made while e.g. the Arxivlənənlər filter is active still counts
   /// correctly.
-  void _togglePin(BuildContext context, WidgetRef ref, AppLocalizations loc, bool isPinned) {
+  void _togglePin(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations loc,
+    bool isPinned,
+  ) {
     if (!isPinned) {
-      final pinnedCount = ref.read(chatListControllerProvider).chats.where((c) => c.isPinnedFor(myUid)).length;
+      final pinnedCount = ref
+          .read(chatListControllerProvider)
+          .chats
+          .where((c) => c.isPinnedFor(myUid))
+          .length;
       if (pinnedCount >= 3) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatsPinLimitReachedMessage)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.chatsPinLimitReachedMessage)),
+        );
         return;
       }
     }
     ref.read(chatListControllerProvider.notifier).setPinned(chat.id, !isPinned);
   }
 
-  Future<void> _confirmDeleteChat(BuildContext context, WidgetRef ref, AppLocalizations loc) async {
+  Future<void> _confirmDeleteChat(
+    BuildContext context,
+    WidgetRef ref,
+    AppLocalizations loc,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(loc.chatDeleteConfirmTitle),
         content: Text(loc.chatDeleteConfirmMessage),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: Text(loc.actionCancel)),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: Text(loc.actionCancel),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(dialogContext, true),
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -750,11 +930,15 @@ class _ChatCard extends ConsumerWidget {
     try {
       await ref.read(chatControllerProvider.notifier).deleteChat(chat.id);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatDeletedNotice)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.chatDeletedNotice)));
     } catch (e, st) {
       logError('chats_tab.deleteChat', e, st);
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.chatRequestActionErrorMessage)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.chatRequestActionErrorMessage)),
+      );
     }
   }
 
@@ -792,7 +976,11 @@ class _FilterEmptyState extends StatelessWidget {
   final String title;
   final String subtitle;
 
-  const _FilterEmptyState({required this.icon, required this.title, required this.subtitle});
+  const _FilterEmptyState({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -805,19 +993,30 @@ class _FilterEmptyState extends StatelessWidget {
             Container(
               width: 92,
               height: 92,
-              decoration: const BoxDecoration(shape: BoxShape.circle, color: ChatLightColors.cardSurface),
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: ChatLightColors.cardSurface,
+              ),
               child: Icon(icon, color: ChatLightColors.inkFaint, size: 38),
             ),
             const SizedBox(height: 22),
             Text(
               title,
-              style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w700,
+                color: ChatLightColors.ink,
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13, color: ChatLightColors.inkFaint, height: 1.5),
+              style: const TextStyle(
+                fontSize: 13,
+                color: ChatLightColors.inkFaint,
+                height: 1.5,
+              ),
             ),
           ],
         ),

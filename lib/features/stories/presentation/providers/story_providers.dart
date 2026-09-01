@@ -13,7 +13,9 @@ import '../../domain/entities/story_view.dart';
 import '../../domain/repositories/story_repository.dart';
 import '../../domain/usecases/create_story_usecase.dart';
 
-final storyRepositoryProvider = Provider<StoryRepository>((ref) => FirebaseStoryRepository());
+final storyRepositoryProvider = Provider<StoryRepository>(
+  (ref) => FirebaseStoryRepository(),
+);
 
 final createStoryUseCaseProvider = Provider<CreateStoryUseCase>((ref) {
   return CreateStoryUseCase(ref.watch(storyRepositoryProvider));
@@ -39,28 +41,36 @@ final myActiveStoriesProvider = StreamProvider.autoDispose<List<Story>>((ref) {
 /// adds a second, client-side check on top of that: defense in depth,
 /// and it also means a permission-denied on the underlying query
 /// degrades to "no stories shown" instead of an error state.
-final activeStoriesForUserProvider = StreamProvider.autoDispose.family<List<Story>, String>((ref, uid) {
-  final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
-  final followRepo = ref.watch(followRepositoryProvider);
+final activeStoriesForUserProvider = StreamProvider.autoDispose
+    .family<List<Story>, String>((ref, uid) {
+      final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
+      final followRepo = ref.watch(followRepositoryProvider);
 
-  return ref
-      .watch(storyRepositoryProvider)
-      .watchMyActiveStories(uid)
-      .asyncMap((stories) async {
-        if (myUid == null || myUid == uid || stories.isEmpty) return stories;
+      return ref
+          .watch(storyRepositoryProvider)
+          .watchMyActiveStories(uid)
+          .asyncMap((stories) async {
+            if (myUid == null || myUid == uid || stories.isEmpty)
+              return stories;
 
-        final privacy = await ref.read(otherUserPrivacySettingsProvider(uid).future);
-        if (privacy.accountPrivacy == AccountPrivacy.public) return stories;
+            final privacy = await ref.read(
+              otherUserPrivacySettingsProvider(uid).future,
+            );
+            if (privacy.accountPrivacy == AccountPrivacy.public) return stories;
 
-        final allowed = await followRepo.isAcceptedFollowerOf(viewerId: myUid, ownerId: uid);
-        return allowed ? stories : const <Story>[];
-      })
-      .handleError((Object _, StackTrace _) => const <Story>[]);
-});
+            final allowed = await followRepo.isAcceptedFollowerOf(
+              viewerId: myUid,
+              ownerId: uid,
+            );
+            return allowed ? stories : const <Story>[];
+          })
+          .handleError((Object _, StackTrace _) => const <Story>[]);
+    });
 
-final storyViewsProvider = StreamProvider.autoDispose.family<List<StoryView>, String>((ref, storyId) {
-  return ref.watch(storyRepositoryProvider).watchViews(storyId);
-});
+final storyViewsProvider = StreamProvider.autoDispose
+    .family<List<StoryView>, String>((ref, storyId) {
+      return ref.watch(storyRepositoryProvider).watchViews(storyId);
+    });
 
 class StoryController {
   StoryController(this._ref);
@@ -81,7 +91,9 @@ class StoryController {
     if (uid == null) return null;
 
     try {
-      return await _ref.read(createStoryUseCaseProvider).call(creatorId: uid, media: media, mediaType: mediaType);
+      return await _ref
+          .read(createStoryUseCaseProvider)
+          .call(creatorId: uid, media: media, mediaType: mediaType);
     } catch (e, st) {
       logError('story_providers.createStory', e, st);
       onError();
@@ -95,7 +107,9 @@ class StoryController {
     final uid = fb.FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
     try {
-      await _ref.read(storyRepositoryProvider).recordView(storyId: storyId, viewerId: uid);
+      await _ref
+          .read(storyRepositoryProvider)
+          .recordView(storyId: storyId, viewerId: uid);
     } catch (e, st) {
       logError('story_providers.recordView', e, st);
     }
@@ -113,4 +127,6 @@ class StoryController {
   }
 }
 
-final storyControllerProvider = Provider<StoryController>((ref) => StoryController(ref));
+final storyControllerProvider = Provider<StoryController>(
+  (ref) => StoryController(ref),
+);

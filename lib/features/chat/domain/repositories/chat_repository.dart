@@ -20,7 +20,11 @@ abstract class ChatRepository {
   /// once a chat sees a new message it naturally reappears at the top
   /// of the live first page instead, so older pages can stay static
   /// snapshots without ever going stale in a way the user would notice.
-  Future<List<Chat>> fetchMoreChats(String myUid, {required DateTime startAfter, int limit = 30});
+  Future<List<Chat>> fetchMoreChats(
+    String myUid, {
+    required DateTime startAfter,
+    int limit = 30,
+  });
 
   Future<void> setPinned(String chatId, String myUid, bool pinned);
 
@@ -102,13 +106,20 @@ abstract class ChatRepository {
 
   /// Hides [messageId] from [uid]'s own view only — the other
   /// participant's copy is untouched.
-  Future<void> deleteMessageForMe({required String chatId, required String messageId, required String uid});
+  Future<void> deleteMessageForMe({
+    required String chatId,
+    required String messageId,
+    required String uid,
+  });
 
   /// Deletes [messageId] outright (and its Storage file, for media) —
   /// only the sender may call this, enforced both in
   /// [ChatController.deleteMessageForEveryone] (own-message check
   /// before the call) and the Firestore rule itself.
-  Future<void> deleteMessageForEveryone({required String chatId, required String messageId});
+  Future<void> deleteMessageForEveryone({
+    required String chatId,
+    required String messageId,
+  });
 
   /// Re-sends an existing message's content into each of
   /// [targetOtherUids]' chats with the caller — no re-upload for media,
@@ -142,16 +153,29 @@ abstract class ChatRepository {
   /// `readAt` is written at all — only `deliveredAt` — so the sender
   /// never sees this user's read status, matching WhatsApp's read
   /// receipts toggle.
-  Future<void> markRead(String chatId, String myUid, {required bool showReadReceipts});
+  Future<void> markRead(
+    String chatId,
+    String myUid, {
+    required bool showReadReceipts,
+  });
 
   /// Marks a single message as read — used for voice messages once the
   /// recipient actually presses play, rather than the instant blanket
   /// sweep [markRead] does for text/media on chat-open. No-ops the
   /// `readAt` write when [showReadReceipts] is false, same rule as
   /// [markRead].
-  Future<void> markMessageRead(String chatId, String messageId, String myUid, {required bool showReadReceipts});
+  Future<void> markMessageRead(
+    String chatId,
+    String messageId,
+    String myUid, {
+    required bool showReadReceipts,
+  });
 
-  Future<void> setTyping({required String chatId, required String uid, required bool isTyping});
+  Future<void> setTyping({
+    required String chatId,
+    required String uid,
+    required bool isTyping,
+  });
 
   Future<void> deleteChat(String chatId, String myUid);
 }

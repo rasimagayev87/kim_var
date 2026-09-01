@@ -49,6 +49,8 @@ import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../../../venues/presentation/widgets/venue_filter_sheet.dart';
 import '../../../venues/presentation/widgets/venue_star_rating.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Hides Google's own default restaurant/shop/cafe/hospital POI layer
 /// on the Kəşf et → İnsanlar map ONLY — a venue not subscribed to
 /// PeakPin still showing up for free via Google's base map data
@@ -90,7 +92,8 @@ class DiscoverTab extends ConsumerStatefulWidget {
   ConsumerState<DiscoverTab> createState() => _DiscoverTabState();
 }
 
-class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingObserver {
+class _DiscoverTabState extends ConsumerState<DiscoverTab>
+    with WidgetsBindingObserver {
   GoogleMapController? _mapController;
   _DiscoverView _view = _DiscoverView.map;
 
@@ -123,7 +126,8 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
     // unbounded spinner with no way out but reinstalling. A `loading`
     // state with no position is exactly as stuck as an error, and is
     // now treated the same.
-    if (location.hasError || (location.isLoading && location.valueOrNull == null)) {
+    if (location.hasError ||
+        (location.isLoading && location.valueOrNull == null)) {
       ref.read(locationControllerProvider.notifier).refresh();
     }
   }
@@ -136,7 +140,8 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
   final Map<String, BitmapDescriptor> _avatarMarkerCache = {};
   final Set<String> _avatarMarkerPending = {};
 
-  BitmapDescriptor? _avatarMarkerFor(NearbyUser user) => _avatarMarker(user.id, user.photoUrl);
+  BitmapDescriptor? _avatarMarkerFor(NearbyUser user) =>
+      _avatarMarker(user.id, user.photoUrl);
 
   /// Shared by both the "me" marker and every nearby-user marker — [id]
   /// just needs to be stable per person (their uid works for both).
@@ -148,14 +153,17 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
     if (cached != null) return cached;
 
     if (_avatarMarkerPending.add(cacheKey)) {
-      AvatarPinMarker.build(photoUrl: photoUrl).then((marker) {
-        if (!mounted) return;
-        setState(() => _avatarMarkerCache[cacheKey] = marker);
-      }).catchError((_) {
-        // Network hiccup/unreadable image — falls back to the default
-        // pin below for this build; the next rebuild retries since the
-        // key never got cached (only removed from pending).
-      }).whenComplete(() => _avatarMarkerPending.remove(cacheKey));
+      AvatarPinMarker.build(photoUrl: photoUrl)
+          .then((marker) {
+            if (!mounted) return;
+            setState(() => _avatarMarkerCache[cacheKey] = marker);
+          })
+          .catchError((_) {
+            // Network hiccup/unreadable image — falls back to the default
+            // pin below for this build; the next rebuild retries since the
+            // key never got cached (only removed from pending).
+          })
+          .whenComplete(() => _avatarMarkerPending.remove(cacheKey));
     }
     return null;
   }
@@ -167,24 +175,37 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
     // with the picker below — see the provider's own doc comment for
     // why this lives here rather than in LocationController.
     ref.watch(discoverRadiusPersistenceProvider);
-    ref.watch(presenceTickProvider); // forces re-evaluation of isRecentlyActive as time passes
+    ref.watch(
+      presenceTickProvider,
+    ); // forces re-evaluation of isRecentlyActive as time passes
     final locationState = ref.watch(locationControllerProvider);
     final nearbyUsers = ref.watch(nearbyUsersProvider);
-    final hasBusinessAccess = ref.watch(profileControllerProvider).hasBusinessAccess;
+    final hasBusinessAccess = ref
+        .watch(profileControllerProvider)
+        .hasBusinessAccess;
     // Drives the chip-aware "manage" icon in the Fürsətlər header —
     // only actually read when a venue owner is looking at the Tədbir
     // chip, but cheap enough (both already-cached streams) to compute
     // unconditionally rather than guard behind `listingFilter`.
     final listingFilter = ref.watch(listingFilterProvider);
     final myVenues = ref.watch(myVenuesProvider).valueOrNull ?? const [];
-    final eligibleEventCategories = ref.watch(eventCategoryConfigProvider).valueOrNull ?? const {};
+    final eligibleEventCategories =
+        ref.watch(eventCategoryConfigProvider).valueOrNull ?? const {};
     final myEventVenues = myVenues
-        .where((v) => v.category.capabilities.canCreateEvents && eligibleEventCategories.contains(v.category))
+        .where(
+          (v) =>
+              v.category.capabilities.canCreateEvents &&
+              eligibleEventCategories.contains(v.category),
+        )
         .toList();
     // PinBox eligibility is a fixed constant (kPinboxEligibleVenueCategories,
     // in venue.dart), not Firestore-config-driven like events above.
     final myPinboxVenues = myVenues
-        .where((v) => v.category.capabilities.canUsePinBox && kPinboxEligibleVenueCategories.contains(v.category))
+        .where(
+          (v) =>
+              v.category.capabilities.canUsePinBox &&
+              kPinboxEligibleVenueCategories.contains(v.category),
+        )
         .toList();
 
     return SafeArea(
@@ -195,12 +216,20 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Row(
               children: [
-                Expanded(child: Text(loc.discoverTitle, style: AppTextStyles.pageTitle)),
+                Expanded(
+                  child: Text(
+                    loc.discoverTitle,
+                    style: AppTextStyles.pageTitle,
+                  ),
+                ),
                 if (_view == _DiscoverView.map)
                   IconButton(
                     tooltip: loc.genderFilterTooltip,
                     onPressed: () => _showGenderFilterSheet(context),
-                    icon: const Icon(Icons.filter_alt_outlined, color: AppColors.textSecondary),
+                    icon: const Icon(
+                      Icons.filter_alt_outlined,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 if (_view == _DiscoverView.places && hasBusinessAccess) ...[
                   IconButton(
@@ -209,19 +238,29 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                       context,
                       MaterialPageRoute(builder: (_) => const MyVenuesScreen()),
                     ),
-                    icon: const Icon(Icons.storefront_outlined, color: AppColors.textSecondary),
+                    icon: const Icon(
+                      Icons.storefront_outlined,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
-                  if (ref.watch(featureFlagProvider(FeatureFlag.venueSubmission)))
+                  if (ref.watch(
+                    featureFlagProvider(FeatureFlag.venueSubmission),
+                  ))
                     IconButton(
                       tooltip: loc.venueAddButtonTooltip,
                       onPressed: () async {
                         if (!context.mounted) return;
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const CreateVenueScreen()),
+                          MaterialPageRoute(
+                            builder: (_) => const CreateVenueScreen(),
+                          ),
                         );
                       },
-                      icon: const Icon(Icons.add_circle_outline, color: AppColors.textSecondary),
+                      icon: const Icon(
+                        Icons.add_circle_outline,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                 ],
                 // PinBox is the one filter whose manage icon is NOT
@@ -247,13 +286,27 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                 // everyone, "publish a listing" is not — so they are
                 // gated separately now.
                 if (_view == _DiscoverView.offers &&
-                    (hasBusinessAccess || listingFilter == ListingFilter.pinbox)) ...[
-                  _buildListingManageIcon(loc, listingFilter, myEventVenues, myPinboxVenues),
-                  if (hasBusinessAccess && ref.watch(featureFlagProvider(FeatureFlag.offers)))
+                    (hasBusinessAccess ||
+                        listingFilter == ListingFilter.pinbox)) ...[
+                  _buildListingManageIcon(
+                    loc,
+                    listingFilter,
+                    myEventVenues,
+                    myPinboxVenues,
+                  ),
+                  if (hasBusinessAccess &&
+                      ref.watch(featureFlagProvider(FeatureFlag.offers)))
                     IconButton(
                       tooltip: loc.offerAddButtonTooltip,
-                      onPressed: () => _openCreateOptionsSheet(loc, myEventVenues, myPinboxVenues),
-                      icon: const Icon(Icons.add_circle_outline, color: AppColors.textSecondary),
+                      onPressed: () => _openCreateOptionsSheet(
+                        loc,
+                        myEventVenues,
+                        myPinboxVenues,
+                      ),
+                      icon: const Icon(
+                        Icons.add_circle_outline,
+                        color: AppColors.textSecondary,
+                      ),
                     ),
                 ],
               ],
@@ -286,7 +339,9 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                 // pinned below the list instead of over a GoogleMap.
                 : Stack(
                     children: [
-                      _view == _DiscoverView.places ? const _VenueListView() : const OfferListView(),
+                      _view == _DiscoverView.places
+                          ? const _VenueListView()
+                          : const OfferListView(),
                       Positioned(
                         left: 0,
                         right: 0,
@@ -296,7 +351,12 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                           child: _RadiusOptionsRow(
                             onSelected: (newSelection) async {
                               if (!context.mounted) return;
-                              ref.read(selectedDiscoverModeProvider.notifier).state = newSelection;
+                              ref
+                                      .read(
+                                        selectedDiscoverModeProvider.notifier,
+                                      )
+                                      .state =
+                                  newSelection;
                             },
                           ),
                         ),
@@ -332,7 +392,10 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
       return IconButton(
         tooltip: loc.eventMyEventsTooltip,
         onPressed: () => _openMyEvents(myEventVenues, loc),
-        icon: const Icon(Icons.celebration_outlined, color: AppColors.textSecondary),
+        icon: const Icon(
+          Icons.celebration_outlined,
+          color: AppColors.textSecondary,
+        ),
       );
     }
     if (listingFilter == ListingFilter.pinbox) {
@@ -340,9 +403,14 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
         tooltip: loc.pinboxMyBoxesTooltip,
         onPressed: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => PinBoxMyBoxesScreen(eligibleVenues: myPinboxVenues)),
+          MaterialPageRoute(
+            builder: (_) => PinBoxMyBoxesScreen(eligibleVenues: myPinboxVenues),
+          ),
         ),
-        icon: const Icon(Icons.inventory_2_outlined, color: AppColors.textSecondary),
+        icon: const Icon(
+          Icons.inventory_2_outlined,
+          color: AppColors.textSecondary,
+        ),
       );
     }
     return IconButton(
@@ -351,24 +419,43 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
         context,
         MaterialPageRoute(builder: (_) => const MyOffersScreen()),
       ),
-      icon: const Icon(Icons.local_offer_outlined, color: AppColors.textSecondary),
+      icon: const Icon(
+        Icons.local_offer_outlined,
+        color: AppColors.textSecondary,
+      ),
     );
   }
 
-  Future<void> _openMyEvents(List<Venue> eligibleVenues, AppLocalizations loc) async {
+  Future<void> _openMyEvents(
+    List<Venue> eligibleVenues,
+    AppLocalizations loc,
+  ) async {
     if (eligibleVenues.length == 1) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => MyVenueEventsScreen(venue: eligibleVenues.first)));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => MyVenueEventsScreen(venue: eligibleVenues.first),
+        ),
+      );
       return;
     }
     final selected = await showModalBottomSheet<Venue>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (_) => VenuePickerSheet(venues: eligibleVenues, label: loc.eventVenuePickerLabel),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => VenuePickerSheet(
+        venues: eligibleVenues,
+        label: loc.eventVenuePickerLabel,
+      ),
     );
     if (selected == null || !context.mounted) return;
-    Navigator.push(context, MaterialPageRoute(builder: (_) => MyVenueEventsScreen(venue: selected)));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => MyVenueEventsScreen(venue: selected)),
+    );
   }
 
   /// The Fürsətlər "+" chooser — Kompaniya yarat / Tədbir yarat / Qutu
@@ -378,32 +465,68 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
   /// category-eligible venue for that listing type, same "hide, don't
   /// disable" convention as everywhere else category-gating shows up in
   /// this app.
-  Future<void> _openCreateOptionsSheet(AppLocalizations loc, List<Venue> myEventVenues, List<Venue> myPinboxVenues) async {
+  Future<void> _openCreateOptionsSheet(
+    AppLocalizations loc,
+    List<Venue> myEventVenues,
+    List<Venue> myPinboxVenues,
+  ) async {
     final action = await showModalBottomSheet<_CreateListingAction>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.local_offer_outlined, color: ChatLightColors.ink),
-              title: Text(loc.createOfferMenuOption, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
-              onTap: () => Navigator.pop(sheetContext, _CreateListingAction.offer),
+              leading: const Icon(
+                Icons.local_offer_outlined,
+                color: ChatLightColors.ink,
+              ),
+              title: Text(
+                loc.createOfferMenuOption,
+                style: const TextStyle(
+                  fontSize: 15,
+                  color: ChatLightColors.ink,
+                ),
+              ),
+              onTap: () =>
+                  Navigator.pop(sheetContext, _CreateListingAction.offer),
             ),
             if (myEventVenues.isNotEmpty)
               ListTile(
-                leading: const Icon(Icons.celebration_outlined, color: ChatLightColors.ink),
-                title: Text(loc.createEventMenuOption, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
-                onTap: () => Navigator.pop(sheetContext, _CreateListingAction.event),
+                leading: const Icon(
+                  Icons.celebration_outlined,
+                  color: ChatLightColors.ink,
+                ),
+                title: Text(
+                  loc.createEventMenuOption,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: ChatLightColors.ink,
+                  ),
+                ),
+                onTap: () =>
+                    Navigator.pop(sheetContext, _CreateListingAction.event),
               ),
             if (myPinboxVenues.isNotEmpty)
               ListTile(
-                leading: const Icon(Icons.inventory_2_outlined, color: ChatLightColors.ink),
-                title: Text(loc.createPinboxMenuOption, style: const TextStyle(fontSize: 15, color: ChatLightColors.ink)),
-                onTap: () => Navigator.pop(sheetContext, _CreateListingAction.pinbox),
+                leading: const Icon(
+                  Icons.inventory_2_outlined,
+                  color: ChatLightColors.ink,
+                ),
+                title: Text(
+                  loc.createPinboxMenuOption,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: ChatLightColors.ink,
+                  ),
+                ),
+                onTap: () =>
+                    Navigator.pop(sheetContext, _CreateListingAction.pinbox),
               ),
             const SizedBox(height: 8),
           ],
@@ -414,7 +537,10 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
 
     switch (action) {
       case _CreateListingAction.offer:
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const CreateOfferScreen()));
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const CreateOfferScreen()),
+        );
       case _CreateListingAction.event:
         await _openCreateEvent(myEventVenues, loc);
       case _CreateListingAction.pinbox:
@@ -425,36 +551,68 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
   /// Same 1-venue-direct/multi-venue-picker routing as
   /// [_openCreateEvent], landing on [CreatePinBoxScreen] (PinBox Faza 5)
   /// instead of [CreateEventScreen].
-  Future<void> _openCreatePinBox(List<Venue> eligibleVenues, AppLocalizations loc) async {
+  Future<void> _openCreatePinBox(
+    List<Venue> eligibleVenues,
+    AppLocalizations loc,
+  ) async {
     if (eligibleVenues.length == 1) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => CreatePinBoxScreen(venue: eligibleVenues.first)));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CreatePinBoxScreen(venue: eligibleVenues.first),
+        ),
+      );
       return;
     }
     final selected = await showModalBottomSheet<Venue>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (_) => VenuePickerSheet(venues: eligibleVenues, label: loc.eventVenuePickerLabel),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => VenuePickerSheet(
+        venues: eligibleVenues,
+        label: loc.eventVenuePickerLabel,
+      ),
     );
     if (selected == null || !context.mounted) return;
-    Navigator.push(context, MaterialPageRoute(builder: (_) => CreatePinBoxScreen(venue: selected)));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => CreatePinBoxScreen(venue: selected)),
+    );
   }
 
-  Future<void> _openCreateEvent(List<Venue> eligibleVenues, AppLocalizations loc) async {
+  Future<void> _openCreateEvent(
+    List<Venue> eligibleVenues,
+    AppLocalizations loc,
+  ) async {
     if (eligibleVenues.length == 1) {
-      Navigator.push(context, MaterialPageRoute(builder: (_) => CreateEventScreen(venue: eligibleVenues.first)));
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => CreateEventScreen(venue: eligibleVenues.first),
+        ),
+      );
       return;
     }
     final selected = await showModalBottomSheet<Venue>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      builder: (_) => VenuePickerSheet(venues: eligibleVenues, label: loc.eventVenuePickerLabel),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (_) => VenuePickerSheet(
+        venues: eligibleVenues,
+        label: loc.eventVenuePickerLabel,
+      ),
     );
     if (selected == null || !context.mounted) return;
-    Navigator.push(context, MaterialPageRoute(builder: (_) => CreateEventScreen(venue: selected)));
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => CreateEventScreen(venue: selected)),
+    );
   }
 
   Widget _buildError(BuildContext context, Object error) {
@@ -476,7 +634,8 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
             title: loc.locationPermissionDeniedTitle,
             subtitle: loc.locationPermissionDeniedSubtitle,
             actionLabel: loc.actionRetry,
-            onAction: () => ref.read(locationControllerProvider.notifier).refresh(),
+            onAction: () =>
+                ref.read(locationControllerProvider.notifier).refresh(),
           );
         case LocationFailure.permissionDeniedForever:
           return _StatusMessage(
@@ -502,7 +661,9 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
     final loc = AppLocalizations.of(context);
     final center = LatLng(position.latitude, position.longitude);
     final selection = ref.watch(selectedDiscoverModeProvider);
-    final mapLocationSettings = ref.watch(mapLocationSettingsProvider).valueOrNull ?? const MapLocationSettings();
+    final mapLocationSettings =
+        ref.watch(mapLocationSettingsProvider).valueOrNull ??
+        const MapLocationSettings();
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
     final myPhotoUrl = ref.watch(profileControllerProvider).photoUrl;
 
@@ -510,7 +671,8 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
       Marker(
         markerId: const MarkerId('me'),
         position: center,
-        icon: (myUid == null ? null : _avatarMarker(myUid, myPhotoUrl)) ??
+        icon:
+            (myUid == null ? null : _avatarMarker(myUid, myPhotoUrl)) ??
             BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
         anchor: const Offset(0.5, 1),
         infoWindow: InfoWindow(title: loc.meMarkerLabel),
@@ -519,7 +681,9 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
         Marker(
           markerId: MarkerId(u.id),
           position: LatLng(u.lat, u.lng),
-          icon: _avatarMarkerFor(u) ?? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
+          icon:
+              _avatarMarkerFor(u) ??
+              BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure),
           anchor: const Offset(0.5, 1),
           onTap: () => _showUserCard(context, position, u),
         ),
@@ -534,7 +698,10 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
     return Stack(
       children: [
         GoogleMap(
-          initialCameraPosition: CameraPosition(target: center, zoom: initialZoom),
+          initialCameraPosition: CameraPosition(
+            target: center,
+            zoom: initialZoom,
+          ),
           mapType: toGoogleMapType(mapLocationSettings.mapType),
           style: kDiscoverMapStyle,
           onMapCreated: (controller) => _mapController = controller,
@@ -580,7 +747,10 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                     foregroundColor: AppColors.primary,
                     onPressed: () {
                       _mapController?.animateCamera(
-                        CameraUpdate.newLatLngZoom(center, _zoomForRadiusKm(selection.km ?? 1.0)),
+                        CameraUpdate.newLatLngZoom(
+                          center,
+                          _zoomForRadiusKm(selection.km ?? 1.0),
+                        ),
                       );
                     },
                     child: const Icon(Icons.my_location),
@@ -617,7 +787,9 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
 
     switch (selection.mode) {
       case DiscoverRadiusMode.distance:
-        _mapController?.animateCamera(CameraUpdate.newLatLngZoom(center, _zoomForRadiusKm(selection.km!)));
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(center, _zoomForRadiusKm(selection.km!)),
+        );
       case DiscoverRadiusMode.country:
         final country = ref.read(profileControllerProvider).country;
         final bounds = country == null ? null : kCountryBounds[country];
@@ -632,15 +804,23 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
           ),
         );
       case DiscoverRadiusMode.world:
-        _mapController?.animateCamera(CameraUpdate.newLatLngZoom(const LatLng(20, 0), 1.5));
+        _mapController?.animateCamera(
+          CameraUpdate.newLatLngZoom(const LatLng(20, 0), 1.5),
+        );
     }
   }
 
-  void _showUserCard(BuildContext context, Position myPosition, NearbyUser user) {
+  void _showUserCard(
+    BuildContext context,
+    Position myPosition,
+    NearbyUser user,
+  ) {
     final loc = AppLocalizations.of(context);
     final displayName = user.name.isEmpty ? loc.defaultUserName : user.name;
     final distanceMeters = user.distanceMeters;
-    final distanceUnit = ref.read(mapLocationSettingsProvider).valueOrNull?.distanceUnit ?? DistanceUnit.km;
+    final distanceUnit =
+        ref.read(mapLocationSettingsProvider).valueOrNull?.distanceUnit ??
+        DistanceUnit.km;
 
     showModalBottomSheet(
       context: context,
@@ -656,7 +836,7 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                GestureDetector(
+                Pressable(
                   onTap: () {
                     Navigator.pop(sheetContext);
                     Navigator.push(
@@ -679,11 +859,18 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                           shape: BoxShape.circle,
                           color: AppColors.card,
                           image: user.photoUrl != null
-                              ? DecorationImage(image: NetworkImage(user.photoUrl!), fit: BoxFit.cover)
+                              ? DecorationImage(
+                                  image: NetworkImage(user.photoUrl!),
+                                  fit: BoxFit.cover,
+                                )
                               : null,
                         ),
                         child: user.photoUrl == null
-                            ? const Icon(Icons.person_outline, color: AppColors.textSecondary, size: 30)
+                            ? const Icon(
+                                Icons.person_outline,
+                                color: AppColors.textSecondary,
+                                size: 30,
+                              )
                             : null,
                       ),
                       const SizedBox(width: 16),
@@ -696,7 +883,9 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                                 Flexible(
                                   child: Text(
                                     displayName,
-                                    style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700),
+                                    style: AppTextStyles.cardTitle.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -705,14 +894,21 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                                   Container(
                                     width: 8,
                                     height: 8,
-                                    decoration: const BoxDecoration(shape: BoxShape.circle, color: AppColors.primary),
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppColors.primary,
+                                    ),
                                   ),
                                 ],
                               ],
                             ),
-                            if (user.username != null && user.username!.isNotEmpty) ...[
+                            if (user.username != null &&
+                                user.username!.isNotEmpty) ...[
                               const SizedBox(height: 2),
-                              Text('@${user.username}', style: AppTextStyles.caption),
+                              Text(
+                                '@${user.username}',
+                                style: AppTextStyles.caption,
+                              ),
                             ],
                             const SizedBox(height: 5),
                             Text(
@@ -744,7 +940,11 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                             ),
                           );
                         },
-                        icon: const Icon(Icons.chat_bubble_outline, size: 18, color: AppColors.onAccent),
+                        icon: const Icon(
+                          Icons.chat_bubble_outline,
+                          size: 18,
+                          color: AppColors.onAccent,
+                        ),
                         label: Text(loc.startChatButton),
                       ),
                     ),
@@ -766,7 +966,9 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) {
         return SafeArea(
           top: false,
@@ -779,7 +981,12 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: Text(loc.genderFilterSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+                    child: Text(
+                      loc.genderFilterSheetTitle,
+                      style: AppTextStyles.cardTitle.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -794,16 +1001,27 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                   ListTile(
                     title: Row(
                       children: [
-                        Text(option.$2, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
+                        Text(
+                          option.$2,
+                          style: AppTextStyles.body.copyWith(fontSize: 15.5),
+                        ),
                         if (option.$3 && !isPremium) ...[
                           const SizedBox(width: 6),
-                          const Icon(Icons.workspace_premium_outlined, size: 14, color: AppColors.gold),
+                          const Icon(
+                            Icons.workspace_premium_outlined,
+                            size: 14,
+                            color: AppColors.gold,
+                          ),
                         ],
                       ],
                     ),
                     leading: Icon(
-                      option.$1 == current ? Icons.radio_button_checked : Icons.radio_button_off,
-                      color: option.$1 == current ? AppColors.primary : AppColors.textMuted,
+                      option.$1 == current
+                          ? Icons.radio_button_checked
+                          : Icons.radio_button_off,
+                      color: option.$1 == current
+                          ? AppColors.primary
+                          : AppColors.textMuted,
                     ),
                     onTap: () {
                       if (option.$3 && !isPremium) {
@@ -814,7 +1032,8 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
                         );
                         return;
                       }
-                      ref.read(selectedGenderFilterProvider.notifier).state = option.$1;
+                      ref.read(selectedGenderFilterProvider.notifier).state =
+                          option.$1;
                       Navigator.pop(sheetContext);
                     },
                   ),
@@ -828,7 +1047,9 @@ class _DiscoverTabState extends ConsumerState<DiscoverTab> with WidgetsBindingOb
 }
 
 String _formatRadius(double km) {
-  return km >= 1 ? '${km.toStringAsFixed(0)} km' : '${(km * 1000).toStringAsFixed(0)} m';
+  return km >= 1
+      ? '${km.toStringAsFixed(0)} km'
+      : '${(km * 1000).toStringAsFixed(0)} m';
 }
 
 class _ViewSwitcher extends StatelessWidget {
@@ -890,10 +1111,12 @@ class _SwitcherOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final contentColor = selected ? AppColors.onAccent : AppColors.textSecondary;
+    final contentColor = selected
+        ? AppColors.onAccent
+        : AppColors.textSecondary;
 
     return Expanded(
-      child: GestureDetector(
+      child: Pressable(
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 180),
@@ -953,7 +1176,8 @@ class _RadiusOptionsRow extends ConsumerWidget {
     // looking unselected, which read as "the tap did nothing" even
     // though the radius had actually changed underneath.
     final isDefaultSelection =
-        selection.mode == DiscoverRadiusMode.distance && kDefaultRadiusOptionsKm.contains(selection.km);
+        selection.mode == DiscoverRadiusMode.distance &&
+        kDefaultRadiusOptionsKm.contains(selection.km);
     final moreButtonLabel = isDefaultSelection
         ? null
         : switch (selection.mode) {
@@ -976,10 +1200,14 @@ class _RadiusOptionsRow extends ConsumerWidget {
             Expanded(
               child: _RadiusOption(
                 km: kDefaultRadiusOptionsKm[i],
-                selected: selection.mode == DiscoverRadiusMode.distance && selection.km == kDefaultRadiusOptionsKm[i],
+                selected:
+                    selection.mode == DiscoverRadiusMode.distance &&
+                    selection.km == kDefaultRadiusOptionsKm[i],
                 locked: false,
                 count: counts[kDefaultRadiusOptionsKm[i]] ?? 0,
-                onTap: () => onSelected(DiscoverRadiusSelection.distance(kDefaultRadiusOptionsKm[i])),
+                onTap: () => onSelected(
+                  DiscoverRadiusSelection.distance(kDefaultRadiusOptionsKm[i]),
+                ),
               ),
             ),
           ],
@@ -997,11 +1225,16 @@ class _RadiusOptionsRow extends ConsumerWidget {
   }
 }
 
-void _showMoreRadiusSheet(BuildContext context, ValueChanged<DiscoverRadiusSelection> onSelected) {
+void _showMoreRadiusSheet(
+  BuildContext context,
+  ValueChanged<DiscoverRadiusSelection> onSelected,
+) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.surface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     // Soft slide-up/fade — showModalBottomSheet's default transition —
     // is exactly the "yumşaq slide/fade animasiya" the spec asks for,
     // so no custom transition needed here.
@@ -1020,14 +1253,18 @@ class _MoreRadiusButton extends StatelessWidget {
   final String? label;
   final VoidCallback onTap;
 
-  const _MoreRadiusButton({required this.selected, required this.label, required this.onTap});
+  const _MoreRadiusButton({
+    required this.selected,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final textColor = selected ? AppColors.onAccent : AppColors.textSecondary;
 
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -1038,7 +1275,9 @@ class _MoreRadiusButton extends StatelessWidget {
         decoration: BoxDecoration(
           color: selected ? AppColors.primary : AppColors.card,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: selected ? Colors.transparent : AppColors.divider),
+          border: Border.all(
+            color: selected ? Colors.transparent : AppColors.divider,
+          ),
         ),
         child: Center(
           child: FittedBox(
@@ -1048,10 +1287,17 @@ class _MoreRadiusButton extends StatelessWidget {
               children: [
                 Text(
                   label ?? loc.radiusMoreButtonLabel,
-                  style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700, color: textColor),
+                  style: AppTextStyles.caption.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: textColor,
+                  ),
                 ),
                 const SizedBox(width: 2),
-                Icon(Icons.keyboard_arrow_down_outlined, size: 16, color: textColor),
+                Icon(
+                  Icons.keyboard_arrow_down_outlined,
+                  size: 16,
+                  color: textColor,
+                ),
               ],
             ),
           ),
@@ -1101,10 +1347,18 @@ class _MoreRadiusPanel extends ConsumerWidget {
                 width: 40,
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(color: AppColors.divider, borderRadius: BorderRadius.circular(2)),
+                decoration: BoxDecoration(
+                  color: AppColors.divider,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-            Text(loc.radiusMorePanelTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              loc.radiusMorePanelTitle,
+              style: AppTextStyles.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -1113,12 +1367,17 @@ class _MoreRadiusPanel extends ConsumerWidget {
                   Expanded(
                     child: _RadiusOption(
                       km: kExtraRadiusOptionsKm[i],
-                      selected: selection.mode == DiscoverRadiusMode.distance &&
+                      selected:
+                          selection.mode == DiscoverRadiusMode.distance &&
                           selection.km == kExtraRadiusOptionsKm[i],
                       locked: false,
                       count: counts[kExtraRadiusOptionsKm[i]] ?? 0,
                       onTap: () {
-                        onSelected(DiscoverRadiusSelection.distance(kExtraRadiusOptionsKm[i]));
+                        onSelected(
+                          DiscoverRadiusSelection.distance(
+                            kExtraRadiusOptionsKm[i],
+                          ),
+                        );
                         Navigator.pop(context);
                       },
                     ),
@@ -1142,8 +1401,15 @@ class _MoreRadiusPanel extends ConsumerWidget {
                       Navigator.pop(context);
                     },
                     child: countryFlag != null
-                        ? Text(countryFlag, style: const TextStyle(fontSize: 20))
-                        : const Icon(Icons.flag_outlined, color: AppColors.textSecondary, size: 20),
+                        ? Text(
+                            countryFlag,
+                            style: const TextStyle(fontSize: 20),
+                          )
+                        : const Icon(
+                            Icons.flag_outlined,
+                            color: AppColors.textSecondary,
+                            size: 20,
+                          ),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1159,7 +1425,11 @@ class _MoreRadiusPanel extends ConsumerWidget {
                       onSelected(const DiscoverRadiusSelection.world());
                       Navigator.pop(context);
                     },
-                    child: const Icon(Icons.public_outlined, color: AppColors.textSecondary, size: 20),
+                    child: const Icon(
+                      Icons.public_outlined,
+                      color: AppColors.textSecondary,
+                      size: 20,
+                    ),
                   ),
                 ),
               ],
@@ -1189,7 +1459,7 @@ class _SpecialRadiusOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         width: double.infinity,
@@ -1200,7 +1470,9 @@ class _SpecialRadiusOption extends StatelessWidget {
           border: Border.all(
             color: selected
                 ? Colors.transparent
-                : (locked ? AppColors.gold.withValues(alpha: 0.35) : AppColors.divider),
+                : (locked
+                      ? AppColors.gold.withValues(alpha: 0.35)
+                      : AppColors.divider),
           ),
         ),
         child: Stack(
@@ -1211,7 +1483,11 @@ class _SpecialRadiusOption extends StatelessWidget {
               const Positioned(
                 top: 4,
                 right: 4,
-                child: Icon(Icons.workspace_premium_outlined, size: 12, color: AppColors.gold),
+                child: Icon(
+                  Icons.workspace_premium_outlined,
+                  size: 12,
+                  color: AppColors.gold,
+                ),
               ),
           ],
         ),
@@ -1237,10 +1513,14 @@ class _RadiusOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelColor = selected ? AppColors.onAccent : (locked ? AppColors.white : AppColors.textSecondary);
-    final iconColor = selected ? AppColors.onAccent.withValues(alpha: 0.75) : AppColors.textMuted;
+    final labelColor = selected
+        ? AppColors.onAccent
+        : (locked ? AppColors.white : AppColors.textSecondary);
+    final iconColor = selected
+        ? AppColors.onAccent.withValues(alpha: 0.75)
+        : AppColors.textMuted;
 
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -1254,7 +1534,9 @@ class _RadiusOption extends StatelessWidget {
           border: Border.all(
             color: selected
                 ? Colors.transparent
-                : (locked ? AppColors.gold.withValues(alpha: 0.35) : AppColors.divider),
+                : (locked
+                      ? AppColors.gold.withValues(alpha: 0.35)
+                      : AppColors.divider),
           ),
         ),
         child: Column(
@@ -1267,12 +1549,19 @@ class _RadiusOption extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (locked) ...[
-                    const Icon(Icons.workspace_premium_outlined, size: 12, color: AppColors.gold),
+                    const Icon(
+                      Icons.workspace_premium_outlined,
+                      size: 12,
+                      color: AppColors.gold,
+                    ),
                     const SizedBox(width: 4),
                   ],
                   Text(
                     _formatRadius(km),
-                    style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w700, color: labelColor),
+                    style: AppTextStyles.caption.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: labelColor,
+                    ),
                   ),
                 ],
               ),
@@ -1366,7 +1655,11 @@ class _StatusMessage extends StatelessWidget {
                 shape: BoxShape.circle,
                 color: AppColors.surface,
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20, spreadRadius: 0),
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.2),
+                    blurRadius: 20,
+                    spreadRadius: 0,
+                  ),
                 ],
               ),
               child: showSpinner
@@ -1395,7 +1688,9 @@ class _StatusMessage extends StatelessWidget {
               const SizedBox(height: 22),
               ElevatedButton(
                 onPressed: onAction,
-                style: ElevatedButton.styleFrom(minimumSize: const Size(220, 50)),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(220, 50),
+                ),
                 child: Text(actionLabel!),
               ),
             ],
@@ -1420,7 +1715,11 @@ class _StatusMessage extends StatelessWidget {
 /// 'i' — same fix, same reasoning as `chats_tab.dart`'s/`offer_list_view.dart`'s
 /// own private `_azSearchKey` (duplicated rather than shared).
 String _azVenueSearchKey(String value) {
-  return value.replaceAll('İ', 'i').replaceAll('I', 'i').replaceAll('ı', 'i').toLowerCase();
+  return value
+      .replaceAll('İ', 'i')
+      .replaceAll('I', 'i')
+      .replaceAll('ı', 'i')
+      .toLowerCase();
 }
 
 class _VenueListView extends ConsumerStatefulWidget {
@@ -1446,7 +1745,9 @@ class _VenueListViewState extends ConsumerState<_VenueListView> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (_) => VenueFilterSheet(selected: selected),
     );
     if (!mounted) return;
@@ -1462,14 +1763,19 @@ class _VenueListViewState extends ConsumerState<_VenueListView> {
     }
   }
 
-  List<VenueWithDistance> _visible(List<VenueWithDistance> all, AppLocalizations loc) {
+  List<VenueWithDistance> _visible(
+    List<VenueWithDistance> all,
+    AppLocalizations loc,
+  ) {
     if (_query.isEmpty) return all;
     final q = _azVenueSearchKey(_query);
     return all.where((item) {
       final venue = item.venue;
       return _azVenueSearchKey(venue.name).contains(q) ||
           _azVenueSearchKey(venue.address).contains(q) ||
-          _azVenueSearchKey(venueCategoryLabel(loc, venue.category)).contains(q);
+          _azVenueSearchKey(
+            venueCategoryLabel(loc, venue.category),
+          ).contains(q);
     }).toList();
   }
 
@@ -1477,7 +1783,9 @@ class _VenueListViewState extends ConsumerState<_VenueListView> {
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
     final venuesAsync = ref.watch(nearbyVenuesProvider);
-    final distanceUnit = ref.watch(mapLocationSettingsProvider).valueOrNull?.distanceUnit ?? DistanceUnit.km;
+    final distanceUnit =
+        ref.watch(mapLocationSettingsProvider).valueOrNull?.distanceUnit ??
+        DistanceUnit.km;
     final selectedCategory = ref.watch(selectedVenueCategoryFilterProvider);
 
     return Stack(
@@ -1497,7 +1805,10 @@ class _VenueListViewState extends ConsumerState<_VenueListView> {
               Expanded(
                 child: venuesAsync.when(
                   loading: () => const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.4,
+                      color: AppColors.primary,
+                    ),
                   ),
                   error: (error, _) => _VenueLightStatusMessage(
                     icon: Icons.error_outline,
@@ -1522,7 +1833,11 @@ class _VenueListViewState extends ConsumerState<_VenueListView> {
                       padding: const EdgeInsets.fromLTRB(20, 4, 20, 90),
                       itemCount: visible.length,
                       separatorBuilder: (_, _) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) => _VenueCard(item: visible[index], loc: loc, distanceUnit: distanceUnit),
+                      itemBuilder: (context, index) => _VenueCard(
+                        item: visible[index],
+                        loc: loc,
+                        distanceUnit: distanceUnit,
+                      ),
                     );
                   },
                 ),
@@ -1556,20 +1871,37 @@ class _VenueSearchField extends StatelessWidget {
       children: [
         Expanded(
           child: Container(
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+            ),
             child: TextField(
               controller: controller,
               onChanged: onChanged,
-              style: const TextStyle(fontSize: 14.5, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 14.5,
+                color: ChatLightColors.ink,
+              ),
               cursorColor: AppColors.primary,
               decoration: InputDecoration(
                 hintText: loc.venuesSearchHint,
-                hintStyle: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 14.5),
-                prefixIcon: const Icon(Icons.search, color: ChatLightColors.inkFaint, size: 21),
+                hintStyle: const TextStyle(
+                  color: ChatLightColors.inkFaint,
+                  fontSize: 14.5,
+                ),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: ChatLightColors.inkFaint,
+                  size: 21,
+                ),
                 suffixIcon: controller.text.isEmpty
                     ? null
                     : IconButton(
-                        icon: const Icon(Icons.close, color: ChatLightColors.inkFaint, size: 18),
+                        icon: const Icon(
+                          Icons.close,
+                          color: ChatLightColors.inkFaint,
+                          size: 18,
+                        ),
                         onPressed: () {
                           controller.clear();
                           onChanged('');
@@ -1597,7 +1929,9 @@ class _VenueSearchField extends StatelessWidget {
               child: Icon(
                 Icons.tune_rounded,
                 size: 20,
-                color: filterActive ? AppColors.primary : ChatLightColors.inkSoft,
+                color: filterActive
+                    ? AppColors.primary
+                    : ChatLightColors.inkSoft,
               ),
             ),
           ),
@@ -1617,12 +1951,17 @@ class _VenueCard extends ConsumerWidget {
   final AppLocalizations loc;
   final DistanceUnit distanceUnit;
 
-  const _VenueCard({required this.item, required this.loc, required this.distanceUnit});
+  const _VenueCard({
+    required this.item,
+    required this.loc,
+    required this.distanceUnit,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final venue = item.venue;
-    final isLiked = ref.watch(isVenueLikedByMeProvider(venue.id)).valueOrNull ?? false;
+    final isLiked =
+        ref.watch(isVenueLikedByMeProvider(venue.id)).valueOrNull ?? false;
     final currentUid = fb.FirebaseAuth.instance.currentUser?.uid;
     final isOwner = currentUid != null && venue.isOwnedBy(currentUid);
 
@@ -1635,189 +1974,288 @@ class _VenueCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(22),
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => VenueProfileScreen(venueId: venue.id)),
+          MaterialPageRoute(
+            builder: (_) => VenueProfileScreen(venueId: venue.id),
+          ),
         ),
         child: Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4)),
-          BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 30, offset: const Offset(0, 10)),
-        ],
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Stack(
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.06),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(12),
+          child: Stack(
             children: [
-              Stack(
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: SizedBox(
-                      width: 76,
-                      height: 76,
-                      child: venue.photoUrl != null
-                          ? AppImage(venue.photoUrl!, thumbnail: true, fit: BoxFit.cover)
-                          : Container(
-                              color: ChatLightColors.cardSurface,
-                              alignment: Alignment.center,
-                              child: Icon(venueCategoryIcon(venue.category), color: ChatLightColors.inkSoft, size: 28),
-                            ),
-                    ),
-                  ),
-                  Positioned(
-                    left: 5,
-                    bottom: 5,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2.5),
-                      decoration: BoxDecoration(
-                        color: ChatLightColors.contourLine.withValues(alpha: 0.72),
-                        borderRadius: BorderRadius.circular(8),
+                  Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: SizedBox(
+                          width: 76,
+                          height: 76,
+                          child: venue.photoUrl != null
+                              ? AppImage(
+                                  venue.photoUrl!,
+                                  thumbnail: true,
+                                  fit: BoxFit.cover,
+                                )
+                              : Container(
+                                  color: ChatLightColors.cardSurface,
+                                  alignment: Alignment.center,
+                                  child: Icon(
+                                    venueCategoryIcon(venue.category),
+                                    color: ChatLightColors.inkSoft,
+                                    size: 28,
+                                  ),
+                                ),
+                        ),
                       ),
-                      child: Text(
-                        formatDistance(loc, item.distanceMeters, distanceUnit),
-                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700),
+                      Positioned(
+                        left: 5,
+                        bottom: 5,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: ChatLightColors.contourLine.withValues(
+                              alpha: 0.72,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            formatDistance(
+                              loc,
+                              item.distanceMeters,
+                              distanceUnit,
+                            ),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 26, top: 1),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  venue.name,
+                                  style: const TextStyle(
+                                    fontSize: 15.5,
+                                    fontWeight: FontWeight.w700,
+                                    color: ChatLightColors.ink,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (venue.verified) ...[
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.verified,
+                                  size: 15,
+                                  color: AppColors.primary,
+                                ),
+                              ],
+                              if (venue.isPremium) ...[
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.workspace_premium_rounded,
+                                  size: 15,
+                                  color: AppColors.gold,
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Icon(
+                                venueCategoryIcon(venue.category),
+                                size: 13,
+                                color: ChatLightColors.inkSoft,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  venueCategoryLabel(loc, venue.category),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: ChatLightColors.inkSoft,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              VenueRatingBadge(
+                                rating: venue.rating,
+                                starSize: 11,
+                                textStyle: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: ChatLightColors.inkSoft,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 7),
+                          Row(
+                            children: [
+                              _OpenStatusBadge(
+                                isOpen: isVenueOpenNow(
+                                  venue.openingHours,
+                                  DateTime.now(),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              if (!venue.openingHours.is24h)
+                                Text(
+                                  _hoursSummary(venue.openingHours),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: ChatLightColors.inkFaint,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                          if (venue.address.isNotEmpty) ...[
+                            const SizedBox(height: 7),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.location_on_outlined,
+                                  size: 12.5,
+                                  color: ChatLightColors.inkFaint,
+                                ),
+                                const SizedBox(width: 4),
+                                Expanded(
+                                  child: Text(
+                                    venue.address,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: ChatLightColors.inkSoft,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                          VenueEventBanner(venueId: venue.id),
+                        ],
                       ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 26, top: 1),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              venue.name,
-                              style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (venue.verified) ...[
-                            const SizedBox(width: 4),
-                            const Icon(Icons.verified, size: 15, color: AppColors.primary),
-                          ],
-                          if (venue.isPremium) ...[
-                            const SizedBox(width: 4),
-                            const Icon(Icons.workspace_premium_rounded, size: 15, color: AppColors.gold),
-                          ],
-                        ],
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Pressable(
+                  // A venue's prominence among OTHER people's votes is
+                  // governed entirely by user likes — but the owner can't
+                  // like their own venue (that would be self-inflation, the
+                  // same reason they can't check in at their own venue), so
+                  // the owner gets a premium-upsell menu here instead.
+                  onTap: isOwner
+                      ? () => _openVenuePremiumMenu(context, ref, venue)
+                      : () => ref
+                            .read(venueControllerProvider)
+                            .toggleLike(venue.id, isCurrentlyLiked: isLiked),
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: ChatLightColors.inkFaint.withValues(alpha: 0.18),
                       ),
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(venueCategoryIcon(venue.category), size: 13, color: ChatLightColors.inkSoft),
-                          const SizedBox(width: 4),
-                          Expanded(
-                            child: Text(
-                              venueCategoryLabel(loc, venue.category),
-                              style: TextStyle(fontSize: 12, color: ChatLightColors.inkSoft, fontWeight: FontWeight.w500),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          VenueRatingBadge(
-                            rating: venue.rating,
-                            starSize: 11,
-                            textStyle: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: ChatLightColors.inkSoft),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 7),
-                      Row(
-                        children: [
-                          _OpenStatusBadge(isOpen: isVenueOpenNow(venue.openingHours, DateTime.now())),
-                          const SizedBox(width: 6),
-                          if (!venue.openingHours.is24h)
-                            Text(
-                              _hoursSummary(venue.openingHours),
-                              style: TextStyle(fontSize: 12, color: ChatLightColors.inkFaint, fontFeatures: const [FontFeature.tabularFigures()]),
-                            ),
-                        ],
-                      ),
-                      if (venue.address.isNotEmpty) ...[
-                        const SizedBox(height: 7),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Icon(Icons.location_on_outlined, size: 12.5, color: ChatLightColors.inkFaint),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                venue.address,
-                                style: TextStyle(fontSize: 12, color: ChatLightColors.inkSoft),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.06),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
                         ),
                       ],
-                      VenueEventBanner(venueId: venue.id),
-                    ],
+                    ),
+                    child: isOwner
+                        ? Tooltip(
+                            message: venue.isPremium
+                                ? loc.venuePremiumMenuItemActive
+                                : loc.venuePremiumMenuItem,
+                            child: venue.isPremium
+                                ? const Icon(
+                                    Icons.workspace_premium_rounded,
+                                    size: 17,
+                                    color: AppColors.gold,
+                                  )
+                                : const Icon(
+                                    Icons.more_vert_rounded,
+                                    size: 17,
+                                    color: ChatLightColors.inkSoft,
+                                  ),
+                          )
+                        : AnimatedScale(
+                            scale: isLiked ? 1.15 : 1.0,
+                            duration: const Duration(milliseconds: 180),
+                            curve: Curves.easeOutBack,
+                            child: Icon(
+                              isLiked ? Icons.favorite : Icons.favorite_border,
+                              size: 15,
+                              color: isLiked
+                                  ? AppColors.primary
+                                  : ChatLightColors.inkSoft,
+                            ),
+                          ),
                   ),
                 ),
               ),
             ],
           ),
-          Positioned(
-            top: 0,
-            right: 0,
-            child: GestureDetector(
-              // A venue's prominence among OTHER people's votes is
-              // governed entirely by user likes — but the owner can't
-              // like their own venue (that would be self-inflation, the
-              // same reason they can't check in at their own venue), so
-              // the owner gets a premium-upsell menu here instead.
-              onTap: isOwner
-                  ? () => _openVenuePremiumMenu(context, ref, venue)
-                  : () => ref.read(venueControllerProvider).toggleLike(venue.id, isCurrentlyLiked: isLiked),
-              child: Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: ChatLightColors.inkFaint.withValues(alpha: 0.18)),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 6, offset: const Offset(0, 2))],
-                ),
-                child: isOwner
-                    ? Tooltip(
-                        message: venue.isPremium ? loc.venuePremiumMenuItemActive : loc.venuePremiumMenuItem,
-                        child: venue.isPremium
-                            ? const Icon(Icons.workspace_premium_rounded, size: 17, color: AppColors.gold)
-                            : const Icon(Icons.more_vert_rounded, size: 17, color: ChatLightColors.inkSoft),
-                      )
-                    : AnimatedScale(
-                        scale: isLiked ? 1.15 : 1.0,
-                        duration: const Duration(milliseconds: 180),
-                        curve: Curves.easeOutBack,
-                        child: Icon(
-                          isLiked ? Icons.favorite : Icons.favorite_border,
-                          size: 15,
-                          color: isLiked ? AppColors.primary : ChatLightColors.inkSoft,
-                        ),
-                      ),
-              ),
-            ),
-          ),
-        ],
-      ),
         ),
       ),
     );
   }
 
-  Future<void> _openVenuePremiumMenu(BuildContext context, WidgetRef ref, Venue venue) async {
+  Future<void> _openVenuePremiumMenu(
+    BuildContext context,
+    WidgetRef ref,
+    Venue venue,
+  ) async {
     if (venue.isPremium) {
       Navigator.push(
         context,
@@ -1853,7 +2291,9 @@ class _OpenStatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final color = isOpen ? ChatLightColors.onlineGreen : ChatLightColors.inkFaint;
+    final color = isOpen
+        ? ChatLightColors.onlineGreen
+        : ChatLightColors.inkFaint;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
@@ -1863,7 +2303,11 @@ class _OpenStatusBadge extends StatelessWidget {
       ),
       child: Text(
         isOpen ? loc.venueOpenNowLabel : loc.venueClosedNowLabel,
-        style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w700, color: color),
+        style: TextStyle(
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
     );
   }
@@ -1901,17 +2345,34 @@ class _VenueLightStatusMessage extends StatelessWidget {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 20)],
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 20,
+                  ),
+                ],
               ),
               child: Icon(icon, color: ChatLightColors.inkSoft, size: 42),
             ),
             const SizedBox(height: 24),
-            Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink)),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                color: ChatLightColors.ink,
+              ),
+            ),
             const SizedBox(height: 10),
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: ChatLightColors.inkSoft, height: 1.5),
+              style: TextStyle(
+                fontSize: 13,
+                color: ChatLightColors.inkSoft,
+                height: 1.5,
+              ),
             ),
             if (actionLabel != null) ...[
               const SizedBox(height: 22),

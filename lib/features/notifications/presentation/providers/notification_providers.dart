@@ -9,7 +9,9 @@ import '../../data/repositories/firebase_notification_repository.dart';
 import '../../domain/entities/notification.dart';
 import '../../domain/repositories/notification_repository.dart';
 
-final notificationRepositoryProvider = Provider<NotificationRepository>((ref) => FirebaseNotificationRepository());
+final notificationRepositoryProvider = Provider<NotificationRepository>(
+  (ref) => FirebaseNotificationRepository(),
+);
 
 String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
 
@@ -81,23 +83,33 @@ class NotificationListController extends StateNotifier<NotificationListState> {
       state = state.copyWith(isInitialLoading: false);
       return;
     }
-    _firstPageSub = _ref.read(notificationRepositoryProvider).watchNotifications(uid, limit: _kNotificationPageSize).listen(
-      (notifications) {
-        _firstPage = notifications;
-        state = state.copyWith(isInitialLoading: false, clearError: true);
-        _recompute();
-      },
-      onError: (Object e, StackTrace st) {
-        logError('notification_providers.NotificationListController.firstPage', e, st);
-        if (!_autoRetried) {
-          _autoRetried = true;
-          _firstPageSub?.cancel();
-          Future<void>.delayed(const Duration(milliseconds: 600), _subscribeFirstPage);
-          return;
-        }
-        state = state.copyWith(isInitialLoading: false, error: e);
-      },
-    );
+    _firstPageSub = _ref
+        .read(notificationRepositoryProvider)
+        .watchNotifications(uid, limit: _kNotificationPageSize)
+        .listen(
+          (notifications) {
+            _firstPage = notifications;
+            state = state.copyWith(isInitialLoading: false, clearError: true);
+            _recompute();
+          },
+          onError: (Object e, StackTrace st) {
+            logError(
+              'notification_providers.NotificationListController.firstPage',
+              e,
+              st,
+            );
+            if (!_autoRetried) {
+              _autoRetried = true;
+              _firstPageSub?.cancel();
+              Future<void>.delayed(
+                const Duration(milliseconds: 600),
+                _subscribeFirstPage,
+              );
+              return;
+            }
+            state = state.copyWith(isInitialLoading: false, error: e);
+          },
+        );
   }
 
   /// Re-subscribes from scratch — used by the retry action on the error
@@ -122,15 +134,26 @@ class NotificationListController extends StateNotifier<NotificationListState> {
 
   Future<void> loadMore() async {
     final uid = _currentUid();
-    if (uid == null || state.isLoadingMore || !state.hasMore || state.notifications.isEmpty) return;
+    if (uid == null ||
+        state.isLoadingMore ||
+        !state.hasMore ||
+        state.notifications.isEmpty)
+      return;
     final oldest = state.notifications.last.createdAt;
 
     state = state.copyWith(isLoadingMore: true);
     final more = await _ref
         .read(notificationRepositoryProvider)
-        .fetchMoreNotifications(uid, startAfter: oldest, limit: _kNotificationPageSize);
+        .fetchMoreNotifications(
+          uid,
+          startAfter: oldest,
+          limit: _kNotificationPageSize,
+        );
     _olderPages = [..._olderPages, ...more];
-    state = state.copyWith(isLoadingMore: false, hasMore: more.length == _kNotificationPageSize);
+    state = state.copyWith(
+      isLoadingMore: false,
+      hasMore: more.length == _kNotificationPageSize,
+    );
     _recompute();
   }
 
@@ -143,14 +166,24 @@ class NotificationListController extends StateNotifier<NotificationListState> {
     final uid = _currentUid();
     if (uid == null) return;
 
-    _firstPage = [for (final n in _firstPage) n.id == notificationId ? _asRead(n) : n];
-    _olderPages = [for (final n in _olderPages) n.id == notificationId ? _asRead(n) : n];
+    _firstPage = [
+      for (final n in _firstPage) n.id == notificationId ? _asRead(n) : n,
+    ];
+    _olderPages = [
+      for (final n in _olderPages) n.id == notificationId ? _asRead(n) : n,
+    ];
     _recompute();
 
     try {
-      await _ref.read(notificationRepositoryProvider).markRead(uid, notificationId);
+      await _ref
+          .read(notificationRepositoryProvider)
+          .markRead(uid, notificationId);
     } catch (e, st) {
-      logError('notification_providers.NotificationListController.markRead', e, st);
+      logError(
+        'notification_providers.NotificationListController.markRead',
+        e,
+        st,
+      );
     }
   }
 
@@ -161,7 +194,11 @@ class NotificationListController extends StateNotifier<NotificationListState> {
       await _ref.read(notificationRepositoryProvider).markAllRead(uid);
       return true;
     } catch (e, st) {
-      logError('notification_providers.NotificationListController.markAllRead', e, st);
+      logError(
+        'notification_providers.NotificationListController.markAllRead',
+        e,
+        st,
+      );
       return false;
     }
   }
@@ -170,30 +207,36 @@ class NotificationListController extends StateNotifier<NotificationListState> {
     final uid = _currentUid();
     if (uid == null) return false;
     try {
-      await _ref.read(notificationRepositoryProvider).deleteReadNotifications(uid);
+      await _ref
+          .read(notificationRepositoryProvider)
+          .deleteReadNotifications(uid);
       return true;
     } catch (e, st) {
-      logError('notification_providers.NotificationListController.deleteReadNotifications', e, st);
+      logError(
+        'notification_providers.NotificationListController.deleteReadNotifications',
+        e,
+        st,
+      );
       return false;
     }
   }
 
   AppNotification _asRead(AppNotification n) => AppNotification(
-        id: n.id,
-        type: n.type,
-        title: n.title,
-        body: n.body,
-        imageUrl: n.imageUrl,
-        senderId: n.senderId,
-        senderName: n.senderName,
-        senderPhoto: n.senderPhoto,
-        targetId: n.targetId,
-        targetType: n.targetType,
-        isRead: true,
-        createdAt: n.createdAt,
-        deepLink: n.deepLink,
-        metadata: n.metadata,
-      );
+    id: n.id,
+    type: n.type,
+    title: n.title,
+    body: n.body,
+    imageUrl: n.imageUrl,
+    senderId: n.senderId,
+    senderName: n.senderName,
+    senderPhoto: n.senderPhoto,
+    targetId: n.targetId,
+    targetType: n.targetType,
+    isRead: true,
+    createdAt: n.createdAt,
+    deepLink: n.deepLink,
+    metadata: n.metadata,
+  );
 
   @override
   void dispose() {
@@ -202,16 +245,19 @@ class NotificationListController extends StateNotifier<NotificationListState> {
   }
 }
 
-final notificationListControllerProvider = StateNotifierProvider<NotificationListController, NotificationListState>((ref) {
-  // NotificationListController isn't autoDispose, so without this watch
-  // it's built once and keeps its Firestore listener bound to whatever
-  // uid was signed in at that moment — signing out and into a different
-  // account (no full app restart) would otherwise leave the feed stuck
-  // showing the PREVIOUS account's notifications forever (and tapping
-  // one would permission-deny, since its targetId/chat/etc. belongs to
-  // that other account). Same fix as chatListControllerProvider in
-  // chat_providers.dart — watching authStateProvider makes Riverpod
-  // dispose and recreate this controller on every sign-in/sign-out.
-  ref.watch(authStateProvider);
-  return NotificationListController(ref);
-});
+final notificationListControllerProvider =
+    StateNotifierProvider<NotificationListController, NotificationListState>((
+      ref,
+    ) {
+      // NotificationListController isn't autoDispose, so without this watch
+      // it's built once and keeps its Firestore listener bound to whatever
+      // uid was signed in at that moment — signing out and into a different
+      // account (no full app restart) would otherwise leave the feed stuck
+      // showing the PREVIOUS account's notifications forever (and tapping
+      // one would permission-deny, since its targetId/chat/etc. belongs to
+      // that other account). Same fix as chatListControllerProvider in
+      // chat_providers.dart — watching authStateProvider makes Riverpod
+      // dispose and recreate this controller on every sign-in/sign-out.
+      ref.watch(authStateProvider);
+      return NotificationListController(ref);
+    });

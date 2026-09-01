@@ -21,7 +21,11 @@ class LegalHubScreen extends ConsumerWidget {
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.white),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: AppColors.white,
+          ),
         ),
         title: Text(loc.settingsLegalRowTitle),
       ),
@@ -34,29 +38,42 @@ class LegalHubScreen extends ConsumerWidget {
                 SettingsMenuRow(
                   icon: Icons.privacy_tip_outlined,
                   title: loc.legalPrivacyPolicyTitle,
-                  onTap: () => launchUrl(Uri.parse(config.urlPrivacyPolicy), mode: LaunchMode.externalApplication),
+                  onTap: () => launchUrl(
+                    Uri.parse(config.urlPrivacyPolicy),
+                    mode: LaunchMode.externalApplication,
+                  ),
                 ),
                 SettingsMenuRow(
                   icon: Icons.description_outlined,
                   title: loc.legalTermsOfServiceTitle,
-                  onTap: () => launchUrl(Uri.parse(config.urlTermsOfService), mode: LaunchMode.externalApplication),
+                  onTap: () => launchUrl(
+                    Uri.parse(config.urlTermsOfService),
+                    mode: LaunchMode.externalApplication,
+                  ),
                 ),
                 SettingsMenuRow(
                   icon: Icons.groups_outlined,
                   title: loc.legalCommunityGuidelinesTitle,
-                  onTap: () =>
-                      launchUrl(Uri.parse(config.urlCommunityGuidelines), mode: LaunchMode.externalApplication),
+                  onTap: () => launchUrl(
+                    Uri.parse(config.urlCommunityGuidelines),
+                    mode: LaunchMode.externalApplication,
+                  ),
                 ),
                 SettingsMenuRow(
                   icon: Icons.storefront_outlined,
                   title: loc.legalBusinessOfferTitle,
-                  onTap: () => launchUrl(Uri.parse(config.urlBusinessOffer), mode: LaunchMode.externalApplication),
+                  onTap: () => launchUrl(
+                    Uri.parse(config.urlBusinessOffer),
+                    mode: LaunchMode.externalApplication,
+                  ),
                 ),
                 SettingsMenuRow(
                   icon: Icons.shield_outlined,
                   title: loc.legalChildSafetyStandardsTitle,
-                  onTap: () =>
-                      launchUrl(Uri.parse(config.urlChildSafetyStandards), mode: LaunchMode.externalApplication),
+                  onTap: () => launchUrl(
+                    Uri.parse(config.urlChildSafetyStandards),
+                    mode: LaunchMode.externalApplication,
+                  ),
                 ),
               ],
             ),

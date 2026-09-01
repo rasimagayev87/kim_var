@@ -48,7 +48,9 @@ class _ExportDataScreenState extends ConsumerState<ExportDataScreen> {
     await Clipboard.setData(ClipboardData(text: json));
     if (!mounted) return;
     final loc = AppLocalizations.of(context);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.exportDataCopiedNotice)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(loc.exportDataCopiedNotice)));
   }
 
   @override
@@ -61,55 +63,83 @@ class _ExportDataScreenState extends ConsumerState<ExportDataScreen> {
         backgroundColor: AppColors.backgroundDark,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: AppColors.white),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: AppColors.white,
+          ),
         ),
         title: Text(loc.exportDataScreenTitle),
       ),
       body: SafeArea(
         child: _loading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+            ? const Center(
+                child: CircularProgressIndicator(color: AppColors.primary),
+              )
             : _json == null
-                ? Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.cloud_off_outlined, color: AppColors.textMuted, size: 36),
-                          const SizedBox(height: 14),
-                          Text(loc.exportDataLoadErrorMessage, textAlign: TextAlign.center, style: AppTextStyles.caption),
-                          const SizedBox(height: 16),
-                          TextButton(onPressed: _load, child: Text(loc.actionRetry)),
-                        ],
-                      ),
-                    ),
-                  )
-                : Column(
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.all(20),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(16)),
-                            child: SelectableText(
-                              _json!,
-                              style: AppTextStyles.body.copyWith(fontSize: 12.5, fontFamily: 'monospace', height: 1.5),
-                            ),
-                          ),
-                        ),
+                      const Icon(
+                        Icons.cloud_off_outlined,
+                        color: AppColors.textMuted,
+                        size: 36,
                       ),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                        child: ElevatedButton.icon(
-                          onPressed: _copy,
-                          icon: const Icon(Icons.copy_outlined, size: 18, color: AppColors.onAccent),
-                          label: Text(loc.exportDataCopyButton),
-                        ),
+                      const SizedBox(height: 14),
+                      Text(
+                        loc.exportDataLoadErrorMessage,
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.caption,
+                      ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: _load,
+                        child: Text(loc.actionRetry),
                       ),
                     ],
                   ),
+                ),
+              )
+            : Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: AppColors.card,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: SelectableText(
+                          _json!,
+                          style: AppTextStyles.body.copyWith(
+                            fontSize: 12.5,
+                            fontFamily: 'monospace',
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    child: ElevatedButton.icon(
+                      onPressed: _copy,
+                      icon: const Icon(
+                        Icons.copy_outlined,
+                        size: 18,
+                        color: AppColors.onAccent,
+                      ),
+                      label: Text(loc.exportDataCopyButton),
+                    ),
+                  ),
+                ],
+              ),
       ),
     );
   }

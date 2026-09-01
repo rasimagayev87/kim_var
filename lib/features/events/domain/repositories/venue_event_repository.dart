@@ -104,5 +104,9 @@ abstract class VenueEventRepository {
   /// Writes an `eventReports/{reportId}` doc — write-only from the
   /// client (see firestore.rules), resolved later from the admin
   /// panel's "Tədbir şikayətləri" section via the Admin SDK.
-  Future<void> reportEvent({required String eventId, required String reportedBy, required String reason});
+  Future<void> reportEvent({
+    required String eventId,
+    required String reportedBy,
+    required String reason,
+  });
 }

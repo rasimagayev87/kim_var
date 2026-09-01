@@ -77,7 +77,12 @@ class _MarqueeTextState extends State<MarqueeText> {
         )..layout();
 
         if (textPainter.width <= constraints.maxWidth) {
-          return Text(widget.text, style: widget.style, maxLines: 1, overflow: TextOverflow.ellipsis);
+          return Text(
+            widget.text,
+            style: widget.style,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          );
         }
 
         if (_pauseTimer == null) {
@@ -89,7 +94,12 @@ class _MarqueeTextState extends State<MarqueeText> {
             controller: _scrollController,
             scrollDirection: Axis.horizontal,
             physics: const NeverScrollableScrollPhysics(),
-            child: Text(widget.text, style: widget.style, maxLines: 1, softWrap: false),
+            child: Text(
+              widget.text,
+              style: widget.style,
+              maxLines: 1,
+              softWrap: false,
+            ),
           ),
         );
       },

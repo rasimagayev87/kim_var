@@ -64,7 +64,11 @@ class _RadarPainter extends CustomPainter {
   final double maxRadius;
   final Color color;
 
-  _RadarPainter({required this.t, required this.maxRadius, required this.color});
+  _RadarPainter({
+    required this.t,
+    required this.maxRadius,
+    required this.color,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {

@@ -20,7 +20,9 @@ void showPostShareOptions(BuildContext context, Post post) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.surface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (sheetContext) {
       final loc = AppLocalizations.of(sheetContext);
       return SafeArea(
@@ -33,21 +35,36 @@ void showPostShareOptions(BuildContext context, Post post) {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text(loc.postShareOptionsSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontSize: 16)),
+                child: Text(
+                  loc.postShareOptionsSheetTitle,
+                  style: AppTextStyles.cardTitle.copyWith(fontSize: 16),
+                ),
               ),
             ),
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.send_outlined, color: AppColors.textSecondary),
-              title: Text(loc.postShareToChatOption, style: AppTextStyles.body.copyWith(fontSize: 15)),
+              leading: const Icon(
+                Icons.send_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: Text(
+                loc.postShareToChatOption,
+                style: AppTextStyles.body.copyWith(fontSize: 15),
+              ),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _showSendToSheet(context, post);
               },
             ),
             ListTile(
-              leading: const Icon(Icons.ios_share_outlined, color: AppColors.textSecondary),
-              title: Text(loc.postShareExternalOption, style: AppTextStyles.body.copyWith(fontSize: 15)),
+              leading: const Icon(
+                Icons.ios_share_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: Text(
+                loc.postShareExternalOption,
+                style: AppTextStyles.body.copyWith(fontSize: 15),
+              ),
               onTap: () {
                 Navigator.pop(sheetContext);
                 _shareExternally(context, post);
@@ -84,7 +101,10 @@ Future<void> _shareExternally(BuildContext context, Post post) async {
             const SizedBox(
               width: 18,
               height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
             ),
             const SizedBox(width: 14),
             Text(loc.postSharePreparingMessage),
@@ -93,19 +113,26 @@ Future<void> _shareExternally(BuildContext context, Post post) async {
       ),
     );
     try {
-      file = await PostMediaCache.getOrDownload(post.mediaUrl, extension: extension);
+      file = await PostMediaCache.getOrDownload(
+        post.mediaUrl,
+        extension: extension,
+      );
     } catch (e, st) {
       logError('post_share_sheet.shareExternally', e, st);
       snackBarController.close();
       if (context.mounted) {
-        messenger.showSnackBar(SnackBar(content: Text(loc.postShareErrorMessage)));
+        messenger.showSnackBar(
+          SnackBar(content: Text(loc.postShareErrorMessage)),
+        );
       }
       return;
     }
     snackBarController.close();
   }
 
-  await Share.shareXFiles([XFile(file.path)], text: post.caption.isNotEmpty ? post.caption : null);
+  await Share.shareXFiles([
+    XFile(file.path),
+  ], text: post.caption.isNotEmpty ? post.caption : null);
 }
 
 void _showSendToSheet(BuildContext context, Post post) {
@@ -113,7 +140,9 @@ void _showSendToSheet(BuildContext context, Post post) {
     context: context,
     isScrollControlled: true,
     backgroundColor: AppColors.surface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (_) => _SendToSheet(post: post),
   );
 }
@@ -127,7 +156,9 @@ class _SendToSheet extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
-    final chatsAsync = myUid == null ? const AsyncValue.data(<Chat>[]) : ref.watch(chatsProvider);
+    final chatsAsync = myUid == null
+        ? const AsyncValue.data(<Chat>[])
+        : ref.watch(chatsProvider);
 
     return SafeArea(
       top: false,
@@ -136,23 +167,42 @@ class _SendToSheet extends ConsumerWidget {
         child: Column(
           children: [
             const SizedBox(height: 12),
-            Text(loc.postSendToSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontSize: 16)),
+            Text(
+              loc.postSendToSheetTitle,
+              style: AppTextStyles.cardTitle.copyWith(fontSize: 16),
+            ),
             const SizedBox(height: 8),
             const Divider(height: 1),
             Expanded(
               child: chatsAsync.when(
                 data: (chats) {
                   if (chats.isEmpty) {
-                    return Center(child: Text(loc.postSendToEmptyMessage, style: AppTextStyles.caption));
+                    return Center(
+                      child: Text(
+                        loc.postSendToEmptyMessage,
+                        style: AppTextStyles.caption,
+                      ),
+                    );
                   }
                   return ListView.builder(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: chats.length,
-                    itemBuilder: (context, index) => _ChatTargetRow(chat: chats[index], myUid: myUid!, post: post),
+                    itemBuilder: (context, index) => _ChatTargetRow(
+                      chat: chats[index],
+                      myUid: myUid!,
+                      post: post,
+                    ),
                   );
                 },
-                loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-                error: (_, _) => Center(child: Text(loc.postSendToEmptyMessage, style: AppTextStyles.caption)),
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: AppColors.primary),
+                ),
+                error: (_, _) => Center(
+                  child: Text(
+                    loc.postSendToEmptyMessage,
+                    style: AppTextStyles.caption,
+                  ),
+                ),
               ),
             ),
           ],
@@ -167,7 +217,11 @@ class _ChatTargetRow extends ConsumerStatefulWidget {
   final String myUid;
   final Post post;
 
-  const _ChatTargetRow({required this.chat, required this.myUid, required this.post});
+  const _ChatTargetRow({
+    required this.chat,
+    required this.myUid,
+    required this.post,
+  });
 
   @override
   ConsumerState<_ChatTargetRow> createState() => _ChatTargetRowState();
@@ -181,7 +235,9 @@ class _ChatTargetRowState extends ConsumerState<_ChatTargetRow> {
     setState(() => _sending = true);
     final loc = AppLocalizations.of(context);
 
-    final ok = await ref.read(chatControllerProvider.notifier).sendPost(
+    final ok = await ref
+        .read(chatControllerProvider.notifier)
+        .sendPost(
           otherUid: otherUid,
           postId: widget.post.id,
           mediaUrl: widget.post.mediaUrl,
@@ -192,7 +248,13 @@ class _ChatTargetRowState extends ConsumerState<_ChatTargetRow> {
     final messenger = ScaffoldMessenger.of(context);
     Navigator.pop(context);
     messenger.showSnackBar(
-      SnackBar(content: Text(ok ? loc.postSentToChatSuccessMessage : loc.postSentToChatErrorMessage)),
+      SnackBar(
+        content: Text(
+          ok
+              ? loc.postSentToChatSuccessMessage
+              : loc.postSentToChatErrorMessage,
+        ),
+      ),
     );
   }
 
@@ -201,18 +263,31 @@ class _ChatTargetRowState extends ConsumerState<_ChatTargetRow> {
     final loc = AppLocalizations.of(context);
     final otherUid = widget.chat.otherParticipant(widget.myUid);
     final profile = ref.watch(publicProfileProvider(otherUid)).valueOrNull;
-    final name = (profile?.name.isNotEmpty ?? false) ? profile!.name : loc.defaultUserName;
+    final name = (profile?.name.isNotEmpty ?? false)
+        ? profile!.name
+        : loc.defaultUserName;
 
     return ListTile(
       leading: CircleAvatar(
         radius: 22,
         backgroundColor: AppColors.card,
-        backgroundImage: profile?.photoUrl != null ? NetworkImage(profile!.photoUrl!) : null,
-        child: profile?.photoUrl == null ? const Icon(Icons.person_outline, color: AppColors.textSecondary) : null,
+        backgroundImage: profile?.photoUrl != null
+            ? NetworkImage(profile!.photoUrl!)
+            : null,
+        child: profile?.photoUrl == null
+            ? const Icon(Icons.person_outline, color: AppColors.textSecondary)
+            : null,
       ),
       title: Text(name, style: AppTextStyles.body.copyWith(fontSize: 15)),
       trailing: _sending
-          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary))
+          ? const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.primary,
+              ),
+            )
           : null,
       onTap: _sending ? null : () => _send(otherUid),
     );

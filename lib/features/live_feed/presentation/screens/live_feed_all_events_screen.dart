@@ -22,19 +22,40 @@ class LiveFeedAllEventsScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text(loc.liveFeedSectionEvents, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        title: Text(
+          loc.liveFeedSectionEvents,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
       ),
       body: eventsAsync.when(
         data: (events) => events.isEmpty
-            ? Center(child: Text(loc.listingEmptyEventsSubtitle, style: const TextStyle(color: AppColors.textSecondary)))
+            ? Center(
+                child: Text(
+                  loc.listingEmptyEventsSubtitle,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+              )
             : ListView.separated(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                 itemCount: events.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (context, index) => LiveFeedEventCard(event: events[index].event, distanceMeters: events[index].distanceMeters),
+                itemBuilder: (context, index) => LiveFeedEventCard(
+                  event: events[index].event,
+                  distanceMeters: events[index].distanceMeters,
+                ),
               ),
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-        error: (_, _) => Center(child: Text(loc.listingEmptyEventsSubtitle, style: const TextStyle(color: AppColors.textSecondary))),
+        loading: () => const Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 2.4,
+            color: AppColors.primary,
+          ),
+        ),
+        error: (_, _) => Center(
+          child: Text(
+            loc.listingEmptyEventsSubtitle,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
       ),
     );
   }

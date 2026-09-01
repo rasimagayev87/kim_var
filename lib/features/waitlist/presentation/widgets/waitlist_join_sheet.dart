@@ -9,6 +9,8 @@ import '../../../auth/presentation/widgets/country_dial_code.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../providers/waitlist_providers.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 const _kMinPartySize = 1;
 const _kMaxPartySize = 10;
 const _kNoteMaxLength = 150;
@@ -27,7 +29,9 @@ Future<bool?> showWaitlistJoinSheet(BuildContext context, String venueId) {
     context: context,
     isScrollControlled: true,
     backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (_) => _WaitlistJoinSheet(venueId: venueId),
   );
 }
@@ -66,7 +70,9 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
       context: context,
       backgroundColor: Colors.white,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
       builder: (sheetContext) {
         return SafeArea(
           child: SizedBox(
@@ -75,7 +81,12 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
               children: [
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 18),
-                  child: Text(loc.pickCountryTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+                  child: Text(
+                    loc.pickCountryTitle,
+                    style: AppTextStyles.cardTitle.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
                 Expanded(
                   child: ListView.builder(
@@ -83,9 +94,23 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
                     itemBuilder: (context, index) {
                       final country = kCountryDialCodes[index];
                       return ListTile(
-                        leading: Text(country.flag, style: const TextStyle(fontSize: 22)),
-                        title: Text(country.name, style: const TextStyle(fontSize: 15.5, color: ChatLightColors.ink)),
-                        trailing: Text(country.dialCode, style: const TextStyle(color: ChatLightColors.inkSoft)),
+                        leading: Text(
+                          country.flag,
+                          style: const TextStyle(fontSize: 22),
+                        ),
+                        title: Text(
+                          country.name,
+                          style: const TextStyle(
+                            fontSize: 15.5,
+                            color: ChatLightColors.ink,
+                          ),
+                        ),
+                        trailing: Text(
+                          country.dialCode,
+                          style: const TextStyle(
+                            color: ChatLightColors.inkSoft,
+                          ),
+                        ),
                         onTap: () {
                           setState(() => _country = country);
                           Navigator.pop(sheetContext);
@@ -119,7 +144,9 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
     });
 
     final note = _noteController.text.trim();
-    final outcome = await ref.read(waitlistControllerProvider).join(
+    final outcome = await ref
+        .read(waitlistControllerProvider)
+        .join(
           venueId: widget.venueId,
           partySize: _partySize,
           // Same naive concatenation `PhoneNumberEntryStep` uses —
@@ -133,10 +160,14 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
         Navigator.pop(context, true);
       case WaitlistJoinOutcome.alreadyWaiting:
         setState(() => _joining = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.waitlistAlreadyWaitingErrorMessage)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.waitlistAlreadyWaitingErrorMessage)),
+        );
       case WaitlistJoinOutcome.error:
         setState(() => _joining = false);
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.waitlistGenericErrorMessage)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(loc.waitlistGenericErrorMessage)),
+        );
     }
   }
 
@@ -152,32 +183,61 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
         // only moves content down) — the submit button at the bottom
         // ends up covered by the keyboard with no way to scroll it
         // into view, especially with the 3-line note field open.
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(loc.waitlistJoinSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              loc.waitlistJoinSheetTitle,
+              style: AppTextStyles.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 20),
             _FieldLabel(loc.waitlistPhoneLabel),
             Row(
               children: [
-                GestureDetector(
+                Pressable(
                   onTap: _pickCountry,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(AppRadii.input),
-                      border: Border.all(color: ChatLightColors.inkFaint.withValues(alpha: 0.18)),
+                      border: Border.all(
+                        color: ChatLightColors.inkFaint.withValues(alpha: 0.18),
+                      ),
                     ),
                     child: Row(
                       children: [
-                        Text(_country.flag, style: const TextStyle(fontSize: 18)),
+                        Text(
+                          _country.flag,
+                          style: const TextStyle(fontSize: 18),
+                        ),
                         const SizedBox(width: 6),
-                        Text(_country.dialCode, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+                        Text(
+                          _country.dialCode,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: ChatLightColors.ink,
+                          ),
+                        ),
                         const SizedBox(width: 4),
-                        const Icon(Icons.keyboard_arrow_down_outlined, size: 18, color: ChatLightColors.inkSoft),
+                        const Icon(
+                          Icons.keyboard_arrow_down_outlined,
+                          size: 18,
+                          color: ChatLightColors.inkSoft,
+                        ),
                       ],
                     ),
                   ),
@@ -187,20 +247,34 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
                   child: TextField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
-                    style: const TextStyle(fontSize: 15.5, color: ChatLightColors.ink),
-                    decoration: InputDecoration(hintText: loc.phoneAuthNumberHint, filled: true, fillColor: Colors.white),
+                    style: const TextStyle(
+                      fontSize: 15.5,
+                      color: ChatLightColors.ink,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: loc.phoneAuthNumberHint,
+                      filled: true,
+                      fillColor: Colors.white,
+                    ),
                     onChanged: (_) {
-                      if (_phoneError != null) setState(() => _phoneError = null);
+                      if (_phoneError != null)
+                        setState(() => _phoneError = null);
                     },
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            Text(loc.waitlistPhoneHelperText, style: AppTextStyles.caption.copyWith(height: 1.3)),
+            Text(
+              loc.waitlistPhoneHelperText,
+              style: AppTextStyles.caption.copyWith(height: 1.3),
+            ),
             if (_phoneError != null) ...[
               const SizedBox(height: 4),
-              Text(_phoneError!, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+              Text(
+                _phoneError!,
+                style: AppTextStyles.caption.copyWith(color: AppColors.error),
+              ),
             ],
             const SizedBox(height: 18),
             _FieldLabel(loc.waitlistNoteLabel),
@@ -209,7 +283,11 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
               maxLines: 3,
               maxLength: _kNoteMaxLength,
               style: const TextStyle(fontSize: 15, color: ChatLightColors.ink),
-              decoration: InputDecoration(hintText: loc.waitlistNoteHint, filled: true, fillColor: Colors.white),
+              decoration: InputDecoration(
+                hintText: loc.waitlistNoteHint,
+                filled: true,
+                fillColor: Colors.white,
+              ),
             ),
             const SizedBox(height: 10),
             _FieldLabel(loc.waitlistPartySizeSheetTitle),
@@ -218,19 +296,27 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
               children: [
                 _StepperButton(
                   icon: Icons.remove,
-                  onTap: _partySize > _kMinPartySize ? () => setState(() => _partySize--) : null,
+                  onTap: _partySize > _kMinPartySize
+                      ? () => setState(() => _partySize--)
+                      : null,
                 ),
                 SizedBox(
                   width: 90,
                   child: Text(
                     '$_partySize',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: ChatLightColors.ink),
+                    style: const TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
+                      color: ChatLightColors.ink,
+                    ),
                   ),
                 ),
                 _StepperButton(
                   icon: Icons.add,
-                  onTap: _partySize < _kMaxPartySize ? () => setState(() => _partySize++) : null,
+                  onTap: _partySize < _kMaxPartySize
+                      ? () => setState(() => _partySize++)
+                      : null,
                 ),
               ],
             ),
@@ -241,7 +327,10 @@ class _WaitlistJoinSheetState extends ConsumerState<_WaitlistJoinSheet> {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.onAccent),
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.onAccent,
+                      ),
                     )
                   : Text(loc.waitlistJoinButton),
             ),
@@ -261,7 +350,14 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Text(label, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 14.5,
+          fontWeight: FontWeight.w600,
+          color: ChatLightColors.ink,
+        ),
+      ),
     );
   }
 }
@@ -276,14 +372,20 @@ class _StepperButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final enabled = onTap != null;
     return Material(
-      color: enabled ? AppColors.primary.withValues(alpha: 0.12) : ChatLightColors.cardSurface,
+      color: enabled
+          ? AppColors.primary.withValues(alpha: 0.12)
+          : ChatLightColors.cardSurface,
       shape: const CircleBorder(),
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.all(14),
-          child: Icon(icon, size: 22, color: enabled ? AppColors.primary : ChatLightColors.inkFaint),
+          child: Icon(
+            icon,
+            size: 22,
+            color: enabled ? AppColors.primary : ChatLightColors.inkFaint,
+          ),
         ),
       ),
     );

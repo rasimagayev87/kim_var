@@ -7,9 +7,10 @@ import '../../domain/repositories/map_location_settings_repository.dart';
 
 /// `mapLocationSettings` lives on `users/{uid}/private/data` (Düzəliş
 /// Prompt 4) — see `privateDataRef`'s own doc comment.
-class FirebaseMapLocationSettingsRepository implements MapLocationSettingsRepository {
+class FirebaseMapLocationSettingsRepository
+    implements MapLocationSettingsRepository {
   FirebaseMapLocationSettingsRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -35,7 +36,8 @@ class FirebaseMapLocationSettingsRepository implements MapLocationSettingsReposi
           (v) => v.name == map['gpsAccuracy'],
           orElse: () => GpsAccuracyLevel.high,
         ),
-        backgroundLocationEnabled: map['backgroundLocationEnabled'] as bool? ?? false,
+        backgroundLocationEnabled:
+            map['backgroundLocationEnabled'] as bool? ?? false,
       );
     });
   }
@@ -43,7 +45,8 @@ class FirebaseMapLocationSettingsRepository implements MapLocationSettingsReposi
   @override
   Future<void> updateSettings(String uid, Map<String, dynamic> changes) {
     final data = <String, dynamic>{
-      for (final entry in changes.entries) 'mapLocationSettings.${entry.key}': entry.value,
+      for (final entry in changes.entries)
+        'mapLocationSettings.${entry.key}': entry.value,
     };
     // Must be update(), not set(merge:true) — only update() interprets a
     // dotted key like 'mapLocationSettings.mapType' as a nested field

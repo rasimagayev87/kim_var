@@ -9,7 +9,8 @@ import '../../../venues/domain/entities/venue.dart';
 import '../../../venues/domain/venue_listing_eligibility.dart';
 import '../../../venues/presentation/venue_block_message.dart';
 import '../../../venues/presentation/providers/venue_providers.dart';
-import '../../../venues/presentation/screens/create_venue_screen.dart' show venueCategoryLabel;
+import '../../../venues/presentation/screens/create_venue_screen.dart'
+    show venueCategoryLabel;
 
 /// "Məkan seç" step of Create Offer — lists only the signed-in user's
 /// own venues ([myVenuesProvider]), since an offer can only ever
@@ -31,58 +32,76 @@ class VenuePickerSheet extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
-    final venuesAsync = venues != null ? AsyncValue.data(venues!) : ref.watch(myVenuesProvider);
+    final venuesAsync = venues != null
+        ? AsyncValue.data(venues!)
+        : ref.watch(myVenuesProvider);
 
     return Container(
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
-      child: SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 14),
-                decoration: BoxDecoration(
-                  color: ChatLightColors.inkFaint.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Text(
-              label ?? loc.offerVenuePickerLabel,
-              style: const TextStyle(fontSize: 16.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
-            ),
-            const SizedBox(height: 12),
-            Flexible(
-              child: venuesAsync.when(
-                loading: () => const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 32),
-                  child: Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-                ),
-                error: (error, _) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 32),
-                  child: Text('$error', style: TextStyle(color: ChatLightColors.inkSoft)),
-                ),
-                data: (venues) {
-                  if (venues.isEmpty) return _NoVenuesState(loc: loc);
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.only(top: 4, bottom: 4),
-                    itemCount: venues.length,
-                    itemBuilder: (context, index) => _VenueRow(venue: venues[index]),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 10, 20, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: ChatLightColors.inkFaint.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text(
+                label ?? loc.offerVenuePickerLabel,
+                style: const TextStyle(
+                  fontSize: 16.5,
+                  fontWeight: FontWeight.w700,
+                  color: ChatLightColors.ink,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Flexible(
+                child: venuesAsync.when(
+                  loading: () => const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 32),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                  error: (error, _) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32),
+                    child: Text(
+                      '$error',
+                      style: TextStyle(color: ChatLightColors.inkSoft),
+                    ),
+                  ),
+                  data: (venues) {
+                    if (venues.isEmpty) return _NoVenuesState(loc: loc);
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.only(top: 4, bottom: 4),
+                      itemCount: venues.length,
+                      itemBuilder: (context, index) =>
+                          _VenueRow(venue: venues[index]),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -126,11 +145,19 @@ class _VenueRow extends StatelessWidget {
                   width: 44,
                   height: 44,
                   child: venue.photoUrl != null
-                      ? AppImage(venue.photoUrl!, thumbnail: true, fit: BoxFit.cover)
+                      ? AppImage(
+                          venue.photoUrl!,
+                          thumbnail: true,
+                          fit: BoxFit.cover,
+                        )
                       : Container(
                           color: ChatLightColors.cardSurface,
                           alignment: Alignment.center,
-                          child: Icon(venueCategoryIcon(venue.category), size: 20, color: ChatLightColors.inkSoft),
+                          child: Icon(
+                            venueCategoryIcon(venue.category),
+                            size: 20,
+                            color: ChatLightColors.inkSoft,
+                          ),
                         ),
                 ),
               ),
@@ -144,7 +171,9 @@ class _VenueRow extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14.5,
                         fontWeight: FontWeight.w700,
-                        color: blocked ? ChatLightColors.inkFaint : ChatLightColors.ink,
+                        color: blocked
+                            ? ChatLightColors.inkFaint
+                            : ChatLightColors.ink,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -153,10 +182,14 @@ class _VenueRow extends StatelessWidget {
                     Text(
                       blocked
                           ? venueBlockMessage(loc, block)
-                          : (venue.address.isNotEmpty ? venue.address : venueCategoryLabel(loc, venue.category)),
+                          : (venue.address.isNotEmpty
+                                ? venue.address
+                                : venueCategoryLabel(loc, venue.category)),
                       style: TextStyle(
                         fontSize: 12.5,
-                        color: blocked ? AppColors.primary : ChatLightColors.inkSoft,
+                        color: blocked
+                            ? AppColors.primary
+                            : ChatLightColors.inkSoft,
                       ),
                       // The reason needs room; an address does not.
                       maxLines: blocked ? 3 : 1,
@@ -165,7 +198,12 @@ class _VenueRow extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!blocked) Icon(Icons.chevron_right, size: 18, color: ChatLightColors.inkFaint),
+              if (!blocked)
+                Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: ChatLightColors.inkFaint,
+                ),
             ],
           ),
         ),
@@ -189,20 +227,35 @@ class _NoVenuesState extends StatelessWidget {
           Container(
             width: 72,
             height: 72,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: AppColors.primary.withValues(alpha: 0.1)),
-            child: const Icon(Icons.storefront_outlined, color: AppColors.primary, size: 32),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.primary.withValues(alpha: 0.1),
+            ),
+            child: const Icon(
+              Icons.storefront_outlined,
+              color: AppColors.primary,
+              size: 32,
+            ),
           ),
           const SizedBox(height: 18),
           Text(
             loc.offerNoVenuesTitle,
-            style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+            style: const TextStyle(
+              fontSize: 15.5,
+              fontWeight: FontWeight.w700,
+              color: ChatLightColors.ink,
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           Text(
             loc.offerNoVenuesSubtitle,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: ChatLightColors.inkSoft, height: 1.5),
+            style: TextStyle(
+              fontSize: 13,
+              color: ChatLightColors.inkSoft,
+              height: 1.5,
+            ),
           ),
         ],
       ),

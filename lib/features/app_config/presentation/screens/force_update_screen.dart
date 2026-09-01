@@ -19,7 +19,9 @@ class ForceUpdateScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final loc = AppLocalizations.of(context);
     final config = ref.watch(appConfigProvider);
-    final storeUrl = Platform.isIOS ? config.updateStoreUrlIos : config.updateStoreUrlAndroid;
+    final storeUrl = Platform.isIOS
+        ? config.updateStoreUrlIos
+        : config.updateStoreUrlAndroid;
 
     return PopScope(
       canPop: false,
@@ -31,18 +33,29 @@ class ForceUpdateScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.system_update_rounded, size: 72, color: AppColors.primary),
+                const Icon(
+                  Icons.system_update_rounded,
+                  size: 72,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(height: 24),
                 Text(
                   loc.forceUpdateTitle,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: AppColors.white),
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.white,
+                  ),
                 ),
                 const SizedBox(height: 12),
                 Text(
                   loc.forceUpdateMessage,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 15, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                    fontSize: 15,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
                 const SizedBox(height: 32),
                 SizedBox(
@@ -51,12 +64,21 @@ class ForceUpdateScreen extends ConsumerWidget {
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
                     ),
-                    onPressed: () => launchUrl(Uri.parse(storeUrl), mode: LaunchMode.externalApplication),
+                    onPressed: () => launchUrl(
+                      Uri.parse(storeUrl),
+                      mode: LaunchMode.externalApplication,
+                    ),
                     child: Text(
                       loc.forceUpdateButton,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
                 ),

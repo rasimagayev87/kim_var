@@ -31,5 +31,6 @@ class PublicProfile {
   });
 
   /// Self-healing presence check — see [isRecentlyOnline].
-  bool get isRecentlyActive => isRecentlyOnline(online: online, lastSeen: lastSeen);
+  bool get isRecentlyActive =>
+      isRecentlyOnline(online: online, lastSeen: lastSeen);
 }

@@ -20,14 +20,23 @@ class FollowListScreen extends ConsumerStatefulWidget {
   final String uid;
   final int initialTabIndex;
 
-  const FollowListScreen({super.key, required this.uid, this.initialTabIndex = 0});
+  const FollowListScreen({
+    super.key,
+    required this.uid,
+    this.initialTabIndex = 0,
+  });
 
   @override
   ConsumerState<FollowListScreen> createState() => _FollowListScreenState();
 }
 
-class _FollowListScreenState extends ConsumerState<FollowListScreen> with SingleTickerProviderStateMixin {
-  late final TabController _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialTabIndex);
+class _FollowListScreenState extends ConsumerState<FollowListScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController = TabController(
+    length: 2,
+    vsync: this,
+    initialIndex: widget.initialTabIndex,
+  );
 
   @override
   void dispose() {
@@ -41,9 +50,15 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> with Single
     final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
     final isOwn = myUid != null && myUid == widget.uid;
 
-    final privacy = isOwn ? const PrivacySettings() : ref.watch(otherUserPrivacySettingsProvider(widget.uid)).valueOrNull ?? const PrivacySettings();
-    final isFollowing = isOwn ? true : ref.watch(isFollowingProvider(widget.uid)).valueOrNull ?? false;
-    final canView = isOwn || privacy.accountPrivacy == AccountPrivacy.public || isFollowing;
+    final privacy = isOwn
+        ? const PrivacySettings()
+        : ref.watch(otherUserPrivacySettingsProvider(widget.uid)).valueOrNull ??
+              const PrivacySettings();
+    final isFollowing = isOwn
+        ? true
+        : ref.watch(isFollowingProvider(widget.uid)).valueOrNull ?? false;
+    final canView =
+        isOwn || privacy.accountPrivacy == AccountPrivacy.public || isFollowing;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -52,7 +67,11 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> with Single
         elevation: 0,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: ChatLightColors.ink,
+          ),
         ),
         bottom: canView
             ? TabBar(
@@ -60,7 +79,10 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> with Single
                 labelColor: AppColors.primary,
                 unselectedLabelColor: ChatLightColors.inkFaint,
                 indicatorColor: AppColors.primary,
-                tabs: [Tab(text: loc.followersTabTitle), Tab(text: loc.followingTabTitle)],
+                tabs: [
+                  Tab(text: loc.followersTabTitle),
+                  Tab(text: loc.followingTabTitle),
+                ],
               )
             : null,
       ),
@@ -69,8 +91,16 @@ class _FollowListScreenState extends ConsumerState<FollowListScreen> with Single
             ? TabBarView(
                 controller: _tabController,
                 children: [
-                  _FollowListTab(uid: widget.uid, isFollowersTab: true, isOwnList: isOwn),
-                  _FollowListTab(uid: widget.uid, isFollowersTab: false, isOwnList: isOwn),
+                  _FollowListTab(
+                    uid: widget.uid,
+                    isFollowersTab: true,
+                    isOwnList: isOwn,
+                  ),
+                  _FollowListTab(
+                    uid: widget.uid,
+                    isFollowersTab: false,
+                    isOwnList: isOwn,
+                  ),
                 ],
               )
             : _PrivateAccountNotice(loc: loc),
@@ -92,12 +122,20 @@ class _PrivateAccountNotice extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.lock_outline, color: ChatLightColors.inkFaint, size: 36),
+            const Icon(
+              Icons.lock_outline,
+              color: ChatLightColors.inkFaint,
+              size: 36,
+            ),
             const SizedBox(height: 12),
             Text(
               loc.privacyClosedProfileNotice,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 13.5, color: ChatLightColors.inkSoft, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: ChatLightColors.inkSoft,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -111,7 +149,11 @@ class _FollowListTab extends ConsumerStatefulWidget {
   final bool isFollowersTab;
   final bool isOwnList;
 
-  const _FollowListTab({required this.uid, required this.isFollowersTab, required this.isOwnList});
+  const _FollowListTab({
+    required this.uid,
+    required this.isFollowersTab,
+    required this.isOwnList,
+  });
 
   @override
   ConsumerState<_FollowListTab> createState() => _FollowListTabState();
@@ -134,7 +176,8 @@ class _FollowListTabState extends ConsumerState<_FollowListTab> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
       _notifier.loadMore();
     }
   }
@@ -151,7 +194,12 @@ class _FollowListTabState extends ConsumerState<_FollowListTab> {
         : ref.watch(followingListControllerProvider(widget.uid));
 
     if (state.initialLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primary, strokeWidth: 2.4));
+      return const Center(
+        child: CircularProgressIndicator(
+          color: AppColors.primary,
+          strokeWidth: 2.4,
+        ),
+      );
     }
 
     if (state.hasError && state.items.isEmpty) {
@@ -161,12 +209,20 @@ class _FollowListTabState extends ConsumerState<_FollowListTab> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.error_outline, color: ChatLightColors.inkFaint, size: 36),
+              const Icon(
+                Icons.error_outline,
+                color: ChatLightColors.inkFaint,
+                size: 36,
+              ),
               const SizedBox(height: 12),
               Text(
                 loc.followErrorMessage,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13.5, color: ChatLightColors.inkSoft, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  color: ChatLightColors.inkSoft,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -182,15 +238,23 @@ class _FollowListTabState extends ConsumerState<_FollowListTab> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                widget.isFollowersTab ? Icons.people_outline : Icons.person_add_alt_outlined,
+                widget.isFollowersTab
+                    ? Icons.people_outline
+                    : Icons.person_add_alt_outlined,
                 color: ChatLightColors.inkFaint,
                 size: 36,
               ),
               const SizedBox(height: 12),
               Text(
-                widget.isFollowersTab ? loc.followListEmptyFollowers : loc.followListEmptyFollowing,
+                widget.isFollowersTab
+                    ? loc.followListEmptyFollowers
+                    : loc.followListEmptyFollowing,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13.5, color: ChatLightColors.inkSoft, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  color: ChatLightColors.inkSoft,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
@@ -202,12 +266,18 @@ class _FollowListTabState extends ConsumerState<_FollowListTab> {
       controller: _scrollController,
       padding: const EdgeInsets.symmetric(vertical: 8),
       itemCount: state.items.length + (state.isLoadingMore ? 1 : 0),
-      separatorBuilder: (_, _) => const Divider(height: 1, color: ChatLightColors.cardSurface),
+      separatorBuilder: (_, _) =>
+          const Divider(height: 1, color: ChatLightColors.cardSurface),
       itemBuilder: (context, index) {
         if (index >= state.items.length) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
+            child: Center(
+              child: CircularProgressIndicator(
+                strokeWidth: 2.4,
+                color: AppColors.primary,
+              ),
+            ),
           );
         }
         final edge = state.items[index];

@@ -37,9 +37,6 @@ class PremiumButton extends StatelessWidget {
       );
     }
 
-    return ElevatedButton(
-      onPressed: loading ? null : onPressed,
-      child: child,
-    );
+    return ElevatedButton(onPressed: loading ? null : onPressed, child: child);
   }
 }

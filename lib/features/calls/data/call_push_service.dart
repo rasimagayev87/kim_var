@@ -134,7 +134,9 @@ Future<void> callPushBackgroundHandler(RemoteMessage message) async {
   // Idempotent: calling it again in an isolate that already has the
   // default app is a no-op, so the foreground path is unaffected.
   try {
-    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   } catch (e, st) {
     // A duplicate-app error is harmless and expected on some launch
     // orders; anything else still must not stop the phone ringing, so
@@ -164,7 +166,10 @@ Future<void> callPushBackgroundHandler(RemoteMessage message) async {
 /// `deliveredAt` is marked either way — the caller's "Zəng çalınır"
 /// depends on the callee's device having surfaced the call, not on
 /// which surface did it.
-Future<void> handleCallPush(Map<String, dynamic> data, {required bool showNativeUi}) async {
+Future<void> handleCallPush(
+  Map<String, dynamic> data, {
+  required bool showNativeUi,
+}) async {
   final type = data['type'] as String?;
   final callId = data['callId'] as String?;
   if (callId == null) return;
@@ -218,13 +223,16 @@ Future<void> _markDelivered(String callId) async {
           .timeout(const Duration(seconds: 5));
     }
     if (auth.currentUser == null) {
-      logError('call_push_service.markDelivered', 'no auth session in isolate', StackTrace.current);
+      logError(
+        'call_push_service.markDelivered',
+        'no auth session in isolate',
+        StackTrace.current,
+      );
       return;
     }
-    await FirebaseFirestore.instance
-        .collection('calls')
-        .doc(callId)
-        .update({'deliveredAt': FieldValue.serverTimestamp()});
+    await FirebaseFirestore.instance.collection('calls').doc(callId).update({
+      'deliveredAt': FieldValue.serverTimestamp(),
+    });
     logTrace('markDelivered.ok', callId);
   } catch (e, st) {
     logError('call_push_service.markDelivered', e, st);
@@ -237,7 +245,9 @@ CallKitParams _incomingCallParams(String callId, Map<String, dynamic> data) {
     id: callId,
     nameCaller: (data['callerName'] as String?) ?? 'PeakPin',
     appName: 'PeakPin',
-    avatar: (data['callerPhoto'] as String?)?.isNotEmpty == true ? data['callerPhoto'] as String : null,
+    avatar: (data['callerPhoto'] as String?)?.isNotEmpty == true
+        ? data['callerPhoto'] as String
+        : null,
     type: isVideo ? 1 : 0,
     // The server's FCM TTL is 45s; the UI stops ringing on the same
     // budget so a push that only just made it does not ring alone
@@ -245,7 +255,10 @@ CallKitParams _incomingCallParams(String callId, Map<String, dynamic> data) {
     duration: 45000,
     textAccept: 'Cavab ver',
     textDecline: 'Rədd et',
-    extra: <String, dynamic>{'callId': callId, 'callerId': data['callerId'] ?? ''},
+    extra: <String, dynamic>{
+      'callId': callId,
+      'callerId': data['callerId'] ?? '',
+    },
     android: const AndroidParams(
       isCustomNotification: true,
       isShowLogo: false,
@@ -316,7 +329,8 @@ Future<void> recoverAcceptedCallsAfterColdStart() async {
       if (data == null) continue;
       if (data['status'] != 'ringing') continue;
       if (data['answer'] != null) continue;
-      if (data['receiverId'] != fb.FirebaseAuth.instance.currentUser?.uid) continue;
+      if (data['receiverId'] != fb.FirebaseAuth.instance.currentUser?.uid)
+        continue;
 
       // Same staleness bound the UI applies, for the same reason and so
       // the two cannot disagree. The plugin's store only drops a call on
@@ -324,7 +338,8 @@ Future<void> recoverAcceptedCallsAfterColdStart() async {
       // entry behind indefinitely; without this it would mark a
       // day-old document `accepted` that nothing would then open.
       final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
-      if (createdAt != null && DateTime.now().difference(createdAt) > kIncomingCallMaxAge) {
+      if (createdAt != null &&
+          DateTime.now().difference(createdAt) > kIncomingCallMaxAge) {
         // Clear it so the next cold start does not look at it again.
         unawaited(FlutterCallkitIncoming.endCall(callId));
         continue;
@@ -349,16 +364,18 @@ Future<void> listenToCallkitEvents() async {
   _callkitListenerAttached = true;
   FlutterCallkitIncoming.onEvent.listen((event) async {
     if (event == null) return;
-    final callId = (event.body is Map ? (event.body as Map)['id'] : null) as String?;
+    final callId =
+        (event.body is Map ? (event.body as Map)['id'] : null) as String?;
     if (callId == null) return;
 
     try {
       switch (event.event) {
         case Event.actionCallDecline:
         case Event.actionCallTimeout:
-          await FirebaseFirestore.instance.collection('calls').doc(callId).update({
-            'status': 'declined',
-          });
+          await FirebaseFirestore.instance
+              .collection('calls')
+              .doc(callId)
+              .update({'status': 'declined'});
         case Event.actionCallAccept:
           // Accepting only marks the document; the WebRTC answer is
           // built by `ActiveCallController` once the app is in the
@@ -366,11 +383,16 @@ Future<void> listenToCallkitEvents() async {
           // what stops the caller's ringback immediately.
           logTrace('callkitEvent.accept', callId);
           if (fb.FirebaseAuth.instance.currentUser == null) {
-            logError('call_push_service.accept', 'no auth session', StackTrace.current);
+            logError(
+              'call_push_service.accept',
+              'no auth session',
+              StackTrace.current,
+            );
           } else {
-            await FirebaseFirestore.instance.collection('calls').doc(callId).update({
-              'status': 'accepted',
-            });
+            await FirebaseFirestore.instance
+                .collection('calls')
+                .doc(callId)
+                .update({'status': 'accepted'});
             logTrace('callkitEvent.accept.written', callId);
           }
         default:

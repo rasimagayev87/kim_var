@@ -44,10 +44,17 @@ class PostMediaCache {
     required String extension,
     void Function(double progress)? onProgress,
   }) {
-    return _inFlight.putIfAbsent(url, () => _download(url, extension, onProgress));
+    return _inFlight.putIfAbsent(
+      url,
+      () => _download(url, extension, onProgress),
+    );
   }
 
-  static Future<File> _download(String url, String extension, void Function(double progress)? onProgress) async {
+  static Future<File> _download(
+    String url,
+    String extension,
+    void Function(double progress)? onProgress,
+  ) async {
     final file = await _fileFor(url, extension: extension);
     if (await file.exists()) return file;
 

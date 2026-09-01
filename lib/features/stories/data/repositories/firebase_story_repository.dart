@@ -9,28 +9,42 @@ import '../../domain/entities/story_view.dart';
 import '../../domain/repositories/story_repository.dart';
 
 class FirebaseStoryRepository implements StoryRepository {
-  FirebaseStoryRepository({FirebaseFirestore? firestore, FirebaseStorage? storage})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance;
+  FirebaseStoryRepository({
+    FirebaseFirestore? firestore,
+    FirebaseStorage? storage,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _storage = storage ?? FirebaseStorage.instance;
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
 
   static const _storyLifetime = Duration(hours: 24);
 
-  CollectionReference<Map<String, dynamic>> get _stories => _firestore.collection('stories');
+  CollectionReference<Map<String, dynamic>> get _stories =>
+      _firestore.collection('stories');
 
   @override
-  Future<String> createStory({required String creatorId, required File media, required StoryMediaType mediaType}) async {
+  Future<String> createStory({
+    required String creatorId,
+    required File media,
+    required StoryMediaType mediaType,
+  }) async {
     final ref = _stories.doc();
     final extension = mediaType == StoryMediaType.video ? 'mp4' : 'jpg';
-    final contentType = mediaType == StoryMediaType.video ? 'video/mp4' : 'image/jpeg';
+    final contentType = mediaType == StoryMediaType.video
+        ? 'video/mp4'
+        : 'image/jpeg';
 
     final storageRef = _storage.ref('stories/$creatorId/${ref.id}.$extension');
     // GPS EXIF strip (Düzəliş Prompt 3 / C#43) — image stories only,
     // same "fails open on non-image bytes" reasoning as posts above.
-    final uploadFile = mediaType == StoryMediaType.video ? media : await stripExifIfImage(media);
-    await storageRef.putFile(uploadFile, SettableMetadata(contentType: contentType));
+    final uploadFile = mediaType == StoryMediaType.video
+        ? media
+        : await stripExifIfImage(media);
+    await storageRef.putFile(
+      uploadFile,
+      SettableMetadata(contentType: contentType),
+    );
     final mediaUrl = await storageRef.getDownloadURL();
 
     final now = DateTime.now();
@@ -75,7 +89,9 @@ class FirebaseStoryRepository implements StoryRepository {
         .collection('views')
         .orderBy('viewedAt', descending: true)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => _viewFromDoc(d.id, d.data())).toList());
+        .map(
+          (snap) => snap.docs.map((d) => _viewFromDoc(d.id, d.data())).toList(),
+        );
   }
 
   Story _fromDoc(String id, Map<String, dynamic> data) {
@@ -83,7 +99,9 @@ class FirebaseStoryRepository implements StoryRepository {
       id: id,
       creatorId: data['creatorId'] as String? ?? '',
       mediaUrl: data['mediaUrl'] as String? ?? '',
-      mediaType: (data['mediaType'] as String?) == 'video' ? StoryMediaType.video : StoryMediaType.image,
+      mediaType: (data['mediaType'] as String?) == 'video'
+          ? StoryMediaType.video
+          : StoryMediaType.image,
       createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       expiresAt: (data['expiresAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
     );

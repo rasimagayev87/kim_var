@@ -6,13 +6,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../location/presentation/providers/location_providers.dart';
-import '../../../offers/presentation/providers/offer_providers.dart' show selectedOfferCategoryFilterProvider;
+import '../../../offers/presentation/providers/offer_providers.dart'
+    show selectedOfferCategoryFilterProvider;
 import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../data/repositories/firebase_venue_event_repository.dart';
 import '../../domain/entities/venue_event.dart';
 import '../../domain/repositories/venue_event_repository.dart';
 
-final venueEventRepositoryProvider = Provider<VenueEventRepository>((ref) => FirebaseVenueEventRepository());
+final venueEventRepositoryProvider = Provider<VenueEventRepository>(
+  (ref) => FirebaseVenueEventRepository(),
+);
 
 /// Which venue categories may publish events at all — read from
 /// `config/eventCategories.enabledCategories` (see
@@ -23,11 +26,21 @@ final venueEventRepositoryProvider = Provider<VenueEventRepository>((ref) => Fir
 /// closed: any read error or a missing/malformed doc resolves to an
 /// empty set, so a config problem hides the create-event entry point
 /// rather than opening it to every category.
-final eventCategoryConfigProvider = FutureProvider<Set<VenueCategory>>((ref) async {
+final eventCategoryConfigProvider = FutureProvider<Set<VenueCategory>>((
+  ref,
+) async {
   try {
-    final snap = await FirebaseFirestore.instance.collection('config').doc('eventCategories').get();
-    final raw = (snap.data()?['enabledCategories'] as List?)?.cast<String>() ?? const [];
-    return raw.map((name) => VenueCategory.values.where((c) => c.name == name)).expand((it) => it).toSet();
+    final snap = await FirebaseFirestore.instance
+        .collection('config')
+        .doc('eventCategories')
+        .get();
+    final raw =
+        (snap.data()?['enabledCategories'] as List?)?.cast<String>() ??
+        const [];
+    return raw
+        .map((name) => VenueCategory.values.where((c) => c.name == name))
+        .expand((it) => it)
+        .toSet();
   } catch (e, st) {
     logError('venue_event_providers.eventCategoryConfigProvider', e, st);
     return const {};
@@ -35,22 +48,29 @@ final eventCategoryConfigProvider = FutureProvider<Set<VenueCategory>>((ref) asy
 });
 
 /// Realtime single-event lookup — backs `EventDetailsScreen`.
-final venueEventByIdProvider = StreamProvider.autoDispose.family<VenueEvent?, String>((ref, eventId) {
-  return ref.watch(venueEventRepositoryProvider).watchEvent(eventId);
-});
+final venueEventByIdProvider = StreamProvider.autoDispose
+    .family<VenueEvent?, String>((ref, eventId) {
+      return ref.watch(venueEventRepositoryProvider).watchEvent(eventId);
+    });
 
 /// Owner's own "Tədbirlər" list on the venue management screen.
-final venueEventsByVenueProvider = StreamProvider.autoDispose.family<List<VenueEvent>, String>((ref, venueId) {
-  return ref.watch(venueEventRepositoryProvider).watchEventsByVenue(venueId);
-});
+final venueEventsByVenueProvider = StreamProvider.autoDispose
+    .family<List<VenueEvent>, String>((ref, venueId) {
+      return ref
+          .watch(venueEventRepositoryProvider)
+          .watchEventsByVenue(venueId);
+    });
 
 /// "🎤 Bu axşam" banner lookup for one Discover venue card — a
 /// per-card `FutureProvider.family`, same established pattern as
 /// `isVenueLikedByMeProvider`/`venueActiveCheckinCountProvider` already
 /// use for other per-card state on the same list.
-final venueTodayEventProvider = FutureProvider.autoDispose.family<VenueEvent?, String>((ref, venueId) {
-  return ref.watch(venueEventRepositoryProvider).fetchTodayEventForVenue(venueId);
-});
+final venueTodayEventProvider = FutureProvider.autoDispose
+    .family<VenueEvent?, String>((ref, venueId) {
+      return ref
+          .watch(venueEventRepositoryProvider)
+          .fetchTodayEventForVenue(venueId);
+    });
 
 /// Kəşf et → Təkliflər → "Tədbir" filter — reuses [locationControllerProvider]
 /// for the viewer's own position, same as `nearbyOffersProvider`.
@@ -61,19 +81,25 @@ final venueTodayEventProvider = FutureProvider.autoDispose.family<VenueEvent?, S
 /// normally in those modes. Also reads the Fürsətlər filter sheet's
 /// [selectedOfferCategoryFilterProvider] and narrows by
 /// [VenueEvent.venueCategory] — mirrors `nearbyOffersProvider`.
-final nearbyEventsProvider = FutureProvider.autoDispose<List<VenueEventWithDistance>>((ref) async {
-  final position = ref.watch(locationControllerProvider).valueOrNull;
-  final selection = ref.watch(selectedDiscoverModeProvider);
-  final category = ref.watch(selectedOfferCategoryFilterProvider);
-  if (position == null || selection.mode != DiscoverRadiusMode.distance || selection.km == null) return const [];
+final nearbyEventsProvider =
+    FutureProvider.autoDispose<List<VenueEventWithDistance>>((ref) async {
+      final position = ref.watch(locationControllerProvider).valueOrNull;
+      final selection = ref.watch(selectedDiscoverModeProvider);
+      final category = ref.watch(selectedOfferCategoryFilterProvider);
+      if (position == null ||
+          selection.mode != DiscoverRadiusMode.distance ||
+          selection.km == null)
+        return const [];
 
-  return ref.watch(venueEventRepositoryProvider).fetchEventsWithinRadius(
-        lat: position.latitude,
-        lng: position.longitude,
-        radiusKm: selection.km!,
-        category: category,
-      );
-});
+      return ref
+          .watch(venueEventRepositoryProvider)
+          .fetchEventsWithinRadius(
+            lat: position.latitude,
+            lng: position.longitude,
+            radiusKm: selection.km!,
+            category: category,
+          );
+    });
 
 class VenueEventController {
   VenueEventController(this._ref);
@@ -97,7 +123,9 @@ class VenueEventController {
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
     try {
-      return await _ref.read(venueEventRepositoryProvider).createEvent(
+      return await _ref
+          .read(venueEventRepositoryProvider)
+          .createEvent(
             venueId: venueId,
             venueName: venueName,
             venuePhotoUrl: venuePhotoUrl,
@@ -133,7 +161,9 @@ class VenueEventController {
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
     try {
-      await _ref.read(venueEventRepositoryProvider).updateEvent(
+      await _ref
+          .read(venueEventRepositoryProvider)
+          .updateEvent(
             eventId: eventId,
             title: title,
             description: description,
@@ -151,9 +181,19 @@ class VenueEventController {
     }
   }
 
-  Future<bool> reportEvent({required String eventId, required String reportedBy, required String reason}) async {
+  Future<bool> reportEvent({
+    required String eventId,
+    required String reportedBy,
+    required String reason,
+  }) async {
     try {
-      await _ref.read(venueEventRepositoryProvider).reportEvent(eventId: eventId, reportedBy: reportedBy, reason: reason);
+      await _ref
+          .read(venueEventRepositoryProvider)
+          .reportEvent(
+            eventId: eventId,
+            reportedBy: reportedBy,
+            reason: reason,
+          );
       return true;
     } catch (e, st) {
       logError('venue_event_providers.reportEvent', e, st);
@@ -185,4 +225,6 @@ class VenueEventController {
   }
 }
 
-final venueEventControllerProvider = Provider<VenueEventController>((ref) => VenueEventController(ref));
+final venueEventControllerProvider = Provider<VenueEventController>(
+  (ref) => VenueEventController(ref),
+);

@@ -22,7 +22,9 @@ Future<void> startCreateStoryFlow(BuildContext context) async {
   final choice = await showModalBottomSheet<StoryMediaType>(
     context: context,
     backgroundColor: AppColors.surface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (sheetContext) {
       return SafeArea(
         top: false,
@@ -34,18 +36,33 @@ Future<void> startCreateStoryFlow(BuildContext context) async {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text(loc.chatAttachmentSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontSize: 16)),
+                child: Text(
+                  loc.chatAttachmentSheetTitle,
+                  style: AppTextStyles.cardTitle.copyWith(fontSize: 16),
+                ),
               ),
             ),
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.image_outlined, color: AppColors.textSecondary),
-              title: Text(loc.chatAttachmentImageOption, style: AppTextStyles.body.copyWith(fontSize: 15)),
+              leading: const Icon(
+                Icons.image_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: Text(
+                loc.chatAttachmentImageOption,
+                style: AppTextStyles.body.copyWith(fontSize: 15),
+              ),
               onTap: () => Navigator.pop(sheetContext, StoryMediaType.image),
             ),
             ListTile(
-              leading: const Icon(Icons.videocam_outlined, color: AppColors.textSecondary),
-              title: Text(loc.chatAttachmentVideoOption, style: AppTextStyles.body.copyWith(fontSize: 15)),
+              leading: const Icon(
+                Icons.videocam_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: Text(
+                loc.chatAttachmentVideoOption,
+                style: AppTextStyles.body.copyWith(fontSize: 15),
+              ),
               onTap: () => Navigator.pop(sheetContext, StoryMediaType.video),
             ),
             const SizedBox(height: 8),
@@ -58,7 +75,11 @@ Future<void> startCreateStoryFlow(BuildContext context) async {
 
   final picker = ImagePicker();
   final XFile? picked = choice == StoryMediaType.image
-      ? await picker.pickImage(source: ImageSource.gallery, maxWidth: 1600, imageQuality: 85)
+      ? await picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1600,
+          imageQuality: 85,
+        )
       : await picker.pickVideo(source: ImageSource.gallery);
   if (picked == null || !context.mounted) return;
 
@@ -66,14 +87,18 @@ Future<void> startCreateStoryFlow(BuildContext context) async {
 
   if (choice == StoryMediaType.video && await _isVideoTooLong(file)) {
     if (!context.mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.storyVideoTooLongMessage)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(loc.storyVideoTooLongMessage)));
     return;
   }
 
   if (!context.mounted) return;
   Navigator.push(
     context,
-    MaterialPageRoute(builder: (_) => CreateStoryScreen(file: file, mediaType: choice)),
+    MaterialPageRoute(
+      builder: (_) => CreateStoryScreen(file: file, mediaType: choice),
+    ),
   );
 }
 
@@ -99,7 +124,11 @@ class CreateStoryScreen extends ConsumerStatefulWidget {
   final File file;
   final StoryMediaType mediaType;
 
-  const CreateStoryScreen({super.key, required this.file, required this.mediaType});
+  const CreateStoryScreen({
+    super.key,
+    required this.file,
+    required this.mediaType,
+  });
 
   @override
   ConsumerState<CreateStoryScreen> createState() => _CreateStoryScreenState();
@@ -135,12 +164,16 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
     setState(() => _submitting = true);
     final loc = AppLocalizations.of(context);
 
-    final storyId = await ref.read(storyControllerProvider).createStory(
+    final storyId = await ref
+        .read(storyControllerProvider)
+        .createStory(
           media: widget.file,
           mediaType: widget.mediaType,
           onError: () {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.storyShareErrorMessage)));
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(loc.storyShareErrorMessage)));
           },
         );
 
@@ -173,11 +206,11 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
             child: widget.mediaType == StoryMediaType.image
                 ? Image.file(widget.file, fit: BoxFit.contain)
                 : (_videoController?.value.isInitialized ?? false)
-                    ? AspectRatio(
-                        aspectRatio: _videoController!.value.aspectRatio,
-                        child: VideoPlayer(_videoController!),
-                      )
-                    : const CircularProgressIndicator(color: AppColors.primary),
+                ? AspectRatio(
+                    aspectRatio: _videoController!.value.aspectRatio,
+                    child: VideoPlayer(_videoController!),
+                  )
+                : const CircularProgressIndicator(color: AppColors.primary),
           ),
           Positioned(
             left: 0,
@@ -196,7 +229,10 @@ class _CreateStoryScreenState extends ConsumerState<CreateStoryScreen> {
                           ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.onAccent),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: AppColors.onAccent,
+                              ),
                             )
                           : Text(loc.storyShareButton),
                     ),

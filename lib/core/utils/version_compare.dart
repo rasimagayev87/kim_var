@@ -9,7 +9,9 @@
 int compareVersions(String a, String b) {
   final segmentsA = _segments(a);
   final segmentsB = _segments(b);
-  final length = segmentsA.length > segmentsB.length ? segmentsA.length : segmentsB.length;
+  final length = segmentsA.length > segmentsB.length
+      ? segmentsA.length
+      : segmentsB.length;
   for (var i = 0; i < length; i++) {
     final partA = i < segmentsA.length ? segmentsA[i] : 0;
     final partB = i < segmentsB.length ? segmentsB[i] : 0;
@@ -23,5 +25,8 @@ int compareVersions(String a, String b) {
 /// (e.g. from a corrupted Remote Config value) should compare as
 /// harmlessly low, not crash the caller.
 List<int> _segments(String version) {
-  return version.split('.').map((part) => int.tryParse(part.trim()) ?? 0).toList();
+  return version
+      .split('.')
+      .map((part) => int.tryParse(part.trim()) ?? 0)
+      .toList();
 }

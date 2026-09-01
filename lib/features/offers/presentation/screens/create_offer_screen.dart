@@ -16,11 +16,14 @@ import '../../../venues/domain/entities/venue.dart';
 import '../../../venues/domain/venue_listing_eligibility.dart';
 import '../../../venues/presentation/venue_block_message.dart';
 import '../../../venues/presentation/providers/venue_providers.dart';
-import '../../../venues/presentation/screens/create_venue_screen.dart' show venueCategoryLabel;
+import '../../../venues/presentation/screens/create_venue_screen.dart'
+    show venueCategoryLabel;
 import '../../domain/entities/offer.dart';
 import '../../domain/offer_failure.dart';
 import '../providers/offer_providers.dart';
 import '../widgets/venue_picker_sheet.dart';
+
+import '../../../../core/widgets/pressable.dart';
 
 /// `Offer.activeDays` keys, Monday-first — matches
 /// `OpeningHours.schedule`'s ISO-weekday order (1=Mon..7=Sun), just as
@@ -84,22 +87,39 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
     with WidgetsBindingObserver, PhotoPickerMixin<CreateOfferScreen> {
   static const _photoAspectRatio = CropAspectRatio(ratioX: 16, ratioY: 9);
 
-  late final _titleController = TextEditingController(text: widget.existingOffer?.title ?? '');
-  late final _descriptionController = TextEditingController(text: widget.existingOffer?.description ?? '');
-  late final _termsController = TextEditingController(text: widget.existingOffer?.terms ?? '');
-  late final _fixedPriceController =
-      TextEditingController(text: widget.existingOffer?.discountValue?.round().toString() ?? '');
-  late final _personalMessageController = TextEditingController(text: widget.existingOffer?.personalMessage ?? '');
+  late final _titleController = TextEditingController(
+    text: widget.existingOffer?.title ?? '',
+  );
+  late final _descriptionController = TextEditingController(
+    text: widget.existingOffer?.description ?? '',
+  );
+  late final _termsController = TextEditingController(
+    text: widget.existingOffer?.terms ?? '',
+  );
+  late final _fixedPriceController = TextEditingController(
+    text: widget.existingOffer?.discountValue?.round().toString() ?? '',
+  );
+  late final _personalMessageController = TextEditingController(
+    text: widget.existingOffer?.personalMessage ?? '',
+  );
 
   bool get _isEditing => widget.existingOffer != null;
 
   late VenueCategory? _category = widget.existingOffer?.category;
   late OfferType? _offerType =
-      widget.existingOffer?.offerType ?? (widget.birthdayMatchId != null ? OfferType.birthday : OfferType.discount);
+      widget.existingOffer?.offerType ??
+      (widget.birthdayMatchId != null
+          ? OfferType.birthday
+          : OfferType.discount);
   late double _discountPercent = widget.existingOffer?.discountValue ?? 20;
-  late DateTime? _startDate = widget.existingOffer?.startDate ?? (_isBirthdayOffer ? _todayStart() : DateTime.now());
-  late DateTime? _endDate = widget.existingOffer?.endDate ??
-      (_isBirthdayOffer ? _birthdayEndDate(_birthdayWeekExtension) : DateTime.now().add(const Duration(days: 30)));
+  late DateTime? _startDate =
+      widget.existingOffer?.startDate ??
+      (_isBirthdayOffer ? _todayStart() : DateTime.now());
+  late DateTime? _endDate =
+      widget.existingOffer?.endDate ??
+      (_isBirthdayOffer
+          ? _birthdayEndDate(_birthdayWeekExtension)
+          : DateTime.now().add(const Duration(days: 30)));
 
   /// [OfferType.birthday] is never a manual choice (see
   /// `_OfferTypeSelector`'s own doc comment) — true either for a fresh
@@ -113,8 +133,12 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
   /// rather than a separate persisted flag, since a fresh create
   /// always starts unchecked (1-day default) and this is purely a
   /// UI convenience for re-opening that same choice on edit.
-  late bool _birthdayWeekExtension = widget.existingOffer != null &&
-      widget.existingOffer!.endDate.difference(widget.existingOffer!.startDate).inDays >= 6;
+  late bool _birthdayWeekExtension =
+      widget.existingOffer != null &&
+      widget.existingOffer!.endDate
+              .difference(widget.existingOffer!.startDate)
+              .inDays >=
+          6;
 
   static DateTime _todayStart() {
     final now = DateTime.now();
@@ -131,9 +155,14 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
   // from the existing offer when editing one, otherwise a sensible
   // default window with every day checked (matches the spec: "default:
   // bütün həftə").
-  late TimeOfDay _happyHourStart = _parseTimeOfDay(widget.existingOffer?.activeHours?.start) ?? const TimeOfDay(hour: 15, minute: 0);
-  late TimeOfDay _happyHourEnd = _parseTimeOfDay(widget.existingOffer?.activeHours?.end) ?? const TimeOfDay(hour: 17, minute: 0);
-  late final Set<String> _activeDays = (widget.existingOffer?.activeDays.isNotEmpty ?? false)
+  late TimeOfDay _happyHourStart =
+      _parseTimeOfDay(widget.existingOffer?.activeHours?.start) ??
+      const TimeOfDay(hour: 15, minute: 0);
+  late TimeOfDay _happyHourEnd =
+      _parseTimeOfDay(widget.existingOffer?.activeHours?.end) ??
+      const TimeOfDay(hour: 17, minute: 0);
+  late final Set<String> _activeDays =
+      (widget.existingOffer?.activeDays.isNotEmpty ?? false)
       ? widget.existingOffer!.activeDays.toSet()
       : kAllWeekdayKeys.toSet();
 
@@ -170,7 +199,10 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      checkLostPhotoOnResume((file) => setState(() => _photo = file), aspectRatio: _photoAspectRatio);
+      checkLostPhotoOnResume(
+        (file) => setState(() => _photo = file),
+        aspectRatio: _photoAspectRatio,
+      );
     }
   }
 
@@ -190,7 +222,11 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppRadii.sheet),
+        ),
+      ),
       builder: (_) => const VenuePickerSheet(),
     );
     if (venue != null) {
@@ -207,11 +243,17 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
     final picked = await showDatePicker(
       context: context,
       initialDate: (isStart ? _startDate : _endDate) ?? now,
-      firstDate: isStart ? now.subtract(const Duration(days: 1)) : (_startDate ?? now),
+      firstDate: isStart
+          ? now.subtract(const Duration(days: 1))
+          : (_startDate ?? now),
       lastDate: now.add(const Duration(days: 365 * 2)),
-      helpText: isStart ? loc.offerStartDatePickerLabel : loc.offerEndDatePickerLabel,
+      helpText: isStart
+          ? loc.offerStartDatePickerLabel
+          : loc.offerEndDatePickerLabel,
       builder: (context, child) => Theme(
-        data: ThemeData.light().copyWith(colorScheme: const ColorScheme.light(primary: AppColors.primary)),
+        data: ThemeData.light().copyWith(
+          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+        ),
         child: child!,
       ),
     );
@@ -230,7 +272,9 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
       context: context,
       initialTime: isStart ? _happyHourStart : _happyHourEnd,
       builder: (context, child) => Theme(
-        data: ThemeData.light().copyWith(colorScheme: const ColorScheme.light(primary: AppColors.primary)),
+        data: ThemeData.light().copyWith(
+          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+        ),
         child: child!,
       ),
     );
@@ -244,8 +288,10 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
     });
   }
 
-  Future<void> _pickPhoto() =>
-      pickPhoto((file) => setState(() => _photo = file), aspectRatio: _photoAspectRatio);
+  Future<void> _pickPhoto() => pickPhoto(
+    (file) => setState(() => _photo = file),
+    aspectRatio: _photoAspectRatio,
+  );
 
   double? get _resolvedDiscountValue {
     if (_offerType == OfferType.discount ||
@@ -254,13 +300,17 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
         _offerType == OfferType.birthday) {
       return _discountPercent;
     }
-    if (_offerType == OfferType.fixedPrice) return double.tryParse(_fixedPriceController.text.trim());
+    if (_offerType == OfferType.fixedPrice)
+      return double.tryParse(_fixedPriceController.text.trim());
     return null;
   }
 
   ActiveHours? get _resolvedActiveHours {
     if (_offerType != OfferType.happyHour) return null;
-    return ActiveHours(start: _formatTimeOfDay(_happyHourStart), end: _formatTimeOfDay(_happyHourEnd));
+    return ActiveHours(
+      start: _formatTimeOfDay(_happyHourStart),
+      end: _formatTimeOfDay(_happyHourEnd),
+    );
   }
 
   List<String> get _resolvedActiveDays {
@@ -294,9 +344,9 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
       final block = venueListingBlock(venue.status);
       if (block != null) {
         final loc = AppLocalizations.of(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(venueBlockMessage(loc, block))),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(venueBlockMessage(loc, block))));
         return;
       }
     }
@@ -310,7 +360,9 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
 
     final loc = AppLocalizations.of(context);
 
-    final result = await ref.read(offerControllerProvider).createOffer(
+    final result = await ref
+        .read(offerControllerProvider)
+        .createOffer(
           venueId: _selectedVenue?.id,
           title: _titleController.text,
           description: _descriptionController.text,
@@ -320,22 +372,32 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
           startDate: _startDate,
           endDate: _endDate,
           photo: _photo,
-          terms: _termsController.text.trim().isEmpty ? null : _termsController.text.trim(),
+          terms: _termsController.text.trim().isEmpty
+              ? null
+              : _termsController.text.trim(),
           activeHours: _resolvedActiveHours,
           activeDays: _resolvedActiveDays,
           birthdayMatchId: _isBirthdayOffer ? widget.birthdayMatchId : null,
-          targetUserIds: _isBirthdayOffer ? widget.birthdayTargetUserIds : const [],
-          personalMessage: _isBirthdayOffer && _personalMessageController.text.trim().isNotEmpty
+          targetUserIds: _isBirthdayOffer
+              ? widget.birthdayTargetUserIds
+              : const [],
+          personalMessage:
+              _isBirthdayOffer &&
+                  _personalMessageController.text.trim().isNotEmpty
               ? _personalMessageController.text.trim()
               : null,
           onValidationError: (missing) {
             if (!mounted) return;
             setState(() => _fieldErrors = missing.toSet());
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerRequiredFieldsMissing)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.offerRequiredFieldsMissing)),
+            );
           },
           onError: () {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.offerGenericErrorMessage)),
+            );
           },
           onUploadProgress: (p) {
             if (!mounted) return;
@@ -357,13 +419,20 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
       final checkoutUrl = result.checkoutUrl;
       final paymentId = result.paymentId;
       if (checkoutUrl != null && paymentId != null) {
-        await presentEpointCheckout(context, checkoutUrl: checkoutUrl, paymentId: paymentId, feeAmount: result.feeAmount ?? 0);
+        await presentEpointCheckout(
+          context,
+          checkoutUrl: checkoutUrl,
+          paymentId: paymentId,
+          feeAmount: result.feeAmount ?? 0,
+        );
       }
       if (!mounted) return;
       Navigator.pop(context);
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerCreatedNotice)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(loc.offerCreatedNotice)));
     Navigator.pop(context);
   }
 
@@ -383,7 +452,9 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
     // as CreateVenueScreen._submitEdit, just without the separate
     // client-side `resubmitOffer` call this used to need (see that
     // Cloud Function's own doc comment, functions/src/index.ts).
-    final (:success, :sentForReReview) = await ref.read(offerControllerProvider).updateOffer(
+    final (:success, :sentForReReview) = await ref
+        .read(offerControllerProvider)
+        .updateOffer(
           offerId: widget.existingOffer!.id,
           title: _titleController.text,
           description: _descriptionController.text,
@@ -394,17 +465,23 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
           endDate: _endDate,
           photo: _photo,
           hasExistingPhoto: widget.existingOffer?.imageUrl != null,
-          terms: _termsController.text.trim().isEmpty ? null : _termsController.text.trim(),
+          terms: _termsController.text.trim().isEmpty
+              ? null
+              : _termsController.text.trim(),
           activeHours: _resolvedActiveHours,
           activeDays: _resolvedActiveDays,
           onValidationError: (missing) {
             if (!mounted) return;
             setState(() => _fieldErrors = missing.toSet());
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerRequiredFieldsMissing)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.offerRequiredFieldsMissing)),
+            );
           },
           onError: () {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.offerGenericErrorMessage)),
+            );
           },
           onUploadProgress: (p) {
             if (!mounted) return;
@@ -422,7 +499,13 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(sentForReReview ? loc.offerSentForReReviewNotice : loc.offerUpdatedNotice)),
+        SnackBar(
+          content: Text(
+            sentForReReview
+                ? loc.offerSentForReReviewNotice
+                : loc.offerUpdatedNotice,
+          ),
+        ),
       );
       Navigator.pop(context);
     }
@@ -442,11 +525,19 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: ChatLightColors.ink,
+          ),
         ),
         title: Text(
           _isEditing ? loc.offerEditTitle : loc.offerCreateTitle,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: ChatLightColors.ink,
+          ),
         ),
       ),
       body: Stack(
@@ -464,7 +555,11 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
                 ),
                 const SizedBox(height: AppSpacing.xxl),
                 _FieldLabel(loc.offerNameLabel),
-                _LightTextField(controller: _titleController, hint: loc.offerNameHint, maxLength: 50),
+                _LightTextField(
+                  controller: _titleController,
+                  hint: loc.offerNameHint,
+                  maxLength: 50,
+                ),
                 const SizedBox(height: AppSpacing.xxl),
                 _FieldLabel(loc.offerCategoryLabel),
                 _CategoryField(
@@ -486,12 +581,19 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
                     _offerType == OfferType.firstVisit ||
                     _offerType == OfferType.birthday) ...[
                   const SizedBox(height: AppSpacing.xxl),
-                  _FieldLabel(_offerType == OfferType.fixedPrice ? loc.offerFixedPriceLabel : loc.offerDiscountAmountLabel),
+                  _FieldLabel(
+                    _offerType == OfferType.fixedPrice
+                        ? loc.offerFixedPriceLabel
+                        : loc.offerDiscountAmountLabel,
+                  ),
                   if (_offerType == OfferType.fixedPrice)
                     _LightTextField(
                       controller: _fixedPriceController,
                       hint: loc.offerFixedPriceHint,
-                      errorText: _fieldErrors.contains(OfferFieldError.discountValue) ? loc.venueFieldRequiredError : null,
+                      errorText:
+                          _fieldErrors.contains(OfferFieldError.discountValue)
+                          ? loc.venueFieldRequiredError
+                          : null,
                       keyboardType: TextInputType.number,
                     )
                   else
@@ -506,7 +608,9 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
                   _ActiveHoursRow(
                     start: _happyHourStart,
                     end: _happyHourEnd,
-                    hasError: _fieldErrors.contains(OfferFieldError.activeHours),
+                    hasError: _fieldErrors.contains(
+                      OfferFieldError.activeHours,
+                    ),
                     onPickStart: () => _pickHappyHourTime(isStart: true),
                     onPickEnd: () => _pickHappyHourTime(isStart: false),
                   ),
@@ -582,10 +686,18 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
                 ],
                 const SizedBox(height: AppSpacing.xxl),
                 _FieldLabel(loc.offerTermsLabel),
-                _LightTextField(controller: _termsController, hint: loc.offerTermsHint, maxLength: 200, maxLines: 3),
+                _LightTextField(
+                  controller: _termsController,
+                  hint: loc.offerTermsHint,
+                  maxLength: 200,
+                  maxLines: 3,
+                ),
                 const SizedBox(height: AppSpacing.xxxl),
                 if (_submitting && _uploadProgress != null)
-                  _UploadProgressCard(progress: _uploadProgress!, onCancel: _cancelUpload)
+                  _UploadProgressCard(
+                    progress: _uploadProgress!,
+                    onCancel: _cancelUpload,
+                  )
                 else
                   SizedBox(
                     width: double.infinity,
@@ -594,19 +706,33 @@ class _CreateOfferScreenState extends ConsumerState<CreateOfferScreen>
                       onPressed: _submitting ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
+                        disabledBackgroundColor: AppColors.primary.withValues(
+                          alpha: 0.5,
+                        ),
                         foregroundColor: ChatLightColors.contourLine,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.button)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.button),
+                        ),
                         elevation: 0,
-                        textStyle: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700),
+                        textStyle: const TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       child: _submitting
                           ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.4, color: ChatLightColors.contourLine),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: ChatLightColors.contourLine,
+                              ),
                             )
-                          : Text(_isEditing ? loc.venueSaveButton : loc.offerSubmitButton),
+                          : Text(
+                              _isEditing
+                                  ? loc.venueSaveButton
+                                  : loc.offerSubmitButton,
+                            ),
                     ),
                   ),
               ],
@@ -627,7 +753,14 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Text(label, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 14.5,
+          fontWeight: FontWeight.w600,
+          color: ChatLightColors.ink,
+        ),
+      ),
     );
   }
 }
@@ -664,8 +797,18 @@ class _LightTextField extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(AppRadii.input),
-            border: Border.all(color: hasError ? AppColors.error : ChatLightColors.inkFaint.withValues(alpha: 0.18)),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2))],
+            border: Border.all(
+              color: hasError
+                  ? AppColors.error
+                  : ChatLightColors.inkFaint.withValues(alpha: 0.18),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: TextField(
@@ -673,11 +816,19 @@ class _LightTextField extends StatelessWidget {
             maxLength: maxLength,
             maxLines: maxLines,
             keyboardType: keyboardType,
-            style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500, color: ChatLightColors.ink),
+            style: const TextStyle(
+              fontSize: 15.5,
+              fontWeight: FontWeight.w500,
+              color: ChatLightColors.ink,
+            ),
             cursorColor: AppColors.primary,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(color: ChatLightColors.inkFaint, fontWeight: FontWeight.w400, fontSize: 15.5),
+              hintStyle: TextStyle(
+                color: ChatLightColors.inkFaint,
+                fontWeight: FontWeight.w400,
+                fontSize: 15.5,
+              ),
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
@@ -693,7 +844,10 @@ class _LightTextField extends StatelessWidget {
         ),
         if (hasError) ...[
           const SizedBox(height: 6),
-          Text(errorText!, style: const TextStyle(fontSize: 12.5, color: AppColors.error)),
+          Text(
+            errorText!,
+            style: const TextStyle(fontSize: 12.5, color: AppColors.error),
+          ),
         ],
       ],
     );
@@ -721,17 +875,30 @@ class _CategoryField extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(AppRadii.card),
-            border: hasError ? Border.all(color: AppColors.error, width: 1.2) : null,
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 3))],
+            border: hasError
+                ? Border.all(color: AppColors.error, width: 1.2)
+                : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 8,
+                offset: const Offset(0, 3),
+              ),
+            ],
           ),
           child: Row(
             children: [
               Container(
                 width: 40,
                 height: 40,
-                decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: Icon(
-                  category != null ? venueCategoryIcon(category!) : Icons.category_outlined,
+                  category != null
+                      ? venueCategoryIcon(category!)
+                      : Icons.category_outlined,
                   size: 20,
                   color: AppColors.primary,
                 ),
@@ -739,17 +906,30 @@ class _CategoryField extends StatelessWidget {
               const SizedBox(width: AppSpacing.md),
               Expanded(
                 child: Text(
-                  category != null ? venueCategoryLabel(loc, category!) : loc.venueCategoryUnselectedLabel,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+                  category != null
+                      ? venueCategoryLabel(loc, category!)
+                      : loc.venueCategoryUnselectedLabel,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                    color: ChatLightColors.ink,
+                  ),
                 ),
               ),
-              const Icon(Icons.lock_outline_rounded, color: ChatLightColors.inkFaint, size: 18),
+              const Icon(
+                Icons.lock_outline_rounded,
+                color: ChatLightColors.inkFaint,
+                size: 18,
+              ),
             ],
           ),
         ),
         if (hasError) ...[
           const SizedBox(height: 6),
-          Text(loc.venueFieldRequiredError, style: const TextStyle(fontSize: 12.5, color: AppColors.error)),
+          Text(
+            loc.venueFieldRequiredError,
+            style: const TextStyle(fontSize: 12.5, color: AppColors.error),
+          ),
         ],
       ],
     );
@@ -768,10 +948,26 @@ class _OfferTypeSelector extends StatelessWidget {
     final options = [
       (OfferType.discount, loc.offerTypeDiscountOption, Icons.percent_rounded),
       (OfferType.gift, loc.offerTypeGiftOption, Icons.card_giftcard_outlined),
-      (OfferType.buyOneGetOne, loc.offerTypeBuyOneGetOneOption, Icons.card_travel_outlined),
-      (OfferType.fixedPrice, loc.offerTypeFixedPriceOption, Icons.sell_outlined),
-      (OfferType.happyHour, loc.offerTypeHappyHourOption, Icons.access_time_filled_rounded),
-      (OfferType.firstVisit, loc.offerTypeFirstVisitOption, Icons.card_giftcard_rounded),
+      (
+        OfferType.buyOneGetOne,
+        loc.offerTypeBuyOneGetOneOption,
+        Icons.card_travel_outlined,
+      ),
+      (
+        OfferType.fixedPrice,
+        loc.offerTypeFixedPriceOption,
+        Icons.sell_outlined,
+      ),
+      (
+        OfferType.happyHour,
+        loc.offerTypeHappyHourOption,
+        Icons.access_time_filled_rounded,
+      ),
+      (
+        OfferType.firstVisit,
+        loc.offerTypeFirstVisitOption,
+        Icons.card_giftcard_rounded,
+      ),
     ];
 
     return Wrap(
@@ -779,27 +975,41 @@ class _OfferTypeSelector extends StatelessWidget {
       runSpacing: 8,
       children: [
         for (final (type, label, icon) in options)
-          GestureDetector(
+          Pressable(
             onTap: () => onChanged(type),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: selected == type ? AppColors.primary.withValues(alpha: 0.12) : Colors.white,
+                color: selected == type
+                    ? AppColors.primary.withValues(alpha: 0.12)
+                    : Colors.white,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: selected == type ? AppColors.primary : ChatLightColors.inkFaint.withValues(alpha: 0.18)),
+                border: Border.all(
+                  color: selected == type
+                      ? AppColors.primary
+                      : ChatLightColors.inkFaint.withValues(alpha: 0.18),
+                ),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(icon, size: 15, color: selected == type ? AppColors.primary : ChatLightColors.inkSoft),
+                  Icon(
+                    icon,
+                    size: 15,
+                    color: selected == type
+                        ? AppColors.primary
+                        : ChatLightColors.inkSoft,
+                  ),
                   const SizedBox(width: 6),
                   Text(
                     label,
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: selected == type ? AppColors.primary : ChatLightColors.ink,
+                      color: selected == type
+                          ? AppColors.primary
+                          : ChatLightColors.ink,
                     ),
                   ),
                 ],
@@ -831,12 +1041,20 @@ class _LockedOfferTypeDisplay extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.lock_outline_rounded, size: 15, color: AppColors.primary),
+          const Icon(
+            Icons.lock_outline_rounded,
+            size: 15,
+            color: AppColors.primary,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               label,
-              style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700, color: AppColors.primary),
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primary,
+              ),
             ),
           ),
         ],
@@ -868,23 +1086,36 @@ class _BirthdayValidityDisplay extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final rangeLabel = weekExtension ? '${dateFormat.format(startDate)} - ${dateFormat.format(endDate)}' : dateFormat.format(startDate);
+    final rangeLabel = weekExtension
+        ? '${dateFormat.format(startDate)} - ${dateFormat.format(endDate)}'
+        : dateFormat.format(startDate);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadii.input)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadii.input),
+      ),
       child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
             child: Row(
               children: [
-                const Icon(Icons.lock_outline_rounded, size: 15, color: ChatLightColors.inkFaint),
+                const Icon(
+                  Icons.lock_outline_rounded,
+                  size: 15,
+                  color: ChatLightColors.inkFaint,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     rangeLabel,
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: ChatLightColors.ink,
+                    ),
                   ),
                 ),
               ],
@@ -900,7 +1131,10 @@ class _BirthdayValidityDisplay extends StatelessWidget {
             activeColor: AppColors.primary,
             title: Text(
               loc.offerBirthdayWeekExtensionLabel,
-              style: const TextStyle(fontSize: 13.5, color: ChatLightColors.ink),
+              style: const TextStyle(
+                fontSize: 13.5,
+                color: ChatLightColors.ink,
+              ),
             ),
           ),
         ],
@@ -919,14 +1153,31 @@ class _DiscountSlider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadii.input)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadii.input),
+      ),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('${value.round()}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: ChatLightColors.ink)),
-              const Text('%', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ChatLightColors.inkSoft)),
+              Text(
+                '${value.round()}',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: ChatLightColors.ink,
+                ),
+              ),
+              const Text(
+                '%',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: ChatLightColors.inkSoft,
+                ),
+              ),
             ],
           ),
           SliderTheme(
@@ -971,9 +1222,23 @@ class _DateRangeRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _DateField(label: loc.offerStartDatePickerLabel, date: startDate, dateFormat: dateFormat, onTap: onPickStart)),
+        Expanded(
+          child: _DateField(
+            label: loc.offerStartDatePickerLabel,
+            date: startDate,
+            dateFormat: dateFormat,
+            onTap: onPickStart,
+          ),
+        ),
         const SizedBox(width: 10),
-        Expanded(child: _DateField(label: loc.offerEndDatePickerLabel, date: endDate, dateFormat: dateFormat, onTap: onPickEnd)),
+        Expanded(
+          child: _DateField(
+            label: loc.offerEndDatePickerLabel,
+            date: endDate,
+            dateFormat: dateFormat,
+            onTap: onPickEnd,
+          ),
+        ),
       ],
     );
   }
@@ -985,29 +1250,48 @@ class _DateField extends StatelessWidget {
   final DateFormat dateFormat;
   final VoidCallback onTap;
 
-  const _DateField({required this.label, required this.date, required this.dateFormat, required this.onTap});
+  const _DateField({
+    required this.label,
+    required this.date,
+    required this.dateFormat,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(AppRadii.input)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(AppRadii.input),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint)),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+            ),
             const SizedBox(height: 3),
             Row(
               children: [
                 Expanded(
                   child: Text(
                     date != null ? dateFormat.format(date!) : '—',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: ChatLightColors.ink,
+                    ),
                   ),
                 ),
-                Icon(Icons.calendar_today_outlined, size: 15, color: ChatLightColors.inkFaint),
+                Icon(
+                  Icons.calendar_today_outlined,
+                  size: 15,
+                  color: ChatLightColors.inkFaint,
+                ),
               ],
             ),
           ],
@@ -1068,11 +1352,16 @@ class _TimeField extends StatelessWidget {
   final bool hasError;
   final VoidCallback onTap;
 
-  const _TimeField({required this.label, required this.time, required this.hasError, required this.onTap});
+  const _TimeField({
+    required this.label,
+    required this.time,
+    required this.hasError,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1084,17 +1373,28 @@ class _TimeField extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint)),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+            ),
             const SizedBox(height: 3),
             Row(
               children: [
                 Expanded(
                   child: Text(
                     _formatTimeOfDay(time),
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: ChatLightColors.ink,
+                    ),
                   ),
                 ),
-                Icon(Icons.access_time_outlined, size: 15, color: ChatLightColors.inkFaint),
+                Icon(
+                  Icons.access_time_outlined,
+                  size: 15,
+                  color: ChatLightColors.inkFaint,
+                ),
               ],
             ),
           ],
@@ -1115,7 +1415,11 @@ class _ActiveDaysSelector extends StatelessWidget {
   final Set<String> selectedDays;
   final ValueChanged<String> onToggle;
 
-  const _ActiveDaysSelector({required this.loc, required this.selectedDays, required this.onToggle});
+  const _ActiveDaysSelector({
+    required this.loc,
+    required this.selectedDays,
+    required this.onToggle,
+  });
 
   String _labelFor(String day) => switch (day) {
     'mon' => loc.venueWeekdayMon,
@@ -1134,7 +1438,7 @@ class _ActiveDaysSelector extends StatelessWidget {
       runSpacing: 8,
       children: [
         for (final day in kAllWeekdayKeys)
-          GestureDetector(
+          Pressable(
             onTap: () => onToggle(day),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 160),
@@ -1142,10 +1446,14 @@ class _ActiveDaysSelector extends StatelessWidget {
               height: 40,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: selectedDays.contains(day) ? AppColors.primary.withValues(alpha: 0.12) : Colors.white,
+                color: selectedDays.contains(day)
+                    ? AppColors.primary.withValues(alpha: 0.12)
+                    : Colors.white,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: selectedDays.contains(day) ? AppColors.primary : ChatLightColors.inkFaint.withValues(alpha: 0.18),
+                  color: selectedDays.contains(day)
+                      ? AppColors.primary
+                      : ChatLightColors.inkFaint.withValues(alpha: 0.18),
                 ),
               ),
               child: Text(
@@ -1153,7 +1461,9 @@ class _ActiveDaysSelector extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: selectedDays.contains(day) ? AppColors.primary : ChatLightColors.inkSoft,
+                  color: selectedDays.contains(day)
+                      ? AppColors.primary
+                      : ChatLightColors.inkSoft,
                 ),
               ),
             ),
@@ -1188,7 +1498,9 @@ class _PlacementFeeBanner extends StatelessWidget {
     final quota = freeCampaignQuotaFor(venue.category);
     final renewsAt = venue.subscriptionRenewsAt;
     final hasPaidPeriod = renewsAt != null && DateTime.now().isBefore(renewsAt);
-    final remaining = hasPaidPeriod ? (quota - venue.freeCampaignsUsed).clamp(0, quota) : 0;
+    final remaining = hasPaidPeriod
+        ? (quota - venue.freeCampaignsUsed).clamp(0, quota)
+        : 0;
 
     final String text;
     final IconData icon;
@@ -1202,15 +1514,22 @@ class _PlacementFeeBanner extends StatelessWidget {
       // checkout sheet — "your free quota is spent, this one costs X"
       // is a decision they should be able to make first.
       text = hasPaidPeriod
-          ? loc.offerFreeCampaignsExhausted(offerPlacementFeeForCategory(venue.category).round())
-          : loc.offerPlacementFeeNotice(offerPlacementFeeForCategory(venue.category).round());
+          ? loc.offerFreeCampaignsExhausted(
+              offerPlacementFeeForCategory(venue.category).round(),
+            )
+          : loc.offerPlacementFeeNotice(
+              offerPlacementFeeForCategory(venue.category).round(),
+            );
       icon = Icons.payments_outlined;
       color = ChatLightColors.inkSoft;
     }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(color: color.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
         children: [
           Icon(icon, size: 16, color: color),
@@ -1220,14 +1539,25 @@ class _PlacementFeeBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(text, style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: color)),
+                Text(
+                  text,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
                 // When the quota renews. Without it "0 left" reads as
                 // permanent, and the owner has no way to tell whether
                 // waiting two days would have been free.
                 if (hasPaidPeriod)
                   Text(
                     loc.offerFreeCampaignsRenewOn(_formatQuotaDate(renewsAt)),
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: color.withValues(alpha: 0.75)),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: color.withValues(alpha: 0.75),
+                    ),
                   ),
               ],
             ),
@@ -1246,7 +1576,11 @@ class _VenuePickerField extends StatelessWidget {
   final bool hasError;
   final VoidCallback onTap;
 
-  const _VenuePickerField({required this.venue, required this.hasError, required this.onTap});
+  const _VenuePickerField({
+    required this.venue,
+    required this.hasError,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1255,15 +1589,23 @@ class _VenuePickerField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GestureDetector(
+        Pressable(
           onTap: onTap,
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(AppRadii.card),
-              border: hasError ? Border.all(color: AppColors.error, width: 1.2) : null,
-              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8, offset: const Offset(0, 3))],
+              border: hasError
+                  ? Border.all(color: AppColors.error, width: 1.2)
+                  : null,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
             child: Row(
               children: [
@@ -1273,12 +1615,18 @@ class _VenuePickerField extends StatelessWidget {
                     width: 40,
                     height: 40,
                     child: venue?.photoUrl != null
-                        ? AppImage(venue!.photoUrl!, thumbnail: true, fit: BoxFit.cover)
+                        ? AppImage(
+                            venue!.photoUrl!,
+                            thumbnail: true,
+                            fit: BoxFit.cover,
+                          )
                         : Container(
                             color: ChatLightColors.cardSurface,
                             alignment: Alignment.center,
                             child: Icon(
-                              venue != null ? venueCategoryIcon(venue!.category) : Icons.storefront_outlined,
+                              venue != null
+                                  ? venueCategoryIcon(venue!.category)
+                                  : Icons.storefront_outlined,
                               size: 18,
                               color: ChatLightColors.inkSoft,
                             ),
@@ -1292,7 +1640,11 @@ class _VenuePickerField extends StatelessWidget {
                     children: [
                       Text(
                         venue?.name ?? loc.offerVenuePickerHint,
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: ChatLightColors.ink),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: ChatLightColors.ink,
+                        ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1300,7 +1652,10 @@ class _VenuePickerField extends StatelessWidget {
                         const SizedBox(height: 1),
                         Text(
                           venue!.address,
-                          style: TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft),
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            color: ChatLightColors.inkSoft,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -1308,14 +1663,21 @@ class _VenuePickerField extends StatelessWidget {
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: ChatLightColors.inkFaint, size: 20),
+                Icon(
+                  Icons.chevron_right,
+                  color: ChatLightColors.inkFaint,
+                  size: 20,
+                ),
               ],
             ),
           ),
         ),
         if (hasError) ...[
           const SizedBox(height: 6),
-          Text(loc.venueFieldRequiredError, style: const TextStyle(fontSize: 12.5, color: AppColors.error)),
+          Text(
+            loc.venueFieldRequiredError,
+            style: const TextStyle(fontSize: 12.5, color: AppColors.error),
+          ),
         ],
       ],
     );
@@ -1338,7 +1700,13 @@ class _UploadProgressCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppRadii.card),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1346,9 +1714,23 @@ class _UploadProgressCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(loc.venueUploadingLabel, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+                child: Text(
+                  loc.venueUploadingLabel,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ChatLightColors.ink,
+                  ),
+                ),
               ),
-              Text('$percent%', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+              Text(
+                '$percent%',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -1369,7 +1751,9 @@ class _UploadProgressCard extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,
                 side: const BorderSide(color: AppColors.error),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.button)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.button),
+                ),
               ),
               child: Text(loc.venueUploadCancelButton),
             ),
@@ -1401,7 +1785,7 @@ class _OfferPhotoPicker extends StatelessWidget {
     final hasExisting = file == null && (existingUrl?.isNotEmpty ?? false);
     final hasAnyPhoto = file != null || hasExisting;
 
-    return GestureDetector(
+    return Pressable(
       onTap: onPick,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -1411,14 +1795,19 @@ class _OfferPhotoPicker extends StatelessWidget {
           color: ChatLightColors.cardSurface,
           borderRadius: BorderRadius.circular(AppRadii.card),
           border: Border.all(
-            color: hasError ? AppColors.error : ChatLightColors.inkFaint.withValues(alpha: 0.35),
+            color: hasError
+                ? AppColors.error
+                : ChatLightColors.inkFaint.withValues(alpha: 0.35),
             width: hasError ? 1.2 : 1.4,
           ),
           image: file != null
               ? DecorationImage(image: FileImage(file!), fit: BoxFit.cover)
               : hasExisting
-                  ? DecorationImage(image: NetworkImage(existingUrl!), fit: BoxFit.cover)
-                  : null,
+              ? DecorationImage(
+                  image: NetworkImage(existingUrl!),
+                  fit: BoxFit.cover,
+                )
+              : null,
         ),
         child: !hasAnyPhoto
             ? Column(
@@ -1427,29 +1816,50 @@ class _OfferPhotoPicker extends StatelessWidget {
                   Container(
                     width: 52,
                     height: 52,
-                    decoration: BoxDecoration(color: AppColors.primary.withValues(alpha: 0.14), shape: BoxShape.circle),
-                    child: const Icon(Icons.add_photo_alternate_outlined, color: AppColors.primary, size: 26),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.14),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.add_photo_alternate_outlined,
+                      color: AppColors.primary,
+                      size: 26,
+                    ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
-                  Text(loc.offerPhotoLabel, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+                  Text(
+                    loc.offerPhotoLabel,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: ChatLightColors.ink,
+                    ),
+                  ),
                 ],
               )
             : file == null
-                ? const SizedBox.shrink()
-                : Align(
-                    alignment: Alignment.topRight,
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.sm),
-                      child: GestureDetector(
-                        onTap: onRemove,
-                        child: Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                          child: const Icon(Icons.close, color: Colors.white, size: 18),
-                        ),
+            ? const SizedBox.shrink()
+            : Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.sm),
+                  child: Pressable(
+                    onTap: onRemove,
+                    child: Container(
+                      padding: const EdgeInsets.all(5),
+                      decoration: const BoxDecoration(
+                        color: Colors.black54,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 18,
                       ),
                     ),
                   ),
+                ),
+              ),
       ),
     );
   }

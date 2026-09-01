@@ -20,7 +20,8 @@ class ComingSoonScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedMessage = message ?? AppLocalizations.of(context).comingSoonDefaultMessage;
+    final resolvedMessage =
+        message ?? AppLocalizations.of(context).comingSoonDefaultMessage;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -42,7 +43,11 @@ class ComingSoonScreen extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: AppColors.surface,
                   boxShadow: [
-                    BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 20, spreadRadius: 0),
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      blurRadius: 20,
+                      spreadRadius: 0,
+                    ),
                   ],
                 ),
                 child: Icon(icon, color: AppColors.textSecondary, size: 42),
@@ -51,7 +56,10 @@ class ComingSoonScreen extends StatelessWidget {
               Text(
                 resolvedMessage,
                 textAlign: TextAlign.center,
-                style: AppTextStyles.caption.copyWith(height: 1.5, fontSize: 14),
+                style: AppTextStyles.caption.copyWith(
+                  height: 1.5,
+                  fontSize: 14,
+                ),
               ),
             ],
           ),

@@ -48,7 +48,8 @@ class _AnnouncementBannerState extends ConsumerState<AnnouncementBanner> {
     final loc = AppLocalizations.of(context);
     final config = ref.watch(appConfigProvider);
 
-    final shouldShow = _loaded &&
+    final shouldShow =
+        _loaded &&
         config.announcementEnabled &&
         config.announcementId.isNotEmpty &&
         config.announcementMessage.isNotEmpty &&
@@ -61,21 +62,36 @@ class _AnnouncementBannerState extends ConsumerState<AnnouncementBanner> {
       child: InkWell(
         onTap: config.announcementActionUrl.isEmpty
             ? null
-            : () => launchUrl(Uri.parse(config.announcementActionUrl), mode: LaunchMode.externalApplication),
+            : () => launchUrl(
+                Uri.parse(config.announcementActionUrl),
+                mode: LaunchMode.externalApplication,
+              ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              const Icon(Icons.campaign_outlined, size: 20, color: AppColors.primary),
+              const Icon(
+                Icons.campaign_outlined,
+                size: 20,
+                color: AppColors.primary,
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   config.announcementMessage,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600, color: AppColors.white),
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.white,
+                  ),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close_rounded, size: 18, color: AppColors.textSecondary),
+                icon: const Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: AppColors.textSecondary,
+                ),
                 tooltip: loc.announcementDismissLabel,
                 onPressed: () => _dismiss(config.announcementId),
               ),

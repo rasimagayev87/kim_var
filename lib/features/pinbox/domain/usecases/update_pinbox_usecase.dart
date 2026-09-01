@@ -28,7 +28,9 @@ List<PinBoxFieldError> _missingFields({
       pinboxPrice >= originalPrice) {
     missing.add(PinBoxFieldError.price);
   }
-  if (pickupWindowStart == null || pickupWindowEnd == null || !pickupWindowEnd.isAfter(pickupWindowStart)) {
+  if (pickupWindowStart == null ||
+      pickupWindowEnd == null ||
+      !pickupWindowEnd.isAfter(pickupWindowStart)) {
     missing.add(PinBoxFieldError.pickupWindow);
   }
   return missing;

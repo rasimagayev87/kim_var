@@ -6,6 +6,8 @@ import '../../../../l10n/app_localizations.dart';
 import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../domain/entities/venue.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 const _kDefaultOpen = '09:00';
 const _kDefaultClose = '18:00';
 
@@ -367,7 +369,7 @@ class _DayRow extends StatelessWidget {
         children: [
           SizedBox(
             width: 68,
-            child: GestureDetector(
+            child: Pressable(
               onTap: () => onToggle(!isOpen),
               child: Text(
                 label,
@@ -453,7 +455,7 @@ class _TimeChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),

@@ -5,6 +5,8 @@ import '../data/countries_cities.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
 
+import '../../core/widgets/pressable.dart';
+
 /// A self-contained Country → City picker built entirely with our
 /// own widgets (no third-party picker package) — searchable bottom
 /// sheets backed by [kCountryNames] / [kCitiesByCountry]. City
@@ -89,7 +91,11 @@ class _CountryCityPickerState extends State<CountryCityPicker> {
           builder: (sheetContext, setSheetState) {
             final filtered = query.isEmpty
                 ? items
-                : items.where((i) => i.toLowerCase().contains(query.toLowerCase())).toList();
+                : items
+                      .where(
+                        (i) => i.toLowerCase().contains(query.toLowerCase()),
+                      )
+                      .toList();
 
             return SafeArea(
               child: SizedBox(
@@ -101,7 +107,9 @@ class _CountryCityPickerState extends State<CountryCityPicker> {
                       child: Text(
                         title,
                         textAlign: TextAlign.left,
-                        style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700),
+                        style: AppTextStyles.cardTitle.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
                     Padding(
@@ -111,7 +119,11 @@ class _CountryCityPickerState extends State<CountryCityPicker> {
                         style: AppTextStyles.body.copyWith(fontSize: 15.5),
                         decoration: InputDecoration(
                           hintText: hint,
-                          prefixIcon: const Icon(Icons.search_outlined, color: AppColors.textSecondary, size: 20),
+                          prefixIcon: const Icon(
+                            Icons.search_outlined,
+                            color: AppColors.textSecondary,
+                            size: 20,
+                          ),
                         ),
                         onChanged: (v) => setSheetState(() => query = v),
                       ),
@@ -120,16 +132,27 @@ class _CountryCityPickerState extends State<CountryCityPicker> {
                     Expanded(
                       child: filtered.isEmpty
                           ? Center(
-                              child: Text(AppLocalizations.of(context).searchNotFound, style: AppTextStyles.bodySmall),
+                              child: Text(
+                                AppLocalizations.of(context).searchNotFound,
+                                style: AppTextStyles.bodySmall,
+                              ),
                             )
                           : ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
                               itemCount: filtered.length,
                               itemBuilder: (context, index) {
                                 final item = filtered[index];
                                 return ListTile(
-                                  title: Text(item, style: AppTextStyles.body.copyWith(fontSize: 15.5)),
-                                  onTap: () => Navigator.pop(sheetContext, item),
+                                  title: Text(
+                                    item,
+                                    style: AppTextStyles.body.copyWith(
+                                      fontSize: 15.5,
+                                    ),
+                                  ),
+                                  onTap: () =>
+                                      Navigator.pop(sheetContext, item),
                                 );
                               },
                             ),
@@ -161,7 +184,9 @@ class _CountryCityPickerState extends State<CountryCityPicker> {
         _SelectorField(
           label: loc.fieldCityLabel,
           value: _city,
-          hint: _country == null ? loc.fieldCitySelectFirstHint : loc.pickCityTitle,
+          hint: _country == null
+              ? loc.fieldCitySelectFirstHint
+              : loc.pickCityTitle,
           icon: Icons.location_city_outlined,
           enabled: _country != null,
           onTap: _pickCity,
@@ -190,7 +215,7 @@ class _SelectorField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: enabled ? onTap : null,
       child: Opacity(
         opacity: enabled ? 1 : 0.5,
@@ -214,13 +239,19 @@ class _SelectorField extends StatelessWidget {
                     Text(
                       value ?? hint,
                       style: AppTextStyles.body.copyWith(
-                        color: value == null ? AppColors.textMuted : AppColors.white,
+                        color: value == null
+                            ? AppColors.textMuted
+                            : AppColors.white,
                       ),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.keyboard_arrow_down_outlined, color: AppColors.textSecondary, size: 20),
+              const Icon(
+                Icons.keyboard_arrow_down_outlined,
+                color: AppColors.textSecondary,
+                size: 20,
+              ),
             ],
           ),
         ),

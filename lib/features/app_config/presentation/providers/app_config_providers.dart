@@ -10,14 +10,18 @@ import '../../domain/usecases/check_update_status_usecase.dart';
 /// existing `overrideWith` pattern for the same "resolve before
 /// runApp" reason).
 final appConfigRepositoryProvider = Provider<AppConfigRepository>(
-  (ref) => throw UnimplementedError('appConfigRepositoryProvider must be overridden in main()'),
+  (ref) => throw UnimplementedError(
+    'appConfigRepositoryProvider must be overridden in main()',
+  ),
 );
 
 /// Overridden in `main()` with the real installed version string (no
 /// `v` prefix) — read once via `package_info_plus` before `runApp`,
 /// same reasoning as [appConfigRepositoryProvider].
 final installedAppVersionProvider = Provider<String>(
-  (ref) => throw UnimplementedError('installedAppVersionProvider must be overridden in main()'),
+  (ref) => throw UnimplementedError(
+    'installedAppVersionProvider must be overridden in main()',
+  ),
 );
 
 class AppConfigController extends StateNotifier<AppConfig> {
@@ -41,21 +45,27 @@ class AppConfigController extends StateNotifier<AppConfig> {
   }
 }
 
-final appConfigProvider = StateNotifierProvider<AppConfigController, AppConfig>((ref) {
-  final languageCode = ref.watch(localeProvider).languageCode;
-  final repository = ref.watch(appConfigRepositoryProvider);
-  final controller = AppConfigController(repository, languageCode);
-  // Re-localize (no network) whenever the user switches app language.
-  ref.listen(localeProvider, (previous, next) {
-    if (previous?.languageCode != next.languageCode) controller.reload(next.languageCode);
-  });
-  return controller;
-});
+final appConfigProvider = StateNotifierProvider<AppConfigController, AppConfig>(
+  (ref) {
+    final languageCode = ref.watch(localeProvider).languageCode;
+    final repository = ref.watch(appConfigRepositoryProvider);
+    final controller = AppConfigController(repository, languageCode);
+    // Re-localize (no network) whenever the user switches app language.
+    ref.listen(localeProvider, (previous, next) {
+      if (previous?.languageCode != next.languageCode)
+        controller.reload(next.languageCode);
+    });
+    return controller;
+  },
+);
 
 final updateStatusProvider = Provider<UpdateStatus>((ref) {
   final config = ref.watch(appConfigProvider);
   final installedVersion = ref.watch(installedAppVersionProvider);
-  return CheckUpdateStatusUseCase()(config: config, installedVersion: installedVersion);
+  return CheckUpdateStatusUseCase()(
+    config: config,
+    installedVersion: installedVersion,
+  );
 });
 
 /// Typed per-feature gate — `ref.watch(featureFlagProvider(FeatureFlag.calls))`

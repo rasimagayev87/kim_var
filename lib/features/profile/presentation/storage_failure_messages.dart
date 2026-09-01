@@ -7,7 +7,10 @@ import '../domain/storage_failure.dart';
 /// English/AZ debug detail (sometimes wrapping a raw Firebase error) meant
 /// for logs, not translation. The UI always displays this instead, keyed
 /// off the stable [StorageFailure] enum.
-String localizedStorageFailureMessage(AppLocalizations loc, StorageFailure type) {
+String localizedStorageFailureMessage(
+  AppLocalizations loc,
+  StorageFailure type,
+) {
   switch (type) {
     case StorageFailure.fileTooLarge:
       return loc.storageErrorFileTooLarge;

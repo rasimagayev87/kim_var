@@ -16,10 +16,14 @@ import '../../domain/repositories/chat_repository.dart';
 import '../../../../core/utils/callables.dart';
 
 class FirebaseChatRepository implements ChatRepository {
-  FirebaseChatRepository({FirebaseFirestore? firestore, FirebaseStorage? storage, SafetyRepository? safetyRepository})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _storage = storage ?? FirebaseStorage.instance,
-        _safetyRepository = safetyRepository ?? FirebaseSafetyRepository(firestore: firestore);
+  FirebaseChatRepository({
+    FirebaseFirestore? firestore,
+    FirebaseStorage? storage,
+    SafetyRepository? safetyRepository,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _storage = storage ?? FirebaseStorage.instance,
+       _safetyRepository =
+           safetyRepository ?? FirebaseSafetyRepository(firestore: firestore);
 
   final FirebaseFirestore _firestore;
   final FirebaseStorage _storage;
@@ -33,8 +37,10 @@ class FirebaseChatRepository implements ChatRepository {
     return sorted.join('_');
   }
 
-  CollectionReference<Map<String, dynamic>> get _chats => _firestore.collection('chats');
-  CollectionReference<Map<String, dynamic>> get _users => _firestore.collection('users');
+  CollectionReference<Map<String, dynamic>> get _chats =>
+      _firestore.collection('chats');
+  CollectionReference<Map<String, dynamic>> get _users =>
+      _firestore.collection('users');
 
   @override
   Stream<List<Chat>> watchChats(String myUid, {int limit = 30}) {
@@ -43,11 +49,17 @@ class FirebaseChatRepository implements ChatRepository {
         .orderBy('lastMessageAt', descending: true)
         .limit(limit)
         .snapshots()
-        .map((snap) => snap.docs.map((d) => _chatFromDoc(d.id, d.data())).toList());
+        .map(
+          (snap) => snap.docs.map((d) => _chatFromDoc(d.id, d.data())).toList(),
+        );
   }
 
   @override
-  Future<List<Chat>> fetchMoreChats(String myUid, {required DateTime startAfter, int limit = 30}) async {
+  Future<List<Chat>> fetchMoreChats(
+    String myUid, {
+    required DateTime startAfter,
+    int limit = 30,
+  }) async {
     final snap = await _chats
         .where('participants', arrayContains: myUid)
         .orderBy('lastMessageAt', descending: true)
@@ -74,7 +86,10 @@ class FirebaseChatRepository implements ChatRepository {
 
   @override
   Stream<Chat?> watchChat(String chatId) {
-    return _chats.doc(chatId).snapshots().map((d) => d.exists ? _chatFromDoc(d.id, d.data()!) : null);
+    return _chats
+        .doc(chatId)
+        .snapshots()
+        .map((d) => d.exists ? _chatFromDoc(d.id, d.data()!) : null);
   }
 
   @override
@@ -87,7 +102,11 @@ class FirebaseChatRepository implements ChatRepository {
         .orderBy('sentAt', descending: true)
         .limit(200)
         .snapshots()
-        .map((snap) => snap.docs.reversed.map((d) => _messageFromDoc(d.id, d.data(), chatId)).toList());
+        .map(
+          (snap) => snap.docs.reversed
+              .map((d) => _messageFromDoc(d.id, d.data(), chatId))
+              .toList(),
+        );
   }
 
   @override
@@ -214,8 +233,12 @@ class FirebaseChatRepository implements ChatRepository {
   }) {
     final chatId = chatIdFor(participantIds);
     final lastMessage = callOutcome == CallMessageOutcome.missed
-        ? (callMessageType == CallMessageType.video ? 'Cavabsız video zəng' : 'Cavabsız səsli zəng')
-        : (callMessageType == CallMessageType.video ? 'Video zəng' : 'Səsli zəng');
+        ? (callMessageType == CallMessageType.video
+              ? 'Cavabsız video zəng'
+              : 'Cavabsız səsli zəng')
+        : (callMessageType == CallMessageType.video
+              ? 'Video zəng'
+              : 'Səsli zəng');
 
     return _sendMessage(
       participantIds: participantIds,
@@ -231,8 +254,10 @@ class FirebaseChatRepository implements ChatRepository {
         'callerId': callerId,
         'callMessageType': callMessageType.name,
         'callOutcome': callOutcome.name,
-        if (callDurationSeconds != null) 'callDurationSeconds': callDurationSeconds,
-        if (callDataUsageBytes != null) 'callDataUsageBytes': callDataUsageBytes,
+        if (callDurationSeconds != null)
+          'callDurationSeconds': callDurationSeconds,
+        if (callDataUsageBytes != null)
+          'callDataUsageBytes': callDataUsageBytes,
         'sentAt': FieldValue.serverTimestamp(),
       },
       lastMessage: lastMessage,
@@ -241,14 +266,21 @@ class FirebaseChatRepository implements ChatRepository {
   }
 
   @override
-  Future<void> deleteMessageForMe({required String chatId, required String messageId, required String uid}) {
+  Future<void> deleteMessageForMe({
+    required String chatId,
+    required String messageId,
+    required String uid,
+  }) {
     return _chats.doc(chatId).collection('messages').doc(messageId).update({
       'deletedFor': FieldValue.arrayUnion([uid]),
     });
   }
 
   @override
-  Future<void> deleteMessageForEveryone({required String chatId, required String messageId}) async {
+  Future<void> deleteMessageForEveryone({
+    required String chatId,
+    required String messageId,
+  }) async {
     final ref = _chats.doc(chatId).collection('messages').doc(messageId);
     final snap = await ref.get();
     final mediaUrl = snap.data()?['mediaUrl'] as String?;
@@ -291,12 +323,18 @@ class FirebaseChatRepository implements ChatRepository {
       // pending-accepted checks in `_sendMessage` below) is unchanged.
       final ownMediaUrl = mediaUrl == null
           ? null
-          : (await FirebaseFunctions.instance.httpsCallable('forwardChatMedia', options: callableOptions()).call<Map<String, dynamic>>({
-              'sourceUrl': mediaUrl,
-              'chatId': chatId,
-              'messageId': messageRef.id,
-            }))
-              .data['mediaUrl'] as String;
+          : (await FirebaseFunctions.instance
+                        .httpsCallable(
+                          'forwardChatMedia',
+                          options: callableOptions(),
+                        )
+                        .call<Map<String, dynamic>>({
+                          'sourceUrl': mediaUrl,
+                          'chatId': chatId,
+                          'messageId': messageRef.id,
+                        }))
+                    .data['mediaUrl']
+                as String;
 
       await _sendMessage(
         participantIds: [senderId, otherUid],
@@ -353,11 +391,15 @@ class FirebaseChatRepository implements ChatRepository {
     final storagePath = '$folder/$chatId/$senderId/${messageRef.id}.$extension';
     final storageRef = _storage.ref(storagePath);
 
-    final uploadTask = storageRef.putFile(file, SettableMetadata(contentType: contentType));
+    final uploadTask = storageRef.putFile(
+      file,
+      SettableMetadata(contentType: contentType),
+    );
     final progressSub = onProgress == null
         ? null
         : uploadTask.snapshotEvents.listen((snap) {
-            if (snap.totalBytes > 0) onProgress(snap.bytesTransferred / snap.totalBytes);
+            if (snap.totalBytes > 0)
+              onProgress(snap.bytesTransferred / snap.totalBytes);
           });
     try {
       await uploadTask;
@@ -408,8 +450,10 @@ class FirebaseChatRepository implements ChatRepository {
     // Only needed for a brand-new chat's `initiatorIsPremium` (see
     // Chat's own doc comment) — skipped on every follow-up message in
     // an existing thread, where this field is never touched again.
-    final senderIsPremium =
-        chatExistsAlready ? false : (await _users.doc(senderId).get()).data()?['premium'] as bool? ?? false;
+    final senderIsPremium = chatExistsAlready
+        ? false
+        : (await _users.doc(senderId).get()).data()?['premium'] as bool? ??
+              false;
 
     await _firestore.runTransaction((tx) async {
       final chatSnap = await tx.get(chatRef);
@@ -433,16 +477,22 @@ class FirebaseChatRepository implements ChatRepository {
         final initiatorId = data['initiatorId'] as String?;
         final lastSenderId = data['lastMessageSenderId'] as String?;
 
-        final canSend = status == 'accepted' ||
-            (status == 'pending' && senderId == initiatorId && lastSenderId == null);
+        final canSend =
+            status == 'accepted' ||
+            (status == 'pending' &&
+                senderId == initiatorId &&
+                lastSenderId == null);
         if (!canSend) {
           throw ChatException(
-            status == 'declined' ? ChatFailure.requestDeclined : ChatFailure.requestPending,
+            status == 'declined'
+                ? ChatFailure.requestDeclined
+                : ChatFailure.requestPending,
           );
         }
 
         final unread = <String, int>{
-          for (final entry in ((data['unreadCount'] as Map?) ?? const {}).entries)
+          for (final entry
+              in ((data['unreadCount'] as Map?) ?? const {}).entries)
             entry.key as String: (entry.value as num).toInt(),
         };
         unread[otherUid] = (unread[otherUid] ?? 0) + 1;
@@ -482,10 +532,10 @@ class FirebaseChatRepository implements ChatRepository {
     // A still-pending follow request doesn't count — same "absent
     // status = accepted" default as FirebaseFollowRepository, since
     // every edge created before "Hesab gizliliyi" has no status field.
-    bool accepted(DocumentSnapshot<Map<String, dynamic>> doc) => doc.exists && doc.data()?['status'] != 'pending';
+    bool accepted(DocumentSnapshot<Map<String, dynamic>> doc) =>
+        doc.exists && doc.data()?['status'] != 'pending';
     return accepted(results[0]) || accepted(results[1]);
   }
-
 
   @override
   Future<void> acceptChatRequest(String chatId) {
@@ -499,13 +549,18 @@ class FirebaseChatRepository implements ChatRepository {
 
   @override
   Future<void> markDelivered(String chatId, String myUid) async {
-    final incoming =
-        await _chats.doc(chatId).collection('messages').where('senderId', isNotEqualTo: myUid).get();
+    final incoming = await _chats
+        .doc(chatId)
+        .collection('messages')
+        .where('senderId', isNotEqualTo: myUid)
+        .get();
     final batch = _firestore.batch();
     var touched = false;
     for (final doc in incoming.docs) {
       if (doc.data()['deliveredAt'] == null) {
-        batch.update(doc.reference, {'deliveredAt': FieldValue.serverTimestamp()});
+        batch.update(doc.reference, {
+          'deliveredAt': FieldValue.serverTimestamp(),
+        });
         touched = true;
       }
     }
@@ -513,9 +568,16 @@ class FirebaseChatRepository implements ChatRepository {
   }
 
   @override
-  Future<void> markRead(String chatId, String myUid, {required bool showReadReceipts}) async {
-    final incoming =
-        await _chats.doc(chatId).collection('messages').where('senderId', isNotEqualTo: myUid).get();
+  Future<void> markRead(
+    String chatId,
+    String myUid, {
+    required bool showReadReceipts,
+  }) async {
+    final incoming = await _chats
+        .doc(chatId)
+        .collection('messages')
+        .where('senderId', isNotEqualTo: myUid)
+        .get();
     final batch = _firestore.batch();
     for (final doc in incoming.docs) {
       final data = doc.data();
@@ -525,10 +587,13 @@ class FirebaseChatRepository implements ChatRepository {
       if (showReadReceipts && !isVoiceOrCall && data['readAt'] == null) {
         batch.update(doc.reference, {
           'readAt': FieldValue.serverTimestamp(),
-          if (data['deliveredAt'] == null) 'deliveredAt': FieldValue.serverTimestamp(),
+          if (data['deliveredAt'] == null)
+            'deliveredAt': FieldValue.serverTimestamp(),
         });
       } else if (data['deliveredAt'] == null) {
-        batch.update(doc.reference, {'deliveredAt': FieldValue.serverTimestamp()});
+        batch.update(doc.reference, {
+          'deliveredAt': FieldValue.serverTimestamp(),
+        });
       }
     }
     batch.update(_chats.doc(chatId), {'unreadCount.$myUid': 0});
@@ -536,20 +601,31 @@ class FirebaseChatRepository implements ChatRepository {
   }
 
   @override
-  Future<void> markMessageRead(String chatId, String messageId, String myUid, {required bool showReadReceipts}) async {
+  Future<void> markMessageRead(
+    String chatId,
+    String messageId,
+    String myUid, {
+    required bool showReadReceipts,
+  }) async {
     if (!showReadReceipts) return;
     final ref = _chats.doc(chatId).collection('messages').doc(messageId);
     final doc = await ref.get();
     final data = doc.data();
-    if (data == null || data['senderId'] == myUid || data['readAt'] != null) return;
+    if (data == null || data['senderId'] == myUid || data['readAt'] != null)
+      return;
     await ref.update({
       'readAt': FieldValue.serverTimestamp(),
-      if (data['deliveredAt'] == null) 'deliveredAt': FieldValue.serverTimestamp(),
+      if (data['deliveredAt'] == null)
+        'deliveredAt': FieldValue.serverTimestamp(),
     });
   }
 
   @override
-  Future<void> setTyping({required String chatId, required String uid, required bool isTyping}) {
+  Future<void> setTyping({
+    required String chatId,
+    required String uid,
+    required bool isTyping,
+  }) {
     return _chats.doc(chatId).update({'typingUserId': isTyping ? uid : null});
   }
 
@@ -575,7 +651,8 @@ class FirebaseChatRepository implements ChatRepository {
   Chat _chatFromDoc(String id, Map<String, dynamic> data) {
     return Chat(
       id: id,
-      participantIds: (data['participants'] as List?)?.cast<String>() ?? const [],
+      participantIds:
+          (data['participants'] as List?)?.cast<String>() ?? const [],
       initiatorId: data['initiatorId'] as String? ?? '',
       initiatorIsPremium: data['initiatorIsPremium'] as bool? ?? false,
       status: _statusFrom(data['status'] as String?),
@@ -583,15 +660,19 @@ class FirebaseChatRepository implements ChatRepository {
       lastMessageType: _typeFrom(data['lastMessageType'] as String?),
       lastMessageAt: (data['lastMessageAt'] as Timestamp?)?.toDate(),
       lastMessageSenderId: data['lastMessageSenderId'] as String?,
-      unreadCount: (data['unreadCount'] as Map?)
-              ?.map((k, v) => MapEntry(k as String, (v as num).toInt())) ??
+      unreadCount:
+          (data['unreadCount'] as Map?)?.map(
+            (k, v) => MapEntry(k as String, (v as num).toInt()),
+          ) ??
           const {},
       typingUserId: data['typingUserId'] as String?,
       pinnedBy: _boolMapFrom(data['pinnedBy']),
       archivedBy: _boolMapFrom(data['archivedBy']),
       mutedBy: _boolMapFrom(data['mutedBy']),
       hiddenFor: _boolMapFrom(data['hiddenFor']),
-      lastMessageOverride: _lastMessageOverrideFrom(data['lastMessageOverride']),
+      lastMessageOverride: _lastMessageOverrideFrom(
+        data['lastMessageOverride'],
+      ),
     );
   }
 
@@ -601,7 +682,9 @@ class FirebaseChatRepository implements ChatRepository {
   /// write). Malformed entries are dropped rather than thrown on, same
   /// defensive spirit as [_safeVenue]-style parsing elsewhere in this
   /// codebase — one bad entry shouldn't blank a whole chat's preview.
-  Map<String, ({String text, MessageType? type})> _lastMessageOverrideFrom(dynamic value) {
+  Map<String, ({String text, MessageType? type})> _lastMessageOverrideFrom(
+    dynamic value,
+  ) {
     final raw = value as Map?;
     if (raw == null) return const {};
     final result = <String, ({String text, MessageType? type})>{};
@@ -609,16 +692,26 @@ class FirebaseChatRepository implements ChatRepository {
       final uid = entry.key as String?;
       final map = entry.value as Map?;
       if (uid == null || map == null) continue;
-      result[uid] = (text: map['text'] as String? ?? '', type: _typeFrom(map['type'] as String?));
+      result[uid] = (
+        text: map['text'] as String? ?? '',
+        type: _typeFrom(map['type'] as String?),
+      );
     }
     return result;
   }
 
   Map<String, bool> _boolMapFrom(dynamic value) {
-    return (value as Map?)?.map((k, v) => MapEntry(k as String, v as bool? ?? false)) ?? const {};
+    return (value as Map?)?.map(
+          (k, v) => MapEntry(k as String, v as bool? ?? false),
+        ) ??
+        const {};
   }
 
-  ChatMessage _messageFromDoc(String id, Map<String, dynamic> data, String chatId) {
+  ChatMessage _messageFromDoc(
+    String id,
+    Map<String, dynamic> data,
+    String chatId,
+  ) {
     final senderId = data['senderId'] as String? ?? '';
     return ChatMessage(
       id: id,
@@ -626,8 +719,11 @@ class FirebaseChatRepository implements ChatRepository {
       // Falls back to deriving it from the chat id (the two participant
       // uids joined with "_") for messages written before this field
       // existed.
-      receiverId: (data['receiverId'] as String?) ??
-          chatId.split('_').firstWhere((uid) => uid != senderId, orElse: () => ''),
+      receiverId:
+          (data['receiverId'] as String?) ??
+          chatId
+              .split('_')
+              .firstWhere((uid) => uid != senderId, orElse: () => ''),
       text: data['text'] as String?,
       // Falls back to the legacy `imageUrl` field so messages written
       // before the video/audio support existed still render.

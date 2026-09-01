@@ -9,7 +9,10 @@ class DeleteProfilePhotoUseCase {
 
   Future<void> call({required String userId}) async {
     if (userId.isEmpty) {
-      throw const StorageException(StorageFailure.unauthenticated, 'İstifadəçi daxil olmayıb.');
+      throw const StorageException(
+        StorageFailure.unauthenticated,
+        'İstifadəçi daxil olmayıb.',
+      );
     }
 
     try {
@@ -17,7 +20,11 @@ class DeleteProfilePhotoUseCase {
     } on StorageException {
       rethrow;
     } catch (e) {
-      throw StorageException(StorageFailure.deleteFailed, 'Şəkil silinə bilmədi.', cause: e);
+      throw StorageException(
+        StorageFailure.deleteFailed,
+        'Şəkil silinə bilmədi.',
+        cause: e,
+      );
     }
   }
 }

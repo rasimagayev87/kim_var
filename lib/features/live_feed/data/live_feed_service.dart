@@ -20,9 +20,11 @@ class LiveFeedVenueSnapshot {
   final double distanceMeters;
   final int? availableSeats;
   final DateTime? seatsUpdatedAt;
+
   /// Server-computed presence, already k-anonymity floored (0 below the
   /// threshold). NOT the check-in count — see [activeCheckinCount].
   final int currentAudienceCount;
+
   /// When `computeVenueAudienceHistory` last wrote [currentAudienceCount].
   /// Null on a venue the schedule has not reached yet.
   final DateTime? audienceCountUpdatedAt;
@@ -64,7 +66,8 @@ class LiveFeedVenueSnapshot {
 /// part — up to 30 extra reads) on its own slower cadence, independent
 /// of everything else.
 class LiveFeedService {
-  LiveFeedService({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
+  LiveFeedService({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -80,7 +83,9 @@ class LiveFeedService {
     required double lng,
     required double radiusKm,
   }) async {
-    final geoCollection = GeoCollectionReference<Map<String, dynamic>>(_firestore.collection('venues'));
+    final geoCollection = GeoCollectionReference<Map<String, dynamic>>(
+      _firestore.collection('venues'),
+    );
     final results = await geoCollection.fetchWithinWithDistance(
       center: GeoFirePoint(GeoPoint(lat, lng)),
       radiusInKm: radiusKm,
@@ -99,8 +104,10 @@ class LiveFeedService {
         distanceMeters: r.distanceFromCenterInKm * 1000,
         availableSeats: data['availableSeats'] as int?,
         seatsUpdatedAt: (data['seatsUpdatedAt'] as Timestamp?)?.toDate(),
-        currentAudienceCount: (data['currentAudienceCount'] as num?)?.toInt() ?? 0,
-        audienceCountUpdatedAt: (data['audienceCountUpdatedAt'] as Timestamp?)?.toDate(),
+        currentAudienceCount:
+            (data['currentAudienceCount'] as num?)?.toInt() ?? 0,
+        audienceCountUpdatedAt: (data['audienceCountUpdatedAt'] as Timestamp?)
+            ?.toDate(),
         photoUrl: data['photoUrl'] as String?,
         activeCheckinCount: (data['activeCheckinCount'] as num?)?.toInt() ?? 0,
       );
@@ -139,24 +146,29 @@ class LiveFeedService {
           return at != null && now.difference(at) <= staleAfter;
         })
         .take(_audienceCheckLimit)
-        .map((venue) => LiveFeedItem(
-              id: 'audience_${venue.id}',
-              type: LiveFeedType.audience,
-              venueId: venue.id,
-              targetId: venue.id,
-              targetType: 'venue',
-              title: venue.name,
-              subtitle: '${venue.currentAudienceCount} nəfər ətrafda (son 15 dəqiqə)',
-              distanceMeters: venue.distanceMeters,
-              timestamp: DateTime.now(),
-            ))
+        .map(
+          (venue) => LiveFeedItem(
+            id: 'audience_${venue.id}',
+            type: LiveFeedType.audience,
+            venueId: venue.id,
+            targetId: venue.id,
+            targetType: 'venue',
+            title: venue.name,
+            subtitle:
+                '${venue.currentAudienceCount} nəfər ətrafda (son 15 dəqiqə)',
+            distanceMeters: venue.distanceMeters,
+            timestamp: DateTime.now(),
+          ),
+        )
         .toList();
   }
 
   /// "Boş yer var" — venues whose owner has turned the seat counter on
   /// and it currently reads above zero. No extra fetch needed: this is
   /// a free derivation from [fetchVenueSnapshots]'s own result.
-  List<LiveFeedItem> seatAvailableItemsFrom(List<LiveFeedVenueSnapshot> venues) {
+  List<LiveFeedItem> seatAvailableItemsFrom(
+    List<LiveFeedVenueSnapshot> venues,
+  ) {
     return venues.where((v) => (v.availableSeats ?? 0) > 0).map((venue) {
       return LiveFeedItem(
         id: 'seat_${venue.id}',
@@ -193,13 +205,16 @@ class LiveFeedService {
     final eventCategories = await _configCategories('eventCategories');
     final now = DateTime.now();
 
-    final geoCollection = GeoCollectionReference<Map<String, dynamic>>(_firestore.collection('venueEvents'));
+    final geoCollection = GeoCollectionReference<Map<String, dynamic>>(
+      _firestore.collection('venueEvents'),
+    );
     final results = await geoCollection.fetchWithinWithDistance(
       center: GeoFirePoint(GeoPoint(lat, lng)),
       radiusInKm: radiusKm,
       field: _geoField,
       geopointFrom: (data) => data[_geoField]['geopoint'] as GeoPoint,
-      queryBuilder: (query) => query.where('status', whereIn: ['upcoming', 'live']),
+      queryBuilder: (query) =>
+          query.where('status', whereIn: ['upcoming', 'live']),
       strictMode: true,
     );
 
@@ -217,20 +232,24 @@ class LiveFeedService {
       // started; an `upcoming` one only counts as "fresh" once it's
       // within the confirmed 24h horizon — this is "Bu axşam", not
       // "sometime next week".
-      if (status == 'upcoming' && startAt.isAfter(now.add(const Duration(hours: 24)))) continue;
+      if (status == 'upcoming' &&
+          startAt.isAfter(now.add(const Duration(hours: 24))))
+        continue;
 
-      items.add(LiveFeedItem(
-        id: 'event_${r.documentSnapshot.id}',
-        type: LiveFeedType.event,
-        venueId: venueId,
-        targetId: r.documentSnapshot.id,
-        targetType: 'event',
-        title: (data['title'] as String?) ?? '',
-        subtitle: (data['venueName'] as String?) ?? '',
-        distanceMeters: r.distanceFromCenterInKm * 1000,
-        timestamp: startAt,
-        photoUrl: photoUrlByVenueId[venueId],
-      ));
+      items.add(
+        LiveFeedItem(
+          id: 'event_${r.documentSnapshot.id}',
+          type: LiveFeedType.event,
+          venueId: venueId,
+          targetId: r.documentSnapshot.id,
+          targetType: 'event',
+          title: (data['title'] as String?) ?? '',
+          subtitle: (data['venueName'] as String?) ?? '',
+          distanceMeters: r.distanceFromCenterInKm * 1000,
+          timestamp: startAt,
+          photoUrl: photoUrlByVenueId[venueId],
+        ),
+      );
     }
     return items;
   }
@@ -258,13 +277,17 @@ class LiveFeedService {
   }) async {
     final freshCutoff = DateTime.now().subtract(freshWindow);
 
-    final geoCollection = GeoCollectionReference<Map<String, dynamic>>(_firestore.collection('offers'));
+    final geoCollection = GeoCollectionReference<Map<String, dynamic>>(
+      _firestore.collection('offers'),
+    );
     final results = await geoCollection.fetchWithinWithDistance(
       center: GeoFirePoint(GeoPoint(lat, lng)),
       radiusInKm: radiusKm,
       field: _geoField,
       geopointFrom: (data) => data[_geoField]['geopoint'] as GeoPoint,
-      queryBuilder: (query) => query.where('status', isEqualTo: 'approved').where('happyHourActive', isEqualTo: true),
+      queryBuilder: (query) => query
+          .where('status', isEqualTo: 'approved')
+          .where('happyHourActive', isEqualTo: true),
       strictMode: true,
     );
 
@@ -281,9 +304,28 @@ class LiveFeedService {
 
       if (offerType == 'birthday') {
         if (!myBirthdayOfferIds.contains(r.documentSnapshot.id)) continue;
-        items.add(LiveFeedItem(
-          id: 'birthday_${r.documentSnapshot.id}',
-          type: LiveFeedType.birthday,
+        items.add(
+          LiveFeedItem(
+            id: 'birthday_${r.documentSnapshot.id}',
+            type: LiveFeedType.birthday,
+            venueId: venueId,
+            targetId: r.documentSnapshot.id,
+            targetType: 'offer',
+            title: title,
+            subtitle: venueName,
+            distanceMeters: distanceMeters,
+            timestamp: createdAt,
+            photoUrl: photoUrlByVenueId[venueId],
+          ),
+        );
+        continue;
+      }
+
+      if (createdAt.isBefore(freshCutoff)) continue;
+      items.add(
+        LiveFeedItem(
+          id: 'offer_${r.documentSnapshot.id}',
+          type: LiveFeedType.offer,
           venueId: venueId,
           targetId: r.documentSnapshot.id,
           targetType: 'offer',
@@ -292,23 +334,8 @@ class LiveFeedService {
           distanceMeters: distanceMeters,
           timestamp: createdAt,
           photoUrl: photoUrlByVenueId[venueId],
-        ));
-        continue;
-      }
-
-      if (createdAt.isBefore(freshCutoff)) continue;
-      items.add(LiveFeedItem(
-        id: 'offer_${r.documentSnapshot.id}',
-        type: LiveFeedType.offer,
-        venueId: venueId,
-        targetId: r.documentSnapshot.id,
-        targetType: 'offer',
-        title: title,
-        subtitle: venueName,
-        distanceMeters: distanceMeters,
-        timestamp: createdAt,
-        photoUrl: photoUrlByVenueId[venueId],
-      ));
+        ),
+      );
     }
     return items;
   }
@@ -327,7 +354,9 @@ class LiveFeedService {
   }) async {
     final now = DateTime.now();
 
-    final geoCollection = GeoCollectionReference<Map<String, dynamic>>(_firestore.collection('pinboxes'));
+    final geoCollection = GeoCollectionReference<Map<String, dynamic>>(
+      _firestore.collection('pinboxes'),
+    );
     final results = await geoCollection.fetchWithinWithDistance(
       center: GeoFirePoint(GeoPoint(lat, lng)),
       radiusInKm: radiusKm,
@@ -344,18 +373,20 @@ class LiveFeedService {
       if (pickupWindowEnd == null || !pickupWindowEnd.isAfter(now)) continue;
 
       final venueId = (data['venueId'] as String?) ?? '';
-      items.add(LiveFeedItem(
-        id: 'pinbox_${r.documentSnapshot.id}',
-        type: LiveFeedType.pinbox,
-        venueId: venueId,
-        targetId: r.documentSnapshot.id,
-        targetType: 'pinbox',
-        title: (data['title'] as String?) ?? '',
-        subtitle: (data['venueName'] as String?) ?? '',
-        distanceMeters: r.distanceFromCenterInKm * 1000,
-        timestamp: (data['createdAt'] as Timestamp?)?.toDate() ?? now,
-        photoUrl: photoUrlByVenueId[venueId],
-      ));
+      items.add(
+        LiveFeedItem(
+          id: 'pinbox_${r.documentSnapshot.id}',
+          type: LiveFeedType.pinbox,
+          venueId: venueId,
+          targetId: r.documentSnapshot.id,
+          targetType: 'pinbox',
+          title: (data['title'] as String?) ?? '',
+          subtitle: (data['venueName'] as String?) ?? '',
+          distanceMeters: r.distanceFromCenterInKm * 1000,
+          timestamp: (data['createdAt'] as Timestamp?)?.toDate() ?? now,
+          photoUrl: photoUrlByVenueId[venueId],
+        ),
+      );
     }
     return items;
   }
@@ -388,9 +419,15 @@ class LiveFeedService {
     // single user following more than 30 independent artists is an
     // edge case far beyond this feature's expected scale today.
     for (var i = 0; i < followedVenueIds.length; i += 30) {
-      final chunk = followedVenueIds.sublist(i, (i + 30 < followedVenueIds.length) ? i + 30 : followedVenueIds.length);
+      final chunk = followedVenueIds.sublist(
+        i,
+        (i + 30 < followedVenueIds.length) ? i + 30 : followedVenueIds.length,
+      );
 
-      final venueSnaps = await _firestore.collection('venues').where(FieldPath.documentId, whereIn: chunk).get();
+      final venueSnaps = await _firestore
+          .collection('venues')
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
       final eligibleIds = <String>[];
       final venueNameById = <String, String>{};
       final venuePhotoById = <String, String?>{};
@@ -402,7 +439,12 @@ class LiveFeedService {
         final lat = (data['lat'] as num?)?.toDouble();
         final lng = (data['lng'] as num?)?.toDouble();
         if (lat != null && lng != null) {
-          venueDistanceById[doc.id] = _haversineMeters(lat, lng, viewerLat, viewerLng);
+          venueDistanceById[doc.id] = _haversineMeters(
+            lat,
+            lng,
+            viewerLat,
+            viewerLng,
+          );
         }
         eligibleIds.add(doc.id);
       }
@@ -423,24 +465,30 @@ class LiveFeedService {
         final createdAt = (data['createdAt'] as Timestamp?)?.toDate();
         if (createdAt == null) continue;
         final venueId = data['venueId'] as String? ?? '';
-        items.add(LiveFeedItem(
-          id: 'offer_${doc.id}',
-          type: LiveFeedType.offer,
-          venueId: venueId,
-          targetId: doc.id,
-          targetType: 'offer',
-          title: (data['title'] as String?) ?? '',
-          subtitle: (data['venueName'] as String?) ?? venueNameById[venueId] ?? '',
-          distanceMeters: venueDistanceById[venueId] ?? 0,
-          timestamp: createdAt,
-          photoUrl: venuePhotoById[venueId],
-        ));
+        items.add(
+          LiveFeedItem(
+            id: 'offer_${doc.id}',
+            type: LiveFeedType.offer,
+            venueId: venueId,
+            targetId: doc.id,
+            targetType: 'offer',
+            title: (data['title'] as String?) ?? '',
+            subtitle:
+                (data['venueName'] as String?) ?? venueNameById[venueId] ?? '',
+            distanceMeters: venueDistanceById[venueId] ?? 0,
+            timestamp: createdAt,
+            photoUrl: venuePhotoById[venueId],
+          ),
+        );
       }
 
       // A second `whereIn` here (on `status`) would be an invalid
       // query — Firestore allows only one 'in' clause per query — so
       // `status` is filtered client-side below instead.
-      final eventsSnap = await _firestore.collection('venueEvents').where('venueId', whereIn: eligibleIds).get();
+      final eventsSnap = await _firestore
+          .collection('venueEvents')
+          .where('venueId', whereIn: eligibleIds)
+          .get();
       for (final doc in eventsSnap.docs) {
         final data = doc.data();
         final status = data['status'] as String?;
@@ -448,18 +496,21 @@ class LiveFeedService {
         final startAt = (data['startAt'] as Timestamp?)?.toDate();
         if (startAt == null) continue;
         final venueId = data['venueId'] as String? ?? '';
-        items.add(LiveFeedItem(
-          id: 'event_${doc.id}',
-          type: LiveFeedType.event,
-          venueId: venueId,
-          targetId: doc.id,
-          targetType: 'event',
-          title: (data['title'] as String?) ?? '',
-          subtitle: (data['venueName'] as String?) ?? venueNameById[venueId] ?? '',
-          distanceMeters: venueDistanceById[venueId] ?? 0,
-          timestamp: startAt,
-          photoUrl: venuePhotoById[venueId],
-        ));
+        items.add(
+          LiveFeedItem(
+            id: 'event_${doc.id}',
+            type: LiveFeedType.event,
+            venueId: venueId,
+            targetId: doc.id,
+            targetType: 'event',
+            title: (data['title'] as String?) ?? '',
+            subtitle:
+                (data['venueName'] as String?) ?? venueNameById[venueId] ?? '',
+            distanceMeters: venueDistanceById[venueId] ?? 0,
+            timestamp: startAt,
+            photoUrl: venuePhotoById[venueId],
+          ),
+        );
       }
     }
     return items;
@@ -469,8 +520,12 @@ class LiveFeedService {
     const earthRadiusMeters = 6371000.0;
     final dLat = _degToRad(lat2 - lat1);
     final dLng = _degToRad(lng2 - lng1);
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
-        math.cos(_degToRad(lat1)) * math.cos(_degToRad(lat2)) * math.sin(dLng / 2) * math.sin(dLng / 2);
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(_degToRad(lat1)) *
+            math.cos(_degToRad(lat2)) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
     final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
     return earthRadiusMeters * c;
   }
@@ -479,7 +534,9 @@ class LiveFeedService {
 
   Future<Set<String>> _configCategories(String docId) async {
     final snap = await _firestore.collection('config').doc(docId).get();
-    final raw = (snap.data()?['enabledCategories'] as List?)?.cast<String>() ?? const [];
+    final raw =
+        (snap.data()?['enabledCategories'] as List?)?.cast<String>() ??
+        const [];
     return raw.toSet();
   }
 }

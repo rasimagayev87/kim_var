@@ -17,11 +17,12 @@ const _kPrefixRangeEnd = '\uf8ff';
 
 class FirebaseDiscoverSearchRepository implements DiscoverSearchRepository {
   FirebaseDiscoverSearchRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
-  CollectionReference<Map<String, dynamic>> get _venues => _firestore.collection('venues');
+  CollectionReference<Map<String, dynamic>> get _venues =>
+      _firestore.collection('venues');
 
   @override
   /// Server-side (P0 / H-6) — was a raw `usernames` LIST query, which
@@ -34,17 +35,29 @@ class FirebaseDiscoverSearchRepository implements DiscoverSearchRepository {
   /// Single-document `get`s on `usernames` are unaffected and stay open
   /// (deep links, availability checks) — see the rule's own comment.
   @override
-  Future<List<PublicProfile>> searchUsersByUsername(String query, {int limit = 20}) async {
+  Future<List<PublicProfile>> searchUsersByUsername(
+    String query, {
+    int limit = 20,
+  }) async {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return [];
 
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('searchUsersByUsername', options: callableOptions());
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'searchUsersByUsername',
+        options: callableOptions(),
+      );
       final result = await callable.call<Map<String, dynamic>>({'query': q});
       final raw = (result.data['profiles'] as List).cast<dynamic>();
-      return raw.map((e) => _profileFromMap(Map<String, dynamic>.from(e as Map))).toList();
+      return raw
+          .map((e) => _profileFromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
     } catch (e, st) {
-      logError('firebase_discover_search_repository.searchUsersByUsername', e, st);
+      logError(
+        'firebase_discover_search_repository.searchUsersByUsername',
+        e,
+        st,
+      );
       return [];
     }
   }
@@ -58,15 +71,23 @@ class FirebaseDiscoverSearchRepository implements DiscoverSearchRepository {
   /// filters out blocked pairs, in either direction — something this
   /// method never did before either.
   @override
-  Future<List<PublicProfile>> searchUsersByName(String query, {int limit = 20}) async {
+  Future<List<PublicProfile>> searchUsersByName(
+    String query, {
+    int limit = 20,
+  }) async {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return [];
 
     try {
-      final callable = FirebaseFunctions.instance.httpsCallable('searchUsersByName', options: callableOptions());
+      final callable = FirebaseFunctions.instance.httpsCallable(
+        'searchUsersByName',
+        options: callableOptions(),
+      );
       final result = await callable.call<Map<String, dynamic>>({'query': q});
       final raw = (result.data['profiles'] as List).cast<dynamic>();
-      return raw.map((e) => _profileFromMap(Map<String, dynamic>.from(e as Map))).toList();
+      return raw
+          .map((e) => _profileFromMap(Map<String, dynamic>.from(e as Map)))
+          .toList();
     } catch (e, st) {
       logError('firebase_discover_search_repository.searchUsersByName', e, st);
       return [];
@@ -93,7 +114,11 @@ class FirebaseDiscoverSearchRepository implements DiscoverSearchRepository {
           } catch (e, st) {
             // See `FirebaseVenueRepository._safeVenue`'s doc comment —
             // same per-document isolation.
-            logError('firebase_discover_search_repository.Venue.fromFirestore(${d.id})', e, st);
+            logError(
+              'firebase_discover_search_repository.Venue.fromFirestore(${d.id})',
+              e,
+              st,
+            );
             return null;
           }
         })

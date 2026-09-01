@@ -15,6 +15,8 @@ import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/user_profile.dart';
 import '../providers/profile_providers.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Same technical constraint as the register screen's username field
 /// — see `FirebaseAuthRepository._randomAuthEmail` for why the format
 /// still matters even though changing username no longer touches the
@@ -92,7 +94,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     _usernameDebounce?.cancel();
     final trimmed = value.trim();
 
-    if (trimmed.isEmpty || trimmed.toLowerCase() == _originalUsername.toLowerCase()) {
+    if (trimmed.isEmpty ||
+        trimmed.toLowerCase() == _originalUsername.toLowerCase()) {
       setState(() => _usernameStatus = _UsernameStatus.idle);
       return;
     }
@@ -103,9 +106,15 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
 
     setState(() => _usernameStatus = _UsernameStatus.checking);
     _usernameDebounce = Timer(const Duration(milliseconds: 500), () async {
-      final available = await ref.read(authControllerProvider.notifier).isUsernameAvailable(trimmed);
+      final available = await ref
+          .read(authControllerProvider.notifier)
+          .isUsernameAvailable(trimmed);
       if (!mounted || _usernameController.text.trim() != trimmed) return;
-      setState(() => _usernameStatus = available ? _UsernameStatus.available : _UsernameStatus.taken);
+      setState(
+        () => _usernameStatus = available
+            ? _UsernameStatus.available
+            : _UsernameStatus.taken,
+      );
     });
   }
 
@@ -132,20 +141,27 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     if (firstName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.fieldFirstNameRequiredError)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.fieldFirstNameRequiredError)));
       return;
     }
     if (lastName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.fieldLastNameRequiredError)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.fieldLastNameRequiredError)));
       return;
     }
     if (_birthDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.onboardingSelectBirthDateError)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.onboardingSelectBirthDateError)),
+      );
       return;
     }
 
     final newUsername = _usernameController.text.trim();
-    final usernameChanged = newUsername.toLowerCase() != _originalUsername.toLowerCase();
+    final usernameChanged =
+        newUsername.toLowerCase() != _originalUsername.toLowerCase();
     if (usernameChanged &&
         (newUsername.isEmpty ||
             _usernameStatus == _UsernameStatus.taken ||
@@ -168,7 +184,9 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
       // birth date may be corrected exactly once ever, so re-sending an
       // untouched value would spend that one correction on a save the
       // user made for an unrelated field.
-      await ref.read(profileControllerProvider.notifier).save(
+      await ref
+          .read(profileControllerProvider.notifier)
+          .save(
             firstName: firstName == _originalFirstName ? null : firstName,
             lastName: lastName == _originalLastName ? null : lastName,
             username: usernameChanged ? newUsername : null,
@@ -198,13 +216,17 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _saving = false);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.saveFailedError(e.toString()))));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.saveFailedError(e.toString()))),
+      );
       return;
     }
 
     if (!mounted) return;
     setState(() => _saving = false);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.profileSaveSuccessMessage)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(loc.profileSaveSuccessMessage)));
     Navigator.pop(context);
   }
 
@@ -214,7 +236,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     if (_birthDate == null) return false;
 
     final newUsername = _usernameController.text.trim();
-    final usernameChanged = newUsername.toLowerCase() != _originalUsername.toLowerCase();
+    final usernameChanged =
+        newUsername.toLowerCase() != _originalUsername.toLowerCase();
     if (usernameChanged &&
         (newUsername.isEmpty ||
             _usernameStatus == _UsernameStatus.taken ||
@@ -283,13 +306,22 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               hint: loc.registerUsernameHint,
               icon: Icons.person_outline,
               onChanged: _onUsernameChanged,
-              suffixIcon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 18),
+              suffixIcon: const Icon(
+                Icons.edit_outlined,
+                color: AppColors.primary,
+                size: 18,
+              ),
             ),
             if (usernameHelper != null) ...[
               const SizedBox(height: 6),
               Padding(
                 padding: const EdgeInsets.only(left: 4),
-                child: Text(usernameHelper, style: AppTextStyles.caption.copyWith(color: _usernameHelperColor())),
+                child: Text(
+                  usernameHelper,
+                  style: AppTextStyles.caption.copyWith(
+                    color: _usernameHelperColor(),
+                  ),
+                ),
               ),
             ],
             const SizedBox(height: 16),
@@ -320,12 +352,14 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
             // Köməkçi mətn qəsdən gün/ay sırasını göstərir: istifadəçi
             // sıranı səhv salsa, ad günü təklifləri yanlış tarixdə gedir
             // və ikinci düzəliş yoxdur.
-            GestureDetector(
+            Pressable(
               onTap: _saving ? null : _pickBirthDate,
               child: AbsorbPointer(
                 child: PremiumTextField(
                   controller: TextEditingController(
-                    text: _birthDate == null ? '' : DateFormat('dd.MM.yyyy').format(_birthDate!),
+                    text: _birthDate == null
+                        ? ''
+                        : DateFormat('dd.MM.yyyy').format(_birthDate!),
                   ),
                   label: loc.fieldBirthDateLabel,
                   hint: loc.fieldBirthDateHint,
@@ -359,7 +393,10 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               onCityChanged: (value) => setState(() => _city = value),
             ),
             const SizedBox(height: 20),
-            Text(loc.sectionAboutTitle, style: AppTextStyles.sectionTitle.copyWith(fontSize: 20)),
+            Text(
+              loc.sectionAboutTitle,
+              style: AppTextStyles.sectionTitle.copyWith(fontSize: 20),
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: _bioController,
@@ -368,7 +405,11 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
               style: AppTextStyles.body.copyWith(fontSize: 15.5),
               decoration: InputDecoration(
                 hintText: loc.bioHintEdit,
-                prefixIcon: const Icon(Icons.format_quote_outlined, color: AppColors.textSecondary, size: 20),
+                prefixIcon: const Icon(
+                  Icons.format_quote_outlined,
+                  color: AppColors.textSecondary,
+                  size: 20,
+                ),
               ),
             ),
             const SizedBox(height: 28),
@@ -394,34 +435,45 @@ class _GenderSegmentedControl extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(color: AppColors.card, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Row(
         children: [
           for (final option in kGenderOptions.take(2))
             Expanded(
-              child: GestureDetector(
+              child: Pressable(
                 onTap: () => onChanged(option),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 180),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    color: value == option ? AppColors.primary : Colors.transparent,
+                    color: value == option
+                        ? AppColors.primary
+                        : Colors.transparent,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
-                        option == kGenderOptions.first ? Icons.male_outlined : Icons.female_outlined,
+                        option == kGenderOptions.first
+                            ? Icons.male_outlined
+                            : Icons.female_outlined,
                         size: 18,
-                        color: value == option ? AppColors.onAccent : AppColors.textSecondary,
+                        color: value == option
+                            ? AppColors.onAccent
+                            : AppColors.textSecondary,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         option,
                         style: AppTextStyles.body.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: value == option ? AppColors.onAccent : AppColors.textSecondary,
+                          color: value == option
+                              ? AppColors.onAccent
+                              : AppColors.textSecondary,
                         ),
                       ),
                     ],

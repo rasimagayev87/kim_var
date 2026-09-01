@@ -28,7 +28,9 @@ Future<bool> startCreatePostFlow(BuildContext context) async {
   final choice = await showModalBottomSheet<_PostCaptureOption>(
     context: context,
     backgroundColor: AppColors.surface,
-    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    ),
     builder: (sheetContext) {
       return SafeArea(
         top: false,
@@ -40,24 +42,48 @@ Future<bool> startCreatePostFlow(BuildContext context) async {
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Text(loc.postCaptureSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontSize: 16)),
+                child: Text(
+                  loc.postCaptureSheetTitle,
+                  style: AppTextStyles.cardTitle.copyWith(fontSize: 16),
+                ),
               ),
             ),
             const SizedBox(height: 8),
             ListTile(
-              leading: const Icon(Icons.camera_alt_outlined, color: AppColors.textSecondary),
-              title: Text(loc.postCameraOption, style: AppTextStyles.body.copyWith(fontSize: 15)),
-              onTap: () => Navigator.pop(sheetContext, _PostCaptureOption.camera),
+              leading: const Icon(
+                Icons.camera_alt_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: Text(
+                loc.postCameraOption,
+                style: AppTextStyles.body.copyWith(fontSize: 15),
+              ),
+              onTap: () =>
+                  Navigator.pop(sheetContext, _PostCaptureOption.camera),
             ),
             ListTile(
-              leading: const Icon(Icons.image_outlined, color: AppColors.textSecondary),
-              title: Text(loc.postGalleryPhotoOption, style: AppTextStyles.body.copyWith(fontSize: 15)),
-              onTap: () => Navigator.pop(sheetContext, _PostCaptureOption.galleryPhoto),
+              leading: const Icon(
+                Icons.image_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: Text(
+                loc.postGalleryPhotoOption,
+                style: AppTextStyles.body.copyWith(fontSize: 15),
+              ),
+              onTap: () =>
+                  Navigator.pop(sheetContext, _PostCaptureOption.galleryPhoto),
             ),
             ListTile(
-              leading: const Icon(Icons.videocam_outlined, color: AppColors.textSecondary),
-              title: Text(loc.postGalleryVideoOption, style: AppTextStyles.body.copyWith(fontSize: 15)),
-              onTap: () => Navigator.pop(sheetContext, _PostCaptureOption.galleryVideo),
+              leading: const Icon(
+                Icons.videocam_outlined,
+                color: AppColors.textSecondary,
+              ),
+              title: Text(
+                loc.postGalleryVideoOption,
+                style: AppTextStyles.body.copyWith(fontSize: 15),
+              ),
+              onTap: () =>
+                  Navigator.pop(sheetContext, _PostCaptureOption.galleryVideo),
             ),
             const SizedBox(height: 8),
           ],
@@ -68,12 +94,24 @@ Future<bool> startCreatePostFlow(BuildContext context) async {
   if (choice == null || !context.mounted) return false;
 
   final picker = ImagePicker();
-  final PostMediaType mediaType = choice == _PostCaptureOption.galleryVideo ? PostMediaType.video : PostMediaType.photo;
+  final PostMediaType mediaType = choice == _PostCaptureOption.galleryVideo
+      ? PostMediaType.video
+      : PostMediaType.photo;
 
   final XFile? picked = switch (choice) {
-    _PostCaptureOption.camera => await picker.pickImage(source: ImageSource.camera, maxWidth: 1600, imageQuality: 85),
-    _PostCaptureOption.galleryPhoto => await picker.pickImage(source: ImageSource.gallery, maxWidth: 1600, imageQuality: 85),
-    _PostCaptureOption.galleryVideo => await picker.pickVideo(source: ImageSource.gallery),
+    _PostCaptureOption.camera => await picker.pickImage(
+      source: ImageSource.camera,
+      maxWidth: 1600,
+      imageQuality: 85,
+    ),
+    _PostCaptureOption.galleryPhoto => await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1600,
+      imageQuality: 85,
+    ),
+    _PostCaptureOption.galleryVideo => await picker.pickVideo(
+      source: ImageSource.gallery,
+    ),
   };
   if (picked == null || !context.mounted) return false;
 
@@ -86,16 +124,21 @@ Future<bool> startCreatePostFlow(BuildContext context) async {
   // reads as "stuck forever, then a generic failure" with no clue why.
   // Checking the size up front turns that into an immediate, clear
   // message instead of a wasted multi-minute upload.
-  if (mediaType == PostMediaType.video && await file.length() > _kMaxVideoBytes) {
+  if (mediaType == PostMediaType.video &&
+      await file.length() > _kMaxVideoBytes) {
     if (!context.mounted) return false;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.postVideoTooLargeMessage)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(loc.postVideoTooLargeMessage)));
     return false;
   }
   if (!context.mounted) return false;
 
   final shared = await Navigator.push<bool>(
     context,
-    MaterialPageRoute(builder: (_) => PostPreviewScreen(file: file, mediaType: mediaType)),
+    MaterialPageRoute(
+      builder: (_) => PostPreviewScreen(file: file, mediaType: mediaType),
+    ),
   );
   return shared ?? false;
 }

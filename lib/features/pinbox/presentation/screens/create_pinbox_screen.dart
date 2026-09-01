@@ -16,6 +16,8 @@ import '../../domain/entities/pinbox.dart';
 import '../../domain/pinbox_failure.dart';
 import '../providers/pinbox_providers.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 String _formatTimeOfDay(TimeOfDay time) =>
     '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
 
@@ -35,7 +37,8 @@ class CreatePinBoxScreen extends ConsumerStatefulWidget {
   final Venue? venue;
   final PinBox? existingPinBox;
 
-  const CreatePinBoxScreen({super.key, this.venue, this.existingPinBox}) : assert(venue != null || existingPinBox != null);
+  const CreatePinBoxScreen({super.key, this.venue, this.existingPinBox})
+    : assert(venue != null || existingPinBox != null);
 
   @override
   ConsumerState<CreatePinBoxScreen> createState() => _CreatePinBoxScreenState();
@@ -43,21 +46,31 @@ class CreatePinBoxScreen extends ConsumerStatefulWidget {
 
 class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     with WidgetsBindingObserver, PhotoPickerMixin<CreatePinBoxScreen> {
-  late final _titleController = TextEditingController(text: widget.existingPinBox?.title ?? '');
-  late final _descriptionController = TextEditingController(text: widget.existingPinBox?.description ?? '');
-  late final _originalPriceController =
-      TextEditingController(text: widget.existingPinBox?.originalPrice.toStringAsFixed(2) ?? '');
-  late final _pinboxPriceController =
-      TextEditingController(text: widget.existingPinBox?.pinboxPrice.toStringAsFixed(2) ?? '');
-  late final _stockController = TextEditingController(text: widget.existingPinBox?.stockTotal.toString() ?? '');
+  late final _titleController = TextEditingController(
+    text: widget.existingPinBox?.title ?? '',
+  );
+  late final _descriptionController = TextEditingController(
+    text: widget.existingPinBox?.description ?? '',
+  );
+  late final _originalPriceController = TextEditingController(
+    text: widget.existingPinBox?.originalPrice.toStringAsFixed(2) ?? '',
+  );
+  late final _pinboxPriceController = TextEditingController(
+    text: widget.existingPinBox?.pinboxPrice.toStringAsFixed(2) ?? '',
+  );
+  late final _stockController = TextEditingController(
+    text: widget.existingPinBox?.stockTotal.toString() ?? '',
+  );
 
   bool get _isEditing => widget.existingPinBox != null;
 
   File? _photo;
-  late TimeOfDay? _pickupStart =
-      widget.existingPinBox != null ? TimeOfDay.fromDateTime(widget.existingPinBox!.pickupWindowStart) : null;
-  late TimeOfDay? _pickupEnd =
-      widget.existingPinBox != null ? TimeOfDay.fromDateTime(widget.existingPinBox!.pickupWindowEnd) : null;
+  late TimeOfDay? _pickupStart = widget.existingPinBox != null
+      ? TimeOfDay.fromDateTime(widget.existingPinBox!.pickupWindowStart)
+      : null;
+  late TimeOfDay? _pickupEnd = widget.existingPinBox != null
+      ? TimeOfDay.fromDateTime(widget.existingPinBox!.pickupWindowEnd)
+      : null;
   Set<PinBoxFieldError> _fieldErrors = {};
   bool _submitting = false;
   double? _uploadProgress;
@@ -102,7 +115,9 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
       context: context,
       initialTime: (isStart ? _pickupStart : _pickupEnd) ?? TimeOfDay.now(),
       builder: (context, child) => Theme(
-        data: ThemeData.light().copyWith(colorScheme: const ColorScheme.light(primary: AppColors.primary)),
+        data: ThemeData.light().copyWith(
+          colorScheme: const ColorScheme.light(primary: AppColors.primary),
+        ),
         child: child!,
       ),
     );
@@ -125,16 +140,22 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     return DateTime(now.year, now.month, now.day, time.hour, time.minute);
   }
 
-  double? get _originalPrice => double.tryParse(_originalPriceController.text.replaceAll(',', '.'));
+  double? get _originalPrice =>
+      double.tryParse(_originalPriceController.text.replaceAll(',', '.'));
 
-  double? get _pinboxPrice => double.tryParse(_pinboxPriceController.text.replaceAll(',', '.'));
+  double? get _pinboxPrice =>
+      double.tryParse(_pinboxPriceController.text.replaceAll(',', '.'));
 
   int? get _stockTotal => int.tryParse(_stockController.text);
 
   int? get _discountPercent {
     final original = _originalPrice;
     final pinbox = _pinboxPrice;
-    if (original == null || pinbox == null || original <= 0 || pinbox >= original) return null;
+    if (original == null ||
+        pinbox == null ||
+        original <= 0 ||
+        pinbox >= original)
+      return null;
     return (((original - pinbox) / original) * 100).round();
   }
 
@@ -156,7 +177,11 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     final blockCheck = venueListingBlock(widget.venue!.status);
     if (blockCheck != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(venueBlockMessage(AppLocalizations.of(context), blockCheck))),
+        SnackBar(
+          content: Text(
+            venueBlockMessage(AppLocalizations.of(context), blockCheck),
+          ),
+        ),
       );
       return;
     }
@@ -171,7 +196,9 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     final loc = AppLocalizations.of(context);
     final venue = widget.venue!;
 
-    final pinboxId = await ref.read(pinboxControllerProvider).createPinBox(
+    final pinboxId = await ref
+        .read(pinboxControllerProvider)
+        .createPinBox(
           venueId: venue.id,
           venueName: venue.name,
           venuePhotoUrl: venue.photoUrl,
@@ -191,11 +218,15 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
           onValidationError: (missing) {
             if (!mounted) return;
             setState(() => _fieldErrors = missing.toSet());
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerRequiredFieldsMissing)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.offerRequiredFieldsMissing)),
+            );
           },
           onError: () {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.offerGenericErrorMessage)),
+            );
           },
           onUploadProgress: (p) {
             if (!mounted) return;
@@ -212,7 +243,9 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     });
 
     if (pinboxId != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.pinboxCreatedNotice)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(loc.pinboxCreatedNotice)));
       Navigator.pop(context);
     }
   }
@@ -232,7 +265,9 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
     // as CreateVenueScreen._submitEdit, just without the separate
     // client-side `resubmitPinBox` call this used to need (see that
     // Cloud Function's own doc comment, functions/src/index.ts).
-    final (:success, :sentForReReview) = await ref.read(pinboxControllerProvider).updatePinBox(
+    final (:success, :sentForReReview) = await ref
+        .read(pinboxControllerProvider)
+        .updatePinBox(
           pinboxId: widget.existingPinBox!.id,
           title: _titleController.text,
           description: _descriptionController.text,
@@ -245,11 +280,15 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
           onValidationError: (missing) {
             if (!mounted) return;
             setState(() => _fieldErrors = missing.toSet());
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerRequiredFieldsMissing)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.offerRequiredFieldsMissing)),
+            );
           },
           onError: () {
             if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(loc.offerGenericErrorMessage)));
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(loc.offerGenericErrorMessage)),
+            );
           },
           onUploadProgress: (p) {
             if (!mounted) return;
@@ -267,7 +306,13 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(sentForReReview ? loc.pinboxSentForReReviewNotice : loc.pinboxUpdatedNotice)),
+        SnackBar(
+          content: Text(
+            sentForReReview
+                ? loc.pinboxSentForReReviewNotice
+                : loc.pinboxUpdatedNotice,
+          ),
+        ),
       );
       Navigator.pop(context);
     }
@@ -287,11 +332,19 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
         surfaceTintColor: Colors.transparent,
         leading: IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: ChatLightColors.ink),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 18,
+            color: ChatLightColors.ink,
+          ),
         ),
         title: Text(
           _isEditing ? loc.pinboxEditTitle : loc.createPinboxMenuOption,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w700,
+            color: ChatLightColors.ink,
+          ),
         ),
       ),
       body: Stack(
@@ -317,7 +370,9 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                   controller: _titleController,
                   hint: loc.pinboxNameHint,
                   maxLength: 50,
-                  errorText: _fieldErrors.contains(PinBoxFieldError.title) ? loc.venueFieldRequiredError : null,
+                  errorText: _fieldErrors.contains(PinBoxFieldError.title)
+                      ? loc.venueFieldRequiredError
+                      : null,
                 ),
                 const SizedBox(height: AppSpacing.xxl),
                 _FieldLabel(loc.pinboxDescriptionLabel),
@@ -339,8 +394,13 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                           _LightTextField(
                             controller: _originalPriceController,
                             hint: '0.00',
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            errorText: _fieldErrors.contains(PinBoxFieldError.price) ? loc.venueFieldRequiredError : null,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            errorText:
+                                _fieldErrors.contains(PinBoxFieldError.price)
+                                ? loc.venueFieldRequiredError
+                                : null,
                           ),
                         ],
                       ),
@@ -356,15 +416,26 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                               if (discountPercent != null) ...[
                                 const SizedBox(width: 6),
                                 Container(
-                                  margin: const EdgeInsets.only(bottom: AppSpacing.sm),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  margin: const EdgeInsets.only(
+                                    bottom: AppSpacing.sm,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: AppColors.primary.withValues(alpha: 0.15),
+                                    color: AppColors.primary.withValues(
+                                      alpha: 0.15,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
                                     '-$discountPercent%',
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.primary),
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.primary,
+                                    ),
                                   ),
                                 ),
                               ],
@@ -373,8 +444,13 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                           _LightTextField(
                             controller: _pinboxPriceController,
                             hint: '0.00',
-                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            errorText: _fieldErrors.contains(PinBoxFieldError.price) ? loc.venueFieldRequiredError : null,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            errorText:
+                                _fieldErrors.contains(PinBoxFieldError.price)
+                                ? loc.venueFieldRequiredError
+                                : null,
                           ),
                         ],
                       ),
@@ -393,14 +469,23 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                   _FieldLabel(loc.pinboxStockLabel),
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
                     decoration: BoxDecoration(
                       color: ChatLightColors.cardSurface,
                       borderRadius: BorderRadius.circular(AppRadii.input),
                     ),
                     child: Text(
-                      loc.pinboxStockLockedNote(widget.existingPinBox!.stockRemaining, widget.existingPinBox!.stockTotal),
-                      style: const TextStyle(fontSize: 13.5, color: ChatLightColors.inkSoft),
+                      loc.pinboxStockLockedNote(
+                        widget.existingPinBox!.stockRemaining,
+                        widget.existingPinBox!.stockTotal,
+                      ),
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        color: ChatLightColors.inkSoft,
+                      ),
                     ),
                   ),
                 ] else ...[
@@ -409,7 +494,9 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                     controller: _stockController,
                     hint: loc.pinboxStockHint,
                     keyboardType: TextInputType.number,
-                    errorText: _fieldErrors.contains(PinBoxFieldError.stock) ? loc.venueFieldRequiredError : null,
+                    errorText: _fieldErrors.contains(PinBoxFieldError.stock)
+                        ? loc.venueFieldRequiredError
+                        : null,
                   ),
                 ],
                 const SizedBox(height: AppSpacing.xxl),
@@ -420,7 +507,9 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                       child: _TimeField(
                         label: loc.pinboxPickupStartLabel,
                         time: _pickupStart,
-                        hasError: _fieldErrors.contains(PinBoxFieldError.pickupWindow),
+                        hasError: _fieldErrors.contains(
+                          PinBoxFieldError.pickupWindow,
+                        ),
                         onTap: () => _pickPickupTime(isStart: true),
                       ),
                     ),
@@ -429,7 +518,9 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                       child: _TimeField(
                         label: loc.pinboxPickupEndLabel,
                         time: _pickupEnd,
-                        hasError: _fieldErrors.contains(PinBoxFieldError.pickupWindow),
+                        hasError: _fieldErrors.contains(
+                          PinBoxFieldError.pickupWindow,
+                        ),
                         onTap: () => _pickPickupTime(isStart: false),
                       ),
                     ),
@@ -449,12 +540,20 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.info_outline, size: 18, color: AppColors.gold),
+                      const Icon(
+                        Icons.info_outline,
+                        size: 18,
+                        color: AppColors.gold,
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
                           loc.pinboxNonRefundableNotice,
-                          style: const TextStyle(fontSize: 12.5, color: ChatLightColors.inkSoft, height: 1.4),
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: ChatLightColors.inkSoft,
+                            height: 1.4,
+                          ),
                         ),
                       ),
                     ],
@@ -462,7 +561,10 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                 ),
                 const SizedBox(height: AppSpacing.xxxl),
                 if (_submitting && _uploadProgress != null)
-                  _PinBoxUploadProgressCard(progress: _uploadProgress!, onCancel: _cancelUpload)
+                  _PinBoxUploadProgressCard(
+                    progress: _uploadProgress!,
+                    onCancel: _cancelUpload,
+                  )
                 else
                   SizedBox(
                     width: double.infinity,
@@ -471,19 +573,33 @@ class _CreatePinBoxScreenState extends ConsumerState<CreatePinBoxScreen>
                       onPressed: _submitting ? null : _submit,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.5),
+                        disabledBackgroundColor: AppColors.primary.withValues(
+                          alpha: 0.5,
+                        ),
                         foregroundColor: ChatLightColors.contourLine,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.button)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(AppRadii.button),
+                        ),
                         elevation: 0,
-                        textStyle: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700),
+                        textStyle: const TextStyle(
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                       child: _submitting
                           ? const SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2.4, color: ChatLightColors.contourLine),
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: ChatLightColors.contourLine,
+                              ),
                             )
-                          : Text(_isEditing ? loc.venueSaveButton : loc.pinboxPublishButton),
+                          : Text(
+                              _isEditing
+                                  ? loc.venueSaveButton
+                                  : loc.pinboxPublishButton,
+                            ),
                     ),
                   ),
               ],
@@ -504,7 +620,14 @@ class _FieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Text(label, style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 14.5,
+          fontWeight: FontWeight.w600,
+          color: ChatLightColors.ink,
+        ),
+      ),
     );
   }
 }
@@ -537,8 +660,18 @@ class _LightTextField extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(AppRadii.input),
-            border: Border.all(color: hasError ? AppColors.error : ChatLightColors.inkFaint.withValues(alpha: 0.18)),
-            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2))],
+            border: Border.all(
+              color: hasError
+                  ? AppColors.error
+                  : ChatLightColors.inkFaint.withValues(alpha: 0.18),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           child: TextField(
@@ -546,11 +679,19 @@ class _LightTextField extends StatelessWidget {
             maxLength: maxLength,
             maxLines: maxLines,
             keyboardType: keyboardType,
-            style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w500, color: ChatLightColors.ink),
+            style: const TextStyle(
+              fontSize: 15.5,
+              fontWeight: FontWeight.w500,
+              color: ChatLightColors.ink,
+            ),
             cursorColor: AppColors.primary,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: TextStyle(color: ChatLightColors.inkFaint, fontWeight: FontWeight.w400, fontSize: 15.5),
+              hintStyle: TextStyle(
+                color: ChatLightColors.inkFaint,
+                fontWeight: FontWeight.w400,
+                fontSize: 15.5,
+              ),
               border: InputBorder.none,
               enabledBorder: InputBorder.none,
               focusedBorder: InputBorder.none,
@@ -566,7 +707,10 @@ class _LightTextField extends StatelessWidget {
         ),
         if (hasError) ...[
           const SizedBox(height: 6),
-          Text(errorText!, style: const TextStyle(fontSize: 12.5, color: AppColors.error)),
+          Text(
+            errorText!,
+            style: const TextStyle(fontSize: 12.5, color: AppColors.error),
+          ),
         ],
       ],
     );
@@ -579,11 +723,16 @@ class _TimeField extends StatelessWidget {
   final bool hasError;
   final VoidCallback onTap;
 
-  const _TimeField({required this.label, required this.time, required this.hasError, required this.onTap});
+  const _TimeField({
+    required this.label,
+    required this.time,
+    required this.hasError,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -595,17 +744,28 @@ class _TimeField extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint)),
+            Text(
+              label,
+              style: TextStyle(fontSize: 11.5, color: ChatLightColors.inkFaint),
+            ),
             const SizedBox(height: 3),
             Row(
               children: [
                 Expanded(
                   child: Text(
                     time != null ? _formatTimeOfDay(time!) : '--:--',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: ChatLightColors.ink),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: ChatLightColors.ink,
+                    ),
                   ),
                 ),
-                Icon(Icons.access_time_outlined, size: 15, color: ChatLightColors.inkFaint),
+                Icon(
+                  Icons.access_time_outlined,
+                  size: 15,
+                  color: ChatLightColors.inkFaint,
+                ),
               ],
             ),
           ],
@@ -619,7 +779,10 @@ class _PinBoxUploadProgressCard extends StatelessWidget {
   final double progress;
   final VoidCallback? onCancel;
 
-  const _PinBoxUploadProgressCard({required this.progress, required this.onCancel});
+  const _PinBoxUploadProgressCard({
+    required this.progress,
+    required this.onCancel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -631,7 +794,13 @@ class _PinBoxUploadProgressCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(AppRadii.card),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 12, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -639,9 +808,23 @@ class _PinBoxUploadProgressCard extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: Text(loc.venueUploadingLabel, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+                child: Text(
+                  loc.venueUploadingLabel,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: ChatLightColors.ink,
+                  ),
+                ),
               ),
-              Text('$percent%', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primary)),
+              Text(
+                '$percent%',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primary,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -662,7 +845,9 @@ class _PinBoxUploadProgressCard extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.error,
                 side: const BorderSide(color: AppColors.error),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.button)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadii.button),
+                ),
               ),
               child: Text(loc.venueUploadCancelButton),
             ),

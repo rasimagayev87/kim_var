@@ -8,8 +8,10 @@ import 'notification_remote_datasource.dart';
 /// batch is always enough.
 const _kBatchChunkSize = 450;
 
-class FirebaseNotificationRemoteDatasource implements NotificationRemoteDatasource {
-  FirebaseNotificationRemoteDatasource({FirebaseFirestore? firestore}) : _firestore = firestore ?? FirebaseFirestore.instance;
+class FirebaseNotificationRemoteDatasource
+    implements NotificationRemoteDatasource {
+  FirebaseNotificationRemoteDatasource({FirebaseFirestore? firestore})
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -17,8 +19,13 @@ class FirebaseNotificationRemoteDatasource implements NotificationRemoteDatasour
       _firestore.collection('users').doc(uid).collection('notifications');
 
   @override
-  Stream<QuerySnapshot<Map<String, dynamic>>> watchNotifications(String uid, {required int limit}) {
-    return _notifications(uid).orderBy('createdAt', descending: true).limit(limit).snapshots();
+  Stream<QuerySnapshot<Map<String, dynamic>>> watchNotifications(
+    String uid, {
+    required int limit,
+  }) {
+    return _notifications(
+      uid,
+    ).orderBy('createdAt', descending: true).limit(limit).snapshots();
   }
 
   @override
@@ -41,19 +48,33 @@ class FirebaseNotificationRemoteDatasource implements NotificationRemoteDatasour
 
   @override
   Future<void> markAllRead(String uid) async {
-    final unread = await _notifications(uid).where('isRead', isEqualTo: false).get();
-    await _runChunkedBatch(unread.docs, (batch, doc) => batch.update(doc.reference, {'isRead': true}));
+    final unread = await _notifications(
+      uid,
+    ).where('isRead', isEqualTo: false).get();
+    await _runChunkedBatch(
+      unread.docs,
+      (batch, doc) => batch.update(doc.reference, {'isRead': true}),
+    );
   }
 
   @override
   Future<void> deleteReadNotifications(String uid) async {
-    final read = await _notifications(uid).where('isRead', isEqualTo: true).get();
-    await _runChunkedBatch(read.docs, (batch, doc) => batch.delete(doc.reference));
+    final read = await _notifications(
+      uid,
+    ).where('isRead', isEqualTo: true).get();
+    await _runChunkedBatch(
+      read.docs,
+      (batch, doc) => batch.delete(doc.reference),
+    );
   }
 
   Future<void> _runChunkedBatch(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
-    void Function(WriteBatch batch, QueryDocumentSnapshot<Map<String, dynamic>> doc) apply,
+    void Function(
+      WriteBatch batch,
+      QueryDocumentSnapshot<Map<String, dynamic>> doc,
+    )
+    apply,
   ) async {
     for (var i = 0; i < docs.length; i += _kBatchChunkSize) {
       final chunk = docs.skip(i).take(_kBatchChunkSize);

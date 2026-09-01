@@ -60,12 +60,14 @@ const Map<VenueCategory, CategoryCapabilities> kCategoryCapabilities = {
 };
 
 extension VenueCategoryCapabilities on VenueCategory {
-  CategoryCapabilities get capabilities => kCategoryCapabilities[this] ?? const CategoryCapabilities();
+  CategoryCapabilities get capabilities =>
+      kCategoryCapabilities[this] ?? const CategoryCapabilities();
 }
 
 /// Plain passthrough so UI can `ref.watch(categoryCapabilitiesProvider(category))`
 /// where a provider-based read fits the surrounding code better than a
 /// direct `.capabilities` call.
-final categoryCapabilitiesProvider = Provider.family<CategoryCapabilities, VenueCategory>(
-  (ref, category) => category.capabilities,
-);
+final categoryCapabilitiesProvider =
+    Provider.family<CategoryCapabilities, VenueCategory>(
+      (ref, category) => category.capabilities,
+    );

@@ -12,10 +12,16 @@ class UpdateVisibilityRadiusUseCase {
 
   final PrivacySettingsRepository _repository;
 
-  Future<void> call({required String uid, required VisibilityRadiusMode mode, double? radiusKm}) {
+  Future<void> call({
+    required String uid,
+    required VisibilityRadiusMode mode,
+    double? radiusKm,
+  }) {
     return _repository.updateSettings(uid, {
       'visibilityRadiusMode': mode.name,
-      'visibilityRadiusKm': mode == VisibilityRadiusMode.distance ? radiusKm : null,
+      'visibilityRadiusKm': mode == VisibilityRadiusMode.distance
+          ? radiusKm
+          : null,
     });
   }
 }

@@ -23,19 +23,40 @@ class LiveFeedAllOffersScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text(loc.liveFeedSectionOffersNearby, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        title: Text(
+          loc.liveFeedSectionOffersNearby,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
       ),
       body: offersAsync.when(
         data: (offers) => offers.isEmpty
-            ? Center(child: Text(loc.offersEmptySubtitle, style: const TextStyle(color: AppColors.textSecondary)))
+            ? Center(
+                child: Text(
+                  loc.offersEmptySubtitle,
+                  style: const TextStyle(color: AppColors.textSecondary),
+                ),
+              )
             : ListView.separated(
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                 itemCount: offers.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 12),
-                itemBuilder: (context, index) => LiveFeedOfferCard(offer: offers[index].offer, distanceMeters: offers[index].distanceMeters),
+                itemBuilder: (context, index) => LiveFeedOfferCard(
+                  offer: offers[index].offer,
+                  distanceMeters: offers[index].distanceMeters,
+                ),
               ),
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-        error: (_, _) => Center(child: Text(loc.offersEmptySubtitle, style: const TextStyle(color: AppColors.textSecondary))),
+        loading: () => const Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 2.4,
+            color: AppColors.primary,
+          ),
+        ),
+        error: (_, _) => Center(
+          child: Text(
+            loc.offersEmptySubtitle,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
       ),
     );
   }

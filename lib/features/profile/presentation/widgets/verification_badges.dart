@@ -32,7 +32,12 @@ class VerificationBadges extends StatelessWidget {
           Icon(Icons.verified_outlined, color: AppColors.primary, size: size),
           if (premium) const SizedBox(width: 3),
         ],
-        if (premium) Icon(Icons.workspace_premium_outlined, color: AppColors.gold, size: size),
+        if (premium)
+          Icon(
+            Icons.workspace_premium_outlined,
+            color: AppColors.gold,
+            size: size,
+          ),
       ],
     );
   }

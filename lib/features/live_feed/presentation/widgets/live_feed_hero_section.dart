@@ -18,7 +18,10 @@ class LiveFeedHeroSection extends ConsumerWidget {
 
     return eventsAsync.when(
       data: (items) {
-        final tonight = items.map((item) => item.event).where(isTonightHeroEvent).toList();
+        final tonight = items
+            .map((item) => item.event)
+            .where(isTonightHeroEvent)
+            .toList();
         if (tonight.isEmpty) return const SizedBox.shrink();
         return LiveFeedHeroCarousel(events: tonight);
       },

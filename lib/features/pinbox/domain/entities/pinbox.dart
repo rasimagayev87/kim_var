@@ -1,7 +1,11 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../../venues/domain/entities/venue.dart'
-    show VenueCategory, VenueCategoryConverter, TimestampConverter, NullableTimestampConverter;
+    show
+        VenueCategory,
+        VenueCategoryConverter,
+        TimestampConverter,
+        NullableTimestampConverter;
 
 part 'pinbox.freezed.dart';
 part 'pinbox.g.dart';

@@ -24,7 +24,10 @@ class LiveFeedAllPinboxesScreen extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Text(loc.liveFeedSectionPinboxListings, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        title: Text(
+          loc.liveFeedSectionPinboxListings,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
       ),
       body: pinboxesAsync.when(
         data: (pinboxes) {
@@ -32,19 +35,40 @@ class LiveFeedAllPinboxesScreen extends ConsumerWidget {
           // fetch can go stale relative to `pickupWindowEnd` the longer
           // it stays cached, so this re-checks against "now" on every
           // rebuild rather than trusting the fetch was recent.
-          final active = pinboxes.where((r) => r.pinbox.pickupWindowEnd.isAfter(DateTime.now()));
-          final sorted = [...active]..sort((a, b) => b.pinbox.createdAt.compareTo(a.pinbox.createdAt));
+          final active = pinboxes.where(
+            (r) => r.pinbox.pickupWindowEnd.isAfter(DateTime.now()),
+          );
+          final sorted = [...active]
+            ..sort((a, b) => b.pinbox.createdAt.compareTo(a.pinbox.createdAt));
           return sorted.isEmpty
-              ? Center(child: Text(loc.listingEmptyPinboxSubtitle, style: const TextStyle(color: AppColors.textSecondary)))
+              ? Center(
+                  child: Text(
+                    loc.listingEmptyPinboxSubtitle,
+                    style: const TextStyle(color: AppColors.textSecondary),
+                  ),
+                )
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
                   itemCount: sorted.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (context, index) => LiveFeedPinboxCard(pinbox: sorted[index].pinbox, distanceMeters: sorted[index].distanceMeters),
+                  itemBuilder: (context, index) => LiveFeedPinboxCard(
+                    pinbox: sorted[index].pinbox,
+                    distanceMeters: sorted[index].distanceMeters,
+                  ),
                 );
         },
-        loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary)),
-        error: (_, _) => Center(child: Text(loc.listingEmptyPinboxSubtitle, style: const TextStyle(color: AppColors.textSecondary))),
+        loading: () => const Center(
+          child: CircularProgressIndicator(
+            strokeWidth: 2.4,
+            color: AppColors.primary,
+          ),
+        ),
+        error: (_, _) => Center(
+          child: Text(
+            loc.listingEmptyPinboxSubtitle,
+            style: const TextStyle(color: AppColors.textSecondary),
+          ),
+        ),
       ),
     );
   }

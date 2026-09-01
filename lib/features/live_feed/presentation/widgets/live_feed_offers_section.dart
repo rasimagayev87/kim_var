@@ -27,7 +27,8 @@ class LiveFeedOffersSection extends ConsumerWidget {
     return offersAsync.when(
       data: (offers) {
         if (offers.isEmpty) return const SizedBox.shrink();
-        final sorted = [...offers]..sort((a, b) => b.offer.startDate.compareTo(a.offer.startDate));
+        final sorted = [...offers]
+          ..sort((a, b) => b.offer.startDate.compareTo(a.offer.startDate));
         final latest = sorted.take(3).toList();
 
         return Column(
@@ -39,7 +40,12 @@ class LiveFeedOffersSection extends ConsumerWidget {
                 icon: Icons.bolt,
                 iconColor: AppColors.primary,
                 title: loc.liveFeedSectionOffersNearby,
-                onSeeAll: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LiveFeedAllOffersScreen())),
+                onSeeAll: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const LiveFeedAllOffersScreen(),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -50,8 +56,11 @@ class LiveFeedOffersSection extends ConsumerWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 itemCount: latest.length,
                 separatorBuilder: (_, _) => const SizedBox(width: 12),
-                itemBuilder: (context, index) =>
-                    LiveFeedOfferCard(offer: latest[index].offer, distanceMeters: latest[index].distanceMeters, width: _kCardWidth),
+                itemBuilder: (context, index) => LiveFeedOfferCard(
+                  offer: latest[index].offer,
+                  distanceMeters: latest[index].distanceMeters,
+                  width: _kCardWidth,
+                ),
               ),
             ),
           ],

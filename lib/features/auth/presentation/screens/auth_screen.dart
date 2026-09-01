@@ -53,7 +53,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
   /// so re-validating it on every sign-in would risk locking someone
   /// out of their own already-working account.
   bool _isPasswordStrongEnough(String password) {
-    if (password.length < _kMinPasswordLength || password.length > _kMaxPasswordLength) return false;
+    if (password.length < _kMinPasswordLength ||
+        password.length > _kMaxPasswordLength)
+      return false;
     final hasLetter = RegExp(r'\p{L}', unicode: true).hasMatch(password);
     final hasDigit = RegExp(r'\d').hasMatch(password);
     final hasSpecial = _kSpecialCharPattern.hasMatch(password);
@@ -74,7 +76,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     final confirm = _confirmPasswordController.text;
     setState(() {
       _confirmPasswordFieldError =
-          confirm.isNotEmpty && confirm != _passwordController.text ? loc.authPasswordMismatchError : null;
+          confirm.isNotEmpty && confirm != _passwordController.text
+          ? loc.authPasswordMismatchError
+          : null;
     });
   }
 
@@ -88,7 +92,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   void _requireConsent() {
     if (!_consentAccepted) {
-      setState(() => _error = AppLocalizations.of(context).authConsentRequiredError);
+      setState(
+        () => _error = AppLocalizations.of(context).authConsentRequiredError,
+      );
     }
   }
 
@@ -102,7 +108,10 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       if (!mounted) return;
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (_) => isNewUser ? const OnboardingScreen() : const HomeScreen()),
+        MaterialPageRoute(
+          builder: (_) =>
+              isNewUser ? const OnboardingScreen() : const HomeScreen(),
+        ),
         (route) => false,
       );
     } catch (e, st) {
@@ -119,8 +128,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       // owner of the email can still recover access via "forgot
       // password" (only they can receive that reset link), so pointing
       // them there is a genuine way out, not a dead end.
-      final message = e is FirebaseAuthException && e.code == 'account-exists-with-different-credential'
-          ? AppLocalizations.of(context).authAccountExistsDifferentCredentialError
+      final message =
+          e is FirebaseAuthException &&
+              e.code == 'account-exists-with-different-credential'
+          ? AppLocalizations.of(
+              context,
+            ).authAccountExistsDifferentCredentialError
           : AppLocalizations.of(context).authSignInFailedError;
       setState(() {
         _submitting = false;
@@ -131,12 +144,16 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
   Future<void> _signInWithApple() async {
     if (!_consentAccepted) return _requireConsent();
-    await _handleResult(() => ref.read(authControllerProvider.notifier).signInWithApple());
+    await _handleResult(
+      () => ref.read(authControllerProvider.notifier).signInWithApple(),
+    );
   }
 
   Future<void> _signInWithGoogle() async {
     if (!_consentAccepted) return _requireConsent();
-    await _handleResult(() => ref.read(authControllerProvider.notifier).signInWithGoogle());
+    await _handleResult(
+      () => ref.read(authControllerProvider.notifier).signInWithGoogle(),
+    );
   }
 
   /// Unlike [_handleResult]'s Apple/Google path, wrong-credential
@@ -165,7 +182,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
         return;
       }
       if (password != _confirmPasswordController.text) {
-        setState(() => _confirmPasswordFieldError = loc.authPasswordMismatchError);
+        setState(
+          () => _confirmPasswordFieldError = loc.authPasswordMismatchError,
+        );
         return;
       }
     } else if (password.isEmpty) {
@@ -199,7 +218,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       // (see SplashScreen's own doc comment: a `needsOnboarding`
       // session always comes back through this exact form, never
       // straight to OnboardingScreen).
-      final destination = isNewUser && needsEmailVerification(FirebaseAuth.instance.currentUser)
+      final destination =
+          isNewUser && needsEmailVerification(FirebaseAuth.instance.currentUser)
           ? VerifyEmailScreen(email: email)
           : (isNewUser ? const OnboardingScreen() : const HomeScreen());
       Navigator.pushAndRemoveUntil(
@@ -256,8 +276,11 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (_) => _ForgotPasswordSheet(initialEmail: _emailController.text.trim()),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) =>
+          _ForgotPasswordSheet(initialEmail: _emailController.text.trim()),
     );
   }
 
@@ -277,19 +300,28 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 children: [
                   const SizedBox(height: 28),
                   Center(
-                    child: GlowLogo(
-                      child: Container(
-                        width: 68,
-                        height: 68,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.12),
-                          shape: BoxShape.circle,
+                        child: GlowLogo(
+                          child: Container(
+                            width: 68,
+                            height: 68,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Image.asset(
+                              'assets/icon_foreground.png',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
                         ),
-                        child: Image.asset('assets/icon_foreground.png', fit: BoxFit.contain),
+                      )
+                      .animate()
+                      .fadeIn(duration: 400.ms)
+                      .scale(
+                        begin: const Offset(0.85, 0.85),
+                        end: const Offset(1, 1),
                       ),
-                    ),
-                  ).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.85, 0.85), end: const Offset(1, 1)),
                   const SizedBox(height: 20),
                   Text(
                     loc.authTitle,
@@ -300,7 +332,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   Text(
                     loc.authSubtitle,
                     textAlign: TextAlign.center,
-                    style: AppTextStyles.body.copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.body.copyWith(
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                   const SizedBox(height: 32),
                   TextField(
@@ -322,12 +356,20 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       prefixIcon: const Icon(Icons.lock_outline_rounded),
                       errorText: _passwordFieldError,
                       errorMaxLines: 2,
-                      helperText: _isRegistering ? loc.authPasswordRequirementsHint : null,
+                      helperText: _isRegistering
+                          ? loc.authPasswordRequirementsHint
+                          : null,
                       helperMaxLines: 2,
                       counterText: '',
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        icon: Icon(
+                          _obscurePassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                        ),
+                        onPressed: () => setState(
+                          () => _obscurePassword = !_obscurePassword,
+                        ),
                       ),
                     ),
                   ),
@@ -353,11 +395,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       children: [
                         TextButton(
                           onPressed: _submitting ? null : _toggleMode,
-                          child: Text(_isRegistering ? loc.authToggleToSignIn : loc.authToggleToRegister),
+                          child: Text(
+                            _isRegistering
+                                ? loc.authToggleToSignIn
+                                : loc.authToggleToRegister,
+                          ),
                         ),
                         if (!_isRegistering)
                           TextButton(
-                            onPressed: _submitting ? null : _showForgotPasswordSheet,
+                            onPressed: _submitting
+                                ? null
+                                : _showForgotPasswordSheet,
                             child: Text(loc.authForgotPasswordLink),
                           ),
                       ],
@@ -371,7 +419,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   ),
                   if (_error != null) ...[
                     const SizedBox(height: 16),
-                    Text(_error!, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+                    Text(
+                      _error!,
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.error,
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 24),
                   Row(
@@ -379,7 +432,12 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       Expanded(child: Divider(color: AppColors.divider)),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
-                        child: Text(loc.authOrDivider, style: AppTextStyles.caption.copyWith(color: AppColors.textMuted)),
+                        child: Text(
+                          loc.authOrDivider,
+                          style: AppTextStyles.caption.copyWith(
+                            color: AppColors.textMuted,
+                          ),
+                        ),
                       ),
                       Expanded(child: Divider(color: AppColors.divider)),
                     ],
@@ -434,11 +492,14 @@ class _ForgotPasswordSheet extends ConsumerStatefulWidget {
   const _ForgotPasswordSheet({required this.initialEmail});
 
   @override
-  ConsumerState<_ForgotPasswordSheet> createState() => _ForgotPasswordSheetState();
+  ConsumerState<_ForgotPasswordSheet> createState() =>
+      _ForgotPasswordSheetState();
 }
 
 class _ForgotPasswordSheetState extends ConsumerState<_ForgotPasswordSheet> {
-  late final _emailController = TextEditingController(text: widget.initialEmail);
+  late final _emailController = TextEditingController(
+    text: widget.initialEmail,
+  );
   bool _submitting = false;
   bool _sent = false;
   String? _error;
@@ -462,7 +523,9 @@ class _ForgotPasswordSheetState extends ConsumerState<_ForgotPasswordSheet> {
       _error = null;
     });
     try {
-      await ref.read(authControllerProvider.notifier).sendPasswordResetEmail(email);
+      await ref
+          .read(authControllerProvider.notifier)
+          .sendPasswordResetEmail(email);
       if (!mounted) return;
       setState(() {
         _submitting = false;
@@ -485,27 +548,51 @@ class _ForgotPasswordSheetState extends ConsumerState<_ForgotPasswordSheet> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 20),
+        padding: EdgeInsets.fromLTRB(
+          20,
+          20,
+          20,
+          MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(loc.authForgotPasswordSheetTitle, style: AppTextStyles.cardTitle.copyWith(fontWeight: FontWeight.w700)),
+            Text(
+              loc.authForgotPasswordSheetTitle,
+              style: AppTextStyles.cardTitle.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
             const SizedBox(height: 8),
             if (_sent) ...[
-              Text(loc.authForgotPasswordSentMessage(_emailController.text.trim()), style: AppTextStyles.body),
+              Text(
+                loc.authForgotPasswordSentMessage(_emailController.text.trim()),
+                style: AppTextStyles.body,
+              ),
               const SizedBox(height: 20),
             ] else ...[
-              Text(loc.authForgotPasswordSheetHint, style: AppTextStyles.body.copyWith(color: AppColors.textSecondary)),
+              Text(
+                loc.authForgotPasswordSheetHint,
+                style: AppTextStyles.body.copyWith(
+                  color: AppColors.textSecondary,
+                ),
+              ),
               const SizedBox(height: 16),
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(hintText: loc.authEmailHint, prefixIcon: const Icon(Icons.mail_outline_rounded)),
+                decoration: InputDecoration(
+                  hintText: loc.authEmailHint,
+                  prefixIcon: const Icon(Icons.mail_outline_rounded),
+                ),
               ),
               if (_error != null) ...[
                 const SizedBox(height: 10),
-                Text(_error!, style: AppTextStyles.caption.copyWith(color: AppColors.error)),
+                Text(
+                  _error!,
+                  style: AppTextStyles.caption.copyWith(color: AppColors.error),
+                ),
               ],
               const SizedBox(height: 18),
               _PrimaryButton(
@@ -529,7 +616,11 @@ class _PrimaryButton extends StatelessWidget {
   final bool loading;
   final VoidCallback onPressed;
 
-  const _PrimaryButton({required this.label, required this.loading, required this.onPressed});
+  const _PrimaryButton({
+    required this.label,
+    required this.loading,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -539,7 +630,10 @@ class _PrimaryButton extends StatelessWidget {
           ? const SizedBox(
               height: 20,
               width: 20,
-              child: CircularProgressIndicator(strokeWidth: 2.2, valueColor: AlwaysStoppedAnimation<Color>(AppColors.onAccent)),
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                valueColor: AlwaysStoppedAnimation<Color>(AppColors.onAccent),
+              ),
             )
           : Text(label),
     );
@@ -574,7 +668,12 @@ class _SocialButton extends StatelessWidget {
   final bool loading;
   final VoidCallback onPressed;
 
-  const _SocialButton({required this.brand, required this.label, required this.loading, required this.onPressed});
+  const _SocialButton({
+    required this.brand,
+    required this.label,
+    required this.loading,
+    required this.onPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -586,7 +685,13 @@ class _SocialButton extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppRadii.button),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.12), blurRadius: 10, offset: const Offset(0, 3))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
       child: OutlinedButton(
         onPressed: loading ? null : onPressed,
@@ -600,7 +705,10 @@ class _SocialButton extends StatelessWidget {
             ? const SizedBox(
                 height: 18,
                 width: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(foreground)),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(foreground),
+                ),
               )
             : Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -611,7 +719,10 @@ class _SocialButton extends StatelessWidget {
                     child: Text(
                       label,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: foreground, fontWeight: FontWeight.w600),
+                      style: const TextStyle(
+                        color: foreground,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],

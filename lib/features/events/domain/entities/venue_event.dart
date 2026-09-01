@@ -1,6 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
-import '../../../venues/domain/entities/venue.dart' show TimestampConverter, VenueCategory, VenueCategoryConverter;
+import '../../../venues/domain/entities/venue.dart'
+    show TimestampConverter, VenueCategory, VenueCategoryConverter;
 
 part 'venue_event.freezed.dart';
 part 'venue_event.g.dart';
@@ -11,12 +12,16 @@ part 'venue_event.g.dart';
 /// what kind of venue is hosting it.
 enum VenueEventCategory { music, tasting, themeNight, other }
 
-class VenueEventCategoryConverter implements JsonConverter<VenueEventCategory, String?> {
+class VenueEventCategoryConverter
+    implements JsonConverter<VenueEventCategory, String?> {
   const VenueEventCategoryConverter();
 
   @override
   VenueEventCategory fromJson(String? json) =>
-      VenueEventCategory.values.firstWhere((c) => c.name == json, orElse: () => VenueEventCategory.other);
+      VenueEventCategory.values.firstWhere(
+        (c) => c.name == json,
+        orElse: () => VenueEventCategory.other,
+      );
 
   @override
   String toJson(VenueEventCategory category) => category.name;
@@ -56,7 +61,8 @@ const int kFreeEventsPerPeriod = 5;
 /// mirrors `EVENT_TRUST_THRESHOLD`.
 const int kEventTrustThreshold = 3;
 
-class VenueEventStatusConverter implements JsonConverter<VenueEventStatus, String?> {
+class VenueEventStatusConverter
+    implements JsonConverter<VenueEventStatus, String?> {
   const VenueEventStatusConverter();
 
   @override
@@ -64,7 +70,10 @@ class VenueEventStatusConverter implements JsonConverter<VenueEventStatus, Strin
       // Unknown/absent falls back to `pending`, the state that shows
       // NOTHING publicly. The previous default was `upcoming`, which
       // meant a malformed document was treated as published.
-      VenueEventStatus.values.firstWhere((s) => s.name == json, orElse: () => VenueEventStatus.pending);
+      VenueEventStatus.values.firstWhere(
+        (s) => s.name == json,
+        orElse: () => VenueEventStatus.pending,
+      );
 
   @override
   String toJson(VenueEventStatus status) => status.name;
@@ -101,7 +110,9 @@ class VenueEvent with _$VenueEvent {
     required String venueId,
     required String venueName,
     String? venuePhotoUrl,
-    @VenueCategoryConverter() @Default(VenueCategory.other) VenueCategory venueCategory,
+    @VenueCategoryConverter()
+    @Default(VenueCategory.other)
+    VenueCategory venueCategory,
     required double lat,
     required double lng,
     required String title,
@@ -109,8 +120,12 @@ class VenueEvent with _$VenueEvent {
     String? coverImageUrl,
     @TimestampConverter() required DateTime startAt,
     @TimestampConverter() required DateTime endAt,
-    @VenueEventCategoryConverter() @Default(VenueEventCategory.other) VenueEventCategory category,
-    @VenueEventStatusConverter() @Default(VenueEventStatus.pending) VenueEventStatus status,
+    @VenueEventCategoryConverter()
+    @Default(VenueEventCategory.other)
+    VenueEventCategory category,
+    @VenueEventStatusConverter()
+    @Default(VenueEventStatus.pending)
+    VenueEventStatus status,
 
     /// Why an event was rejected — a moderator's note, or the automatic
     /// one written when a `pending` event reached its own `startAt`
@@ -121,7 +136,8 @@ class VenueEvent with _$VenueEvent {
     @TimestampConverter() required DateTime createdAt,
   }) = _VenueEvent;
 
-  factory VenueEvent.fromJson(Map<String, dynamic> json) => _$VenueEventFromJson(json);
+  factory VenueEvent.fromJson(Map<String, dynamic> json) =>
+      _$VenueEventFromJson(json);
 
   factory VenueEvent.fromFirestore(String id, Map<String, dynamic> data) {
     return VenueEvent.fromJson({...data, 'id': id});
@@ -133,6 +149,8 @@ class VenueEvent with _$VenueEvent {
   /// ever shows for an event happening today.
   bool get isToday {
     final now = DateTime.now();
-    return startAt.year == now.year && startAt.month == now.month && startAt.day == now.day;
+    return startAt.year == now.year &&
+        startAt.month == now.month &&
+        startAt.day == now.day;
   }
 }

@@ -8,7 +8,8 @@ import 'package:geolocator/geolocator.dart';
 
 import '../../../../core/utils/app_logger.dart';
 import '../../../location/presentation/providers/location_providers.dart';
-import '../../../offers/presentation/providers/offer_providers.dart' show selectedOfferCategoryFilterProvider;
+import '../../../offers/presentation/providers/offer_providers.dart'
+    show selectedOfferCategoryFilterProvider;
 import '../../../profile/presentation/providers/profile_providers.dart';
 import '../../../venues/domain/entities/venue.dart' show VenueCategory;
 import '../../data/datasources/firebase_pinbox_remote_datasource.dart';
@@ -21,12 +22,17 @@ import '../../domain/repositories/pinbox_repository.dart';
 import '../../domain/usecases/create_pinbox_usecase.dart';
 import '../../domain/usecases/update_pinbox_usecase.dart';
 
-export '../../domain/repositories/pinbox_repository.dart' show PinBoxWithDistance;
+export '../../domain/repositories/pinbox_repository.dart'
+    show PinBoxWithDistance;
 
-final pinboxRemoteDatasourceProvider = Provider<PinBoxRemoteDatasource>((ref) => FirebasePinBoxRemoteDatasource());
+final pinboxRemoteDatasourceProvider = Provider<PinBoxRemoteDatasource>(
+  (ref) => FirebasePinBoxRemoteDatasource(),
+);
 
 final pinboxRepositoryProvider = Provider<PinBoxRepository>((ref) {
-  return FirebasePinBoxRepository(datasource: ref.watch(pinboxRemoteDatasourceProvider));
+  return FirebasePinBoxRepository(
+    datasource: ref.watch(pinboxRemoteDatasourceProvider),
+  );
 });
 
 final createPinBoxUseCaseProvider = Provider<CreatePinBoxUseCase>((ref) {
@@ -39,15 +45,19 @@ final updatePinBoxUseCaseProvider = Provider<UpdatePinBoxUseCase>((ref) {
 
 String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
 
-final pinboxByIdProvider = StreamProvider.family<PinBox?, String>((ref, pinboxId) {
+final pinboxByIdProvider = StreamProvider.family<PinBox?, String>((
+  ref,
+  pinboxId,
+) {
   return ref.watch(pinboxRepositoryProvider).watchPinBox(pinboxId);
 });
 
 /// Backs PinBox Faza 8's ticket screen — live status, `qrToken`/
 /// `qrTokenExpiresAt` as last written by `generatePinBoxQrToken`.
-final pinboxOrderByIdProvider = StreamProvider.autoDispose.family<PinBoxOrder?, String>((ref, orderId) {
-  return ref.watch(pinboxRepositoryProvider).watchPinBoxOrder(orderId);
-});
+final pinboxOrderByIdProvider = StreamProvider.autoDispose
+    .family<PinBoxOrder?, String>((ref, orderId) {
+      return ref.watch(pinboxRepositoryProvider).watchPinBoxOrder(orderId);
+    });
 
 /// Every PinBox the signed-in user has published — mirrors `myOffersProvider`.
 /// Backs Qutularım's "Yaratdıqlarım" (PinBox Faza 11).
@@ -59,7 +69,9 @@ final myPinBoxesProvider = StreamProvider.autoDispose<List<PinBox>>((ref) {
 
 /// Every order the signed-in user has bought — backs Qutularım's
 /// "Aldıqlarım" (PinBox Faza 11).
-final myPinBoxOrdersProvider = StreamProvider.autoDispose<List<PinBoxOrder>>((ref) {
+final myPinBoxOrdersProvider = StreamProvider.autoDispose<List<PinBoxOrder>>((
+  ref,
+) {
   final uid = _currentUid();
   if (uid == null) return Stream.value(const []);
   return ref.watch(pinboxRepositoryProvider).watchMyOrders(uid);
@@ -98,7 +110,9 @@ class PinBoxController {
     if (uid == null) return null;
 
     try {
-      final pinboxId = await _ref.read(createPinBoxUseCaseProvider).call(
+      final pinboxId = await _ref
+          .read(createPinBoxUseCaseProvider)
+          .call(
             ownerId: uid,
             venueId: venueId,
             venueName: venueName,
@@ -149,7 +163,9 @@ class PinBoxController {
     ValueChanged<VoidCallback>? onUploadTaskReady,
   }) async {
     try {
-      final sentForReReview = await _ref.read(updatePinBoxUseCaseProvider).call(
+      final sentForReReview = await _ref
+          .read(updatePinBoxUseCaseProvider)
+          .call(
             pinboxId: pinboxId,
             title: title,
             description: description,
@@ -173,7 +189,10 @@ class PinBoxController {
     }
   }
 
-  Future<bool> deletePinBox(String pinboxId, {required void Function() onError}) async {
+  Future<bool> deletePinBox(
+    String pinboxId, {
+    required void Function() onError,
+  }) async {
     try {
       await _ref.read(pinboxRepositoryProvider).deletePinBox(pinboxId);
       return true;
@@ -198,7 +217,9 @@ class PinBoxController {
   }
 }
 
-final pinboxControllerProvider = Provider<PinBoxController>((ref) => PinBoxController(ref));
+final pinboxControllerProvider = Provider<PinBoxController>(
+  (ref) => PinBoxController(ref),
+);
 
 /// [PinBoxReserveOutcome.soldOut]/[PinBoxReserveOutcome.expired] are the
 /// two failures the UI needs to tell apart from a generic error — sold
@@ -229,14 +250,25 @@ class PinBoxCheckoutController {
 
   final Ref _ref;
 
-  Future<PinBoxReserveResult> reserveOrder(String pinboxId, {int quantity = 1}) async {
+  Future<PinBoxReserveResult> reserveOrder(
+    String pinboxId, {
+    int quantity = 1,
+  }) async {
     final uid = _currentUid();
     if (uid == null) {
-      return (outcome: PinBoxReserveOutcome.error, orderId: null, checkoutUrl: null, feeAmount: null, paymentId: null);
+      return (
+        outcome: PinBoxReserveOutcome.error,
+        orderId: null,
+        checkoutUrl: null,
+        feeAmount: null,
+        paymentId: null,
+      );
     }
 
     try {
-      final result = await _ref.read(pinboxRepositoryProvider).reservePinBoxOrder(pinboxId: pinboxId, quantity: quantity);
+      final result = await _ref
+          .read(pinboxRepositoryProvider)
+          .reservePinBoxOrder(pinboxId: pinboxId, quantity: quantity);
       return (
         outcome: PinBoxReserveOutcome.success,
         orderId: result.orderId,
@@ -247,7 +279,9 @@ class PinBoxCheckoutController {
     } on FirebaseFunctionsException catch (e, st) {
       if (e.code == 'failed-precondition') {
         return (
-          outcome: e.message == 'pickup-window-ended' ? PinBoxReserveOutcome.expired : PinBoxReserveOutcome.soldOut,
+          outcome: e.message == 'pickup-window-ended'
+              ? PinBoxReserveOutcome.expired
+              : PinBoxReserveOutcome.soldOut,
           orderId: null,
           checkoutUrl: null,
           feeAmount: null,
@@ -255,15 +289,29 @@ class PinBoxCheckoutController {
         );
       }
       logError('pinbox_providers.reserveOrder', e, st);
-      return (outcome: PinBoxReserveOutcome.error, orderId: null, checkoutUrl: null, feeAmount: null, paymentId: null);
+      return (
+        outcome: PinBoxReserveOutcome.error,
+        orderId: null,
+        checkoutUrl: null,
+        feeAmount: null,
+        paymentId: null,
+      );
     } catch (e, st) {
       logError('pinbox_providers.reserveOrder', e, st);
-      return (outcome: PinBoxReserveOutcome.error, orderId: null, checkoutUrl: null, feeAmount: null, paymentId: null);
+      return (
+        outcome: PinBoxReserveOutcome.error,
+        orderId: null,
+        checkoutUrl: null,
+        feeAmount: null,
+        paymentId: null,
+      );
     }
   }
 }
 
-final pinboxCheckoutControllerProvider = Provider<PinBoxCheckoutController>((ref) => PinBoxCheckoutController(ref));
+final pinboxCheckoutControllerProvider = Provider<PinBoxCheckoutController>(
+  (ref) => PinBoxCheckoutController(ref),
+);
 
 /// [PinBoxRedeemOutcome.invalidCode] covers both "wrong code" and
 /// "right code, too late" — `redeemPinBoxOrder`'s own doc comment
@@ -271,7 +319,11 @@ final pinboxCheckoutControllerProvider = Provider<PinBoxCheckoutController>((ref
 /// error alone.
 enum PinBoxRedeemOutcome { success, invalidCode, error }
 
-typedef PinBoxRedeemResult = ({PinBoxRedeemOutcome outcome, String? pinboxTitle, int? quantity});
+typedef PinBoxRedeemResult = ({
+  PinBoxRedeemOutcome outcome,
+  String? pinboxTitle,
+  int? quantity,
+});
 
 /// Drives PinBox Faza 9's venue-side redemption screen — a thin wrapper
 /// over the `redeemPinBoxOrder` Cloud Function.
@@ -280,29 +332,61 @@ class PinBoxRedeemController {
 
   final Ref _ref;
 
-  Future<PinBoxRedeemResult> redeem({required String venueId, required String code}) async {
+  Future<PinBoxRedeemResult> redeem({
+    required String venueId,
+    required String code,
+  }) async {
     try {
-      final result = await _ref.read(pinboxRepositoryProvider).redeemPinBoxOrder(venueId: venueId, code: code);
-      return (outcome: PinBoxRedeemOutcome.success, pinboxTitle: result.pinboxTitle, quantity: result.quantity);
+      final result = await _ref
+          .read(pinboxRepositoryProvider)
+          .redeemPinBoxOrder(venueId: venueId, code: code);
+      return (
+        outcome: PinBoxRedeemOutcome.success,
+        pinboxTitle: result.pinboxTitle,
+        quantity: result.quantity,
+      );
     } on FirebaseFunctionsException catch (e, st) {
-      if (e.code == 'not-found') return (outcome: PinBoxRedeemOutcome.invalidCode, pinboxTitle: null, quantity: null);
+      if (e.code == 'not-found')
+        return (
+          outcome: PinBoxRedeemOutcome.invalidCode,
+          pinboxTitle: null,
+          quantity: null,
+        );
       logError('pinbox_providers.redeem', e, st);
-      return (outcome: PinBoxRedeemOutcome.error, pinboxTitle: null, quantity: null);
+      return (
+        outcome: PinBoxRedeemOutcome.error,
+        pinboxTitle: null,
+        quantity: null,
+      );
     } catch (e, st) {
       logError('pinbox_providers.redeem', e, st);
-      return (outcome: PinBoxRedeemOutcome.error, pinboxTitle: null, quantity: null);
+      return (
+        outcome: PinBoxRedeemOutcome.error,
+        pinboxTitle: null,
+        quantity: null,
+      );
     }
   }
 }
 
-final pinboxRedeemControllerProvider = Provider<PinBoxRedeemController>((ref) => PinBoxRedeemController(ref));
+final pinboxRedeemControllerProvider = Provider<PinBoxRedeemController>(
+  (ref) => PinBoxRedeemController(ref),
+);
 
-List<PinBoxWithDistance> _withDistanceFrom(List<PinBox> pinboxes, Position position) {
+List<PinBoxWithDistance> _withDistanceFrom(
+  List<PinBox> pinboxes,
+  Position position,
+) {
   return pinboxes
       .map(
         (pinbox) => (
           pinbox: pinbox,
-          distanceMeters: Geolocator.distanceBetween(position.latitude, position.longitude, pinbox.lat, pinbox.lng),
+          distanceMeters: Geolocator.distanceBetween(
+            position.latitude,
+            position.longitude,
+            pinbox.lat,
+            pinbox.lng,
+          ),
         ),
       )
       .toList();
@@ -317,29 +401,37 @@ List<PinBoxWithDistance> _withDistanceFrom(List<PinBox> pinboxes, Position posit
 /// [selectedOfferCategoryFilterProvider] — the repository/datasource
 /// already supported a `category` param end-to-end, it just wasn't
 /// being passed from here.
-final nearbyPinBoxesProvider = FutureProvider.autoDispose<List<PinBoxWithDistance>>((ref) async {
-  final position = ref.watch(locationControllerProvider).valueOrNull;
-  final selection = ref.watch(selectedDiscoverModeProvider);
-  final category = ref.watch(selectedOfferCategoryFilterProvider);
-  final repository = ref.watch(pinboxRepositoryProvider);
+final nearbyPinBoxesProvider =
+    FutureProvider.autoDispose<List<PinBoxWithDistance>>((ref) async {
+      final position = ref.watch(locationControllerProvider).valueOrNull;
+      final selection = ref.watch(selectedDiscoverModeProvider);
+      final category = ref.watch(selectedOfferCategoryFilterProvider);
+      final repository = ref.watch(pinboxRepositoryProvider);
 
-  if (position == null) return const [];
+      if (position == null) return const [];
 
-  switch (selection.mode) {
-    case DiscoverRadiusMode.distance:
-      return repository.fetchPinBoxesWithinRadius(
-        lat: position.latitude,
-        lng: position.longitude,
-        radiusKm: selection.km!,
-        category: category,
-      );
-    case DiscoverRadiusMode.country:
-      final myCountry = ref.watch(profileControllerProvider.select((p) => p.country));
-      if (myCountry == null) return const [];
-      final pinboxes = await repository.fetchPinBoxesByCountry(myCountry, category: category);
-      return _withDistanceFrom(pinboxes, position);
-    case DiscoverRadiusMode.world:
-      final pinboxes = await repository.fetchAllActivePinBoxes(category: category);
-      return _withDistanceFrom(pinboxes, position);
-  }
-});
+      switch (selection.mode) {
+        case DiscoverRadiusMode.distance:
+          return repository.fetchPinBoxesWithinRadius(
+            lat: position.latitude,
+            lng: position.longitude,
+            radiusKm: selection.km!,
+            category: category,
+          );
+        case DiscoverRadiusMode.country:
+          final myCountry = ref.watch(
+            profileControllerProvider.select((p) => p.country),
+          );
+          if (myCountry == null) return const [];
+          final pinboxes = await repository.fetchPinBoxesByCountry(
+            myCountry,
+            category: category,
+          );
+          return _withDistanceFrom(pinboxes, position);
+        case DiscoverRadiusMode.world:
+          final pinboxes = await repository.fetchAllActivePinBoxes(
+            category: category,
+          );
+          return _withDistanceFrom(pinboxes, position);
+      }
+    });

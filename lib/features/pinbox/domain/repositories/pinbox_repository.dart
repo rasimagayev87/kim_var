@@ -107,10 +107,16 @@ abstract class PinBoxRepository {
   });
 
   /// Backs "Ölkə üzrə" — mirrors `OfferRepository.fetchOffersByCountry`.
-  Future<List<PinBox>> fetchPinBoxesByCountry(String country, {VenueCategory? category});
+  Future<List<PinBox>> fetchPinBoxesByCountry(
+    String country, {
+    VenueCategory? category,
+  });
 
   /// Backs "Dünya üzrə" — mirrors `OfferRepository.fetchAllActiveOffers`.
-  Future<List<PinBox>> fetchAllActivePinBoxes({int limit, VenueCategory? category});
+  Future<List<PinBox>> fetchAllActivePinBoxes({
+    int limit,
+    VenueCategory? category,
+  });
 
   /// PinBox Faza 7 checkout — the ONLY way a `pinboxOrders` doc is ever
   /// created or `stockRemaining` ever decremented (see the
@@ -125,10 +131,10 @@ abstract class PinBoxRepository {
   /// out / not active / not signed in) — the caller
   /// (`PinBoxController.reserveOrder`) is what turns that into a typed
   /// UI outcome, same contract as every other controller in this app.
-  Future<({String orderId, String checkoutUrl, double feeAmount, String paymentId})> reservePinBoxOrder({
-    required String pinboxId,
-    int quantity = 1,
-  });
+  Future<
+    ({String orderId, String checkoutUrl, double feeAmount, String paymentId})
+  >
+  reservePinBoxOrder({required String pinboxId, int quantity = 1});
 
   /// PinBox Faza 8 ticket screen — live order status/QR fields.
   Stream<PinBoxOrder?> watchPinBoxOrder(String orderId);
@@ -139,14 +145,14 @@ abstract class PinBoxRepository {
   /// token string and its expiry; the ticket screen renders the token
   /// itself into the QR code, using the expiry only to drive its
   /// countdown/refresh timer.
-  Future<({String qrToken, DateTime expiresAt})> generateQrToken(String orderId);
+  Future<({String qrToken, DateTime expiresAt})> generateQrToken(
+    String orderId,
+  );
 
   /// PinBox Faza 9 — venue-side redemption. Manual code entry only (no
   /// camera scanning, see `redeemPinBoxOrder`'s own doc comment).
   /// Returns the redeemed order's short summary on success; throws on a
   /// wrong/expired code, or if [venueId] isn't owned by the caller.
-  Future<({String orderId, String pinboxTitle, int quantity})> redeemPinBoxOrder({
-    required String venueId,
-    required String code,
-  });
+  Future<({String orderId, String pinboxTitle, int quantity})>
+  redeemPinBoxOrder({required String venueId, required String code});
 }

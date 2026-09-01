@@ -17,6 +17,8 @@ import '../../../venues/presentation/screens/venue_profile_screen.dart';
 import '../providers/discover_search_providers.dart';
 import '../providers/public_video_feed_providers.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Opened from the search icon next to "+" on the Profile tab. A
 /// search bar over a default (empty-query) 3-column grid of newest
 /// public-account videos — typing swaps the grid for live search
@@ -25,7 +27,8 @@ class DiscoverSearchScreen extends ConsumerStatefulWidget {
   const DiscoverSearchScreen({super.key});
 
   @override
-  ConsumerState<DiscoverSearchScreen> createState() => _DiscoverSearchScreenState();
+  ConsumerState<DiscoverSearchScreen> createState() =>
+      _DiscoverSearchScreenState();
 }
 
 class _DiscoverSearchScreenState extends ConsumerState<DiscoverSearchScreen> {
@@ -40,7 +43,8 @@ class _DiscoverSearchScreenState extends ConsumerState<DiscoverSearchScreen> {
 
   void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 300) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 300) {
       ref.read(publicVideoFeedControllerProvider.notifier).loadMore();
     }
   }
@@ -68,13 +72,18 @@ class _DiscoverSearchScreenState extends ConsumerState<DiscoverSearchScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: ChatLightColors.ink),
+                    icon: const Icon(
+                      Icons.arrow_back,
+                      color: ChatLightColors.ink,
+                    ),
                   ),
                   Expanded(
                     child: _SearchField(
                       controller: _searchController,
                       hintText: loc.discoverSearchHint,
-                      onChanged: (value) => ref.read(discoverSearchControllerProvider.notifier).onQueryChanged(value),
+                      onChanged: (value) => ref
+                          .read(discoverSearchControllerProvider.notifier)
+                          .onQueryChanged(value),
                     ),
                   ),
                 ],
@@ -83,7 +92,10 @@ class _DiscoverSearchScreenState extends ConsumerState<DiscoverSearchScreen> {
             Expanded(
               child: searchState.hasQuery
                   ? _SearchResultsList(state: searchState, loc: loc)
-                  : _PublicVideoGrid(scrollController: _scrollController, loc: loc),
+                  : _PublicVideoGrid(
+                      scrollController: _scrollController,
+                      loc: loc,
+                    ),
             ),
           ],
         ),
@@ -97,12 +109,19 @@ class _SearchField extends StatelessWidget {
   final String hintText;
   final ValueChanged<String> onChanged;
 
-  const _SearchField({required this.controller, required this.hintText, required this.onChanged});
+  const _SearchField({
+    required this.controller,
+    required this.hintText,
+    required this.onChanged,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: TextField(
         controller: controller,
         onChanged: onChanged,
@@ -110,12 +129,23 @@ class _SearchField extends StatelessWidget {
         cursorColor: AppColors.primary,
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 14.5),
-          prefixIcon: const Icon(Icons.search, color: ChatLightColors.inkFaint, size: 21),
+          hintStyle: const TextStyle(
+            color: ChatLightColors.inkFaint,
+            fontSize: 14.5,
+          ),
+          prefixIcon: const Icon(
+            Icons.search,
+            color: ChatLightColors.inkFaint,
+            size: 21,
+          ),
           suffixIcon: controller.text.isEmpty
               ? null
               : IconButton(
-                  icon: const Icon(Icons.close, color: ChatLightColors.inkFaint, size: 18),
+                  icon: const Icon(
+                    Icons.close,
+                    color: ChatLightColors.inkFaint,
+                    size: 18,
+                  ),
                   onPressed: () {
                     controller.clear();
                     onChanged('');
@@ -143,7 +173,10 @@ class _SearchResultsList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (!state.isSearching && state.users.isEmpty && state.venues.isEmpty) {
       return Center(
-        child: Text(loc.discoverSearchNoResultsMessage, style: const TextStyle(color: ChatLightColors.inkFaint)),
+        child: Text(
+          loc.discoverSearchNoResultsMessage,
+          style: const TextStyle(color: ChatLightColors.inkFaint),
+        ),
       );
     }
 
@@ -174,7 +207,11 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
       child: Text(
         title,
-        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: ChatLightColors.inkFaint),
+        style: const TextStyle(
+          fontSize: 12.5,
+          fontWeight: FontWeight.w700,
+          color: ChatLightColors.inkFaint,
+        ),
       ),
     );
   }
@@ -188,17 +225,37 @@ class _UserResultRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => UserProfileScreen(uid: user.id))),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => UserProfileScreen(uid: user.id)),
+      ),
       leading: CircleAvatar(
         radius: 24,
         backgroundColor: ChatLightColors.cardSurface,
-        backgroundImage: user.photoUrl != null ? NetworkImage(user.photoUrl!) : null,
-        child: user.photoUrl == null ? const Icon(Icons.person_outline, color: ChatLightColors.inkSoft) : null,
+        backgroundImage: user.photoUrl != null
+            ? NetworkImage(user.photoUrl!)
+            : null,
+        child: user.photoUrl == null
+            ? const Icon(Icons.person_outline, color: ChatLightColors.inkSoft)
+            : null,
       ),
-      title: Text(user.name, style: const TextStyle(color: ChatLightColors.ink, fontWeight: FontWeight.w600, fontSize: 15)),
+      title: Text(
+        user.name,
+        style: const TextStyle(
+          color: ChatLightColors.ink,
+          fontWeight: FontWeight.w600,
+          fontSize: 15,
+        ),
+      ),
       subtitle: (user.username ?? '').isEmpty
           ? null
-          : Text('@${user.username}', style: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 12.5)),
+          : Text(
+              '@${user.username}',
+              style: const TextStyle(
+                color: ChatLightColors.inkFaint,
+                fontSize: 12.5,
+              ),
+            ),
     );
   }
 }
@@ -211,15 +268,39 @@ class _VenueResultRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => VenueProfileScreen(venueId: venue.id))),
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => VenueProfileScreen(venueId: venue.id),
+        ),
+      ),
       leading: CircleAvatar(
         radius: 24,
         backgroundColor: ChatLightColors.cardSurface,
-        backgroundImage: venue.photoUrl != null ? NetworkImage(venue.photoUrl!) : null,
-        child: venue.photoUrl == null ? const Icon(Icons.storefront_outlined, color: ChatLightColors.inkSoft) : null,
+        backgroundImage: venue.photoUrl != null
+            ? NetworkImage(venue.photoUrl!)
+            : null,
+        child: venue.photoUrl == null
+            ? const Icon(
+                Icons.storefront_outlined,
+                color: ChatLightColors.inkSoft,
+              )
+            : null,
       ),
-      title: Text(venue.name, style: const TextStyle(color: ChatLightColors.ink, fontWeight: FontWeight.w600, fontSize: 15)),
-      subtitle: Text(venue.address, style: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 12.5), maxLines: 1, overflow: TextOverflow.ellipsis),
+      title: Text(
+        venue.name,
+        style: const TextStyle(
+          color: ChatLightColors.ink,
+          fontWeight: FontWeight.w600,
+          fontSize: 15,
+        ),
+      ),
+      subtitle: Text(
+        venue.address,
+        style: const TextStyle(color: ChatLightColors.inkFaint, fontSize: 12.5),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
     );
   }
 }
@@ -235,7 +316,12 @@ class _PublicVideoGrid extends ConsumerWidget {
     final state = ref.watch(visiblePublicVideoFeedProvider);
 
     if (state.isInitialLoading) {
-      return const Center(child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.primary));
+      return const Center(
+        child: CircularProgressIndicator(
+          strokeWidth: 2.4,
+          color: AppColors.primary,
+        ),
+      );
     }
 
     if (state.videos.isEmpty) {
@@ -315,7 +401,9 @@ class _VideoGridTileState extends State<_VideoGridTile> {
 
   Future<void> _startPreview() async {
     _startingOrPlaying = true;
-    final controller = VideoPlayerController.networkUrl(Uri.parse(_post.mediaUrl));
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse(_post.mediaUrl),
+    );
     _controller = controller;
     try {
       await controller.initialize();
@@ -361,10 +449,15 @@ class _VideoGridTileState extends State<_VideoGridTile> {
     return VisibilityDetector(
       key: ValueKey('discover_video_tile_${_post.id}'),
       onVisibilityChanged: _onVisibilityChanged,
-      child: GestureDetector(
+      child: Pressable(
         onTap: () => Navigator.push(
           context,
-          MaterialPageRoute(builder: (_) => PostReelViewerScreen(posts: widget.videos, initialIndex: widget.index)),
+          MaterialPageRoute(
+            builder: (_) => PostReelViewerScreen(
+              posts: widget.videos,
+              initialIndex: widget.index,
+            ),
+          ),
         ),
         child: Stack(
           fit: StackFit.expand,
@@ -386,7 +479,11 @@ class _VideoGridTileState extends State<_VideoGridTile> {
             const Positioned(
               top: 6,
               right: 6,
-              child: Icon(Icons.play_arrow_outlined, color: Colors.white, size: 18),
+              child: Icon(
+                Icons.play_arrow_outlined,
+                color: Colors.white,
+                size: 18,
+              ),
             ),
           ],
         ),

@@ -10,7 +10,10 @@ import 'entities/call_session.dart';
 /// a time — matches the app's one-call-at-a-time UI.
 abstract class CallRepository {
   /// Starts a call to [receiverId] and returns the created session.
-  Future<CallSession> startCall({required String receiverId, required CallType type});
+  Future<CallSession> startCall({
+    required String receiverId,
+    required CallType type,
+  });
 
   /// Live incoming-call notifications for the current user — a caller
   /// starting a call against this user's uid should appear here as a

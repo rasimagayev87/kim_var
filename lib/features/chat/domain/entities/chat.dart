@@ -95,7 +95,8 @@ class Chat {
 
   /// True when [uid] is the recipient of a still-pending request and
   /// must accept/decline before the conversation can continue.
-  bool needsResponseFrom(String uid) => status == ChatRequestStatus.pending && uid != initiatorId;
+  bool needsResponseFrom(String uid) =>
+      status == ChatRequestStatus.pending && uid != initiatorId;
 
   /// The chat-list preview [uid] should actually see — their own
   /// [lastMessageOverride] entry if "məndən sil" has ever hidden what

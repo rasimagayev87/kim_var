@@ -21,7 +21,9 @@ String? _currentUid() => fb.FirebaseAuth.instance.currentUser?.uid;
 
 final userPostsProvider = StreamProvider.autoDispose.family<List<Post>, String>(
   (ref, userId) {
-    return ref.watch(postRepositoryProvider).watchUserPosts(userId, isOwnProfile: userId == _currentUid());
+    return ref
+        .watch(postRepositoryProvider)
+        .watchUserPosts(userId, isOwnProfile: userId == _currentUid());
   },
 );
 
@@ -75,7 +77,11 @@ final postCommentsProvider = StreamProvider.autoDispose
       return ref
           .watch(postRepositoryProvider)
           .watchComments(postId)
-          .map((comments) => hidden.isEmpty ? comments : comments.where((c) => !hidden.contains(c.userId)).toList());
+          .map(
+            (comments) => hidden.isEmpty
+                ? comments
+                : comments.where((c) => !hidden.contains(c.userId)).toList(),
+          );
     });
 
 final postByIdProvider = StreamProvider.autoDispose.family<Post?, String>((

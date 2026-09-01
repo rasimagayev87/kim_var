@@ -7,6 +7,8 @@ import '../../../chat/presentation/theme/chat_light_theme.dart';
 import '../../domain/entities/review.dart';
 import '../providers/review_providers.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Opens the star-rating + comment sheet for [venueId] — [waitlistEntryId]
 /// is the caller's already-verified `seated` entry (`VenueReviewsSection`
 /// only ever shows the "Rəy yaz" button once one exists), and
@@ -23,7 +25,11 @@ Future<void> showWriteReviewSheet(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
-    builder: (_) => _WriteReviewSheet(venueId: venueId, waitlistEntryId: waitlistEntryId, existingReview: existingReview),
+    builder: (_) => _WriteReviewSheet(
+      venueId: venueId,
+      waitlistEntryId: waitlistEntryId,
+      existingReview: existingReview,
+    ),
   );
 }
 
@@ -32,7 +38,11 @@ class _WriteReviewSheet extends ConsumerStatefulWidget {
   final String waitlistEntryId;
   final Review? existingReview;
 
-  const _WriteReviewSheet({required this.venueId, required this.waitlistEntryId, this.existingReview});
+  const _WriteReviewSheet({
+    required this.venueId,
+    required this.waitlistEntryId,
+    this.existingReview,
+  });
 
   @override
   ConsumerState<_WriteReviewSheet> createState() => _WriteReviewSheetState();
@@ -40,7 +50,9 @@ class _WriteReviewSheet extends ConsumerStatefulWidget {
 
 class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
   late int _rating = widget.existingReview?.rating ?? 5;
-  late final _commentController = TextEditingController(text: widget.existingReview?.comment ?? '');
+  late final _commentController = TextEditingController(
+    text: widget.existingReview?.comment ?? '',
+  );
   bool _submitting = false;
 
   @override
@@ -53,7 +65,9 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
     if (_submitting) return;
     final loc = AppLocalizations.of(context);
     setState(() => _submitting = true);
-    final ok = await ref.read(reviewControllerProvider).submit(
+    final ok = await ref
+        .read(reviewControllerProvider)
+        .submit(
           venueId: widget.venueId,
           rating: _rating,
           comment: _commentController.text.trim(),
@@ -66,7 +80,11 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
       setState(() => _submitting = false);
     }
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(ok ? loc.reviewsSubmitSuccessMessage : loc.reviewsSubmitErrorMessage)),
+      SnackBar(
+        content: Text(
+          ok ? loc.reviewsSubmitSuccessMessage : loc.reviewsSubmitErrorMessage,
+        ),
+      ),
     );
   }
 
@@ -75,8 +93,16 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
     final loc = AppLocalizations.of(context);
 
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + MediaQuery.viewInsetsOf(context).bottom),
-      decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        16 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       child: SafeArea(
         top: false,
         child: Column(
@@ -87,23 +113,42 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
               child: Container(
                 width: 40,
                 height: 4,
-                decoration: BoxDecoration(color: ChatLightColors.cardSurface, borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(
+                  color: ChatLightColors.cardSurface,
+                  borderRadius: BorderRadius.circular(10),
+                ),
               ),
             ),
             const SizedBox(height: 18),
-            Text(loc.reviewsSheetTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: ChatLightColors.ink)),
+            Text(
+              loc.reviewsSheetTitle,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: ChatLightColors.ink,
+              ),
+            ),
             const SizedBox(height: 18),
-            Text(loc.reviewsSheetRatingLabel, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: ChatLightColors.inkSoft)),
+            Text(
+              loc.reviewsSheetRatingLabel,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: ChatLightColors.inkSoft,
+              ),
+            ),
             const SizedBox(height: 8),
             Row(
               children: List.generate(5, (i) {
                 final star = i + 1;
-                return GestureDetector(
+                return Pressable(
                   onTap: () => setState(() => _rating = star),
                   child: Padding(
                     padding: const EdgeInsets.only(right: 6),
                     child: Icon(
-                      star <= _rating ? Icons.star_rounded : Icons.star_outline_rounded,
+                      star <= _rating
+                          ? Icons.star_rounded
+                          : Icons.star_outline_rounded,
                       size: 34,
                       color: AppColors.gold,
                     ),
@@ -121,7 +166,10 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
                 hintText: loc.reviewsSheetCommentHint,
                 filled: true,
                 fillColor: ChatLightColors.bg1,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide.none,
+                ),
                 contentPadding: const EdgeInsets.all(14),
               ),
             ),
@@ -133,20 +181,33 @@ class _WriteReviewSheetState extends ConsumerState<_WriteReviewSheet> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: AppColors.onAccent,
-                  disabledBackgroundColor: AppColors.primary.withValues(alpha: 0.6),
+                  disabledBackgroundColor: AppColors.primary.withValues(
+                    alpha: 0.6,
+                  ),
                   elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
-                onPressed: _submitting || _commentController.text.trim().isEmpty ? null : _submit,
+                onPressed: _submitting || _commentController.text.trim().isEmpty
+                    ? null
+                    : _submit,
                 child: _submitting
                     ? const SizedBox(
                         width: 22,
                         height: 22,
-                        child: CircularProgressIndicator(strokeWidth: 2.4, color: AppColors.onAccent),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.4,
+                          color: AppColors.onAccent,
+                        ),
                       )
                     : Text(
                         loc.reviewsSheetSubmitButton,
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.onAccent),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.onAccent,
+                        ),
                       ),
               ),
             ),

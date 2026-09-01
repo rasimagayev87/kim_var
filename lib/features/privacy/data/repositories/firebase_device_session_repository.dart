@@ -8,7 +8,7 @@ import '../../domain/repositories/device_session_repository.dart';
 
 class FirebaseDeviceSessionRepository implements DeviceSessionRepository {
   FirebaseDeviceSessionRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
   final _deviceInfo = DeviceInfoPlugin();
@@ -28,7 +28,11 @@ class FirebaseDeviceSessionRepository implements DeviceSessionRepository {
 
   @override
   Stream<List<DeviceSession>> watchSessions(String uid) {
-    return _sessions(uid).orderBy('lastActiveAt', descending: true).snapshots().asyncMap((snap) async {
+    return _sessions(
+      uid,
+    ).orderBy('lastActiveAt', descending: true).snapshots().asyncMap((
+      snap,
+    ) async {
       final currentId = await _sessionId();
       return snap.docs.map((d) => _fromDoc(d.id, d.data(), currentId)).toList();
     });
@@ -39,14 +43,13 @@ class FirebaseDeviceSessionRepository implements DeviceSessionRepository {
     final id = await _sessionId();
     final deviceName = await _deviceName();
 
-    await _sessions(uid).doc(id).set(
-      {
-        'deviceName': deviceName,
-        'platform': Platform.isIOS ? 'iOS' : (Platform.isAndroid ? 'Android' : Platform.operatingSystem),
-        'lastActiveAt': FieldValue.serverTimestamp(),
-      },
-      SetOptions(merge: true),
-    );
+    await _sessions(uid).doc(id).set({
+      'deviceName': deviceName,
+      'platform': Platform.isIOS
+          ? 'iOS'
+          : (Platform.isAndroid ? 'Android' : Platform.operatingSystem),
+      'lastActiveAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   @override
@@ -94,12 +97,17 @@ class FirebaseDeviceSessionRepository implements DeviceSessionRepository {
     return Platform.operatingSystem;
   }
 
-  DeviceSession _fromDoc(String id, Map<String, dynamic> data, String currentSessionId) {
+  DeviceSession _fromDoc(
+    String id,
+    Map<String, dynamic> data,
+    String currentSessionId,
+  ) {
     return DeviceSession(
       id: id,
       deviceName: data['deviceName'] as String? ?? '',
       platform: data['platform'] as String? ?? '',
-      lastActiveAt: (data['lastActiveAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      lastActiveAt:
+          (data['lastActiveAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       isCurrentDevice: id == currentSessionId,
     );
   }

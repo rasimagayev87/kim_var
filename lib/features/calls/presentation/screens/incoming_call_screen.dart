@@ -8,6 +8,8 @@ import '../../domain/entities/call_session.dart';
 import '../providers/call_providers.dart';
 import 'call_screen.dart';
 
+import '../../../../core/widgets/pressable.dart';
+
 /// Pushed from `HomeScreen` the moment `incomingCallProvider` reports a
 /// ringing call — the only place in the app that decides accept vs.
 /// decline for a call this device didn't start. Only reachable while
@@ -53,7 +55,9 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen> {
   @override
   Widget build(BuildContext context) {
     final loc = AppLocalizations.of(context);
-    final peer = ref.watch(publicProfileProvider(widget.session.callerId)).valueOrNull;
+    final peer = ref
+        .watch(publicProfileProvider(widget.session.callerId))
+        .valueOrNull;
 
     return PopScope(
       canPop: false,
@@ -63,32 +67,52 @@ class _IncomingCallScreenState extends ConsumerState<IncomingCallScreen> {
           child: Column(
             children: [
               const SizedBox(height: 48),
-              Text(loc.callStatusIncoming, style: const TextStyle(color: Colors.white70, fontSize: 15)),
+              Text(
+                loc.callStatusIncoming,
+                style: const TextStyle(color: Colors.white70, fontSize: 15),
+              ),
               const SizedBox(height: 24),
               CircleAvatar(
                 radius: 64,
                 backgroundColor: const Color(0xFF2A2A2A),
-                backgroundImage: peer?.photoUrl != null ? NetworkImage(peer!.photoUrl!) : null,
+                backgroundImage: peer?.photoUrl != null
+                    ? NetworkImage(peer!.photoUrl!)
+                    : null,
                 child: peer?.photoUrl == null
                     ? Text(
-                        (peer?.name.isNotEmpty ?? false) ? peer!.name[0].toUpperCase() : '?',
-                        style: const TextStyle(color: Colors.white, fontSize: 40, fontWeight: FontWeight.w700),
+                        (peer?.name.isNotEmpty ?? false)
+                            ? peer!.name[0].toUpperCase()
+                            : '?',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 40,
+                          fontWeight: FontWeight.w700,
+                        ),
                       )
                     : null,
               ),
               const SizedBox(height: 16),
               Text(
                 peer?.name ?? '',
-                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
               const SizedBox(height: 6),
               Text(
-                widget.session.type == CallType.video ? loc.chatVideoCallLabel : loc.chatVoiceCallLabel,
+                widget.session.type == CallType.video
+                    ? loc.chatVideoCallLabel
+                    : loc.chatVoiceCallLabel,
                 style: const TextStyle(color: Colors.white70, fontSize: 15),
               ),
               const Spacer(),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 40),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 48,
+                  vertical: 40,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -121,13 +145,18 @@ class _ResponseButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _ResponseButton({required this.icon, required this.color, required this.label, required this.onTap});
+  const _ResponseButton({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        GestureDetector(
+        Pressable(
           onTap: onTap,
           child: Container(
             width: 64,
@@ -137,7 +166,10 @@ class _ResponseButton extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
-        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 13),
+        ),
       ],
     );
   }

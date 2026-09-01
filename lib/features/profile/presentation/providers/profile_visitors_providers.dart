@@ -21,70 +21,80 @@ class ProfileVisit {
 /// fire this exactly once per fresh navigation into a profile by just
 /// watching it — autoDispose tears down and re-fires on the next visit
 /// instead of caching forever.
-final recordProfileVisitProvider = FutureProvider.autoDispose.family<void, String>((ref, viewedUid) async {
-  final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
-  if (myUid == null || myUid == viewedUid) return;
+final recordProfileVisitProvider = FutureProvider.autoDispose
+    .family<void, String>((ref, viewedUid) async {
+      final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
+      if (myUid == null || myUid == viewedUid) return;
 
-  // "Gizli baxış" (VIP incognito browsing) — a viewer with this on
-  // leaves no trace, so the write below is skipped entirely rather
-  // than written-then-hidden. See `PrivacySettings.incognitoBrowsingEnabled`
-  // (`users/{uid}/private/data` since Düzəliş Prompt 4).
-  final myDoc = await privateDataRef(myUid).get();
-  final incognito = myDoc.data()?['incognitoBrowsingEnabled'] as bool? ?? false;
-  if (incognito) return;
+      // "Gizli baxış" (VIP incognito browsing) — a viewer with this on
+      // leaves no trace, so the write below is skipped entirely rather
+      // than written-then-hidden. See `PrivacySettings.incognitoBrowsingEnabled`
+      // (`users/{uid}/private/data` since Düzəliş Prompt 4).
+      final myDoc = await privateDataRef(myUid).get();
+      final incognito =
+          myDoc.data()?['incognitoBrowsingEnabled'] as bool? ?? false;
+      if (incognito) return;
 
-  await FirebaseFirestore.instance
-      .collection('users')
-      .doc(viewedUid)
-      .collection('profileViews')
-      .doc(myUid)
-      .set({
-    'viewerId': myUid,
-    'viewedAt': FieldValue.serverTimestamp(),
-  });
-});
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(viewedUid)
+          .collection('profileViews')
+          .doc(myUid)
+          .set({'viewerId': myUid, 'viewedAt': FieldValue.serverTimestamp()});
+    });
 
 /// Streams the signed-in user's own `lastVisitorsCheckedAt` field — null
 /// if the visitors screen has never been opened, meaning every visit in
 /// the window still counts as "new".
-final lastVisitorsCheckedAtProvider = StreamProvider.autoDispose<DateTime?>((ref) {
+final lastVisitorsCheckedAtProvider = StreamProvider.autoDispose<DateTime?>((
+  ref,
+) {
   final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
   if (myUid == null) return Stream.value(null);
   return privateDataRef(myUid).snapshots().map(
-        (snap) => (snap.data()?['lastVisitorsCheckedAt'] as Timestamp?)?.toDate(),
-      );
+    (snap) => (snap.data()?['lastVisitorsCheckedAt'] as Timestamp?)?.toDate(),
+  );
 });
 
 /// Marks the visitors list as caught-up as of now — fired once when
 /// [ProfileVisitorsScreen] opens, mirroring [recordProfileVisitProvider]'s
 /// "watch to fire once per fresh navigation" shape.
-final markVisitorsCheckedProvider = FutureProvider.autoDispose<void>((ref) async {
+final markVisitorsCheckedProvider = FutureProvider.autoDispose<void>((
+  ref,
+) async {
   final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
   if (myUid == null) return;
-  await privateDataRef(myUid).set({'lastVisitorsCheckedAt': FieldValue.serverTimestamp()}, SetOptions(merge: true));
+  await privateDataRef(myUid).set({
+    'lastVisitorsCheckedAt': FieldValue.serverTimestamp(),
+  }, SetOptions(merge: true));
 });
 
 const _kProfileVisitorsWindow = Duration(days: 30);
 
 /// Live list of everyone who viewed [uid]'s profile in the last 30
 /// days, most recent first.
-final profileVisitorsProvider = StreamProvider.autoDispose.family<List<ProfileVisit>, String>((ref, uid) {
-  final cutoff = DateTime.now().subtract(_kProfileVisitorsWindow);
-  return FirebaseFirestore.instance
-      .collection('users')
-      .doc(uid)
-      .collection('profileViews')
-      .where('viewedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoff))
-      .orderBy('viewedAt', descending: true)
-      .snapshots()
-      .map((snap) => snap.docs.map((doc) {
-            final data = doc.data();
-            return ProfileVisit(
-              viewerId: data['viewerId'] as String,
-              viewedAt: (data['viewedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-            );
-          }).toList());
-});
+final profileVisitorsProvider = StreamProvider.autoDispose
+    .family<List<ProfileVisit>, String>((ref, uid) {
+      final cutoff = DateTime.now().subtract(_kProfileVisitorsWindow);
+      return FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('profileViews')
+          .where('viewedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(cutoff))
+          .orderBy('viewedAt', descending: true)
+          .snapshots()
+          .map(
+            (snap) => snap.docs.map((doc) {
+              final data = doc.data();
+              return ProfileVisit(
+                viewerId: data['viewerId'] as String,
+                viewedAt:
+                    (data['viewedAt'] as Timestamp?)?.toDate() ??
+                    DateTime.now(),
+              );
+            }).toList(),
+          );
+    });
 
 /// Live "new since last check" count for the signed-in user's own
 /// visitors — the badge shown on the footprint icon before it's opened.
@@ -94,7 +104,8 @@ final newProfileVisitorsCountProvider = Provider.autoDispose<int>((ref) {
   final myUid = fb.FirebaseAuth.instance.currentUser?.uid;
   if (myUid == null) return 0;
 
-  final visitors = ref.watch(profileVisitorsProvider(myUid)).valueOrNull ?? const [];
+  final visitors =
+      ref.watch(profileVisitorsProvider(myUid)).valueOrNull ?? const [];
   final lastChecked = ref.watch(lastVisitorsCheckedAtProvider).valueOrNull;
   if (lastChecked == null) return visitors.length;
   return visitors.where((v) => v.viewedAt.isAfter(lastChecked)).length;
