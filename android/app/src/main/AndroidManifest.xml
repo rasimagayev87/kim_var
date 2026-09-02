@@ -20,21 +20,31 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
 
-    <!-- ── Gələn zəng ──────────────────────────────────────────────
-         Zəng bildirişini kilidli ekranın üstündə tam ekran açmaq üçün.
-         Bunsuz push yalnız bildiriş çekmecəsinə düşür və telefon
-         çalmır — düzəltdiyimiz simptomun özü budur.
+    <!-- ── Gələn zəng: BU BURAXILIŞDA SÖNDÜRÜLÜB ─────────────────
+         Zəng funksiyası `config/features.callsEnabled` bayrağı ilə
+         bağlıdır və 1.0.1 buraxılışında istifadəçiyə görünmür.
 
-         ⚠️ Android 14+ (API 34): bu icazə yalnız zəng və alarm
-         tətbiqlərinə avtomatik verilir və Play Console-da bəyannamə
-         tələb edir. PeakPin zəng tətbiqidir, yəni uyğun gəlir, amma
-         mağaza baxışında sual doğura bilər. -->
-    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
-    <!-- Zəng davam edərkən prosesin öldürülməməsi üçün. Android 14+
-         xüsusi tip tələb edir. -->
+         Google bu iki icazə üçün funksiyanı GÖSTƏRƏN demo video
+         tələb edir. Söndürülmüş funksiya üçün belə video vermək
+         mümkün deyil — nəzərdən keçirən şəxs tətbiqi açanda zəng
+         düymələrini tapmayacaq, yəni bəyannamə ilə mağazadakı build
+         bir-birinə uyğun gəlməzdi. Ona görə icazələr paketdən
+         tamamilə çıxarılır: bəyan etmədiyimiz icazə üçün izahat da
+         tələb olunmur.
+
+         Bunlar `flutter_callkit_incoming` paketinin öz manifestindən
+         birləşmə yolu ilə gəlir, ona görə sadəcə yazmamaq kifayət
+         etmir — açıq şəkildə silinməlidir.
+
+         ⚠️ Zəng yenidən açılanda bu blok geri qaytarılmalıdır:
+         `tools:node="remove"` sətirlərini adi `<uses-permission>`
+         sətirlərinə çevirin və aşağıdakı iki xidmətin silinməsini
+         ləğv edin. Bayrağı uzaqdan açmaq TƏK BAŞINA kifayət etmir —
+         icazəsiz `phoneCall` tipli xidmət işə düşməyəcək. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" tools:node="remove"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" tools:node="remove"/>
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS" tools:node="remove"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
-    <!-- Kilidli ekranda zəng ekranını göstərmək üçün. -->
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.VIBRATE"/>
     <!-- Required by `in_app_purchase` for Google Play Billing (VIP
@@ -47,6 +57,14 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">
+        <!-- Yuxarıdakı icazələr çıxarıldığı üçün bu iki xidmət də
+             silinir: icazəsiz `phoneCall` tipli foreground xidmət
+             işə düşəndə Android `SecurityException` atır, yəni onları
+             saxlamaq gizli bir çökmə mənbəyi olardı. Manifestdə
+             bəyan edilməyən xidmət ümumiyyətlə başladıla bilməz. -->
+        <service android:name="com.hiennv.flutter_callkit_incoming.CallkitNotificationService" tools:node="remove"/>
+        <service android:name="com.hiennv.flutter_callkit_incoming.CallkitConnectionService" tools:node="remove"/>
+
         <!-- Real key, restricted to this app's package name + SHA-1
              fingerprints (debug and release) and to Maps SDK for
              Android + Geocoding API only — see android/key.properties
