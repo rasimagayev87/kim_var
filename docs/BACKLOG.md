@@ -794,8 +794,12 @@ PATCH …/config?updateMask=notification.sendEmail.callbackUri
 → 400 INVALID_ARGUMENT — EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED
 ```
 
-Ayırd edici sınaq: eyni üsulla `verifyEmailTemplate.subject` yazmaq
-keçir, yəni bloklama yalnız `callbackUri` sahəsinə aiddir.
+**Etibarsız sınaq — buna güvənməyin.** Əvvəlcə `verifyEmailTemplate.subject`
+yazıb keçdiyinə əsasən "bloklama yalnız `callbackUri`-yə aiddir" nəticəsi
+çıxarıldı. Sınaq eyni dəyəri geri yazırdı, yəni heç bir dəyişiklik yox
+idi — server onu no-op kimi keçirmiş ola bilər. Bloklamanın bütün
+`notification.sendEmail` blokuna aid olub-olmadığı hələ bilinmir; yenidən
+yoxlanarsa, mütləq FƏRQLİ dəyər yazılmalıdır.
 
 Konfiqurasiyadakı tək anomaliya:
 
@@ -811,13 +815,48 @@ Yoxlanıb və səbəb DEYİL: `peakpin.app` icazəli domenlər siyahısındadır
 `https://peakpin.app/auth-action` HTTP 200 qaytarır — səhifə hazır və
 canlıdır, sadəcə hələ istifadə olunmur.
 
-**Düzəliş sırası — bu ardıcıllıq vacibdir:**
+## Yoxlanmış və RƏDD EDİLMİŞ fərziyyələr
 
-1. SMTP settings → `mail.peakpin.app` DNS doğrulamasını tamamla
-   (`customDomainState` `NOT_STARTED` olmaqdan çıxsın)
-2. Sonra `callbackUri` → `https://peakpin.app/auth-action`
+**1. "Domen Firebase Hosting-ə bağlı olmalıdır."** Məntiqli idi:
+`peakpin.app` Vercel-dədir (`server: Vercel`), layihənin Hosting saytı
+isə yalnız `kim-var-73ce9`. Amma `auth.peakpin.app` — Hosting-də
+`DOMAIN_ACTIVE`, icazəli domenlər siyahısında, `__/auth/action` yolu
+HTTP 200 qaytarır — həmin xəta ilə rədd olundu. Fərziyyə səhvdir.
 
-Birincisi düzəlmədən ikincisi yazılmır.
+**2. `dnsInfo.customDomainState: NOT_STARTED`.** Yeganə görünən
+anomaliyadır (`mail.peakpin.app`, `useCustomDomain: true`,
+`domainVerificationRequestTime: 1970-01-01`), amma səbəb olduğu
+sübut edilməyib.
+
+**3. İcazəli domenlər.** `peakpin.app`, `auth.peakpin.app`,
+`mail.peakpin.app` — hamısı siyahıdadır. Səbəb deyil.
+
+## Vəziyyət
+
+2026-09-02: Firebase Support-a müraciət göndərildi (Auth → custom
+domain kateqoriyası). Formanın ilk göndərişi Google tərəfdə sındı;
+mətn qısaldılıb URL-lər çıxarılandan sonra keçdi. Cavab gözlənilir.
+
+Alternativ kanal: `firebase-support@google.com`.
+
+**Bloklama açılanda yazılacaq dəyər:**
+
+```
+https://auth.peakpin.app/__/auth/action
+```
+
+Bu ünvan artıq işləkdir (HTTP 200) — kod və ya DNS işi lazım deyil,
+yalnız sahənin yazılması. `peakpin.app/auth-action` səhifəsi də canlıdır,
+amma Vercel-də olduğu üçün onu hədəf seçmək riskli; öz dizaynınız
+lazımdırsa səhifə `auth.peakpin.app` altına köçürülməlidir.
+
+## Alternativ yol YOXDUR
+
+Yoxlanıldı: link həmişə `callbackUri`-dən qurulur. Admin SDK-nın
+`generateEmailVerificationLink` funksiyası ilə linki serverdə yaratsanız
+da, `ActionCodeSettings.url` yalnız "davam et" ünvanıdır — işləyici
+domeni yenə həmin sahədən gəlir. Resend ilə öz e-poçtunuzu göndərmək də
+domeni dəyişmir.
 
 **Niyə gözləyə bilər:** cari dəyər
 `https://kim-var-73ce9.firebaseapp.com/__/auth/action` — Firebase-in öz
