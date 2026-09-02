@@ -2,7 +2,7 @@ name: peakpin
 description: "PeakPin"
 publish_to: 'none'
 
-version: 1.0.1+19
+version: 1.0.1+20
 
 environment:
   sdk: ^3.12.2
