@@ -341,7 +341,11 @@ Future<void> recoverAcceptedCallsAfterColdStart() async {
       if (createdAt != null &&
           DateTime.now().difference(createdAt) > kIncomingCallMaxAge) {
         // Clear it so the next cold start does not look at it again.
-        unawaited(FlutterCallkitIncoming.endCall(callId));
+        unawaited(
+          FlutterCallkitIncoming.endCall(callId).catchError((Object e) {
+            logError('calls.coldStartRecovery.endCall', e);
+          }),
+        );
         continue;
       }
 

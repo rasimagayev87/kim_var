@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -187,6 +188,10 @@ class SettingsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             const SettingsGroup(children: [_LogoutRow()]),
+            // MÜVƏQQƏTİ — Crashlytics mapping yoxlaması üçün.
+            // Təsdiqdən dərhal sonra SİLİNƏCƏK; mağazaya gedən build-də
+            // qalmamalıdır.
+            const SettingsGroup(children: [_TestCrashRow()]),
           ],
         ),
       ),
@@ -463,6 +468,45 @@ class _LanguageMenuRow extends ConsumerWidget {
 /// before giving up on it — mirrors `profile_tab.dart`'s
 /// `_LogoutMenuItem`; sign-out must never hang on a flaky connection.
 const _presenceWriteTimeout = Duration(seconds: 4);
+
+/// MÜVƏQQƏTİ — silinəcək.
+///
+/// Crashlytics-in mapping faylını düzgün yüklədiyini yoxlamaq üçün
+/// BİLİNƏN bir sətirdən çökmə lazımdır: Firebase Console-dakı iz bu
+/// faylın adını və sətir nömrəsini göstərirsə mapping işləyir, `a.b.c
+/// (SourceFile:1)` göstərirsə yox. Təbii çökmə bunu verə bilmir, çünki
+/// haradan gələcəyi bilinmir.
+class _TestCrashRow extends StatelessWidget {
+  const _TestCrashRow();
+
+  @override
+  Widget build(BuildContext context) {
+    return Pressable(
+      onTap: () {
+        // Crashlytics çökməni növbəti AÇILIŞDA göndərir, dərhal yox.
+        FirebaseCrashlytics.instance.crash();
+      },
+      child: const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Icon(Icons.bug_report_outlined, color: AppColors.error),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'TEST ÇÖKMƏSİ (silinəcək)',
+                style: TextStyle(
+                  color: AppColors.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _LogoutRow extends ConsumerStatefulWidget {
   const _LogoutRow();

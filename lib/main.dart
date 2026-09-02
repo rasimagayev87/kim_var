@@ -26,6 +26,34 @@ import 'features/premium/presentation/providers/vip_purchase_listener.dart';
 import 'firebase_options.dart';
 import 'l10n/app_localizations.dart';
 
+/// Routes an uncaught error to Crashlytics — and to `logcat`.
+///
+/// Two things it fixes.
+///
+/// FATALITY. Everything used to be recorded `fatal: true`, so a refused
+/// Firestore write counted as a crash. Crash-free users sat at 72.73%
+/// with the top two "crashes" being `permission-denied` on a write —
+/// the app never actually stopped. A metric that counts non-crashes
+/// buries the real ones and, on Play Console, can block a release.
+/// Network, timeout and permission failures are recorded as
+/// NON-FATAL: still reported, still searchable, no longer counted as
+/// crashes.
+///
+/// VISIBILITY. An uncaught async error loses its Dart stack at the
+/// platform-channel boundary — the Crashlytics trace for these shows
+/// only `messages.pigeon.dart` and nothing of ours, so the calling site
+/// is unknowable from the console. Sending it through `logError` puts
+/// it in `logcat` with the `PEAKPIN_ERR` prefix, where it can be
+/// correlated with what the user was doing on a device.
+void _report(Object error, StackTrace? stack) {
+  logError('uncaught', error, stack);
+  FirebaseCrashlytics.instance.recordError(
+    SanitizedError(error),
+    stack,
+    fatal: !isExpectedRuntimeFailure(error),
+  );
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -64,19 +92,10 @@ void main() async {
     // covers the whole surface. The stack trace itself carries no user
     // data; the exception message can, which is why only that is
     // rewritten.
-    FlutterError.onError = (details) {
-      FirebaseCrashlytics.instance.recordError(
-        SanitizedError(details.exception),
-        details.stack,
-        fatal: true,
-      );
-    };
+    FlutterError.onError = (details) =>
+        _report(details.exception, details.stack);
     PlatformDispatcher.instance.onError = (error, stack) {
-      FirebaseCrashlytics.instance.recordError(
-        SanitizedError(error),
-        stack,
-        fatal: true,
-      );
+      _report(error, stack);
       return true;
     };
   } catch (_) {
@@ -156,6 +175,11 @@ void main() async {
   // Proves the release log channel reaches `logcat` before anything
   // relies on it — see `logStartupMarker`.
   logStartupMarker('${packageInfo.version}+${packageInfo.buildNumber}');
+
+  // Every `logError` now also leaves a masked breadcrumb on the
+  // Crashlytics session, so a report whose stack dies at the Firestore
+  // platform channel still names the code path that made the call.
+  crashBreadcrumbSink = FirebaseCrashlytics.instance.log;
 
   runApp(
     ProviderScope(

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' as developer;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -76,8 +77,8 @@ class SanitizedError implements Exception {
   final String maskedMessage;
 
   SanitizedError(Object original)
-      : typeName = original.runtimeType.toString(),
-        maskedMessage = maskSensitive(original.toString());
+    : typeName = original.runtimeType.toString(),
+      maskedMessage = maskSensitive(original.toString());
 
   @override
   String toString() => '$typeName: $maskedMessage';
@@ -141,6 +142,39 @@ void logError(String context, Object error, [StackTrace? stackTrace]) {
     // Single line, fixed prefix — greppable as `PEAKPIN_ERR`.
     debugPrint('PEAKPIN_ERR $context: ${maskSensitive(error.toString())}');
   }
+
+  logCrashBreadcrumb(context);
+}
+
+/// Where [logCrashBreadcrumb] sends its line. `main.dart` points this at
+/// `FirebaseCrashlytics.instance.log`; tests point it at a list.
+///
+/// Injected rather than imported so this file stays testable without a
+/// live Firebase app — and so a breadcrumb can never be the thing that
+/// throws inside an error handler.
+void Function(String line)? crashBreadcrumbSink;
+
+/// Records a breadcrumb on the Crashlytics session.
+///
+/// A crash report shows the last breadcrumbs before the fatal error, so
+/// this is what turns `FirebaseFirestoreHostApi.documentReferenceUpdate`
+/// — a stack that stops at the platform channel and names no
+/// `package:peakpin/` frame — into an actual source location. The async
+/// gap between the Dart call and the plugin reply drops our half of the
+/// stack; the breadcrumb survives it.
+///
+/// [context] is a code path label such as `chat._setActiveChatId`, never
+/// a value. It is masked anyway: labels get interpolated over time, and
+/// a breadcrumb carrying a uid, e-mail or coordinate would put exactly
+/// the data we keep out of `logcat` into a crash report instead.
+void logCrashBreadcrumb(String context) {
+  final sink = crashBreadcrumbSink;
+  if (sink == null) return;
+  try {
+    sink(maskSensitive(context));
+  } catch (_) {
+    // A failed breadcrumb must never mask the error it describes.
+  }
 }
 
 /// True when [error] is a Firestore/Storage permission-denied failure —
@@ -175,6 +209,29 @@ bool errorCodeIs(String code, String expected) {
   String fold(String v) =>
       v.replaceAll('ı', 'i').replaceAll('İ', 'i').toLowerCase();
   return fold(code) == fold(expected);
+}
+
+/// True when [error] is a failure the app is expected to survive, so it
+/// must not be recorded as a crash.
+///
+/// A refused write, a dropped connection and an expired deadline all
+/// leave the app running. Counting them as crashes put crash-free users
+/// at 72.73% while the top two entries were `permission-denied` writes
+/// — the number said the app was falling over when it was not, which
+/// hides the failures that matter and can hold up a store release.
+///
+/// They are still REPORTED, as non-fatals: visible and searchable in
+/// Crashlytics, just not counted against stability.
+bool isExpectedRuntimeFailure(Object error) {
+  if (error is TimeoutException) return true;
+  if (error is FirebaseException) {
+    return errorCodeIs(error.code, 'permission-denied') ||
+        errorCodeIs(error.code, 'unavailable') ||
+        errorCodeIs(error.code, 'network-request-failed') ||
+        errorCodeIs(error.code, 'deadline-exceeded') ||
+        errorCodeIs(error.code, 'cancelled');
+  }
+  return false;
 }
 
 /// True when [error] is Firestore's "couldn't reach the backend" failure

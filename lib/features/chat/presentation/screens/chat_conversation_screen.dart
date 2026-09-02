@@ -1,4 +1,6 @@
 import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart' show SetOptions;
 import 'dart:io';
 import 'dart:ui';
 
@@ -529,7 +531,25 @@ class _ChatConversationScreenState extends ConsumerState<ChatConversationScreen>
   void _setActiveChatId(String? chatId) {
     final uid = _myUid;
     if (uid == null) return;
-    unawaited(privateDataRef(uid).update({'activeChatId': chatId}));
+    // `set(merge)` deyil `update` işlədilirdi. Fərq görünməzdir, amma
+    // `update` sənədin MÖVCUD olmasını tələb edir: `private/data` hələ
+    // yaradılmayıbsa, qaydadakı `diff(resource.data)` null `resource`
+    // üzərində qiymətləndirmə xətası verir və Firestore onu `not-found`
+    // yox, `permission-denied` kimi qaytarır. Sahənin özü qadağan
+    // deyil — `serverOnlyFields()`-də yoxdur.
+    //
+    // `unawaited` isə xətanı udmur, sadəcə gözləmir: sınan gələcək
+    // zonaya çıxıb `PlatformDispatcher.onError`-a, oradan da
+    // Crashlytics-ə FATAL çökmə kimi düşürdü. Ekran hər açılanda,
+    // bağlananda və arxa plana keçəndə bir dəfə işlədiyi üçün eyni
+    // hesabda təkrar-təkrar.
+    unawaited(
+      privateDataRef(uid)
+          .set({'activeChatId': chatId}, SetOptions(merge: true))
+          .catchError((Object e, StackTrace st) {
+            logError('chat._setActiveChatId', e, st);
+          }),
+    );
   }
 
   /// Debounced so a screen that's opened and immediately swiped back

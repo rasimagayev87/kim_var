@@ -1,12 +1,16 @@
+import 'dart:async';
 // Release build-də `logError` artıq logcat-a yazır. Logcat isə telefonu
 // əlində tutan hər kəs üçün oxunaqlıdır, ona görə şəxsi məlumat və
 // açarlar oradan çıxmamalıdır.
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peakpin/core/utils/app_logger.dart';
 
 void main() {
+  _breadcrumbTests();
   _localeCodes();
   _crashlytics();
+  _fatality();
   group('maskSensitive', () {
     test('e-poçt maskalanır', () {
       final out = maskSensitive('write failed for rasimagayev80@gmail.com');
@@ -133,6 +137,94 @@ void _crashlytics() {
       expect(s, contains('permission-denied'));
       expect(s, contains('[id]'));
       expect(s, isNot(contains('AbcDefGhiJklMnoPqrStu')));
+    });
+  });
+}
+
+
+// Crash-free göstəricisi 72.73%-ə düşmüşdü və ilk iki «çökmə» rədd
+// edilmiş Firestore yazısı idi — tətbiq isə heç dayanmırdı.
+void _fatality() {
+  group('isExpectedRuntimeFailure', () {
+    test('rədd edilmiş yazı çökmə SAYILMIR', () {
+      expect(
+        isExpectedRuntimeFailure(
+          FirebaseException(plugin: 'cloud_firestore', code: 'permission-denied'),
+        ),
+        isTrue,
+      );
+    });
+
+    test('şəbəkə və deadline xətaları çökmə sayılmır', () {
+      for (final code in ['unavailable', 'network-request-failed', 'deadline-exceeded', 'cancelled']) {
+        expect(
+          isExpectedRuntimeFailure(FirebaseException(plugin: 'x', code: code)),
+          isTrue,
+          reason: code,
+        );
+      }
+    });
+
+    test('timeout çökmə sayılmır', () {
+      expect(isExpectedRuntimeFailure(TimeoutException('slow')), isTrue);
+    });
+
+    test('nöqtəsiz ı ilə gələn kod da tanınır', () {
+      // Azərbaycan lokalında `UNAVAILABLE`.toLowerCase() → `unavaılable`.
+      expect(
+        isExpectedRuntimeFailure(FirebaseException(plugin: 'x', code: 'unavaılable')),
+        isTrue,
+      );
+    });
+
+    test('REAL çökmə fatal qalır', () {
+      // Əsas şərt: bu funksiya həqiqi qüsurları gizlətməməlidir.
+      expect(isExpectedRuntimeFailure(StateError('bad state')), isFalse);
+      expect(isExpectedRuntimeFailure(ArgumentError('bad arg')), isFalse);
+      expect(
+        isExpectedRuntimeFailure(FirebaseException(plugin: 'x', code: 'internal')),
+        isFalse,
+      );
+    });
+  });
+}
+
+void _breadcrumbTests() {
+  group('logCrashBreadcrumb', () {
+    tearDown(() => crashBreadcrumbSink = null);
+
+    test('sink qurulmayıbsa səssiz keçir', () {
+      crashBreadcrumbSink = null;
+      expect(() => logCrashBreadcrumb('chat._setActiveChatId'), returnsNormally);
+    });
+
+    test('kod yolu etiketini sink-ə ötürür', () {
+      final lines = <String>[];
+      crashBreadcrumbSink = lines.add;
+      logCrashBreadcrumb('chat._setActiveChatId');
+      expect(lines, ['chat._setActiveChatId']);
+    });
+
+    test('etiketə düşən həssas dəyər maskalanır', () {
+      // Etiketlər zamanla interpolyasiya olunur; bir uid və ya e-poçt
+      // buraya düşsə, `logcat`-dan kənarda saxladığımız məlumat qəza
+      // hesabatına keçərdi.
+      final lines = <String>[];
+      crashBreadcrumbSink = lines.add;
+      logCrashBreadcrumb('chat.open user=rasim@example.com');
+      expect(lines.single, 'chat.open user=[email]');
+    });
+
+    test('sink atsa, təsvir etdiyi xətanı gizlətmir', () {
+      crashBreadcrumbSink = (_) => throw StateError('sink down');
+      expect(() => logCrashBreadcrumb('any'), returnsNormally);
+    });
+
+    test('logError breadcrumb buraxır', () {
+      final lines = <String>[];
+      crashBreadcrumbSink = lines.add;
+      logError('chat._setActiveChatId', Exception('permission-denied'));
+      expect(lines, ['chat._setActiveChatId']);
     });
   });
 }

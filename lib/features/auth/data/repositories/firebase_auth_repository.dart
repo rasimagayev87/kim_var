@@ -262,7 +262,16 @@ class FirebaseAuthRepository implements AuthRepository {
     // gap — those emails are already provider-verified). A failed send
     // here shouldn't block registration itself; the account exists
     // either way, so this never blocks or rethrows.
-    unawaited(result.user!.sendEmailVerification());
+    unawaited(
+      result.user!.sendEmailVerification().catchError((
+        Object e,
+        StackTrace st,
+      ) {
+        // `unawaited` gözləmir, amma udmur: tutulmasa sınan göndəriş
+        // zonaya çıxıb Crashlytics-də fatal çökmə kimi görünürdü.
+        logError('auth.sendEmailVerification', e, st);
+      }),
+    );
 
     // No Firestore round trip here, deliberately.
     //
