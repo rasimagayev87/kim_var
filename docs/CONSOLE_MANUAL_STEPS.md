@@ -216,3 +216,90 @@ TTL hər ikisini aradan qaldırır: silmə Firestore-un öz fon prosesidir,
 funksiyanın uğurundan asılı deyil, və bizim tərəfdən nə oxu, nə icra
 vaxtı sərf olunur. Silmə əməliyyatının özü sənəd silmə kimi hesablanır
 — bu, hər iki variantda eynidir.
+
+---
+# E-poçt action URL: konsol xətası əsl səbəbi gizlədir
+
+**Tarix:** 2026-09-02. **Status:** düzəldilməyib, BACKLOG-dadır.
+
+Authentication → Templates → **Customize action URL** ilə dəyəri
+`https://peakpin.app/auth-action` etməyə çalışanda konsol yalnız bunu
+göstərir:
+
+> An error occurred updating action URL
+
+Bu mesaj heç nə demir. Eyni dəyişikliyi Identity Platform admin
+API-si üzərindən göndərəndə əsl cavab çıxır:
+
+```bash
+TOKEN=$(gcloud auth print-access-token)
+curl -s -X PATCH \
+  "https://identitytoolkit.googleapis.com/admin/v2/projects/kim-var-73ce9/config?updateMask=notification.sendEmail.callbackUri" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "X-Goog-User-Project: kim-var-73ce9" \
+  -H "Content-Type: application/json" \
+  -d '{"notification":{"sendEmail":{"callbackUri":"https://peakpin.app/auth-action"}}}'
+```
+
+```
+400 INVALID_ARGUMENT — EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED
+```
+
+**Ümumi dərs:** Firebase Console-un "An error occurred …" mesajları
+server cavabını udur. Konsolda ilişəndə eyni əməliyyatı admin API-si
+ilə təkrarlayın — xəta kodu adətən birbaşa səbəbi adlandırır.
+
+## Sahə hara yazılır
+
+Action URL şablona görə deyil, layihə səviyyəsində saxlanılır:
+`notification.sendEmail.callbackUri`. Şablonların öz sahələri yalnız
+`senderLocalPart`, `subject`, `body`, `bodyFormat`, `replyTo`-dur —
+`customUri` adlı sahə YOXDUR (ilk cəhdimiz bu adla getdi və "Cannot
+find field" aldı).
+
+## Bloklamanın səbəbi (ehtimal)
+
+Ayırd edici sınaq: eyni `updateMask` üsulu ilə
+`verifyEmailTemplate.subject` yazmaq **uğurla keçir**. Yəni şablon
+yazıları bloklanmayıb — bloklama məhz `callbackUri` sahəsinə aiddir.
+
+Konfiqurasiyada tək anomaliya budur:
+
+```
+notification.sendEmail.dnsInfo:
+  customDomain: mail.peakpin.app
+  useCustomDomain: true            ← aktiv işarələnib
+  customDomainState: NOT_STARTED   ← doğrulama heç başlamayıb
+  domainVerificationRequestTime: 1970-01-01T00:00:00Z
+```
+
+Layihə "xüsusi e-poçt domeni istifadə edirəm" deyir, amma doğrulama
+heç vaxt işə salınmayıb. Yarımçıq domen vəziyyəti `sendEmail`
+blokunun URL hissəsini kilidləyir.
+
+Rədd EDİLƏN səbəblər — hər ikisi yoxlanıldı, problem deyil:
+
+* **İcazəli domenlər.** `peakpin.app` siyahıdadır (`localhost`,
+  `kim-var-73ce9.firebaseapp.com`, `kim-var-73ce9.web.app`,
+  `admin.peakpin.app`, `auth.peakpin.app`, `peakpin.app`,
+  `mail.peakpin.app`).
+* **Səhifənin mövcudluğu.** `https://peakpin.app/auth-action` HTTP 200
+  qaytarır — hazır və canlıdır, sadəcə hələ istifadə olunmur.
+
+## Düzəliş sırası
+
+1. **Əvvəlcə** SMTP settings → `mail.peakpin.app` üçün DNS
+   doğrulamasını tamamlayın (`customDomainState` `NOT_STARTED`
+   olmaqdan çıxmalıdır).
+2. **Sonra** action URL-i `https://peakpin.app/auth-action` edin.
+
+Sıra vacibdir: birincisi düzəlmədən ikincisi yazılmır.
+
+## Niyə buraxılışı bloklamır
+
+Cari dəyər `https://kim-var-73ce9.firebaseapp.com/__/auth/action` —
+Firebase-in öz işlək standart səhifəsidir. E-poçt təsdiqi və parol
+sıfırlama linkləri indi də işləyir, sadəcə brendsiz görünür. 2026-09-02
+buraxılışında bu, bilərəkdən toxunulmadan saxlanıldı: mağaza baxışı
+davam edərkən canlı e-poçt konfiqurasiyasını tərpətmək lazımsız risk
+olardı.

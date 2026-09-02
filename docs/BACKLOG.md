@@ -778,3 +778,52 @@ Qərar məhsul tərəfindədir; kod tərəfində təcili heç nə yoxdur.
 
 **Qeyd:** bu bənd sweep-in nəticəsi kimi yazılıb ki, gələcək audit eyni
 sahəni yenidən «boşluq» kimi tapıb təcili düzəliş etməsin.
+
+---
+## 33. E-poçt action URL yazıla bilmir — `mail.peakpin.app` doğrulaması yarımçıq
+
+**Aşkarlandı:** 2026-09-02, mağaza buraxılışı hazırlığında.
+**Təcilidir?** Xeyr — buraxılışı bloklamır, aşağıya bax.
+
+Firebase Console-da action URL-i `https://peakpin.app/auth-action`
+etmək mümkün deyil; konsol yalnız "An error occurred updating action
+URL" göstərir. Admin API-si əsl cavabı verir:
+
+```
+PATCH …/config?updateMask=notification.sendEmail.callbackUri
+→ 400 INVALID_ARGUMENT — EMAIL_TEMPLATE_UPDATE_NOT_ALLOWED
+```
+
+Ayırd edici sınaq: eyni üsulla `verifyEmailTemplate.subject` yazmaq
+keçir, yəni bloklama yalnız `callbackUri` sahəsinə aiddir.
+
+Konfiqurasiyadakı tək anomaliya:
+
+```
+notification.sendEmail.dnsInfo:
+  customDomain: mail.peakpin.app
+  useCustomDomain: true            ← aktiv işarələnib
+  customDomainState: NOT_STARTED   ← doğrulama heç başlamayıb
+  domainVerificationRequestTime: 1970-01-01T00:00:00Z
+```
+
+Yoxlanıb və səbəb DEYİL: `peakpin.app` icazəli domenlər siyahısındadır;
+`https://peakpin.app/auth-action` HTTP 200 qaytarır — səhifə hazır və
+canlıdır, sadəcə hələ istifadə olunmur.
+
+**Düzəliş sırası — bu ardıcıllıq vacibdir:**
+
+1. SMTP settings → `mail.peakpin.app` DNS doğrulamasını tamamla
+   (`customDomainState` `NOT_STARTED` olmaqdan çıxsın)
+2. Sonra `callbackUri` → `https://peakpin.app/auth-action`
+
+Birincisi düzəlmədən ikincisi yazılmır.
+
+**Niyə gözləyə bilər:** cari dəyər
+`https://kim-var-73ce9.firebaseapp.com/__/auth/action` — Firebase-in öz
+işlək standart səhifəsi. E-poçt təsdiqi və parol sıfırlama linkləri
+indi də işləyir, sadəcə brendsiz görünür. 2026-09-02-də bilərəkdən
+toxunulmadı: mağaza baxışı gedərkən canlı e-poçt konfiqurasiyasını
+dəyişmək lazımsız risk idi.
+
+Təfərrüat və təkrar istehsal əmrləri: `docs/CONSOLE_MANUAL_STEPS.md`.
